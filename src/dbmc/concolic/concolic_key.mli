@@ -1,12 +1,4 @@
 
-module Lazy :
-  sig
-    type t = unit -> Lookup_key.t
-    val to_key : t -> Lookup_key.t
-    (* val generate_lookup_key : Jayil.Ast.ident -> Dj_common.Concrete_stack.t -> Lookup_key.t *)
-    val make : Jayil.Ast.ident -> Dj_common.Concrete_stack.t -> t
-  end
-
 module T :
   sig
     type t [@@deriving hash, compare, equal, sexp]
@@ -22,7 +14,7 @@ val x : t -> Jayil.Ast.ident
 
 val d : t -> int
 
-module Lazy2 :
+module Lazy :
   sig
     type t = unit -> T.t
     val to_key : t -> T.t

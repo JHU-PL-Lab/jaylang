@@ -173,7 +173,7 @@ module Basic =
       }
 
     (* require that cx is true by adding as formula *)
-    let found_assume (s : t) (cx : Concolic_key.Lazy2.t) : t =
+    let found_assume (s : t) (cx : Concolic_key.Lazy.t) : t =
       match s.stack with
       | Last _ -> s (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
       | Cons (hd, tl) ->
@@ -287,7 +287,7 @@ let enter_fun (x : t) : t =
   | At_max_depth a -> At_max_depth { a with base = { a.base with depth = Depth_logic.incr_fun a.base.depth } } 
   | Finished _ -> failwith "entering fun with finished symbolic session"
 
-let found_assume (x : t) (cx : Concolic_key.Lazy2.t) : t =
+let found_assume (x : t) (cx : Concolic_key.Lazy.t) : t =
   match x with
   | Basic s -> Basic (Basic.found_assume s cx)
   | At_max_depth _ -> x
@@ -322,16 +322,16 @@ let add_basic_input (x : t) (i : Jil_input.t) : t =
   FORMULAS FOR BASIC JIL CLAUSES
   ------------------------------
 *)
-let add_key_eq_val (x : t) (key : Concolic_key.Lazy2.t) (v : Jayil.Ast.value) : t =
+let add_key_eq_val (x : t) (key : Concolic_key.Lazy.t) (v : Jayil.Ast.value) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.eq_term_v (key ()) (Some v)
 
-let add_alias (x : t) (key1 : Concolic_key.Lazy2.t) (key2 : Concolic_key.Lazy2.t) : t =
+let add_alias (x : t) (key1 : Concolic_key.Lazy.t) (key2 : Concolic_key.Lazy.t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.eq (key1 ()) (key2 ())
 
-let add_binop (x : t) (key : Concolic_key.Lazy2.t) (op : Jayil.Ast.binary_operator) (left : Concolic_key.Lazy2.t) (right : Concolic_key.Lazy2.t) : t =
+let add_binop (x : t) (key : Concolic_key.Lazy.t) (op : Jayil.Ast.binary_operator) (left : Concolic_key.Lazy.t) (right : Concolic_key.Lazy.t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.binop_without_picked (key ()) op (left ()) (right ())
 
-let add_input (x : t) (key : Concolic_key.Lazy2.t) (v : Dvalue.t) : t =
+let add_input (x : t) (key : Concolic_key.Lazy.t) (v : Dvalue.t) : t =
   let key = key () in (* assume it's not that expensive to compute the key on inputs *)
   let n =
     match v with
@@ -344,10 +344,10 @@ let add_input (x : t) (key : Concolic_key.Lazy2.t) (v : Dvalue.t) : t =
     Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n s);
     Concolic_riddler.if_pattern key Jayil.Ast.Int_pattern
 
-let add_not (x : t) (key1 : Concolic_key.Lazy2.t) (key2 : Concolic_key.Lazy2.t) : t =
+let add_not (x : t) (key1 : Concolic_key.Lazy.t) (key2 : Concolic_key.Lazy.t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.not_ (key1 ()) (key2 ())
 
-let add_match (x : t) (k : Concolic_key.Lazy2.t) (m : Concolic_key.Lazy2.t) (pat : Jayil.Ast.pattern) : t =
+let add_match (x : t) (k : Concolic_key.Lazy.t) (m : Concolic_key.Lazy.t) (pat : Jayil.Ast.pattern) : t =
   add_lazy_formula x
   @@ fun () ->
     let k_expr = Concolic_riddler.key_to_var (k ()) in

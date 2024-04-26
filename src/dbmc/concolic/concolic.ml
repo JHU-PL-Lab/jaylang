@@ -173,12 +173,8 @@ module Fetch =
   It is an evaluation within a single concolic session.
 *)
 
-(* let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
-  Lookup_key.without_block x
-  @@ Rstack.from_concrete stk *)
-
-let make_key = Concolic_key.Lazy2.make
-let force_key = Concolic_key.Lazy2.to_key
+let make_key = Concolic_key.Lazy.make
+let force_key = Concolic_key.Lazy.to_key
 
 let rec eval_exp
   ~(conc_session : Session.Concrete.t) (* Note: is mutable *)

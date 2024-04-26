@@ -1,6 +1,6 @@
 open Core
 
-module Lazy =
+(* module Lazy =
   struct
     type t = unit -> Lookup_key.t    
 
@@ -14,7 +14,7 @@ module Lazy =
     let make (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : t =
       fun () -> generate_lookup_key x stk
 
-  end
+  end *)
 
 module T =
   struct
@@ -37,7 +37,7 @@ let x ({ x ; _ } : t) : Jayil.Ast.ident =
 
 let d ({ n ; _ } : t) : int = n
 
-module Lazy2 =
+module Lazy =
   struct
     type t = unit -> T.t    
 
