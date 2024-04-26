@@ -253,7 +253,7 @@ and eval_clause
       Session.Concrete.add_alias (x, stk) (y, ret_stk) conc_session;
       let y_key = make_key y ret_stk in 
       ret_val, Session.Symbolic.add_alias symb_session x_key y_key
-    | Conditional_body (cx, e1, e2) ->
+    | Conditional_body (cx, e1, e2) -> (* TYPE MISMATCH *)
       (* x = if y then e1 else e2 ; *)
       let Var (y, _) = cx in
       let cond_val, condition_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env cx in
@@ -284,7 +284,7 @@ and eval_clause
       let retv = Direct (Value_int n) in
       Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       retv, Session.Symbolic.add_input symb_session x_key retv
-    | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin
+    | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin (* TYPE MISMATCH *)
       (* x = f y ; *)
       match Fetch.fetch_val ~conc_session ~stk env vf with
       | FunClosure (fid, Function_value (Var (param, _), body), fenv) ->
@@ -321,7 +321,7 @@ and eval_clause
       let Var (y, _) = vy in
       let match_key = make_key y stk in
       retv, Session.Symbolic.add_match symb_session x_key match_key p
-    | Projection_body (v, label) -> begin
+    | Projection_body (v, label) -> begin (* TYPE MISMATCH *)
       match Fetch.fetch_val ~conc_session ~stk env v with
       | RecordClosure (Record_value r, denv) ->
         let proj_ident = function Ident s -> s in
@@ -337,7 +337,7 @@ and eval_clause
         failwith "project should also have a closure"
       | _ -> failwith "project on a non record"
       end
-    | Not_body vy ->
+    | Not_body vy -> (* TYPE MISMATCH *)
       (* x = not y ; *)
       let v = Fetch.fetch_val_to_direct ~conc_session ~stk env vy in 
       let y_stk = Fetch.fetch_stk ~conc_session ~stk env vy in
@@ -351,7 +351,7 @@ and eval_clause
       let (Var (y, _)) = vy in
       let y_key = make_key y y_stk in
       retv, Session.Symbolic.add_not symb_session x_key y_key
-    | Binary_operation_body (vy, op, vz) ->
+    | Binary_operation_body (vy, op, vz) -> (* TYPE MISMATCH *)
       (* x = y op z *)
       let v1 = Fetch.fetch_val_to_direct ~conc_session ~stk env vy
       and v2 = Fetch.fetch_val_to_direct ~conc_session ~stk env vz in
@@ -395,7 +395,7 @@ and eval_clause
         then raise @@ Found_target { x ; stk ; v = ab_v }
         else raise @@ Found_abort (ab_v, symb_session)
       end
-    | Assert_body cx | Assume_body cx ->
+    | Assert_body cx | Assume_body cx -> (* TYPE MISMATCH *)
       (* TODO: should I ever treat assert and assume differently? *)
       let v = Fetch.fetch_val_to_bool ~conc_session ~stk env cx in
       let Var (y, _) = cx in 
@@ -531,8 +531,8 @@ module Test_result =
   end
 
 let[@landmark] test_one : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
-  let f =
-    fun (r : Concolic_options.t) ->
+  Concolic_options.Fun.make
+  @@ fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
         try
           (* let cfg = { Global_config.default_config with log_level_concolic = Some Logs.Debug } in
@@ -552,13 +552,11 @@ let[@landmark] test_one : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun
         | Lwt_unix.Timeout ->
           Log.Export.CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
           Timeout
-  in
-  Concolic_options.Fun.make f
 
 (* [test_incremental n] incrementally increases the max tree depth in [n] equal steps until it reaches the given max depth *)
 let[@landmark] test_incremental n : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
-  let f =
-    fun (r : Concolic_options.t) ->
+  Concolic_options.Fun.make
+  @@ fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
         n
         |> List.init ~f:(fun i -> (i + 1) * r.max_tree_depth / n)
@@ -571,8 +569,6 @@ let[@landmark] test_incremental n : (Jayil.Ast.expr -> Test_result.t) Concolic_o
                   | x -> Continue (Test_result.merge acc x)
             )
             ~finish:Fn.id
-  in
-  Concolic_options.Fun.make f
 
 let[@landmark] test : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
   Concolic_options.Fun.map
