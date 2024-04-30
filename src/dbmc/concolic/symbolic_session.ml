@@ -20,9 +20,9 @@ module Node_stack =
       | Last node -> node
       | Cons (child, _) -> Child.to_node_exn child
 
-    let hd_branch_exn : t -> Branch.t = function
-      | Last _ -> failwith "no hd branch"
-      | Cons (child, _) -> Branch.Runtime.to_ast_branch child.branch
+    let hd_branch : t -> Branch.Or_global.t = function
+      | Last _ -> Branch.Or_global.Global
+      | Cons (child, _) -> Branch (Branch.Runtime.to_ast_branch child.branch)
 
     let map_hd (stack : t) ~(f : Node.t -> Node.t) : t =
       match stack with
@@ -170,7 +170,7 @@ module Basic =
           Branch_info.set_branch_status
             ~new_status:(Found_abort s.inputs)
             s.branch_info
-            (Node_stack.hd_branch_exn s.stack)
+            (Node_stack.hd_branch s.stack)
       }
 
     let found_type_mismatch (s : t) (id : Jayil.Ast.Ident_new.t) : t =
@@ -179,7 +179,7 @@ module Basic =
           Branch_info.set_branch_status
             ~new_status:(Type_mismatch (id, s.inputs)) 
             s.branch_info
-            (Node_stack.hd_branch_exn s.stack)
+            (Node_stack.hd_branch s.stack)
       }
 
 
@@ -213,7 +213,12 @@ module At_max_depth =
       ; base        : Basic.t }
 
     let of_basic (s : Basic.t) : t =
-      { last_branch = Node_stack.hd_branch_exn s.stack
+      { last_branch =
+        begin
+          match Node_stack.hd_branch s.stack with
+          | Global -> failwith "logically impossible to hit depth at global branch"
+          | Branch b -> b
+        end
       ; base = s }
 
     let with_options : (t -> t) Concolic_options.Fun.t =
@@ -228,7 +233,7 @@ module At_max_depth =
               Branch_info.set_branch_status
                 ~new_status:(Found_abort a.base.inputs)
                 a.base.branch_info
-                a.last_branch
+                (Branch a.last_branch)
           }
       }
 
@@ -240,7 +245,7 @@ module At_max_depth =
               Branch_info.set_branch_status
                 ~new_status:(Type_mismatch (id, a.base.inputs))
                 a.base.branch_info
-                a.last_branch
+                (Branch a.last_branch)
           }
       }
   end
@@ -297,7 +302,7 @@ let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
   match x with
   | Basic s when (Depth_logic.incr_branch s.depth).is_below_max ->
     Basic
-    { s with branch_info = Branch_info.set_branch_status ~new_status:Hit s.branch_info @@ Branch.Runtime.to_ast_branch branch
+    { s with branch_info = Branch_info.set_branch_status ~new_status:Hit s.branch_info @@ Branch (Branch.Runtime.to_ast_branch branch)
     ; stack = Node_stack.push s.stack branch
     ; depth = Depth_logic.incr_branch s.depth }
   | Basic s -> At_max_depth (At_max_depth.of_basic s)

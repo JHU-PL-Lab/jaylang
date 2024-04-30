@@ -1,5 +1,7 @@
 open Core
 
+(* open Branch.Or_global To expose the Branch.Or_global.Branch constructor *)
+
 module Status =
   struct
     type t = 
@@ -38,9 +40,25 @@ module Status =
 
 module M = Map.Make (Branch)
 
-type t = Status.t M.t [@@deriving compare]
+module M2 =
+  struct
+    type t = Status.t M.t [@@deriving compare]
+  end
 
-let empty = M.empty
+open M2
+
+type t =
+  { global : Status.t
+  ; map    : M2.t }
+  [@@deriving compare]
+
+let return (m : M2.t) : t =
+  { global = Status.Unhit
+  ; map    = m }
+
+let (>>=) x f = { x with map = f x.map }
+
+let empty = return M.empty
 
 let add_branch_id (map : t) (id : Jayil.Ast.ident) : t =
   let set_unhit = function
@@ -48,8 +66,8 @@ let add_branch_id (map : t) (id : Jayil.Ast.ident) : t =
     | None -> Status.Unhit
   in
   map
-  |> Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.True_direction } ~f:set_unhit
-  |> Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.False_direction } ~f:set_unhit
+  >>= Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.True_direction } ~f:set_unhit
+  >>= Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.False_direction } ~f:set_unhit
 
 let rec find_branches (e : Jayil.Ast.expr) (m : t) : t =
   let open Jayil.Ast in
@@ -71,8 +89,9 @@ and find_branches_in_clause (clause : Jayil.Ast.clause) (m : t) : t =
 let of_expr (e : Jayil.Ast.expr) : t =
   find_branches e empty
 
+(* TODO: fix how this doesn't have global branch *)
 let to_list (map : t) : (string * Status.t * Status.t) list =
-  Map.to_alist map ~key_order:`Increasing
+  Map.to_alist map.map ~key_order:`Increasing
   |> List.chunks_of ~length:2
   |> List.map ~f:(function
     | [ ({ branch_ident = Ident a; direction = True_direction }, true_status)
@@ -110,35 +129,46 @@ let to_string (map : t) : string =
   ) *)
 
 (* overwrites unbound branch *)
-let set_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.t) : t =
-  Map.set map ~key:branch ~data:new_status
+let set_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.Or_global.t) : t =
+  match branch with
+  | Global -> { map with global = new_status }
+  | Branch key -> map >>= Map.set ~key ~data:new_status
 
 (* let is_hit (map : t) (branch : Branch.t) : bool =
   match Map.find map branch with
   | Some Hit -> true
   | _ -> false *)
 
-let contains (map : t) (status : Status.t) : bool =
-  Map.exists map ~f:(fun v -> Status.compare v status = 0)
+let contains ({ global ; map } : t) (status : Status.t) : bool =
+  Status.compare global status = 0
+  || Map.exists map ~f:(fun v -> Status.compare v status = 0)
 
 (* merges [m2] into [m1] with [Status.update] *)
 let merge (m1 : t) (m2 : t) : t =
-  Map.merge m1 m2 ~f:(fun ~key:_ -> function
-    | `Both (old_status, new_status) -> Some (Status.update new_status old_status)
-    | `Left old_status -> Some old_status
-    | `Right new_status -> failwith "only new status for branch when old status is expected"
-    )
+  { global = Status.update m1.global m2.global
+  ; map =
+    Map.merge m1.map m2.map ~f:(fun ~key:_ -> function
+      | `Both (old_status, new_status) -> Some (Status.update new_status old_status)
+      | `Left old_status -> Some old_status
+      | `Right new_status -> failwith "only new status for branch when old status is expected"
+      )
+  }
 
-let find (map : t) ~(f : Branch.t -> Status.t -> bool) : (Branch.t * Status.t) option =
-  Map.fold_until
-    map
-    ~init:()
-    ~f:(fun ~key ~data () ->
-      if f key data
-      then Stop (Some (key, data))
-      else Continue ()
-    )
-    ~finish:(fun () -> None)
+let find ({ global ; map } : t) ~(f : Branch.Or_global.t -> Status.t -> bool) : (Branch.Or_global.t * Status.t) option =
+  let open Branch.Or_global in
+  if f Global global
+  then Some (Global, global)
+  else
+    Map.fold_until
+      map
+      ~init:()
+      ~f:(fun ~key ~data () ->
+        if f (Branch key) data
+        then Stop (Some (Branch key, data))
+        else Continue ()
+      )
+      ~finish:(fun () -> None)
+  
 
 (* Custom sexp conversions so that it's easier to hand-write the sexp files *)
 module Sexp_conversions =
@@ -159,8 +189,8 @@ module Sexp_conversions =
       |> List.t_of_sexp My_tuple.t_of_sexp
       |> List.fold ~init:empty ~f:(fun acc (id, true_status, false_status) ->
         acc
-        |> Map.set ~key:({ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.True_direction}) ~data:true_status
-        |> Map.set ~key:({ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.False_direction}) ~data:false_status
+        >>= Map.set ~key:(Branch.{ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.True_direction}) ~data:true_status
+        >>= Map.set ~key:(Branch.{ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.False_direction}) ~data:false_status
       )
   end
 

@@ -558,10 +558,11 @@ let[@landmark] test_one : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun
           Log.Export.CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
           Branch_info.find res ~f:(fun _ -> function Branch_info.Status.Found_abort _ | Type_mismatch _ -> true | _ -> false)
           |> function
-            | Some (branch, Branch_info.Status.Found_abort inputs) -> Test_result.Found_abort (branch, List.rev inputs)
+            | Some (Branch.Or_global.Branch branch, Branch_info.Status.Found_abort inputs) -> Test_result.Found_abort (branch, List.rev inputs)
             | Some (_, Branch_info.Status.Type_mismatch (id, inputs)) -> Test_result.Type_mismatch (id, List.rev inputs)
             | None when not has_pruned -> Exhausted
-            | _ -> Exhausted_pruned_tree
+            | None -> Exhausted_pruned_tree
+            | _ -> failwith "impossible abort in global branch"
         with
         | Lwt_unix.Timeout ->
           Log.Export.CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);

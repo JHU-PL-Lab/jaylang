@@ -88,3 +88,11 @@ module Runtime =
       in 
       Format.printf "\nTarget branch: %s\n" target_branch_str
   end
+
+module Or_global =
+  struct
+    type t =
+      | Global
+      | Branch of T.t
+      [@@deriving compare, sexp]
+  end

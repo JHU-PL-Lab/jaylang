@@ -21,10 +21,10 @@ val of_expr : Jayil.Ast.expr -> t
 
 val to_string : t -> string
 
-val set_branch_status : new_status:Status.t -> t-> Branch.t -> t
+val set_branch_status : new_status:Status.t -> t-> Branch.Or_global.t -> t
 
 val contains : t -> Status.t -> bool
 
 val merge : t -> t -> t
 
-val find : t -> f:(Branch.t -> Status.t -> bool) -> (Branch.t * Status.t) option
+val find : t -> f:(Branch.Or_global.t -> Status.t -> bool) -> (Branch.Or_global.t * Status.t) option

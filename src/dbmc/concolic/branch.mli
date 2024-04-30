@@ -73,3 +73,10 @@ module Runtime :
     val print_target_option : t option -> unit
     (** [print_target_option x] prints the branch [x] as "target branch", or prints it as "None". *)
   end
+
+module Or_global :
+  sig
+    type t =
+      | Global
+      | Branch of T.t
+  end
