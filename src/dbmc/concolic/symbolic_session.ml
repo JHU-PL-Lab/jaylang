@@ -136,7 +136,8 @@ module Depth_logic =
       { x with fun_depth = x.fun_depth + 1 }
 
     let get_key_depth (x : t) : int =
-      x.cur_depth + x.fun_depth * x.max_step
+      (* x.cur_depth + x.fun_depth * x.max_step *) (* I realized when writing that I don't need conditional depth because of normal form of JIL *)
+      x.fun_depth
       (* since cur_depth cannot exceed max step, we use base x.max_step to safely order cur depth and fun depth *)
 
   end

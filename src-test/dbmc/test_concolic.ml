@@ -48,7 +48,7 @@ let () =
     (
       []
       (* @ make_tests "_bjy_tests" `Slow not all expect files exist yet, so these tests are not supposed to pass *)
-      (* @ make_tests "bjy_tests" `Quick *)
+      @ make_tests "bjy_tests" `Quick
       (* @ make_tests "racket_tests" `Quick *)
       (* @ make_tests "racket_tests_well_typed" `Slow *)
       @ make_tests "no_instrument" `Slow
