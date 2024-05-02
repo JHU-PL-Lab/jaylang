@@ -90,4 +90,8 @@ module Fun =
       in
       make g
 
+    let (@.) = compose
+
+    let (||>) a b = b @. a
+
   end

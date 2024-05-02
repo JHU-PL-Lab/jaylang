@@ -18,7 +18,6 @@ let anon_fun i_raw =
 
 let speclist = 
   [ ("-i", Arg.Set_string source_file, "Input source file")
-  (* ; ("-o", Arg.Set_string out_file, "Output source file (simple output only)") *)
   (* optional args for evaluation. The record fields get set by arguments *)
   ; ("-t", Arg.Set_float optional_args.global_timeout_sec, "Global timeout seconds")
   ; ("-s", Arg.Set_float optional_args.solver_timeout_sec, "Solver timeout seconds")
@@ -32,10 +31,11 @@ let () =
   match !source_file with
   | "" -> ()
   | src_file -> begin
-    let f =
-      Concolic_options.Fun.appl Concolic_driver.test
-      @@ Concolic_options.Refs.without_refs optional_args
+    let _ =
+      Concolic_options.Fun.appl
+        Concolic_driver.test
+        (Concolic_options.Refs.without_refs optional_args)
+        src_file
     in
-    let _ = f src_file in
     ()
     end
