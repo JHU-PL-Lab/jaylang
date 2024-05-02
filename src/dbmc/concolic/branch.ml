@@ -1,13 +1,6 @@
 open Core
 open Jayil
 
-(* module Lookup_key = 
-  struct
-    include Lookup_key
-    (* Core.Map.Key expects t_of_sexp, so provide failing implementation *)
-    let t_of_sexp _ = failwith "Lookup_key.t_of_sexp needed and not implemented"
-  end *)
-
 module Direction =
   struct
     type t =

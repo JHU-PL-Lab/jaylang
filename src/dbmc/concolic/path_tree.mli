@@ -8,12 +8,6 @@ module rec Node :
     val empty : t
     (** [empty] is the tree before the program has ever been run. It has no formulas or children. *)
 
-    (* val add_child : t -> Branch.Runtime.t -> t *)
-
-    val size : t -> int
-    (** [size root] is number of nodes in [root], where only solved children count towards the sum.
-        i.e. only Unsolved children don't count towards the sum. *)
-
     val merge : t -> t -> t
     (** [merge a b] combines the trees [a] and [b] and throws an exception if there is a discrepancy. *)
 

@@ -1,7 +1,5 @@
 open Core
 
-(* open Branch.Or_global To expose the Branch.Or_global.Branch constructor *)
-
 module Status =
   struct
     type t = 
@@ -121,23 +119,11 @@ let to_string (map : t) : string =
   |> String.concat
   end
 
-(* throws exception on unbound branch *)
-(* let update_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.t) : t =
-  Map.update map branch ~f:(function
-    | Some old_status -> Status.update new_status old_status
-    | None -> failwith "unbound branch" 
-  ) *)
-
 (* overwrites unbound branch *)
 let set_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.Or_global.t) : t =
   match branch with
   | Global -> { map with global = new_status }
   | Branch key -> map >>= Map.set ~key ~data:new_status
-
-(* let is_hit (map : t) (branch : Branch.t) : bool =
-  match Map.find map branch with
-  | Some Hit -> true
-  | _ -> false *)
 
 let contains ({ global ; map } : t) (status : Status.t) : bool =
   Status.compare global status = 0

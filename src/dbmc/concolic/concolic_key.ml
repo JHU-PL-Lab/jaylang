@@ -1,26 +1,10 @@
 open Core
 
-(* module Lazy =
-  struct
-    type t = unit -> Lookup_key.t    
-
-    let to_key (x : t) : Lookup_key.t =
-      x ()
-
-    let generate_lookup_key (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : Lookup_key.t =
-      Lookup_key.without_block x
-      @@ Rstack.from_concrete stk
-    
-    let make (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : t =
-      fun () -> generate_lookup_key x stk
-
-  end *)
-
 module T =
   struct
     type t =
       { x : Jayil.Ast.Ident_new.t
-      ; n : Int.t } (* n is depth in tree *)
+      ; n : Int.t } (* n is number of functions entered in path to variable *)
       [@@deriving hash, compare, equal, sexp]
   end
 

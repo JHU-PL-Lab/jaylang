@@ -207,7 +207,7 @@ let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t *
       )
 
   and done_ (x : t) =
-    Log.Export.CLog.info (fun m -> m "Done. Tree size is %d\n" (Root.size x.tree));
+    Log.Export.CLog.info (fun m -> m "Done.\n");
     `Done (x.branch_info, x.has_pruned)
     
   in next x

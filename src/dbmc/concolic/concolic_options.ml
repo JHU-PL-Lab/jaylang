@@ -90,11 +90,4 @@ module Fun =
       in
       make g
 
-    (* I'm pretty sure this is useless. *)
-    (* let bind (x : 'a t) ~(f : 'a -> 'b t) : 'b t =
-      let g =
-        fun r ->
-          appl (f (appl x r)) r
-      in
-      make g *)
   end

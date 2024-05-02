@@ -24,11 +24,6 @@ let is_hit ({ branch = target_branch ; path } : t) (root : Root.t) : bool =
   trace_path root path
 
 let[@landmarks] to_formulas ({ branch = target_branch ; path } : t) (root : Root.t) : Z3.Expr.expr list =
-  (* acc already contains all formulas pertaining to `node` *)
-  (* Format.printf "Printing path and target";
-  List.iter path ~f:(fun b -> Format.printf "%s\n" (Branch.Runtime.to_string b));
-  Format.printf "Target from that path is %s\n" (Branch.Runtime.to_string target_branch); *)
-
   let rec trace_path acc node = function
     | next_branch :: tl ->
       let next_child = Node.get_child_exn node next_branch in

@@ -21,8 +21,6 @@ module type NODE =
     (** [t] is the root of the JIL program. *)
     val empty : t
     (** [empty] is the tree before the program has ever been run. It has no formulas or children. *)
-    (* val add_child : t -> Branch.Runtime.t -> t *)
-    val size : t -> int
     val merge : t -> t -> t
     (** [merge a b] combines the trees [a] and [b] and throws an exception if there is a discrepancy. *)
     val add_formula : t -> Z3.Expr.expr -> t
@@ -46,7 +44,6 @@ module type CHILDREN =
     type child
     type t [@@deriving compare]
     (** [t] represents the branches underneath some node. *)
-    val size : t -> int
     val empty : t
     (** [empty] is no children. *)
     val is_empty : t -> bool
@@ -71,7 +68,6 @@ module type CHILD =
       ; branch      : Branch.Runtime.t
       } [@@deriving compare]
     (** [t] is a single child of a [Node.t] *)
-    val size : t -> int
     val create : node -> Branch.Runtime.t -> t
     (** [create node branch] makes a child by taken the [branch] to reach the given [node]. *)
     val create_both : node -> Branch.Runtime.t -> t * t
@@ -101,8 +97,6 @@ module type STATUS =
         Unsatisfiable or Unknown nodes are status of the node before they've ever been
         hit during interpretation, so there is no existing node as a payload. *)
 
-    val size : t -> int
-      
     val merge : t -> t -> t
     (** [merge a b] keeps the most information from [a] or [b] and merges the nodes if both are [Hit]. *)
 
@@ -130,12 +124,6 @@ module rec Node : (* serves as root node *)
     let empty : t =
       { formulas = Formula_set.empty
       ; children = Children.empty }
-
-    (* let add_child (x : t) (branch : Branch.Runtime.t) : t =
-      { x with children = Children.add_child x.children branch } *)
-
-    let size ({ children ; _ } : t) : int =
-      Children.size children + 1
 
     let merge (a : t) (b : t) : t =
       { formulas = Formula_set.union a.formulas b.formulas
@@ -185,10 +173,6 @@ and Children :
       | Both of { true_side : Child.t ; false_side : Child.t ; branch_key : Concolic_key.t } [@@deriving compare]
       (* Could have chosen to have only true or only false, but Status.Unsolved takes care of that. *)
 
-    let size = function
-      | No_children -> 0
-      | Both { true_side ; false_side ; _ } -> Child.size true_side + Child.size false_side
-    
     let empty : t = No_children
     let is_empty (x : t) : bool =
       match x with
@@ -259,8 +243,6 @@ and Child :
       ; branch      : Branch.Runtime.t (* branch taken to reach the child *)
       } [@@deriving compare]
 
-    let size { status ; _ } = Status.size status
-
     let create (node : Node.t) (branch : Branch.Runtime.t) : t =
       { status = Status.Hit node
       ; constraints = Formula_set.singleton @@ Branch.Runtime.to_expr branch
@@ -327,13 +309,6 @@ and Status :
       | Unknown (* for timeouts *)
       | Unsolved (* not yet tried *)
       [@@deriving compare]
-
-    let size = function
-    | Hit node -> Node.size node
-    | Unsatisfiable
-    | Failed_assume 
-    | Unknown -> 1
-    | Unsolved -> 0
 
     (*
       Merge by keeping the most info.
