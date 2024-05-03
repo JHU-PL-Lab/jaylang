@@ -17,9 +17,9 @@ let test_for_abort testname _args =
     @@ Dj_common.File_utils.read_source_full ~do_instrument:true testname
   | _ -> failwith "unsupported test extension"
   end
-  |> Concolic.test ~global_timeout_sec:10.0 ~quit_on_abort:true
+  |> Concolic_driver.test_expr ~global_timeout_sec:10.0 ~quit_on_abort:true
   |> begin function
-    | Concolic.Test_result.Timeout
+    | Concolic_driver.Test_result.Timeout
     | Exhausted
     | Exhausted_pruned_tree -> false (* did not find error *)
     | Type_mismatch _

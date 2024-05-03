@@ -43,9 +43,10 @@ let main_lwt ~(config : Global_config.t) program_full :
   in
   let res =
     match config.timeout with
-    | None -> Dbmc.Concolic.test ~quit_on_abort:true ~random:false program
+    | None -> Dbmc.Concolic_driver.test_expr ~quit_on_abort:true ~random:false program
     | Some t ->
-        Dbmc.Concolic.test ~quit_on_abort:true
+        Dbmc.Concolic_driver.test_expr ~quit_on_abort:true
+          ~random:false
           ~global_timeout_sec:(Core_private.Span_float.to_sec t)
           program
   in
@@ -98,6 +99,7 @@ let main_lwt ~(config : Global_config.t) program_full :
             in
             Lwt.return result
         | _ -> failwith "Shoud have run into abort here!"))
+  | Type_mismatch _ -> failwith "found type mismatch, but currently unhandled in sato-concolic"
   | Exhausted -> Lwt.return (None, false)
   | Exhausted_pruned_tree | Timeout -> Lwt.return (None, true)
 
@@ -106,7 +108,7 @@ let main_commandline () =
     Argparse.parse_commandline ~config:Global_config.default_sato_config ()
   in
   let program_full =
-    File_utils.read_source_full ~do_wrap:config.is_wrapped ~do_instrument:true
+    File_utils.read_source_full ~do_wrap:config.is_wrapped ~do_instrument:false (* NOTICE: Brandon changed do_instrument to false. It is typically true *)
       config.filename
   in
   let () =
