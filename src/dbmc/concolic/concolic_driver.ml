@@ -1,6 +1,5 @@
 open Core
 
-module ILog = Dj_common.Log.Export.ILog
 module CLog = Dj_common.Log.Export.CLog
 
       
