@@ -1,5 +1,4 @@
 open Core
-open Concolic_exceptions.Make (Session.Symbolic)
 
 module ILog = Dj_common.Log.Export.ILog
 module CLog = Dj_common.Log.Export.CLog
