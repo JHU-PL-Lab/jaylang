@@ -1,0 +1,79 @@
+let f r =
+let fail_b_12 = false in
+match r with
+
+  | {~actual_rec = actual_rec_b_18,_} ->
+  match r.~decl_lbls with
+    
+      | {b = vb} -> let vb = actual_rec_b_18.b in vb
+      | {a = va} -> let va = actual_rec_b_18.a in va
+     end
+  | {~untouched = (none),_} -> assert fail_b_12
+ end in
+let check_res_b_17 = let r_b_16 =
+{
+   checker = fun expr_b_7
+    ->
+   let rec_fail_b_6 = false in
+     let rec_fail_b_5 = false in
+     let rec_fail_b_4 = false in
+     match expr_b_7 with
+     
+       | {~actual_rec = (none),_} ->
+       match expr_b_7.~decl_lbls with
+         
+           | {a = a,_} ->
+           match expr_b_7.~actual_rec with
+             
+               | {a = a,_} ->
+               {
+                  checker = let
+                  fail_b_9 =
+                  false
+                  in
+                  fun expr_b_8 ->
+                  match expr_b_8 with | int -> true | any -> fail_b_9 end,
+                  generator = fun ~null
+                   ->
+                  input
+               }.checker a
+               | any -> rec_fail_b_4
+              end
+           | any -> rec_fail_b_5
+          end
+       | any -> rec_fail_b_6
+      end,
+   generator = fun ~null
+    ->
+   {
+      ~actual_rec = let
+      a_b_0 =
+      {
+         checker = let
+         fail_b_2 =
+         false
+         in
+         fun expr_b_1 ->
+         match expr_b_1 with | int -> true | any -> fail_b_2 end,
+         generator = fun ~null
+          ->
+         input
+      }.generator 0
+      in
+      {a = a_b_0},
+      ~decl_lbls = {a = {}}
+   }
+}.generator 0 in
+{
+   checker = let
+   fail_b_14 =
+   false
+   in
+   fun expr_b_13 -> match expr_b_13 with | int -> true | any -> fail_b_14 end,
+   generator = fun ~null
+    ->
+   input
+}.checker (f r_b_16) in
+if check_res_b_17 then
+f {~actual_rec = {a = 1, b = true}, ~decl_lbls = {a = {}, b = {}}}
+else 

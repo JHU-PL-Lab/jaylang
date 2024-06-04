@@ -60,16 +60,30 @@ let wrap_flag = ref false
 let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
   let mk_check_from_fun_sig fun_sig =
     match fun_sig with
-    | Typed_funsig (f, typed_params, (f_body, ret_type)) ->
-        let folder ((Ident p as param), t) acc =
+    (* let f (x : int) (y : int) : int = x + 1 in
+       ...
+       =>
+          let f (x : int) : int = e1 in
+          let f' = fun x' y' -> if checker(int, x') then if checker(int, y') then wrap(int, f (wrap(int, x')) else assert false in
+          e2
+    *)
+    | Typed_funsig (f, typed_params, (_f_body, ret_type)) ->
+        let%bind ret_type' = wrap ret_type in
+        let typed_params' =
+          typed_params |> List.map (fun (p, t) -> (p, wrap t))
+        in
+        let%bind eta_ps =
+          typed_params'
+          |> List.map (fun (Ident p, tm) ->
+                 let%bind t = tm in
+                 let%bind eta_arg = fresh_ident p in
+                 return (eta_arg, t))
+          |> sequence
+        in
+        let folder1 acc (arg, t) =
           if is_polymorphic_type t
           then return acc
           else
-            let%bind eta_arg = fresh_ident p in
-            let%bind arg_check = fresh_ident "arg_check" in
-            (* let%bind proj_ed_1_inner =
-                 new_instrumented_ed @@ RecordProj (t, Label "~actual_rec")
-               in *)
             let%bind proj_ed_1 =
               new_instrumented_ed @@ RecordProj (t, Label "checker")
             in
@@ -79,95 +93,153 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
                    ( new_expr_desc
                      @@ GreaterThan
                           (new_expr_desc @@ Input, new_expr_desc @@ Int 0),
-                     new_expr_desc
-                     @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg),
+                     new_expr_desc @@ Appl (proj_ed_1, new_expr_desc @@ Var arg),
                      new_expr_desc @@ Bool true )
             in
-            let%bind assert_cls =
-              (* new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false) *)
-              new_instrumented_ed @@ Assert (new_expr_desc @@ Var arg_check)
-            in
-            let%bind cond =
+            let cond =
               new_instrumented_ed
-              @@ If (new_expr_desc @@ Var arg_check, acc, assert_cls)
+              @@ If
+                   ( check_arg,
+                     acc,
+                     new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
             in
-            let eta_body = Let (arg_check, check_arg, cond) in
-            let%bind wrapped_body =
-              new_instrumented_ed
-              @@ Appl
-                   ( new_expr_desc
-                     @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
-                     new_expr_desc @@ Var param )
-            in
-            return wrapped_body
+            cond
         in
-        let%bind ret_type' = wrap ret_type in
-        (* let%bind proj_ed_1_inner =
-             new_instrumented_ed @@ RecordProj (ret_type', Label "~actual_rec")
-           in *)
-        let%bind proj_ed_1 =
+        let%bind check_args =
+          eta_ps |> list_fold_left_m folder1 (new_expr_desc @@ Bool true)
+        in
+        let folder2 acc (arg, t) =
+          let%bind proj_ed_1 =
+            new_instrumented_ed @@ RecordProj (t, Label "wrapper")
+          in
+          let wrapped_arg =
+            new_expr_desc @@ Appl (proj_ed_1, new_expr_desc @@ Var arg)
+          in
+          let acc' = new_expr_desc @@ Appl (acc, wrapped_arg) in
+          return acc'
+        in
+        let%bind wrapped_appl =
+          eta_ps |> list_fold_left_m folder2 (new_expr_desc @@ Var f)
+        in
+        let%bind proj_ed_ret =
           new_instrumented_ed @@ RecordProj (ret_type', Label "wrapper")
         in
-        let%bind f_body' = wrap f_body in
-        let f_body'' = new_expr_desc @@ Appl (proj_ed_1, f_body') in
-        let%bind wrapped_f = list_fold_right_m folder typed_params f_body'' in
-        let%bind typed_params' =
-          sequence
-          @@ List.map
-               (fun (p, t) ->
-                 let%bind t' = wrap t in
-                 return @@ (p, t'))
-               typed_params
-        in
-        let fun_sig' =
-          Typed_funsig (f, typed_params', (wrapped_f, ret_type'))
-        in
-        let%bind () = add_wrapped_to_unwrapped_mapping wrapped_f f_body in
-        return fun_sig'
-    | DTyped_funsig (f, ((Ident p as param), t), (f_body, ret_type)) ->
-        let%bind eta_arg = fresh_ident p in
-        let%bind arg_check = fresh_ident "arg_check" in
-        (* let%bind proj_ed_1_inner =
-             new_instrumented_ed @@ RecordProj (t, Label "~actual_rec")
-           in *)
-        let%bind proj_ed_1 =
-          new_instrumented_ed @@ RecordProj (t, Label "checker")
-        in
-        let%bind check_arg =
-          new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
-        in
-        let%bind ret_type' = wrap ret_type in
-        let%bind appl_ed_1 =
-          new_instrumented_ed @@ mk_gc_pair_cod param ret_type' eta_arg
-        in
-        (* let%bind proj_ed_2_inner =
-             new_instrumented_ed @@ RecordProj (appl_ed_1, Label "~actual_rec")
-           in *)
-        let%bind proj_ed_2 =
-          new_instrumented_ed @@ RecordProj (appl_ed_1, Label "wrapper")
-        in
-        let%bind f_body' = wrap f_body in
-        let f_body'' = new_expr_desc @@ Appl (proj_ed_2, f_body') in
-        let%bind assert_cls =
-          new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
-        in
-        let%bind cond =
-          new_instrumented_ed
-          @@ If (new_expr_desc @@ Var arg_check, f_body'', assert_cls)
-        in
-        let eta_body = Let (arg_check, check_arg, cond) in
-        let%bind wrapped_body =
-          new_instrumented_ed
-          @@ Appl
-               ( new_expr_desc
-                 @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
-                 new_expr_desc @@ Var param )
-        in
-        let%bind t' = wrap t in
-        let fun_sig' =
-          DTyped_funsig (f, (Ident p, t'), (wrapped_body, ret_type'))
-        in
-        return fun_sig'
+        let final_appl = new_expr_desc @@ Appl (proj_ed_ret, wrapped_appl) in
+        let params = eta_ps |> List.map (fun (p, _) -> p) in
+        return @@ new_expr_desc
+        @@ Function
+             ( params,
+               new_expr_desc
+               @@ If (check_args, final_appl, new_expr_desc @@ Assert check_args)
+             )
+    (* let folder ((Ident p as param), t) acc =
+         if is_polymorphic_type t
+         then return acc
+         else
+           let%bind eta_arg = fresh_ident p in
+           let%bind arg_check = fresh_ident "arg_check" in
+           (* let%bind proj_ed_1_inner =
+                new_instrumented_ed @@ RecordProj (t, Label "~actual_rec")
+              in *)
+           let%bind proj_ed_1 =
+             new_instrumented_ed @@ RecordProj (t, Label "checker")
+           in
+           let%bind check_arg =
+             new_instrumented_ed
+             @@ If
+                  ( new_expr_desc
+                    @@ GreaterThan
+                         (new_expr_desc @@ Input, new_expr_desc @@ Int 0),
+                    new_expr_desc
+                    @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg),
+                    new_expr_desc @@ Bool true )
+           in
+           let%bind assert_cls =
+             (* new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false) *)
+             new_instrumented_ed @@ Assert (new_expr_desc @@ Var arg_check)
+           in
+           let%bind cond =
+             new_instrumented_ed
+             @@ If (new_expr_desc @@ Var arg_check, acc, assert_cls)
+           in
+           let eta_body = Let (arg_check, check_arg, cond) in
+           let%bind wrapped_body =
+             new_instrumented_ed
+             @@ Appl
+                  ( new_expr_desc
+                    @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
+                    new_expr_desc @@ Var param )
+           in
+           return wrapped_body
+       in
+       let%bind ret_type' = wrap ret_type in
+       (* let%bind proj_ed_1_inner =
+            new_instrumented_ed @@ RecordProj (ret_type', Label "~actual_rec")
+          in *)
+       let%bind proj_ed_1 =
+         new_instrumented_ed @@ RecordProj (ret_type', Label "wrapper")
+       in
+       let%bind f_body' = wrap f_body in
+       let f_body'' = new_expr_desc @@ Appl (proj_ed_1, f_body') in
+       let%bind wrapped_f = list_fold_right_m folder typed_params f_body'' in
+       let%bind typed_params' =
+         sequence
+         @@ List.map
+              (fun (p, t) ->
+                let%bind t' = wrap t in
+                return @@ (p, t'))
+              typed_params
+       in
+       let fun_sig' =
+         Typed_funsig (f, typed_params', (wrapped_f, ret_type'))
+       in
+       let%bind () = add_wrapped_to_unwrapped_mapping wrapped_f f_body in
+       return fun_sig' *)
+    (* | DTyped_funsig (f, ((Ident p as param), t), (f_body, ret_type)) -> *)
+    | DTyped_funsig _ -> failwith "TBI"
+    (* let%bind eta_arg = fresh_ident p in
+       let%bind arg_check = fresh_ident "arg_check" in
+       (* let%bind proj_ed_1_inner =
+            new_instrumented_ed @@ RecordProj (t, Label "~actual_rec")
+          in *)
+       let%bind proj_ed_1 =
+         new_instrumented_ed @@ RecordProj (t, Label "checker")
+       in
+       let%bind check_arg =
+         new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
+       in
+       let%bind ret_type' = wrap ret_type in
+       let%bind appl_ed_1 =
+         new_instrumented_ed @@ mk_gc_pair_cod param ret_type' eta_arg
+       in
+       (* let%bind proj_ed_2_inner =
+            new_instrumented_ed @@ RecordProj (appl_ed_1, Label "~actual_rec")
+          in *)
+       let%bind proj_ed_2 =
+         new_instrumented_ed @@ RecordProj (appl_ed_1, Label "wrapper")
+       in
+       let%bind f_body' = wrap f_body in
+       let f_body'' = new_expr_desc @@ Appl (proj_ed_2, f_body') in
+       let%bind assert_cls =
+         new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
+       in
+       let%bind cond =
+         new_instrumented_ed
+         @@ If (new_expr_desc @@ Var arg_check, f_body'', assert_cls)
+       in
+       let eta_body = Let (arg_check, check_arg, cond) in
+       let%bind wrapped_body =
+         new_instrumented_ed
+         @@ Appl
+              ( new_expr_desc
+                @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
+                new_expr_desc @@ Var param )
+       in
+       let%bind t' = wrap t in
+       let fun_sig' =
+         DTyped_funsig (f, (Ident p, t'), (wrapped_body, ret_type'))
+       in
+       return fun_sig' *)
   in
   let og_e = e_desc.body in
   match og_e with
@@ -219,9 +291,18 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
       let e_desc' = new_expr_desc @@ TypeRecurse (tvar, t') in
       let%bind () = add_wrapped_to_unwrapped_mapping e_desc' e_desc in
       return e_desc'
-  | TypeVariant _vs ->
-      (* TODO: Fix wrap for union types *)
-      return e_desc
+  | TypeVariant vs ->
+      let%bind vs' =
+        sequence
+        @@ List.map
+             (fun (v_lbl, t) ->
+               let%bind t' = wrap t in
+               return (v_lbl, t'))
+             vs
+      in
+      let e_desc' = new_expr_desc @@ TypeVariant vs' in
+      let%bind () = add_wrapped_to_unwrapped_mapping e_desc' e_desc in
+      return e_desc'
   | Function (xs, f_body) ->
       let%bind f_body' = wrap f_body in
       let e_desc' = new_expr_desc @@ Function (xs, f_body') in
@@ -267,18 +348,21 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
       let res = new_expr_desc @@ LetWithType (x, e1'', e2', t') in
       let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
       return res
-  | LetRecFunWithType (sig_lst, e) ->
-      let%bind sig_lst' = sequence @@ List.map mk_check_from_fun_sig sig_lst in
+  | LetRecFunWithType (_sig_lst, _e) ->
+      failwith "TBI"
+      (* let%bind sig_lst' = sequence @@ List.map mk_check_from_fun_sig sig_lst in
+         let%bind og_e' = wrap e in
+         let res = new_expr_desc @@ LetRecFunWithType (sig_lst', og_e') in
+         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+         return res *)
+  | LetFunWithType ((Typed_funsig (f, _, _) as fun_sig), e) ->
+      let%bind wrapped_appl = mk_check_from_fun_sig fun_sig in
       let%bind og_e' = wrap e in
-      let res = new_expr_desc @@ LetRecFunWithType (sig_lst', og_e') in
+      let override = new_expr_desc @@ Let (f, wrapped_appl, og_e') in
+      let res = new_expr_desc @@ LetFunWithType (fun_sig, override) in
       let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
       return res
-  | LetFunWithType (fun_sig, e) ->
-      let%bind fun_sig' = mk_check_from_fun_sig fun_sig in
-      let%bind og_e' = wrap e in
-      let res = new_expr_desc @@ LetFunWithType (fun_sig', og_e') in
-      let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-      return res
+  | LetFunWithType _ -> failwith "TBI"
   | Plus (e1, e2) ->
       let%bind e1' = wrap e1 in
       let%bind e2' = wrap e2 in
@@ -743,7 +827,28 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         in
         let%bind wrapper =
           let%bind expr_id = fresh_ident "expr" in
-          return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+          let%bind new_lbls =
+            r |> Ident_map.key_list
+            |> list_fold_left_m
+                 (fun acc k ->
+                   let%bind empty_rec =
+                     new_instrumented_ed @@ Record Ident_map.empty
+                   in
+                   return @@ Ident_map.add k empty_rec acc)
+                 Ident_map.empty
+          in
+          let%bind actual_rec =
+            new_instrumented_ed
+            @@ RecordProj (new_expr_desc @@ Var expr_id, Label "~actual_rec")
+          in
+          let%bind new_lbls_rec = new_instrumented_ed @@ Record new_lbls in
+          let new_rec =
+            Ident_map.empty
+            |> Ident_map.add (Ident "~actual_rec") actual_rec
+            |> Ident_map.add (Ident "~decl_lbls") new_lbls_rec
+          in
+          let%bind new_rec_ed = new_instrumented_ed @@ Record new_rec in
+          return @@ Function ([ expr_id ], new_rec_ed)
         in
         let rec_map =
           if !wrap_flag
@@ -2846,331 +2951,6 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
     else return @@ ()
   in
   return transformed_ed
-
-(* let rec wrap (e_desc : sem_bluejay_edesc) : sem_bluejay_edesc m =
-   let mk_check_from_fun_sig fun_sig =
-     match fun_sig with
-     | Typed_funsig (f, typed_params, (f_body, ret_type)) ->
-         let folder ((Ident p as param), t) acc =
-           let%bind bluejay_jay_maps = bluejay_to_jay_maps in
-           let t_syn =
-             Bluejay_to_jay_maps.Intermediate_expr_desc_map.find t
-               bluejay_jay_maps.sem_to_syn
-           in
-           if is_polymorphic_type t_syn
-           then return acc
-           else
-             let%bind eta_arg = fresh_ident p in
-             let%bind arg_check = fresh_ident "arg_check" in
-             let%bind proj_ed_1_inner =
-               new_instrumented_ed @@ RecordProj (t, Label "~actual_rec")
-             in
-             let%bind proj_ed_1 =
-               new_instrumented_ed
-               @@ RecordProj (proj_ed_1_inner, Label "checker")
-             in
-             let%bind check_arg =
-               new_instrumented_ed
-               @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
-             in
-             let%bind assert_cls =
-               (* new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false) *)
-               new_instrumented_ed @@ Assert (new_expr_desc @@ Var arg_check)
-             in
-             let%bind cond =
-               new_instrumented_ed
-               @@ If (new_expr_desc @@ Var arg_check, acc, assert_cls)
-             in
-             let eta_body = Let (arg_check, check_arg, cond) in
-             let%bind wrapped_body =
-               new_instrumented_ed
-               @@ Appl
-                    ( new_expr_desc
-                      @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
-                      new_expr_desc @@ Var param )
-             in
-             return wrapped_body
-         in
-         let%bind ret_type' = wrap ret_type in
-         let%bind proj_ed_1_inner =
-           new_instrumented_ed @@ RecordProj (ret_type', Label "~actual_rec")
-         in
-         let%bind proj_ed_1 =
-           new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "wrapper")
-         in
-         let%bind f_body' = wrap f_body in
-         let f_body'' = new_expr_desc @@ Appl (proj_ed_1, f_body') in
-         let%bind wrapped_f = list_fold_right_m folder typed_params f_body'' in
-         let%bind typed_params' =
-           sequence
-           @@ List.map
-                (fun (p, t) ->
-                  let%bind t' = wrap t in
-                  return @@ (p, t'))
-                typed_params
-         in
-         let fun_sig' =
-           Typed_funsig (f, typed_params', (wrapped_f, ret_type'))
-         in
-         let%bind () = add_wrapped_to_unwrapped_mapping wrapped_f f_body in
-         return fun_sig'
-     | DTyped_funsig (f, ((Ident p as param), t), (f_body, ret_type)) ->
-         let%bind eta_arg = fresh_ident p in
-         let%bind arg_check = fresh_ident "arg_check" in
-         let%bind proj_ed_1_inner =
-           new_instrumented_ed @@ RecordProj (t, Label "~actual_rec")
-         in
-         let%bind proj_ed_1 =
-           new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "checker")
-         in
-         let%bind check_arg =
-           new_instrumented_ed @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_arg)
-         in
-         let%bind ret_type' = wrap ret_type in
-         let%bind appl_ed_1 =
-           new_instrumented_ed @@ mk_gc_pair_cod param ret_type' eta_arg
-         in
-         let%bind proj_ed_2_inner =
-           new_instrumented_ed @@ RecordProj (appl_ed_1, Label "~actual_rec")
-         in
-         let%bind proj_ed_2 =
-           new_instrumented_ed @@ RecordProj (proj_ed_2_inner, Label "wrapper")
-         in
-         let%bind f_body' = wrap f_body in
-         let f_body'' = new_expr_desc @@ Appl (proj_ed_2, f_body') in
-         let%bind assert_cls =
-           new_instrumented_ed @@ Assert (new_expr_desc @@ Bool false)
-         in
-         let%bind cond =
-           new_instrumented_ed
-           @@ If (new_expr_desc @@ Var arg_check, f_body'', assert_cls)
-         in
-         let eta_body = Let (arg_check, check_arg, cond) in
-         let%bind wrapped_body =
-           new_instrumented_ed
-           @@ Appl
-                ( new_expr_desc
-                  @@ Function ([ eta_arg ], new_expr_desc @@ eta_body),
-                  new_expr_desc @@ Var param )
-         in
-         let%bind t' = wrap t in
-         let fun_sig' =
-           DTyped_funsig (f, (Ident p, t'), (wrapped_body, ret_type'))
-         in
-         return fun_sig'
-   in
-   let e = e_desc.body in
-   (* Using the original tag for now; may be buggy *)
-   let tag = e_desc.tag in
-   let%bind instrumented_bool = is_instrumented tag in
-   let%bind transformed_ed =
-     match e with
-     | Int _ | Bool _ | Var _ | Input | TypeError _ -> return e_desc
-     | Function (id_lst, e) ->
-         let%bind e' = wrap e in
-         let res = new_expr_desc @@ Function (id_lst, e') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Appl (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ Appl (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Let (x, e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ Let (x, e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | LetRecFun (sig_lst, e) ->
-         let%bind sig_lst' =
-           sig_lst |> List.map (transform_funsig wrap) |> sequence
-         in
-         let%bind e' = wrap e in
-         let res = new_expr_desc @@ LetRecFun (sig_lst', e') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | LetFun (fun_sig, e) ->
-         let%bind sig' = fun_sig |> transform_funsig wrap in
-         let%bind e' = wrap e in
-         let res = new_expr_desc @@ LetFun (sig', e') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     (* TODO: Will want to handle the function case here *)
-     | LetWithType (x, e1, e2, type_decl) ->
-         let%bind type_decl' = wrap type_decl in
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let%bind proj_ed_1_inner =
-           new_instrumented_ed @@ RecordProj (type_decl', Label "~actual_rec")
-         in
-         let%bind proj_ed_1 =
-           new_instrumented_ed @@ RecordProj (proj_ed_1_inner, Label "wrapper")
-         in
-         let e1'' = new_expr_desc @@ Appl (proj_ed_1, e1') in
-         let res = new_expr_desc @@ LetWithType (x, e1'', e2', type_decl') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | LetRecFunWithType (sig_lst, e) ->
-         let%bind sig_lst' =
-           sequence @@ List.map mk_check_from_fun_sig sig_lst
-         in
-         let%bind og_e' = wrap e in
-         let res = new_expr_desc @@ LetRecFunWithType (sig_lst', og_e') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | LetFunWithType (fun_sig, e) ->
-         let%bind fun_sig' = mk_check_from_fun_sig fun_sig in
-         let%bind og_e' = wrap e in
-         let res = new_expr_desc @@ LetFunWithType (fun_sig', og_e') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Plus (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ Plus (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Minus (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ Minus (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Times (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ Times (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Divide (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ Divide (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Modulus (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ Modulus (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Equal (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ Equal (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Neq (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ Neq (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | LessThan (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ LessThan (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Leq (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ Leq (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | GreaterThan (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ GreaterThan (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Geq (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ Geq (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | And (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ And (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Or (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ Or (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Not e ->
-         let%bind e' = wrap e in
-         let res = new_expr_desc @@ Not e' in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | If (e1, e2, e3) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let%bind e3' = wrap e3 in
-         let res = new_expr_desc @@ If (e1', e2', e3') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Record m ->
-         let%bind m' = ident_map_map_m (fun e -> wrap e) m in
-         let res = new_expr_desc @@ Record m' in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | RecordProj (e, l) ->
-         let%bind e' = wrap e in
-         let res = new_expr_desc @@ RecordProj (e', l) in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Match (e, pattern_expr_lst) ->
-         let%bind e' = wrap e in
-         let mapper (pat, expr) =
-           let%bind expr' = wrap expr in
-           return @@ (pat, expr')
-         in
-         let%bind pattern_expr_lst' =
-           pattern_expr_lst |> List.map mapper |> sequence
-         in
-         let res = new_expr_desc @@ Match (e', pattern_expr_lst') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | VariantExpr (lbl, e) ->
-         let%bind e' = wrap e in
-         let res = new_expr_desc @@ VariantExpr (lbl, e') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | List expr_lst ->
-         let%bind expr_lst' = expr_lst |> List.map wrap |> sequence in
-         let res = new_expr_desc @@ List expr_lst' in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | ListCons (e1, e2) ->
-         let%bind e1' = wrap e1 in
-         let%bind e2' = wrap e2 in
-         let res = new_expr_desc @@ ListCons (e1', e2') in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Assert e ->
-         let%bind e' = wrap e in
-         let res = new_expr_desc @@ Assert e' in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-     | Assume e ->
-         let%bind e' = wrap e in
-         let res = new_expr_desc @@ Assume e' in
-         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-         return res
-   in
-   let%bind () =
-     if instrumented_bool
-     then add_instrumented_tag transformed_ed.tag
-     else return @@ ()
-   in
-   return transformed_ed *)
 
 let debug_transform_bluejay (trans_name : string)
     (transform : 'a expr_desc -> 'b expr_desc m) (e : 'a expr_desc) :
