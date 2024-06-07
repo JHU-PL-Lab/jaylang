@@ -21,10 +21,10 @@ let speclist =
   (* optional args for evaluation. The record fields get set by arguments *)
   ; ("-t", Arg.Set_float optional_args.global_timeout_sec, "Global timeout seconds")
   ; ("-s", Arg.Set_float optional_args.solver_timeout_sec, "Solver timeout seconds")
-  ; ("-m", Arg.Set_int optional_args.global_max_step, "Global max step")
-  ; ("-q", Arg.Set optional_args.quit_on_abort, "Quit on first abort")
-  ; ("-d", Arg.Set_int optional_args.max_tree_depth, "Max tree depth")
-  ; ("-r", Arg.Set optional_args.random, "Random")] 
+  ; ("-m", Arg.Set_int   optional_args.global_max_step   , "Global max step")
+  ; ("-q", Arg.Set       optional_args.quit_on_abort     , "Quit on first abort")
+  ; ("-d", Arg.Set_int   optional_args.max_tree_depth    , "Max tree depth")
+  ; ("-r", Arg.Set       optional_args.random            , "Random")] 
 
 let () = 
   Arg.parse speclist anon_fun usage_msg;
