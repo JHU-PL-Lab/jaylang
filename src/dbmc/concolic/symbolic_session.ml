@@ -275,6 +275,7 @@ type t =
   | At_max_depth of At_max_depth.t
   | Finished of Finished.t
   (* TODO: track a path in a tree and only add formulas if at a new node. TODO: add a "pruned" variant to path tree status *)
+  (* TODO: (this one more important) use phantom type parameters and GADTs to make "live" or "dead" session *)
 
 let empty : t = Basic Basic.empty
 
