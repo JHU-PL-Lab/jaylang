@@ -1,0 +1,7 @@
+# subtype of union type
+
+let f (i : int) (b : bool) (a : 'a) : (int || bool || List 'a) =
+  a :: []
+in
+
+f

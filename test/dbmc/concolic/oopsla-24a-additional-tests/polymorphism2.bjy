@@ -1,0 +1,27 @@
+
+let sign = ({: even : bool :} || {: odd : bool :})
+in
+
+let rec list_count (ls : List 'a) (f : 'a -> bool) : int =
+  match ls with
+  | [] -> 0
+  | hd :: tl ->
+    let a = if f hd then 1 else 0 in
+    a + list_count tl f
+  end
+in
+
+# Computes sgn of permutation
+let sgn (ls : List 'a) (compare : 'a -> 'a -> int) : sign =
+  let rec num_inversions l =
+    match l with
+    | [] -> 0
+    | hd :: tl -> list_count tl (fun x -> compare x hd < 0) and num_inversions tl # `and` should be (+). TODO: why is there an exception when it is (::)?
+    end
+  in
+  if num_inversions ls % 2 == 0
+  then { even = true }
+  else { odd = true }
+in
+
+sgn

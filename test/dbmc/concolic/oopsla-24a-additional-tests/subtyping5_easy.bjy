@@ -1,0 +1,14 @@
+# subtyping of functions
+# TODO: this didn't work with empty record as argument of h. What is syntax for empty record? I got interpretation error
+
+let t = ({: a : int , b : int :} -> int) -> int
+in
+
+let f (h : {: a : int :} -> int) : int =
+  0
+in
+
+let (g : t) = f # ERROR: f is supertype of t, not subtype
+in
+
+g
