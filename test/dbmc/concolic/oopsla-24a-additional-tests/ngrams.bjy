@@ -1,0 +1,57 @@
+# Here is a well-typed big program.
+# We use n-grams to sample a sequence from a distribution.
+# This relies on a Map and a Bag, which we model.
+
+let token = 'a
+in
+
+let pos_int = {. int | fun i -> i > 0 }
+in
+
+# Parametric map
+#let map a b = a -> b
+#in
+
+# Parametric bag
+#let bag a = List a
+#in
+
+let rec len ls = 
+  match ls with
+  | [] -> 0
+  | hd :: tl -> 1 + len tl
+  end
+in
+
+let ngram n a = {. List a | fun ls -> len ls == n }
+in
+
+#let distribution n a = map (ngram (n - 1) a) (bag a)
+#in
+
+#let rec take n l =
+letd rec take (n : pos_int) : (List token) -> {. List token | fun ls -> len ls <= n } =
+  fun l ->
+    if n == 0 then [] else
+    match l with
+    | [] -> []
+    | hd :: tl -> hd :: take (n - 1) tl
+    end
+in
+
+# TODO: where is the type error coming from? I think this should be well-typed
+letd make_ngrams (n : pos_int) : (List token) -> List (ngram n token) =
+  fun ls ->
+    let rec loop l =
+      match l with
+      | [] -> []
+      | hd :: tl ->
+        if len l < n then [] else
+        take n l :: loop tl
+      end
+    in
+    loop ls
+in
+
+make_ngrams
+

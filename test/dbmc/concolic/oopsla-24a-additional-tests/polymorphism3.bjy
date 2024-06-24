@@ -1,0 +1,20 @@
+# Polymorphic list creation with ill-types in refinement on list length
+
+let size l = 
+    let rec loop ls acc = 
+        match ls with
+        | [] -> acc
+        | hd :: tl -> loop tl (acc + 1)
+        end
+    in
+    loop l 0
+in 
+
+letd rec replicate (n : int) : ('a -> {. List 'a | fun xs -> (size xs) == n }) = 
+  fun x ->
+    if n == 0
+    then []
+    else x :: (replicate (n - 2) x) # ERROR: this should have `(n - 1)`
+in
+
+replicate
