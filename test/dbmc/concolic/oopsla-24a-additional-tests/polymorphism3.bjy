@@ -1,4 +1,5 @@
 # Polymorphic list creation with ill-types in refinement on list length
+# TODO: delete this. It is uninteresting
 
 let size l = 
     let rec loop ls acc = 

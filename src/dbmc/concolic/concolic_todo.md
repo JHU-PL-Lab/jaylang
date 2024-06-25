@@ -15,3 +15,38 @@
   * Therefore can get better runs, but we don't waste time on an overloaded solver
 * Value numbering and dead store elimination on jil programs (and hence liveness?)
 
+
+
+
+## Ignore all above
+
+### 25 June 2024
+
+Tests I added:
+* Polymorphism:
+  * Simple higher order polymorphic function application
+  * Calling with record supertype
+  * Subtyping of intersection types
+  * Subtyping of functions
+
+
+Need to add:
+* Duck typing records (I'm unsure how to do this any better than just regular use of records)
+* type casing leads to violations of parametricity
+* more improper use of higher order functions
+* Longer test cases (working on ngrams right now)
+
+Other things to add:
+* Discussion on test cases (e.g. clear up what tests like `polymorphic_map` cover)
+  * Better: loc in tests, features in tests, etc. added to table
+
+Other things to do:
+* Tweak heuristics
+  * Let's target branches closer to uncovered code in *any* path. e.g. simply track number of times each line has been hit, and prioritize lesser-hit lines, or distance to lesser-hit lines (using number of conditionals as distance metric). (this should roughly handle prioritizing non-recursions).
+  * Could also track number of solves on each AST branch and try to even that out.
+
+Questions I have:
+* Why is it ill-typed to pattern match on 'a?
+* What does it really mean to have a subtyping test?
+  * It is not noteworthy to show that we fail to find an error in a well-typed program with subtyping
+  * It is therefore more noteworthy to find errors in an ill-typed program, where maybe subtyping seems closely related, but "not a subtype" is very much like "ill-typed". See my examples for attempts at this.
