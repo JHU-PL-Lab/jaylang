@@ -1,6 +1,5 @@
-# Here is a well-typed big program.
-# We use n-grams to sample a sequence from a distribution.
-# This relies on a Map and a Bag, which we model.
+# Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program.
+# This has been trimmed down to remove any code that had no intersection with the erroring code.
 
 let pos_int = {. int | fun i -> i > 0 }
 in
@@ -104,19 +103,17 @@ let rec last_exn ls =
 in
 
 letd make_dist (n : pos_int) : (List 'a) -> ('a -> 'a -> int) -> distribution n ('a) =
-#let make_dist n =
   fun l ->
     fun compare ->
-      #let ngrams = make_ngrams n l in
-      #let rec make_tup_list ls =
-      #  match ls with
-      #  | [] -> []
-      #  | ngram :: tl ->
-      #    { fst = take (n - 1) ngram , snd = last_exn ngram } :: make_tup_list tl 
-      #  end
-      #in
-      #bag_map_of_list (make_tup_list ngrams) (compare_list compare)
-      bag_map_of_list [] (compare_list compare)
+      let ngrams = make_ngrams n l in
+      let rec make_tup_list ls =
+        match ls with
+        | [] -> []
+        | ngram :: tl ->
+          { fst = last_exn ngram , snd = take (n - 1) ngram } :: make_tup_list ls # ERROR: fst and snd are switched here. fst here is 'a, but we use compare_list below
+        end
+      in
+      bag_map_of_list (make_tup_list ngrams) (compare_list compare)
 in
 
 make_ngrams

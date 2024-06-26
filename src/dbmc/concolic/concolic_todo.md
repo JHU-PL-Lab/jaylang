@@ -20,6 +20,13 @@
 
 ## Ignore all above
 
+TODO:
+* turn off generators for all but one function, and test just that function (so wrap can still catch errors in uses of other functions (i.e. we don't just turn off types on other functions)), and maybe test all functions this way in parallel (requires removing mutation from riddler)
+* trim nodes where there are no unsolved targets underneath to save memory
+  * can recursively send child to something like `Trimmed`, and trim only if neither child is unsolved.
+* Remove option to not quit on abort, then can save memory by storing fewer input lists
+  * Can then possibly discard branch_info, but we want to adapt branch_info to help with targeting unhit lines
+
 ### 25 June 2024
 
 Tests I added:
@@ -35,6 +42,7 @@ Need to add:
 * type casing leads to violations of parametricity
 * more improper use of higher order functions
 * Longer test cases (working on ngrams right now)
+* e.g. colored point is used in function and passed in, so it all works if dynamically typed (duck typing), but parameter has less specific type
 
 Other things to add:
 * Discussion on test cases (e.g. clear up what tests like `polymorphic_map` cover)

@@ -3,6 +3,8 @@ let t a b = List b -> {: value : a , store : List b :}
 in
 
 # Error is return type should have 'c, where instead it has 'a
+# TODO: figure out why we don't catch this
+# TODO: add test for continuation monad because it has some more opportunities for type errors
 let bind (x : List 'b -> {: value : 'a , store : List 'b :}) (f : 'a -> List 'b -> {: value : 'c , store : List 'b :}) : List 'b -> {: value : 'a , store : List 'b :} =
   fun ss ->
     match x ss with

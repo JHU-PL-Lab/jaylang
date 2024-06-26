@@ -1,0 +1,18 @@
+
+let color = bool
+in
+
+let point = {: x : int , y : int :}
+in
+
+let colored_point = {: x : int , y : int , color : color :}
+in
+
+let get_color (p : point) : color =
+  p.color # should have required p : colored_point
+in
+
+let result = get_color { x = 0 , y = 0 , color = false } # this is fine
+in
+
+get_color
