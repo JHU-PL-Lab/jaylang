@@ -35,7 +35,7 @@ let rec take n =
     | [] -> []
     | hd :: tl ->
       if n == 1
-      then [ hd ] # TODO: I made an error when writing this where I just returned `hd` instead of `[hd]`. Add this as test case
+      then [ hd ]
       else hd :: take (n - 1) tl
     end
 in

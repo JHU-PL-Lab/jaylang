@@ -1,5 +1,11 @@
-# Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program.
-# This has been trimmed down to remove any code that had no intersection with the erroring code.
+# Here is a well-typed big program.
+# We use n-grams to sample a sequence from a distribution.
+# This relies on a Map and a Bag, which we model.
+
+# Note: the translation here takes like 8 seconds
+
+let token = 'a
+in
 
 let pos_int = {. int | fun i -> i > 0 }
 in
@@ -26,7 +32,7 @@ let distribution n a = map (ngram (n - 1) a) (bag a)
 in
 
 let rec take n =
-#letd rec take (n : pos_int) : (List 'a) -> {. List 'a | fun ls -> len ls <= n } =
+#letd rec take (n : pos_int) : (List 'take) -> {. List 'take | fun ls -> len ls <= n } =
   fun l ->
     match l with
     | [] -> []
@@ -74,10 +80,11 @@ in
 let tuple a b = {: fst : a , snd : b :}
 in
 
-letd bag_map_of_list (ls : List (tuple ('a) ('b))) : ('a -> 'a -> int) -> map ('a) (bag ('b)) =
+letd bag_map_of_list (ls : List (tuple ('tup_a) ('tup_b))) : ('tup_a -> 'tup_a -> int) -> map ('tup_a) (bag ('tup_b)) =
 #let bag_map_of_list ls =
   fun compare ->
     fun a ->
+      #letd rec loop (l : List (tuple ('tup_a) ('tup_b))) : List ('tup_b) =
       let rec loop l =
         match l with
         | [] -> []
@@ -93,7 +100,6 @@ in
 #let rec last_exn (ls : {. List 'a | fun l -> len l > 0 }) : 'a = 
 let rec last_exn ls = 
   match ls with
-  | [] -> assert false
   | hd :: tl ->
     match tl with
     | [] -> hd
@@ -102,18 +108,24 @@ let rec last_exn ls =
   end
 in
 
-letd make_dist (n : pos_int) : (List 'a) -> ('a -> 'a -> int) -> distribution n ('a) =
+letd make_dist (n : pos_int) : (List token) -> (token -> token -> int) -> distribution n token =
+#let make_dist n =
   fun l ->
     fun compare ->
-      let ngrams = make_ngrams n l in
+      #let ngrams = make_ngrams n l in
       let rec make_tup_list ls =
         match ls with
         | [] -> []
         | ngram :: tl ->
-          { fst = last_exn ngram , snd = take (n - 1) ngram } :: make_tup_list ls # ERROR: fst and snd are switched here. fst here is 'a, but we use compare_list below
+          { fst = take (n - 1) ngram , snd = last_exn ngram } :: make_tup_list tl 
         end
       in
-      bag_map_of_list (make_tup_list ngrams) (compare_list compare)
+      #bag_map_of_list (make_tup_list ngrams) (compare_list compare)
+      bag_map_of_list [] (compare_list compare) # TODO: find error originating from wrap, likely here
+      #fun ignore ->
+      #  match l with
+      #  | hd :: tl -> hd
+      #  end
 in
 
 make_ngrams
