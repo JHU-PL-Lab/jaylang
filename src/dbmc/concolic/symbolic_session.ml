@@ -183,7 +183,6 @@ module Basic =
             (Node_stack.hd_branch s.stack)
       }
 
-
     (* require that cx is true by adding as formula *)
     let found_assume (s : t) (cx : Concolic_key.Lazy.t) : t =
       match s.stack with

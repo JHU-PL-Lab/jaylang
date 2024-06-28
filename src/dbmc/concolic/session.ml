@@ -127,11 +127,17 @@ let of_expr (expr : Jayil.Ast.expr) : t =
 
 let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let sym = Symbolic.finish sym x.tree in
+  let branch_info  = Branch_info.merge x.branch_info @@ Symbolic.branch_info sym in
+  let target_queue =
+    let targets = Symbolic.targets_exn sym in
+    let hit_counts = List.map targets ~f:(fun target -> Branch_info.get_hit_count branch_info (Branch.Runtime.to_ast_branch target.branch)) in
+    Target_queue.push_list x.target_queue targets hit_counts
+  in
   { x with
     tree         = Symbolic.root_exn sym
   ; has_pruned   = x.has_pruned || Symbolic.hit_max_depth sym || Symbolic.is_reach_max_step sym
-  ; branch_info  = Branch_info.merge x.branch_info @@ Symbolic.branch_info sym
-  ; target_queue = Target_queue.push_list x.target_queue @@ Symbolic.targets_exn sym
+  ; branch_info
+  ; target_queue
   ; quit         =
     x.quit
     || x.options.quit_on_abort
@@ -162,9 +168,10 @@ let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
 (* `Done (branch_info, has_pruned) *)
 let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ] =
   let pop_kind =
-    match x.last_sym with
-    | Some s when Symbolic.is_reach_max_step s -> `BFS (* only does BFS when last symbolic run reached max step *)
-    | _ -> `Random
+    (* match x.last_sym with
+    | Some s when Symbolic.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
+    | _ -> Random *)
+    Target_queue.Pop_kind.Prioritize_uncovered
   in
   let rec next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ] =
     if x.quit then done_ x else

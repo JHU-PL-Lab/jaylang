@@ -47,14 +47,17 @@ open M2
 
 type t =
   { global : Status.t
-  ; map    : M2.t }
+  ; map    : M2.t
+  ; branch_hit_counter : Branch_hit_counter.t }
   [@@deriving compare]
 
 let return (m : M2.t) : t =
   { global = Status.Unhit
-  ; map    = m }
+  ; map    = m
+  ; branch_hit_counter = Branch_hit_counter.empty }
 
-let (>>=) x f = { x with map = f x.map }
+let (>==) x f = { x with map = f x.map }
+let (>=|) x f = { x with branch_hit_counter = f x.branch_hit_counter }
 
 let empty = return M.empty
 
@@ -64,8 +67,8 @@ let add_branch_id (map : t) (id : Jayil.Ast.ident) : t =
     | None -> Status.Unhit
   in
   map
-  >>= Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.True_direction } ~f:set_unhit
-  >>= Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.False_direction } ~f:set_unhit
+  >== Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.True_direction } ~f:set_unhit
+  >== Fn.flip Map.update Branch.{ branch_ident = id ; direction = Branch.Direction.False_direction } ~f:set_unhit
 
 let rec find_branches (e : Jayil.Ast.expr) (m : t) : t =
   let open Jayil.Ast in
@@ -123,9 +126,13 @@ let to_string (map : t) : string =
 let set_branch_status ~(new_status : Status.t) (map : t) (branch : Branch.Or_global.t) : t =
   match branch with
   | Global -> { map with global = new_status }
-  | Branch key -> map >>= Map.set ~key ~data:new_status
+  | Branch key ->
+    map >== Map.set ~key ~data:new_status >=| fun x ->
+      match new_status with
+      | Hit -> Branch_hit_counter.hit_branch x key
+      | _ -> x
 
-let contains ({ global ; map } : t) (status : Status.t) : bool =
+let contains ({ global ; map ; _ } : t) (status : Status.t) : bool =
   Status.compare global status = 0
   || Map.exists map ~f:(fun v -> Status.compare v status = 0)
 
@@ -138,9 +145,10 @@ let merge (m1 : t) (m2 : t) : t =
       | `Left old_status -> Some old_status
       | `Right new_status -> failwith "only new status for branch when old status is expected"
       )
+  ; branch_hit_counter = Branch_hit_counter.merge m1.branch_hit_counter m2.branch_hit_counter
   }
 
-let find ({ global ; map } : t) ~(f : Branch.Or_global.t -> Status.t -> bool) : (Branch.Or_global.t * Status.t) option =
+let find ({ global ; map ; _ } : t) ~(f : Branch.Or_global.t -> Status.t -> bool) : (Branch.Or_global.t * Status.t) option =
   let open Branch.Or_global in
   if f Global global
   then Some (Global, global)
@@ -154,7 +162,9 @@ let find ({ global ; map } : t) ~(f : Branch.Or_global.t -> Status.t -> bool) : 
         else Continue ()
       )
       ~finish:(fun () -> None)
-  
+
+let get_hit_count ({ branch_hit_counter ; _ } : t) (branch : Branch.t) : int =
+  Branch_hit_counter.get_count branch_hit_counter branch
 
 (* Custom sexp conversions so that it's easier to hand-write the sexp files *)
 module Sexp_conversions =
@@ -175,8 +185,8 @@ module Sexp_conversions =
       |> List.t_of_sexp My_tuple.t_of_sexp
       |> List.fold ~init:empty ~f:(fun acc (id, true_status, false_status) ->
         acc
-        >>= Map.set ~key:(Branch.{ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.True_direction}) ~data:true_status
-        >>= Map.set ~key:(Branch.{ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.False_direction}) ~data:false_status
+        >== Map.set ~key:(Branch.{ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.True_direction}) ~data:true_status
+        >== Map.set ~key:(Branch.{ branch_ident = Jayil.Ast.Ident id ; direction = Branch.Direction.False_direction}) ~data:false_status
       )
   end
 

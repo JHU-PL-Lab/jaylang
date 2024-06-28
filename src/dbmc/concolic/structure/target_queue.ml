@@ -1,5 +1,20 @@
 open Core
 
+module Pop_kind =
+  struct
+    type t =
+      | DFS
+      | BFS
+      | Prioritize_uncovered
+      | Random
+
+    let random () =
+      match Random.int 3 with
+      | 0 -> DFS
+      | 1 -> BFS
+      | _ -> Prioritize_uncovered
+  end
+
 module Q = Psq.Make (Target) (Int) (* functional priority search queue *)
 
 module Priority =
@@ -58,30 +73,52 @@ module T =
 
 type t =
   { dfs : T.t
-  ; bfs : T.t }
+  ; bfs : T.t
+  ; hit : Q.t } (* prioritized by number of times the target has been hit *)
   
 let empty : t =
   { dfs = T.empty Front
-  ; bfs = T.empty Back }
+  ; bfs = T.empty Back
+  ; hit = Q.empty }
 
 (* Deeper targets are at the front of [ls] *)
-let push_list ({ dfs ; bfs } : t) (ls : Target.t list) : t =
+let push_list ({ dfs ; bfs ; hit } : t) (ls : Target.t list) (hits : int list) : t =
   { dfs = T.push_list dfs (List.rev ls) (* reverse so that deeper targets have better priority *)
-  ; bfs = T.push_list bfs ls }
+  ; bfs = T.push_list bfs ls
+  ; hit = List.fold2_exn ls hits ~init:hit ~f:(fun acc k p -> Q.push k p acc) }
 
-let rec pop ?(kind : [ `DFS | `BFS | `Random ] = `DFS) ({ dfs ; bfs } as x : t) : (Target.t * t) option =
+let remove (x : t) (target : Target.t) : t =
+  { bfs = T.remove x.bfs target
+  ; dfs = T.remove x.dfs target
+  ; hit = Q.remove target x.hit }
+
+let rec pop ?(kind : Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
   match kind with
-  | `DFS -> begin
-    match T.pop dfs with
-    | Some (target, dfs) -> Some (target, { dfs ; bfs = T.remove bfs target })
+  | DFS -> begin
+    match T.pop x.dfs with
+    | Some (target, dfs) -> Some (target, remove { x with dfs } target)
     | None -> None
   end
-  | `BFS -> begin
-    match T.pop bfs with
-    | Some (target, bfs) -> Some (target, { bfs ; dfs = T.remove dfs target })
+  | BFS -> begin
+    match T.pop x.bfs with
+    | Some (target, bfs) -> Some (target, remove { x with bfs } target)
     | None -> None
   end
-  | `Random ->
-    if Random.int 2 = 0
-    then pop ~kind:`DFS x
-    else pop ~kind:`BFS x
+  | Prioritize_uncovered -> begin
+    match Q.pop x.hit with
+    | Some ((target, _), hit) -> Some (target, remove { x with hit } target)
+    | None -> None
+  end
+  | Random -> pop ~kind:(Pop_kind.random ()) x
+
+
+(*
+  TODO: want to add a queue where the targets have priority by the number of times they have been hit in the AST.
+  * So basically whenever a target is pushed, we give it priority equal to the number of times any instance of
+    that branch has been hit.
+  * We don't want to only store that in the target queue because if no instance of the target is in the queue,
+    then what priority do we give it? We must store it elsewhere.
+  * Disregarding finding failed assumes, we can say hitting a line is the same as hitting the branch encompassing it.
+  * Need to be careful about not doubling up on the counts for hitting a failed assume, then hitting the branch correctly
+    immediately afterwards.
+*)

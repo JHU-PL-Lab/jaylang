@@ -489,10 +489,8 @@ let rec loop (e : expr) (prev_session : Session.t) : (Branch_info.t * bool) Lwt.
       CLog.app (fun m -> m "%s" (Branch_info.to_string branch_info));
       Lwt.return (branch_info, has_pruned)
     | `Next (session, symb_session, conc_session) ->
-      (* let status_store = Session.Symbolic.status_store symb_session in *)
       CLog.info (fun m -> m "Pre-run info:\n");
       CLog.info (fun m -> m "%s" (Branch_info.to_string @@ Session.branch_info session));
-      (* Branch_tracker.Status_store.Without_payload.print status_store; *)
       CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session));
       let t0 = Caml_unix.gettimeofday () in
       let resulting_symbolic = try_eval_exp_default ~conc_session ~symb_session e in

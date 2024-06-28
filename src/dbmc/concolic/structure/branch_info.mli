@@ -28,3 +28,5 @@ val contains : t -> Status.t -> bool
 val merge : t -> t -> t
 
 val find : t -> f:(Branch.Or_global.t -> Status.t -> bool) -> (Branch.Or_global.t * Status.t) option
+
+val get_hit_count : t -> Branch.t -> int

@@ -2,6 +2,8 @@
 # We use n-grams to sample a sequence from a distribution.
 # This relies on a Map and a Bag, which we model.
 
+# Note: the translation here takes like 8 seconds
+
 let pos_int = {. int | fun i -> i > 0 }
 in
 
