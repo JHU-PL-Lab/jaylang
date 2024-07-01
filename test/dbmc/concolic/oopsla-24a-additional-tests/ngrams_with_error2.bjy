@@ -110,7 +110,8 @@ letd make_dist (n : pos_int) : (List 'a) -> ('a -> 'a -> int) -> distribution n 
         match ls with
         | [] -> []
         | ngram :: tl ->
-          { fst = last_exn ngram , snd = take (n - 1) ngram } :: make_tup_list ls # ERROR: fst and snd are switched here. fst here is 'a, but we use compare_list below
+          #{ fst = last_exn ngram , snd = take (n - 1) ngram } :: make_tup_list ls # ERROR: fst and snd are switched here. fst here is 'a, but we use compare_list below
+          { snd = last_exn ngram , fst = take (n - 1) ngram } :: make_tup_list ls
         end
       in
       bag_map_of_list (make_tup_list ngrams) (compare_list compare)

@@ -54,7 +54,12 @@ Other things to do:
   * Could also track number of solves on each AST branch and try to even that out.
 
 Questions I have:
-* Why is it ill-typed to pattern match on 'a?
 * What does it really mean to have a subtyping test?
   * It is not noteworthy to show that we fail to find an error in a well-typed program with subtyping
   * It is therefore more noteworthy to find errors in an ill-typed program, where maybe subtyping seems closely related, but "not a subtype" is very much like "ill-typed". See my examples for attempts at this.
+
+
+
+# TODAY TODO:
+
+* Nothing right now

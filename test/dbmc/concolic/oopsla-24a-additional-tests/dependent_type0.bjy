@@ -1,0 +1,10 @@
+# Minimal example for failing wrap with dependently typed functions
+
+let t a = a
+in
+
+letd f (x : 'a) : t ('a) =
+  x
+in
+
+f 0

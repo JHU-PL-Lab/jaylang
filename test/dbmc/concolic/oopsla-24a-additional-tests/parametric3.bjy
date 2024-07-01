@@ -1,0 +1,36 @@
+# Continuation monad -- improper use of bind
+
+let t r a = {: continuation : (a -> r) -> r :}
+in
+
+let bind (ar_r : t ('r) ('a)) : ('a -> t ('r) ('b)) -> t ('r) ('b) =
+  fun a_br_r ->
+    { continuation = 
+      fun br -> ar_r.continuation (fun a -> (a_br_r a).continuation br)
+    }
+in
+
+let r = {: r : int :}
+in
+
+let x_t = t r (int)
+in
+
+let (x : x_t) =
+  { continuation =
+    fun ir ->
+      { r = (ir 0).r + 1 } }
+in
+
+#let (f : int -> t r (List int)) =
+#  fun i ->
+#    { continuation =
+#      fun lir ->
+#        lir [ i ]
+#    }
+#in
+
+let g = bind x
+in
+
+g
