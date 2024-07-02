@@ -94,3 +94,5 @@ I'd like advice on this:
     * parametric2/3 -- continuation monad with bind
     * subtyping5 -- higher order function looks like we have subtypes, until you think about it, and it's really not
     * ... and other natural uses with no deliberate focus on erroring with the higher order functions deliberately
+* Why is polymorphism4 an error? Is this a bug? It seems fine to me from a type inference perspective
+* Structure question: does it make sense to move concolic out of dbmc directory?

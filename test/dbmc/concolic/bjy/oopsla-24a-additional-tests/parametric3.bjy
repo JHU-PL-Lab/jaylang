@@ -1,5 +1,7 @@
 # Continuation monad -- improper use of bind
 
+# Currently has no intended error because there is a bug in the dependent types
+
 let t r a = {: continuation : (a -> r) -> r :}
 in
 

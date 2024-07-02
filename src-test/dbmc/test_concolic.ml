@@ -14,10 +14,10 @@ let test_for_abort testname _args =
   | Some "jil" -> Dj_common.File_utils.read_source testname
   | Some "bjy" ->
     Convert.jil_ast_of_convert
-    @@ Dj_common.File_utils.read_source_full ~do_instrument:true testname
+    @@ Dj_common.File_utils.read_source_full ~do_wrap:true ~do_instrument:true testname
   | _ -> failwith "unsupported test extension"
   end
-  |> Concolic_driver.test_expr ~global_timeout_sec:10.0 ~quit_on_abort:true
+  |> Concolic_driver.test_expr ~quit_on_abort:true
   |> begin function
     | Concolic_driver.Test_result.Timeout
     | Exhausted
@@ -47,11 +47,7 @@ let () =
     Test_argparse.config 
     (
       []
-      (* @ make_tests "_bjy_tests" `Slow not all expect files exist yet, so these tests are not supposed to pass *)
-      @ make_tests "bjy_tests" `Quick
-      (* @ make_tests "racket_tests" `Quick *)
-      (* @ make_tests "racket_tests_well_typed" `Slow *)
-      @ make_tests "no_instrument" `Slow
-      @ make_tests "scheme-pldi-2015" `Quick (* no instrument *)
+      @ make_tests "bjy/scheme-pldi-2015" `Quick
+      @ make_tests "bjy/oopsla-24a-additional-tests" `Quick
     ) 
     ~quick_only:true
