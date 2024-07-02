@@ -62,7 +62,7 @@ Questions I have:
 
 # 2 July 2024
 
-Summary: I'm going crazy trying to get complex well-typed programs.
+Summary: I'm going crazy trying to get complex well-typed programs because of small bugs in translation.
 
 Case in point:
 * subtyping5_well_typed
@@ -81,3 +81,16 @@ Items I know I need to do:
 * Add filler to some simple programs (e.g. type_casing1) to hide the error a little deeper
 * Fully integrate Earl's variant/union change from a while ago (i.e. just change union types in current tests)
 * Benchmark without parsing
+
+I'd like advice on this:
+* OOP-style tests are very easy and feel covered by any tests using records, so I don't have many.
+  * Do we want these easy tests singled out, or is an annotation on all the more complex tests enough to indicate we have this covered?
+* A reviewer asked for tests where "type casing leads to violations of parametricity"
+  * Is this sufficiently covered by cases where a variable should be polymorphic, but it is locked in by its usage. e.g. type_casing1, polymorphism2
+* They also asked for more focus on higher order functions.
+  * Do my tests cover it well enough?
+    * polymorphism2 -- higher order function used with wrong arguments
+    * polymorphism3 -- higher order function passed through a recursive call where the polymorphic types don't line up
+    * parametric2/3 -- continuation monad with bind
+    * subtyping5 -- higher order function looks like we have subtypes, until you think about it, and it's really not
+    * ... and other natural uses with no deliberate focus on erroring with the higher order functions deliberately
