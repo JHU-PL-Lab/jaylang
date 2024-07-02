@@ -16,7 +16,7 @@ let rec flatten (x : any_type) : List 'a =
   | `L ls ->
     match ls with
     | [] -> []
-    | hd :: tl -> append (flatten hd) tl # should have flatten tl not tl in the correct call 
+    | hd :: tl -> append (flatten hd) tl # should have `(flatten (`L tl))` not `tl` in the correct call 
     end
   | `A a -> [ a ]
   end

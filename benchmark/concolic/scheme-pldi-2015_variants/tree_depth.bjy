@@ -1,6 +1,6 @@
 # simple error that depth should be positive but leaf has depth 0
 
-let t = Mu tt. ({: left : tt , right : tt :} || {: leaf : bool :}) in
+let t = Mu tt. (``Node {: left : tt , right : tt :} || ``Leaf {: leaf : bool :}) in
 
 let max x y =
   if x > y
@@ -10,8 +10,8 @@ in
 
 let rec depth (tree : t) : {. int | fun i -> i > 0 } =
   match tree with
-  | { leaf = b } -> 0
-  | { left = l , right = r } -> 1 + max (depth l) (depth r)
+  | `Leaf leaf -> 0
+  | `Node node -> 1 + max (depth node.left) (depth node.right)
   end
 in
 
