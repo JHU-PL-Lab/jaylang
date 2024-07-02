@@ -3,7 +3,7 @@
 let t a = a
 in
 
-letd f (x : 'a) : t ('a) =
+letd f (x : t ('a)) : t ('a) =
   x
 in
 

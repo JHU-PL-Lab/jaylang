@@ -2,4 +2,5 @@
 let appl (f : 'a -> 'b) (a : 'a) : 'b =
   f (f a)
 in
+
 appl

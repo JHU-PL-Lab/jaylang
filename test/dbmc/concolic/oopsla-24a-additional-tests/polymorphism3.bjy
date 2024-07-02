@@ -1,21 +1,28 @@
-# Polymorphic list creation with ill-types in refinement on list length
-# TODO: delete this. It is uninteresting for polymorphism
+# Polymorphic types in higher order functions are wrong
 
-let size l = 
-    let rec loop ls acc = 
-        match ls with
-        | [] -> acc
-        | hd :: tl -> loop tl (acc + 1)
-        end
-    in
-    loop l 0
-in 
-
-letd rec replicate (n : int) : ('a -> {. List 'a | fun xs -> (size xs) == n }) = 
-  fun x ->
-    if n == 0
-    then []
-    else x :: (replicate (n - 2) x) # ERROR: this should have `(n - 1)`
+let rec map2 (ls1 : List 'a) (ls2 : List 'b) (f : 'a -> 'b -> 'c) : List 'c =
+  match ls1 with
+  | [] -> []
+  | hd1 :: tl1 -> 
+    match ls2 with
+    | [] -> []
+    | hd2 :: tl2 -> 
+      f hd1 hd2 :: map2 tl2 tl1 f # ERROR: should be `map2 tl1 tl2 f` because right now, `f` has wrong type wrt polymorphic types
+    end
+  end
 in
 
-replicate
+# No error in this. It is here to slow down the concolic evaluator and make a bigger haystack in which to find the needle
+let rec fold2 (ls1 : List 'd) (ls2 : List 'e) (init : 'acc) (f : 'acc -> 'd -> 'e -> 'acc) : 'acc =
+  match ls1 with
+  | [] -> init
+  | hd1 :: tl1 ->
+    match ls2 with
+    | [] -> init
+    | hd2 :: tl2 ->
+      fold2 tl1 tl2 (f init hd1 hd2) f
+    end
+  end
+in
+
+fold2

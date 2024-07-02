@@ -60,6 +60,24 @@ Questions I have:
 
 
 
-# TODAY TODO:
+# 2 July 2024
 
-* Nothing right now
+Summary: I'm going crazy trying to get complex well-typed programs.
+
+Case in point:
+* subtyping5_well_typed
+* dependent_type0
+* ngrams
+* parametric1
+* parametric2
+* subtyping2
+
+Other items:
+* I thought I had the "number of times hit" heuristic working, and then it seems like it's not working
+  * I have an indication that sometimes (rarely) I lose a target, and I haven't checked why yet
+
+Items I know I need to do:
+* More big programs
+* Add filler to some simple programs (e.g. type_casing1)
+* Fully integrate Earl's variant/union change from a while ago (i.e. just change union types in current tests)
+* Benchmark without parsing

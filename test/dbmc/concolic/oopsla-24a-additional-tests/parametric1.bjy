@@ -2,13 +2,11 @@
 let t a b = List b -> {: value : a , store : List b :}
 in
 
-# Error is return type should have 'c, where instead it has 'a
-# TODO: figure out why we don't catch this
-# TODO: add test for continuation monad because it has some more opportunities for type errors
-let bind (x : List 'b -> {: value : 'a , store : List 'b :}) (f : 'a -> List 'b -> {: value : 'c , store : List 'b :}) : List 'b -> {: value : 'a , store : List 'b :} =
+# This should be well-typed, but it's not. It works in ocaml
+let bind (x : t ('a) ('b)) (f : 'a -> t ('c) ('b)) : t ('c) ('b) =
   fun ss ->
     match x ss with
-    | { value = v , store = s } -> f v s
+    | { value = v , store = s } -> f v s 
     end
 in
 

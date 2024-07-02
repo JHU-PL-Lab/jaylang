@@ -1,5 +1,4 @@
 # subtyping of functions
-# TODO: this didn't work with empty record as argument of h. What is syntax for empty record? I got translation error
 
 let t = ({: a : int , b : int :} -> int) -> int
 in
