@@ -78,6 +78,6 @@ Other items:
 
 Items I know I need to do:
 * More big programs
-* Add filler to some simple programs (e.g. type_casing1)
+* Add filler to some simple programs (e.g. type_casing1) to hide the error a little deeper
 * Fully integrate Earl's variant/union change from a while ago (i.e. just change union types in current tests)
 * Benchmark without parsing
