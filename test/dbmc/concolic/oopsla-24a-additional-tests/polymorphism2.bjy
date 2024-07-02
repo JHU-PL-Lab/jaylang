@@ -1,6 +1,6 @@
 # Polymorphic higher order function application is incorrect
 
-let sign = ({: even : bool :} || {: odd : bool :})
+let sign = (``Even {: even : bool :} || ``Odd {: odd : bool :})
 in
 
 let rec list_count (ls : List 'a) (f : 'a -> bool) : int =
@@ -21,8 +21,8 @@ let sgn (ls : List 'a) (compare : 'a -> 'a -> int) : sign =
     end
   in
   if num_inversions ls % 2 == 0
-  then { even = true }
-  else { odd = true }
+  then `Even { even = true }
+  else `Odd { odd = true }
 in
 
 sgn
