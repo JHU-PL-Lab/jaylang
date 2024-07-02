@@ -1,0 +1,1 @@
+let (x : List (``I int || ``B bool)) = [{a = 1}] in x 

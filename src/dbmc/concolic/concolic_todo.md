@@ -62,7 +62,7 @@ Questions I have:
 
 # 2 July 2024
 
-Summary: I'm going crazy trying to get complex well-typed programs because of small bugs in translation.
+Summary: I'm going crazy trying to get complex well-typed programs because of small bugs in translation (or somewhere else, idk).
 
 Case in point:
 * subtyping5_well_typed
@@ -78,9 +78,10 @@ Other items:
 
 Items I know I need to do:
 * More big programs
+  * This is hard when I can't be sure anything is well-typed due to the errors I've brought up
 * Add filler to some simple programs (e.g. type_casing1) to hide the error a little deeper
-* Fully integrate Earl's variant/union change from a while ago (i.e. just change union types in current tests)
 * Benchmark without parsing
+* For ease of mind: get well-typed versions of **every** test so that we are sure they are correct
 
 I'd like advice on this:
 * OOP-style tests are very easy and feel covered by any tests using records, so I don't have many.
@@ -96,3 +97,7 @@ I'd like advice on this:
     * ... and other natural uses with no deliberate focus on erroring with the higher order functions deliberately
 * Why is polymorphism4 an error? Is this a bug? It seems fine to me from a type inference perspective
 * Structure question: does it make sense to move concolic out of dbmc directory?
+* I would like to see what happens if we turn off all but one generator.
+  * Currently, we can get caught up on earlier parts of code. If we have no generator, then this won't happen. Right?
+  * If I can remove mutation, we can run in parallel easily
+    * The current mutation is in `Riddler` and in setting a `Random` seed, and maybe the exceptions will be a problem?

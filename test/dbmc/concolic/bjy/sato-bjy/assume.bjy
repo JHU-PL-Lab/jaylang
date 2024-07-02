@@ -1,0 +1,3 @@
+let f = false in
+let a = assume f in
+1 + true

@@ -49,5 +49,6 @@ let () =
       []
       @ make_tests "bjy/scheme-pldi-2015" `Quick
       @ make_tests "bjy/oopsla-24a-additional-tests" `Quick
+      @ make_tests "bjy/sato-bjy" `Quick
     ) 
     ~quick_only:true

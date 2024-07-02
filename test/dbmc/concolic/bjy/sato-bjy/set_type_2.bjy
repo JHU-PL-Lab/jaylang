@@ -1,0 +1,2 @@
+let (x : {. int | fun a -> (fun b -> 0 > b) a}) = 1 in
+x

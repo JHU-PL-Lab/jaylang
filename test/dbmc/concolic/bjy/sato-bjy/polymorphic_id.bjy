@@ -1,0 +1,4 @@
+let id (x : 'a) : 'a = 
+    x
+in
+id
