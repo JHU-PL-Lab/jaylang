@@ -103,7 +103,7 @@ and expr =
   | TypeIntersect of expr_desc * expr_desc
   | TypeRecurse of ident * expr_desc
   | TypeUntouched of string
-  | TypeVariant of variant_label * expr_desc
+  | TypeVariant of (variant_label * expr_desc) list
 [@@deriving eq, ord, show, to_yojson]
 
 let new_expr_desc : expr -> expr_desc = fun e -> { tag = fresh_n (); body = e }

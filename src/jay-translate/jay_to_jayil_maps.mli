@@ -56,7 +56,7 @@ val get_type_from_idents : t -> Ast.Ident_set.t -> Jay_ast.type_sig
 
 val jayil_to_jay_aliases : t -> Ast.ident list -> Jay_ast.expr_desc list
 
-val get_jayil_var_opt_from_jay_expr : t -> Jay_ast.expr_desc -> Ast.var option
+val get_jayil_vars_from_jay_expr : t -> Jay_ast.expr_desc -> Ast.var list
 (** Given a jay expression, returns the corresponding variable in desugared
     jayil. *)
 

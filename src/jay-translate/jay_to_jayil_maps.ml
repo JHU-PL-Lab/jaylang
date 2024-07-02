@@ -286,7 +286,7 @@ let jayil_to_jay_aliases on_mappings aliases =
          | _ -> None)
   |> List.unique
 
-let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
+let get_jayil_vars_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
   (* Getting the desugared version of core nat expression *)
   let desugared_core =
     let find_key_by_value v =
@@ -300,6 +300,10 @@ let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
       match edesc_opt' with None -> edesc | Some edesc' -> loop edesc'
     in
     loop expr
+  in
+  let () =
+    Fmt.pr "\n This is the desugared expr: %a \n"
+      Jay_ast_pp.pp_expr_desc_without_tag desugared_core
   in
   (* Getting the alphatized version *)
   let on_ident_transform (e_desc : Jay_ast.expr_desc) : Jay_ast.expr_desc =
@@ -371,15 +375,19 @@ let get_jayil_var_opt_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
     jay_expr_transformer on_ident_transform desugared_core
     (* actual_expr *)
   in
-  let jayil_var_opt =
+  let () =
+    Fmt.pr "\n This is the alphatized expr: %a \n"
+      Jay_ast_pp.pp_expr_desc_without_tag alphatized
+  in
+  let jayil_vars =
     Ast.Ident_map.fold
       (fun jayil_var core_expr acc ->
         if Jay_ast.equal_expr_desc core_expr alphatized
-        then Some (Ast.Var (jayil_var, None))
+        then Ast.Var (jayil_var, None) :: acc
         else acc)
-      mappings.jayil_var_to_jay_expr None
+      mappings.jayil_var_to_jay_expr []
   in
-  jayil_var_opt
+  jayil_vars
 
 let get_jay_inst_map mappings = mappings.jay_instrument_vars_map
 
