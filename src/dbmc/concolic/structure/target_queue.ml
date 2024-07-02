@@ -110,15 +110,3 @@ let rec pop ?(kind : Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
     | None -> None
   end
   | Random -> pop ~kind:(Pop_kind.random ()) x
-
-
-(*
-  TODO: want to add a queue where the targets have priority by the number of times they have been hit in the AST.
-  * So basically whenever a target is pushed, we give it priority equal to the number of times any instance of
-    that branch has been hit.
-  * We don't want to only store that in the target queue because if no instance of the target is in the queue,
-    then what priority do we give it? We must store it elsewhere.
-  * Disregarding finding failed assumes, we can say hitting a line is the same as hitting the branch encompassing it.
-  * Need to be careful about not doubling up on the counts for hitting a failed assume, then hitting the branch correctly
-    immediately afterwards.
-*)
