@@ -2020,7 +2020,18 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                   @@ Appl (curr_proj_ed, new_expr_desc @@ Var curr_val_id)
                 in
                 return
-                @@ ((VariantPat (v_lbl, curr_val_id), curr_check_ed) :: acc))
+
+
+                @@ ( VariantPat (v_lbl, curr_val_id),
+                new_expr_desc @@ VariantExpr (v_lbl, curr_check_ed) ) :: acc)
+
+                
+
+                (* @@ ((VariantPat (v_lbl, curr_val_id), curr_check_ed) :: acc)) *)
+
+
+
+
               vs
               [ (AnyPat, match_fail_var) ]
           in

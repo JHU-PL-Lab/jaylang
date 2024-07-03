@@ -3,15 +3,12 @@
 let t = ({: a : int , b : int :} -> int) -> int
 in
 
-let f (h : {: a : int :} -> int) : int =
+let f (h : {: a : int , b : int :} -> int) : int =
   0
 in
 
 let (g : t) =
-  let g2 (h : {: a : int , b : int :} -> int) : int =
-    f h
-  in
-  g2
+  f
 in
 
 g
