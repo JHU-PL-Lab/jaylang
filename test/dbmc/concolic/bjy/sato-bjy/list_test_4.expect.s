@@ -1,3 +1,0 @@
-((found_at_clause "let (x : [int]) = 1 in x") (number_of_errors 1)
- (error_list
-  ((Type_error ((t_var x) (t_expected_type [int]) (t_actual_type int))))))

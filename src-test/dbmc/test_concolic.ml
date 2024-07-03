@@ -2,13 +2,8 @@ open Core
 open Dj_common
 open Dbmc
 
-let _ = Filename.split_extension
-
-(* Just tries to find any abort, and that's all *)
-let test_for_abort testname _args =
-  let filename, extension = Filename.split_extension testname in
-  let expect_path = filename ^ ".expect.s" in (* existence of this file implies an abort should be found *)
-  let is_error_expected = Sys_unix.is_file_exn expect_path in
+let test_for_abort is_error_expected testname _args = 
+  let _, extension = Filename.split_extension testname in
   begin
   match extension with
   | Some "jil" -> Dj_common.File_utils.read_source testname
@@ -39,16 +34,26 @@ module From_lib =
         root
   end
 
+let dir = "test/dbmc/concolic/"
+
+let make_tests e s t = From_lib.group_tests (dir ^ s) t (test_for_abort e)
+
+let make_tests_well_typed s = make_tests false s `Slow
+let make_tests_ill_typed s = make_tests true s `Quick
+
 let () =
-  let dir = "test/dbmc/concolic/" in
-  let make_tests s t = From_lib.group_tests (dir ^ s) t test_for_abort in
   Alcotest.run_with_args 
     "concolic" 
     Test_argparse.config 
     (
       []
-      @ make_tests "bjy/scheme-pldi-2015" `Quick
-      @ make_tests "bjy/oopsla-24a-additional-tests" `Quick
-      @ make_tests "bjy/sato-bjy" `Quick
+      @ make_tests_ill_typed "bjy/oopsla-24a-additional-tests-ill-typed"
+      @ make_tests_well_typed "bjy/oopsla-24a-additional-tests-well-typed"
+
+      @ make_tests_ill_typed "bjy/scheme-pldi-2015-ill-typed"
+      @ make_tests_well_typed "bjy/scheme-pldi-2015-well-typed"
+
+      @ make_tests_ill_typed "bjy/sato-bjy-ill-typed"
+      @ make_tests_well_typed "bjy/sato-bjy-well-typed"
     ) 
-    ~quick_only:true
+    ~quick_only:false

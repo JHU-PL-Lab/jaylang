@@ -104,3 +104,28 @@ Case in point:
     * The current mutation is in `Riddler` and in setting a `Random` seed, and maybe the exceptions will be a problem?
 * Should benchmarking include translation from bjy? It may be a little deceptive to not include this fundamental step in our type-checking.
 * Anything else?
+
+
+* Visitors on trees / adapters / google design patterns
+* communicate max step vs tree depth differently
+* benchmark with/without frontend (frontend = parse + translation, backend = concolic)
+
+### Meeting summary
+
+Immediate items to do:
+* Determine tags for test programs (e.g. higher order functions, polymorphism, subtyping, etc.) and have at least 3-5 programs sufficiently covering each
+* Copy classic OOP style programs, including, but not limited to, visitors on trees, adapter design pattern, flyweight pattern, etc.
+* Write more big programs, archiving the type errors I make along the way as 
+  * Note: my progress on these feels quite dependent on Earl fixing the wrap bugs
+* Inflate the super simple programs with more code
+* Add type casing tests (NOT type casting)
+* Narrow down and share all the wrap bugs I've found as minimal examples
+* Nudge Earl and ask for help on the bugs
+
+Once those have been done:
+* Benchmark the programs with and without the parse and translation included in the runtime
+* Mock up several versions of tables to communicate benchmarking results -- how best do we show what the tests contain without oversharing?
+
+Improvements that are even lower priority:
+* Let the concolic evaluator run for at least 5 (or similar cutoff) seconds even if the path tree gets exhausted sooner than that
+* Communicate path tree pruning vs interpreter step cutoff differently
