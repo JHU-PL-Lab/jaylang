@@ -1,0 +1,28 @@
+# Continuation monad -- improper definition of bind
+
+let t r a = {: continuation : (a -> r) -> r :}
+in
+
+let bind (ar_r : t ('r) ('a)) : ('a -> t ('r) ('b)) -> t ('r) ('b) =
+  fun a_br_r ->
+    { continuation = 
+      fun br ->
+        match ar_r with
+        | { continuation = ar_r } ->
+          ar_r (
+            fun a ->
+              match a_br_r a with
+              | { continuation = br_r } ->
+                br_r br 
+              end
+          )
+        end
+    }
+in
+
+# TODO: figure out why this bind is not well-typed
+let f = bind { continuation = fun ir -> ir 0 }
+in
+
+bind
+      

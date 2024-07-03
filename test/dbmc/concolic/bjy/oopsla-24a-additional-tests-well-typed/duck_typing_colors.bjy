@@ -1,0 +1,18 @@
+
+let color = {. int | fun i -> i >= 0 and i < 256 }
+in
+
+let point = {: x : int , y : int :}
+in
+
+let colored_point = {: x : int , y : int , color : color :}
+in
+
+let get_color (p : colored_point) : color =
+  p.color
+in
+
+let result = get_color { x = 0 , y = 0 , color = 255 } # this is fine
+in
+
+get_color

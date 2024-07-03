@@ -3,6 +3,7 @@ let t a b = List b -> {: value : a , store : List b :}
 in
 
 # This should be well-typed, but it's not. It works in ocaml
+# TODO: figure out why it's not well-typed
 let bind (x : t ('a) ('b)) (f : 'a -> t ('c) ('b)) : t ('c) ('b) =
   fun ss ->
     match x ss with

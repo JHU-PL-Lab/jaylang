@@ -23,6 +23,7 @@ let run_program source =
 
 let () =
   Arg.parse
-    [ ("-i", Arg.Set_string source_file, "Iutput source file") ]
+    [ ("-i", Arg.Set_string source_file, "Iutput source file")
+    ; "-", String anon_fun, "anonymous arguments starting with -" ]
     anon_fun usage_msg ;
   run_program !source_file

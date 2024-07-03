@@ -1,0 +1,23 @@
+# functions on records
+# TODO: why is this not well typed? I don't see where the error is
+
+let t_arg = ({: a : int , b : bool :} -> {: x : List int :})
+in
+
+let t_ret = {: y : List bool :}
+in
+
+let t = t_arg -> t_ret
+in
+
+let f (a : t_arg) : t_ret =
+  match (a { a = 0 , b = false }).x with
+  | [] -> []
+  | hd :: tl -> if hd == 0 then { y = [ false ] } else { y = [ true ] }
+  end
+in
+
+let (g : t) = f
+in
+
+g

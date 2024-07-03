@@ -1,0 +1,24 @@
+# subtype of intersection of functions
+# This is simpler version of subtyping2.bjy
+
+let t = (int -> int) && (bool -> bool)
+in
+
+# this is a subtype of t, so this typechecks
+let (f : t) =
+  fun x ->
+    match x with
+    | bool -> true
+    | int -> x
+    | _ -> 1 :: 2 :: []
+    end
+in
+
+let g (h : t) : t =
+  fun x -> h x
+in
+
+let x = g f
+in
+
+x
