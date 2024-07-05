@@ -306,10 +306,29 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
       return res
   | LetRecFunWithType (sig_lst, e) ->
       let%bind a = sequence @@ List.map mk_check_from_fun_sig sig_lst in
-      let sig_lst_renamed, sig_lst' =
+      let sig_lst_renamed, sig_lst', replacements =
         List.fold_right
-          (fun (l, r) (lacc, racc) -> (l :: lacc, r :: racc))
-          a ([], [])
+          (fun (l, r) (lacc, racc, rps) ->
+            let new_f =
+              match l with
+              | Typed_funsig (f, _, _) | DTyped_funsig (f, _, _) -> f
+            in
+            let og_f = match r with Funsig (f, _, _) -> f in
+            (l :: lacc, r :: racc, (og_f, new_f) :: rps))
+          a ([], [], [])
+      in
+      let sig_lst_renamed' =
+        replacements
+        |> List.fold_left
+             (fun acc (og_id, new_id) ->
+               let modified_sigs =
+                 List.map
+                   (fun t_fsig ->
+                     replace_var_of_typed_funsig t_fsig og_id new_id)
+                   acc
+               in
+               modified_sigs)
+             sig_lst_renamed
       in
       let%bind og_e' = wrap e in
       let overrides =
@@ -319,7 +338,7 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
            og_e' sig_lst' *)
       in
       let res =
-        new_expr_desc @@ LetRecFunWithType (sig_lst_renamed, overrides)
+        new_expr_desc @@ LetRecFunWithType (sig_lst_renamed', overrides)
       in
       let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
       return res
