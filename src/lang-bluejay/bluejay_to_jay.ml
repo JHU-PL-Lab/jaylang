@@ -2022,12 +2022,14 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                 return
 
 
-                @@ ( VariantPat (v_lbl, curr_val_id),
-                new_expr_desc @@ VariantExpr (v_lbl, curr_check_ed) ) :: acc)
+                (* this patch doesn't totally work *)
+                (* @@ ( VariantPat (v_lbl, curr_val_id),
+                new_expr_desc @@ VariantExpr (v_lbl, curr_check_ed) ) :: acc) *)
 
                 
 
-                (* @@ ((VariantPat (v_lbl, curr_val_id), curr_check_ed) :: acc)) *)
+                (* with this, need Mu tt. on all variants *)
+                @@ ((VariantPat (v_lbl, curr_val_id), curr_check_ed) :: acc))
 
 
 

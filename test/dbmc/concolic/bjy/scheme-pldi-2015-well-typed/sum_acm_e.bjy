@@ -7,4 +7,4 @@ in
 let check x = assert (x >= 100)
 in
 
-sum 5 0 check
+sum 14 0 check

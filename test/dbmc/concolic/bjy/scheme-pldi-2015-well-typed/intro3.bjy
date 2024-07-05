@@ -7,7 +7,7 @@ let f x g =
   g (x + 1)
 in
 
-letd h (z : int) : {. int | fun y -> z > y } -> unit_type =
+letd h (z : int) : {. int | fun y -> z < y } -> unit_type =
   fun y -> 
     unit
 in

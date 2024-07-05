@@ -15,7 +15,7 @@ in
 
 let main (len : int) : int =
   let xs = mk_list len in
-  if not (len == 0) # should be not (len < 0)
+  if not (len < 0)
   then
     match reverse xs [] with
     | hd :: tl -> hd

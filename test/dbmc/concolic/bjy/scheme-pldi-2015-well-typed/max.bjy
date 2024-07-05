@@ -12,7 +12,7 @@ in
 
 letd main (x : int) : int -> int -> {. int | fun c -> c == f x c } =
   fun y -> fun z -> 
-    max f x y z # `max f y x z` fixes the error
+    max f y x z 
 in
 
 main

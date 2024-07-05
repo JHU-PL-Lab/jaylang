@@ -1,7 +1,7 @@
 # Polymorphic higher order function application is incorrect
 
 # TODO: remove unnecessary Mu tt.
-let sign = (``Even {: even : bool :} || ``Odd {: odd : bool :})
+let sign = Mu tt. (``Even {: even : bool :} || ``Odd {: odd : bool :})
 in
 
 let rec list_count (ls : List 'a) (f : 'a -> bool) : int =

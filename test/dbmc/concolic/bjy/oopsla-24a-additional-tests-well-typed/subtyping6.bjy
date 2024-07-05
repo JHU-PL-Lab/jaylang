@@ -1,0 +1,20 @@
+
+let zero_type = {. int | fun i -> i == 0 }
+in
+
+# ignored arg must be 0. Applies 0 to g
+let appl_zero (g : zero_type -> bool) (ignored_zero_arg : zero_type) : bool =
+  g 0
+in
+
+let rec f n zero_arg =
+  if n <= 0
+  then true
+  else appl_zero (f (n - 1)) zero_arg
+in
+
+let main (n : int) : bool =
+  f n 0
+in
+
+main

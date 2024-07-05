@@ -1,4 +1,3 @@
-# predicate violated because can return empty list
 
 let is_nonempty ls = 
   match ls with
@@ -9,8 +8,11 @@ in
 
 let rec lastpair (x : {. List 'a | is_nonempty }) : {. List 'a | is_nonempty } =
   match x with
-  | [] -> []
-  | h :: xs -> lastpair xs 
+  | h :: xs ->
+    match xs with
+    | [] -> [ h ]
+    | _ -> lastpair xs
+    end
   end
 in
 

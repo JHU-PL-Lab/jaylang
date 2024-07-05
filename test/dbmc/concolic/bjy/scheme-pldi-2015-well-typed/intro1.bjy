@@ -11,7 +11,7 @@ let h (y : {. int | fun c -> c > 1 }) : unit_type =
 in
 
 let main (n : int) : unit_type =
-  if n >= 0 # error is this should be strict >
+  if n > 0
   then f n h
   else unit
 in

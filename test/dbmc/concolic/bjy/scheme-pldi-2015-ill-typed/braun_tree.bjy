@@ -30,7 +30,7 @@ let bt = {. t | is_braun_tree } in
 
 let rec insert (tree : bt) (x : 'a) : bt =
   match tree with
-  | `Leaf l -> `Node { v = x , l = { leaf = true } , r = { leaf = true } }
+  | `Leaf l -> `Node { v = x , l = `Leaf { leaf = true } , r = `Leaf { leaf = true } }
   | `Node node ->
     match node with
     | { v = v , l = l , r = r } -> `Node { l = insert l x , r = r , v = v }

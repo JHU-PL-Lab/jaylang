@@ -7,7 +7,7 @@ let rec mult (x : {: n : int , m : int :}) : {. int | fun i -> i >= 0 } =
   else x.n + mult { n = x.n , m = (x.m - 1) } 
 in
 
-letd sqr (n : int) : {. int | fun c -> c >= n + 1 } =
+letd sqr (n : {. int | fun i -> i > 1 }) : {. int | fun c -> c >= n + 1 } =
   mult { n = n , m = n }
 in
 

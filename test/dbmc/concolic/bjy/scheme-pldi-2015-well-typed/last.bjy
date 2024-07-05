@@ -8,7 +8,14 @@ let rec ycomb f =
     y
 in
 
-let last (l : List 'a) : 'a =
+let is_nonempty ls =
+  match ls with
+  | [] -> false
+  | _ -> true
+  end
+in
+
+let last (l : {. List 'a | is_nonempty }) : 'a =
   ycomb (
     fun self x ->
       match x with

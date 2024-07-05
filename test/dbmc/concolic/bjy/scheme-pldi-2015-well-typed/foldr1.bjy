@@ -1,8 +1,14 @@
 # error is that xs should be nonempty
 
-let rec foldr1 (f : 'a -> 'a -> 'a) (xs : List 'a) : 'a =
+let is_nonempty ls =
+  match ls with
+  | [] -> false
+  | _ -> true
+  end
+in
+
+let rec foldr1 (f : 'a -> 'a -> 'a) (xs : {. List 'a | is_nonempty }) : 'a =
   match xs with
-  | [] -> assert false
   | z :: zs ->
     match zs with
     | [] -> z

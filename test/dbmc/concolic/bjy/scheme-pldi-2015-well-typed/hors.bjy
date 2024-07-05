@@ -1,4 +1,3 @@
-# error is that `q` arg to `a` can be nonzero because `main` can pass in any int
 
 let unit_type = {: empty_label : int :} # treat as empty_record
 in
@@ -14,7 +13,7 @@ let b x =
     x 1
 in
 
-let a (x : int -> unit_type) (y : int -> unit_type) (q : {. int | fun i -> i == 0 }) : unit_type =
+let a (x : int -> unit_type) (y : int -> unit_type) (q : int) : unit_type =
   let ignore = x 0 in
   y 0
 in

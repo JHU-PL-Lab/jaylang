@@ -47,13 +47,13 @@ let () =
     Test_argparse.config 
     (
       []
-      @ make_tests_ill_typed "bjy/oopsla-24a-additional-tests-ill-typed"
-      @ make_tests_well_typed "bjy/oopsla-24a-additional-tests-well-typed"
+      (* @ make_tests_ill_typed "bjy/oopsla-24a-additional-tests-ill-typed" *)
+      (* @ make_tests_well_typed "bjy/oopsla-24a-additional-tests-well-typed" *)
 
-      (* @ make_tests_ill_typed "bjy/scheme-pldi-2015-ill-typed"
+      @ make_tests_ill_typed "bjy/scheme-pldi-2015-ill-typed"
       @ make_tests_well_typed "bjy/scheme-pldi-2015-well-typed"
 
-      @ make_tests_ill_typed "bjy/sato-bjy-ill-typed"
-      @ make_tests_well_typed "bjy/sato-bjy-well-typed" *)
+      (* @ make_tests_ill_typed "bjy/sato-bjy-ill-typed" *)
+      (* @ make_tests_well_typed "bjy/sato-bjy-well-typed" *)
     ) 
     ~quick_only:false
