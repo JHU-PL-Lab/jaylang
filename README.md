@@ -3,14 +3,15 @@ Jay Lang
 
 (Update: July 5th, 2024)
 
-This the the codebase for languages BlueJay, Jay and Jay Intermediate Language (JayIL), as well as the language's semantic-type-guided type checker. This code is developped by JHU Programming Languages Lab. It's a pipeline of functional languages that fits for research at each layers.
+This is the codebase for languages BlueJay, Jay and Jay Intermediate Language (JayIL), as well as the language's semantic-type-guided type checker. This code is developed by JHU Programming Languages Lab. It's a pipeline of functional languages that fits for research at each layers.
 
 This monorepo contains all tools built upon these languages.
 
 This snapshot is for the artifact for the paper **Semantic-Type-Guided Bug Finding**.
 
-Install
--------
+## Getting Started Guide
+
+### Install
 
 The repo is tested under MacOS, Ubuntu, and WSL on Windows.
 
@@ -44,9 +45,7 @@ opam install core core_unix psq hashcons ocamlgraph z3 fmt ppx_deriving yojson=2
 
 Now you should be able to run the project.
 
-
-Run
----
+### Run
 
 ```
 make sc
