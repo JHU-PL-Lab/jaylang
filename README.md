@@ -14,6 +14,8 @@ Install
 
 The repo is tested under MacOS, Ubuntu, and WSL on Windows.
 
+After cloning the repository, make sure that the branch is switched to `oopsla-24`.
+
 Prepare and upgrade `apt` and the ocaml environment
 ```
 sudo apt upgrade opam
@@ -55,3 +57,10 @@ This makes the full test suite for `sato_concolic.exe` (the type checker). The
 tests are found in the folder, `test/sato`. (Note that only test folders without 
 `_` prefix are run in the testing process, and you can find out what errors are 
 expected in the `.expect.s` file for each corresponding test).
+
+Please note that some tests might appear to be failing. This is not a cause for
+concern, because these failures are results of multiple type errors being present
+in the code, and our artifact currently is not good at reporting all such errors. 
+Since the runs can be non-deterministic, sometimes the reported error is different
+from the one specified in the `.expect.s` file, and manual inspection of the code
+should verify that the error reported indeed is correct.
