@@ -3,11 +3,11 @@ Jay Lang
 
 (Update: July 5th, 2024)
 
-This the the codebase for languages BlueJay, Jay and Jay Intermediate Language (JayIL), developped by JHU Programming Languages Lab. It's a pipeline of functional languages that fits for research at each layers.
+This the the codebase for languages BlueJay, Jay and Jay Intermediate Language (JayIL), as well as the is semantic-type-guided type checker. This code is developped by JHU Programming Languages Lab. It's a pipeline of functional languages that fits for research at each layers.
 
-This monorepo contains tools built upon these languages.
+This monorepo contains all tools built upon these languages.
 
-This was for the artifact for the paper **Higher-Order Demand-Driven Symbolic Evaluation**.
+This snapshot is for the artifact for the paper **Semantic-Type-Guided Bug Finding**.
 
 Install
 -------
@@ -45,7 +45,14 @@ Run
 ---
 
 ```
-make dj
-make dbmc
-make sato
+make sc
 ```
+This makes the executable for the semantic type checker itself. The resulting 
+executable, `sato_concolic.exe`, can be used directly by running the command, 
+`sato_concolic.exe SOURCE_FILE`.
+
+```
+make sctest
+```
+This makes the full test suite for `sato_concolic` (the type checker). The tests
+are found in the folder, `test/sato`. (Note that only test folders without `_` prefix are run in the testing process, and you can find out what errors are expected in the `.expect.s` file for each corresponding test).
