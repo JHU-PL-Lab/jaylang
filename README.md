@@ -68,3 +68,8 @@ in the code, and our artifact currently is not good at reporting all such errors
 Since the runs can be non-deterministic, sometimes the reported error is different
 from the one specified in the `.expect.s` file, and manual inspection of the code
 should verify that the error reported indeed is correct.
+
+```
+make cbenchmark
+```
+This makes the benchmark for `sato_concolic.exe`. The results can be found in `benchmark/concolic/result`.
