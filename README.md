@@ -72,4 +72,4 @@ should verify that the error reported indeed is correct.
 ```
 make cbenchmark
 ```
-This makes the benchmark for `sato_concolic.exe`. The results can be found in `benchmark/concolic/result`.
+This makes the benchmark for `sato_concolic.exe`. The results can be found in `benchmark/concolic/result/0table.txt`, and they correspond to the Bluejay entries seen in Table 1 in Section 5.5 of the paper.
