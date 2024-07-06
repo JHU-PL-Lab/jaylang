@@ -1,6 +1,0 @@
-# expect error because `negation 0` is not positive
-
-let isNeg n = n <= 0 in
-let isPos n = n > 0 in
-let negation (x : {. int | isNeg } ) : {. int | isPos } = (0 - 1) * x in
-negation
