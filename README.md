@@ -3,7 +3,10 @@ Jay Lang
 
 (Update: July 5th, 2024)
 
-This is the codebase for languages BlueJay, Jay and Jay Intermediate Language (JayIL), as well as the language's semantic-type-guided type checker. This code is developed by JHU Programming Languages Lab. It's a pipeline of functional languages that fits for research at each layers.
+This is the codebase for languages BlueJay, Jay and Jay Intermediate Language 
+(JayIL), as well as the language's semantic-type-guided type checker. This code 
+is developed by JHU Programming Languages Lab. It's a pipeline of functional 
+languages that fits for research at each layers.
 
 This monorepo contains all tools built upon these languages.
 
@@ -29,7 +32,8 @@ opam update
 ```
 
 Install local opam switch. Answer `yes` to questions. It can take a while.
-This command installs the dependencies of this project to opam. You are supposed to develop in this directory.
+This command installs the dependencies of this project to opam. You are supposed 
+to develop in this directory.
 
 
 ```
@@ -72,4 +76,11 @@ should verify that the error reported indeed is correct.
 ```
 make cbenchmark
 ```
-This makes the benchmark for `sato_concolic.exe`. The results can be found in `benchmark/concolic/result/0table.txt`, and they correspond to the Bluejay entries seen in Table 1 in Section 5.5 of the paper.
+This makes the benchmark for `sato_concolic.exe`. The results can be found in 
+`benchmark/concolic/result/<specific_benchmark_run>/0table.txt`, and they correspond
+to the Bluejay entries seen in Table 1 in Section 5.5 of the paper.
+
+To run the benchmarks in Table 2, go to the file, `benchmark/concolic/cbenchmark.ml`, 
+and change the `config_path` to `ref "benchmark/concolic/config.s"`, then run 
+`make cbenchmark` again. The newly generated `0table.txt` in the `result` folder 
+will contain the corresponding results.
