@@ -16,6 +16,11 @@ The repo is tested under MacOS, Ubuntu, and WSL on Windows.
 
 After cloning the repository, make sure that the branch is switched to `oopsla-24`.
 
+```
+# git clone https://github.com/JHU-PL-Lab/jaylang.git
+git checkout oopsla-24
+```
+
 Prepare and upgrade `apt` and the ocaml environment
 ```
 sudo apt upgrade opam
