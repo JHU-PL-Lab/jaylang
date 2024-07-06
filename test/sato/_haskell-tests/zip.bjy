@@ -1,0 +1,56 @@
+let rec length l = 
+  match l with
+  | [] -> 0
+  | hd :: tl -> 1 + length tl
+  end
+in
+
+let head (lst : {. List 'a | fun l -> length l > 0}) : 'a =
+  match lst with
+  | hd :: tl -> hd
+  end
+in
+
+letd rec zip (xs : List 'a) : (ys : {. List 'b | fun l -> length xs == length l }) -> List ({: fst : 'a, snd : 'b :}) = fun ys ->
+    match xs with
+    | [] -> 
+        (match ys with
+         | [] -> []
+         end
+        )
+    | hd :: tl -> 
+        (match ys with
+         | hd2 :: tl2 -> {fst = hd, snd = hd2} :: zip tl tl2
+         end
+        )
+    end
+in
+
+let rec sumsize ls = 
+    match ls with
+    | [] -> 0
+    | hd :: tl -> length hd + sumsize tl
+    end
+in
+
+let rec append l1 l2 = 
+    match l1 with
+    | [] -> l2
+    | hd :: tl ->
+        hd :: (append tl l2)
+    end
+in
+
+letd rec concat (x : List (List 'a)) : {. List 'a | fun l -> length l == sumsize x} =
+    match x with
+    | [] -> []
+    | hd :: tl ->
+        (match tl with
+         | [] -> hd
+         | hd2 :: tl2 ->
+            concat ((append hd hd2) :: tl2)
+         end
+        )
+    end
+in concat
+

@@ -1,5 +1,5 @@
 ((found_at_clause
-  "match r.~decl_lbls with | {b = x} -> let x = actual_rec_b_13.b in x end")
+  "match r.~decl_lbls with | {b = x} -> let x = actual_rec_b_14.b in x end")
  (number_of_errors 1)
  (error_list
   ((Match_error
