@@ -32,7 +32,7 @@ After that, you can install the develop tools
 ```
 opam user-setup install
 opam install utop ocaml-lsp-server ocamlformat
-opam install core core_unix psq hashcons ocamlgraph z3 fmt ppx_deriving ppx_deriving_yojson lwt_ppx landmarks-ppx jhupllib monadlib pds-reachability alcotest-lwt
+opam install core core_unix psq hashcons ocamlgraph z3 fmt ppx_deriving yojson=2.1.2 ppx_deriving_yojson=3.7.0 lwt_ppx landmarks-ppx jhupllib monadlib pds-reachability alcotest-lwt
 ```
 
 Now you should be able to run the project.
