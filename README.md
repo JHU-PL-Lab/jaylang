@@ -1,7 +1,7 @@
 Jay Lang
 =====
 
-(Update: Oct 30, 2022)
+(Update: July 5th, 2024)
 
 This the the codebase for languages BlueJay, Jay and Jay Intermediate Language (JayIL), developped by JHU Programming Languages Lab. It's a pipeline of functional languages that fits for research at each layers.
 

@@ -1,0 +1,3 @@
+let g (x : int) : int = x in
+let f (y : bool) : bool = g y in
+f
