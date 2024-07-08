@@ -21,7 +21,7 @@ let is_hit ({ branch = target_branch ; path } : t) (root : Root.t) : bool =
       Child.is_hit
       @@ Node.get_child_exn node target_branch 
   in
-  trace_path root path
+  trace_path root path.forward_path
 
 let[@landmarks] to_formulas ({ branch = target_branch ; path } : t) (root : Root.t) : Z3.Expr.expr list =
   let rec trace_path acc node = function
@@ -35,4 +35,4 @@ let[@landmarks] to_formulas ({ branch = target_branch ; path } : t) (root : Root
       let target = Node.get_child_exn node target_branch in
       Child.to_formulas target @ acc (* necessarily has found the target at end of path *)
   in
-  trace_path (Formula_set.to_list root.formulas) root path
+  trace_path (Formula_set.to_list root.formulas) root path.forward_path

@@ -160,7 +160,7 @@ module rec Node : (* serves as root node *)
           let new_child = { old_child with status = Hit result_node } in (* must do this to keep constraints of old child *)
           { node with children = Children.set_child node.children new_child }
       in
-      loop x path 1
+      loop x path.forward_path 1
   end (* Node *)
 and Children :
   CHILDREN with

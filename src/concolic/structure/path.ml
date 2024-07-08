@@ -3,11 +3,23 @@
 module T =
   struct
     (* Branches at the top of the tree are first *)
-    type t = Branch.Runtime.t list
+    type t = { forward_path : Branch.Runtime.t list }
 
-    let compare = Core.List.compare Branch.Runtime.compare
+    let compare a b = Core.List.compare Branch.Runtime.compare a.forward_path b.forward_path
+
+    let empty = { forward_path = [] }
+
+    let return ls = { forward_path = ls }
+
+    let extend path tail =
+      { forward_path = path.forward_path @ tail }
   end
 
 include T
 
-module Reverse = T (* This is just for annotating via types *)
+module Reverse =
+  struct
+    type t = { reverse_path : Branch.Runtime.t list }
+
+    let compare a b = Core.List.compare Branch.Runtime.compare a.reverse_path b.reverse_path
+  end

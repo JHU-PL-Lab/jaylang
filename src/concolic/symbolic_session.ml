@@ -51,7 +51,8 @@ module Node_stack =
         | Last _ -> acc
         | Cons (child, tl) -> loop (child.branch :: acc) tl
       in
-      loop [] x
+      Path.return
+      @@ loop [] x
 
     (* Returns list of targets where deeper branches are at the front of the list *)
     let get_targets (stack : t) (tree : Root.t) : Target.t list =
@@ -63,7 +64,7 @@ module Node_stack =
         (path : Path.t)
         : Target.t list
         =
-        match remaining_path with
+        match remaining_path.forward_path with
         | last_branch :: [] -> (* maybe last node hit should be target again in case it failed assume or assert *)
           push_target
             (push_target cur_targets cur_node last_branch path) (* push this direction *)
@@ -74,8 +75,8 @@ module Node_stack =
           step
             (push_target cur_targets cur_node (Branch.Runtime.other_direction branch) path) (* push other direction as possible target *)
             (Child.to_node_exn @@ Node.get_child_exn cur_node branch) (* step down path *)
-            tl (* continue down remainder of path *)
-            (path @ [ branch ]) (* complexity of this is bad, but depth is so shallow that is not slow in practice *)
+            (Path.return tl) (* continue down remainder of path *)
+            (Path.extend path [ branch ]) (* complexity of this is bad, but depth is so shallow that is not slow in practice *)
         | [] -> cur_targets
       and push_target
         (cur_targets : Target.t list)
@@ -88,7 +89,7 @@ module Node_stack =
         then Target.create branch path :: cur_targets
         else cur_targets
       in
-      step [] tree total_path []
+      step [] tree total_path Path.empty
 
     (* Note that merging two trees would have to visit every node in both of them in the worst case,
       but we know that the tree made from the stack is a single path, so it only has to merge down
