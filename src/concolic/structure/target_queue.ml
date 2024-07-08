@@ -85,12 +85,12 @@ let empty : t =
 let push_list ({ dfs ; bfs ; hit } : t) (ls : Target.t list) (hits : int list) : t =
   { dfs = T.push_list dfs (List.rev ls) (* reverse so that deeper targets have better priority *)
   ; bfs = T.push_list bfs ls
-  ; hit = List.fold2_exn ls hits ~init:hit ~f:(fun acc k p -> Q.push k p acc) }
+  ; hit = hit (* List.fold2_exn ls hits ~init:hit ~f:(fun acc k p -> Q.push k p acc) *) }
 
 let remove (x : t) (target : Target.t) : t =
   { bfs = T.remove x.bfs target
   ; dfs = T.remove x.dfs target
-  ; hit = Q.remove target x.hit }
+  ; hit = x.hit (* Q.remove target x.hit *) }
 
 let rec pop ?(kind : Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
   match kind with
@@ -104,9 +104,11 @@ let rec pop ?(kind : Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
     | Some (target, bfs) -> Some (target, remove { x with bfs } target)
     | None -> None
   end
-  | Prioritize_uncovered -> begin
+  | Prioritize_uncovered -> 
+    failwith "commented out for speed because currently is unused"
+    (* begin
     match Q.pop x.hit with
     | Some ((target, _), hit) -> Some (target, remove { x with hit } target)
     | None -> None
-  end
+  end *)
   | Random -> pop ~kind:(Pop_kind.random ()) x
