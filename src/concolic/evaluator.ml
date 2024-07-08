@@ -327,6 +327,7 @@ and eval_clause
       match Fetch.fetch_val ~conc_session ~stk env v with
       | RecordClosure (Record_value r, denv) ->
         let proj_ident = function Ident s -> s in
+        (* Format.printf "Finding label %s\n" (proj_ident label); *)
         let Var (proj_x, _) as proj_v = Ident_map.find label r in
         let retv, stk' = Fetch.fetch_val_with_stk ~conc_session ~stk denv proj_v in
         Session.Concrete.add_alias (x, stk) (proj_x, stk') conc_session;
