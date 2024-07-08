@@ -1,0 +1,48 @@
+
+let unit_type = {: unit : int :}
+in
+
+let unit = { unit = 0 }
+in
+
+let option a = Mu todo_delete_this_mu. ``None unit_type || ``Some a
+in
+
+let none = option unit
+in
+
+let ident = {: ident : int :}
+in
+
+let value = Mu t. ``Int int || ``Bool bool || ``Fun (t -> t)
+in
+
+let env_type =
+  {: get : ident -> option (value)
+   , clear : unit_type -> env_type
+   , add : ident -> value -> env_type :}
+in
+
+let (empty : env_type) =
+  let get = fun id -> none in
+  let add old_get = fun new_id -> fun new_val ->
+      fun id ->
+        if id.ident == new_id.ident
+        then `Some new_val
+        else old_get id
+  in
+  let rec clear (ignore : unit_type) : env_type =
+    let new_get = fun ignore -> none
+    { get = new_get
+    , add = add new_get
+    , clear = clear
+    }
+  in
+  { get = get 
+  , clear = clear 
+  , add = add get }
+in
+
+# TODO: add decorator, and also fix parse error
+empty
+
