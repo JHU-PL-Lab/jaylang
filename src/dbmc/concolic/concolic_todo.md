@@ -129,3 +129,22 @@ Once those have been done:
 Improvements that are even lower priority:
 * Let the concolic evaluator run for at least 5 (or similar cutoff) seconds even if the path tree gets exhausted sooner than that
 * Communicate path tree pruning vs interpreter step cutoff differently
+
+## Tags
+
+Types of features of the programming language we want to include in tests:
+* Polymorphic types
+* Variants
+* Intersection types
+* Recursive functions (Lists, mutual recursion, etc.)
+* Mu types
+* Higher order functions
+* Subtyping
+* Type casing
+* OOP-style
+* Refinement types
+* Dependent types
+* Parametric types
+* Record
+* Trees
+* Requires wrap

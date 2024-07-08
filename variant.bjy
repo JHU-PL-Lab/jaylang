@@ -1,5 +1,0 @@
-
-let (x : ``L int) = `L 1
-in
-
-x
