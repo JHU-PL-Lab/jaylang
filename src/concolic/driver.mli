@@ -9,8 +9,8 @@ module Test_result :
       | Timeout                 (* total evaluation timeout *)
   end
 
-val test_expr : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t
+val test_expr : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t
 (** [test expr] is the result where [expr] is the JIL AST. *)
 
-val test : (string -> Test_result.t) Concolic_options.Fun.t
+val test : (string -> Test_result.t) Options.Fun.t
 (** [test filename] is the result where [filename] is a jil or bjy file name. *)

@@ -504,9 +504,9 @@ let rec loop (e : expr) (prev_session : Session.t) : (Branch_info.t * bool) Lwt.
 let seed =
   String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
 
-let lwt_eval : (Jayil.Ast.expr -> (Branch_info.t * bool) Lwt.t) Concolic_options.Fun.t =
+let lwt_eval : (Jayil.Ast.expr -> (Branch_info.t * bool) Lwt.t) Options.Fun.t =
   let f =
-    fun (r : Concolic_options.t) ->
+    fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
         if not r.random then Random.init seed;
         CLog.app (fun m -> m "\nStarting concolic execution...\n");
@@ -516,7 +516,7 @@ let lwt_eval : (Jayil.Ast.expr -> (Branch_info.t * bool) Lwt.t) Concolic_options
         @@ fun () ->
           e
           |> Session.of_expr
-          |> Concolic_options.Fun.appl Session.with_options r
+          |> Options.Fun.appl Session.with_options r
           |> loop e
   in
-  Concolic_options.Fun.make f
+  Options.Fun.make f

@@ -33,13 +33,13 @@ module Test_result =
   ----------------------
 *)
 
-let[@landmark] lwt_test_one : (Jayil.Ast.expr -> Test_result.t Lwt.t) Concolic_options.Fun.t =
+let[@landmark] lwt_test_one : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fun.t =
   let open Lwt.Infix in
-  Concolic_options.Fun.make
-  @@ fun (r : Concolic_options.t) ->
+  Options.Fun.make
+  @@ fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
         let t0 = Caml_unix.gettimeofday () in
-        Concolic_options.Fun.appl Concolic_eval.lwt_eval r e
+        Options.Fun.appl Evaluator.lwt_eval r e
         >|= function res, has_pruned ->
           CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
           Branch_info.find res ~f:(fun _ -> function Branch_info.Status.Found_abort _ | Type_mismatch _ -> true | _ -> false)
@@ -52,10 +52,10 @@ let[@landmark] lwt_test_one : (Jayil.Ast.expr -> Test_result.t Lwt.t) Concolic_o
             end
         
 (* [test_incremental n] incrementally increases the max tree depth in [n] equal steps until it reaches the given max depth *)
-let[@landmark] test_incremental n : (Jayil.Ast.expr -> Test_result.t Lwt.t) Concolic_options.Fun.t =
+let[@landmark] test_incremental n : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fun.t =
   let open Lwt.Infix in
-  Concolic_options.Fun.make
-  @@ fun (r : Concolic_options.t) ->
+  Options.Fun.make
+  @@ fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
         Lwt_unix.with_timeout r.global_timeout_sec
         @@ fun () ->
@@ -68,26 +68,26 @@ let[@landmark] test_incremental n : (Jayil.Ast.expr -> Test_result.t Lwt.t) Conc
                 >>= function
                   | Test_result.Found_abort _ | Type_mismatch _ | Timeout -> acc
                   | acc -> begin
-                    Concolic_options.Fun.appl lwt_test_one { r with max_tree_depth = d } e
+                    Options.Fun.appl lwt_test_one { r with max_tree_depth = d } e
                     >|= Test_result.merge acc
                   end
               )
 
 (* runs [test_incremental 5] and catches lwt timeout *)
-let test_with_timeout : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
-  Concolic_options.Fun.make
-  @@ fun (r : Concolic_options.t) ->
+let test_with_timeout : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
+  Options.Fun.make
+  @@ fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
         try
           Lwt_main.run
-          @@ Concolic_options.Fun.appl (test_incremental 5) r e
+          @@ Options.Fun.appl (test_incremental 5) r e
         with
         | Lwt_unix.Timeout ->
           CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
           Test_result.Timeout
 
-let[@landmark] test_expr : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fun.t =
-  Concolic_options.Fun.map
+let[@landmark] test_expr : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
+  Options.Fun.map
     test_with_timeout
     (fun r ->
       begin
@@ -108,24 +108,24 @@ let[@landmark] test_expr : (Jayil.Ast.expr -> Test_result.t) Concolic_options.Fu
   -------------------
 *)
 
-let test_jil : (string -> Test_result.t) Concolic_options.Fun.t =
-  let open Concolic_options.Fun in
+let test_jil : (string -> Test_result.t) Options.Fun.t =
+  let open Options.Fun in
   test_expr
   @. Dj_common.File_utils.read_source
 
-let test_bjy : (string -> Test_result.t) Concolic_options.Fun.t =
-  let open Concolic_options.Fun in
+let test_bjy : (string -> Test_result.t) Options.Fun.t =
+  let open Options.Fun in
   test_expr
   @. (fun filename ->
     filename
     |> Dj_common.File_utils.read_source_full ~do_instrument:false ~do_wrap:true
     |> Dj_common.Convert.jil_ast_of_convert)
 
-let test : (string -> Test_result.t) Concolic_options.Fun.t =
-  Concolic_options.Fun.make
+let test : (string -> Test_result.t) Options.Fun.t =
+  Options.Fun.make
   @@ fun r ->
       fun filename ->
       match Core.Filename.split_extension filename with 
-      | _, Some "jil" -> Concolic_options.Fun.appl test_jil r filename
-      | _, Some "bjy" -> Concolic_options.Fun.appl test_bjy r filename
+      | _, Some "jil" -> Options.Fun.appl test_jil r filename
+      | _, Some "bjy" -> Options.Fun.appl test_bjy r filename
       | _ -> failwith "expected jil or bjy file"

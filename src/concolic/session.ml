@@ -104,7 +104,7 @@ type t =
   ; target_queue : Target_queue.t
   ; branch_info  : Branch_info.t
   ; run_num      : int
-  ; options      : Concolic_options.t
+  ; options      : Options.t
   ; quit         : bool
   ; has_pruned   : bool (* true iff some evaluation hit more nodes than are allowed to be kept or interpretation was stopped due to max step *)
   ; last_sym     : Symbolic.t option }
@@ -114,14 +114,14 @@ let empty : t =
   ; target_queue = Target_queue.empty
   ; branch_info  = Branch_info.empty
   ; run_num      = 0
-  ; options      = Concolic_options.default
+  ; options      = Options.default
   ; quit         = false
   ; has_pruned   = false
   ; last_sym     = None }
 
-let with_options : (t -> t) Concolic_options.Fun.t =
-  Concolic_options.Fun.make
-  @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with options = r } 
+let with_options : (t -> t) Options.Fun.t =
+  Options.Fun.make
+  @@ fun (r : Options.t) -> fun (x : t) -> { x with options = r } 
 
 let of_expr (expr : Jayil.Ast.expr) : t =
   { empty with branch_info = Branch_info.of_expr expr }
@@ -163,7 +163,7 @@ let[@landmarks] check_solver' formulas =
   Z3.Solver.check new_solver formulas
 
 let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
-  Concolic_options.Fun.appl Symbolic.with_options x.options sym
+  Options.Fun.appl Symbolic.with_options x.options sym
 
 (* $ OCAML_LANDMARKS=on ./_build/... *)
 (* `Done (branch_info, has_pruned) *)

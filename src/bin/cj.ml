@@ -9,7 +9,7 @@ let usage_msg =
   |}
 let source_file = ref "" 
 (* let out_file = ref "" *)
-let optional_args = Concolic_options.Refs.create_default ()
+let optional_args = Options.Refs.create_default ()
 
 let inputs = ref []
 
@@ -33,9 +33,9 @@ let () =
   | "" -> ()
   | src_file -> begin
     let _ =
-      Concolic_options.Fun.appl
-        Concolic_driver.test
-        (Concolic_options.Refs.without_refs optional_args)
+      Options.Fun.appl
+        Driver.test
+        (Options.Refs.without_refs optional_args)
         src_file
     in
     ()

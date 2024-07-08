@@ -9,7 +9,7 @@ val empty : t
 val get_key_depth : t -> int
 (** [get_key_depth t] is the depth of [t] used to make a concolic key. *)
 
-val with_options : (t -> t) Concolic_options.Fun.t
+val with_options : (t -> t) Options.Fun.t
 (** [with_options t] is [t] configured with the optional arguments. *)
 
 (*

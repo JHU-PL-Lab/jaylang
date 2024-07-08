@@ -123,12 +123,12 @@ module Depth_logic =
       { cur_depth = 0
       ; max_depth 
       ; is_below_max = true 
-      ; max_step = Concolic_options.default.global_max_step
+      ; max_step = Options.default.global_max_step
       ; fun_depth = 0 }
 
-    let with_options : (t -> t) Concolic_options.Fun.t =
-      Concolic_options.Fun.make
-      @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth ; max_step = r.global_max_step }
+    let with_options : (t -> t) Options.Fun.t =
+      Options.Fun.make
+      @@ fun (r : Options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth ; max_step = r.global_max_step }
 
     let incr_branch (x : t) : t =
       { x with cur_depth = x.cur_depth + 1 ; is_below_max = x.cur_depth < x.max_depth }
@@ -159,12 +159,12 @@ module Basic =
       ; target         = None
       ; branch_info    = Branch_info.empty
       ; inputs         = []
-      ; depth          = Depth_logic.empty Concolic_options.default.max_tree_depth
+      ; depth          = Depth_logic.empty Options.default.max_tree_depth
       ; reach_max_step = false }
 
-    let with_options : (t -> t) Concolic_options.Fun.t =
-      Concolic_options.Fun.make
-      @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with depth = Concolic_options.Fun.appl Depth_logic.with_options r x.depth }
+    let with_options : (t -> t) Options.Fun.t =
+      Options.Fun.make
+      @@ fun (r : Options.t) -> fun (x : t) -> { x with depth = Options.Fun.appl Depth_logic.with_options r x.depth }
 
     let found_abort (s : t) : t =
       { s with
@@ -222,9 +222,9 @@ module At_max_depth =
         end
       ; base = s }
 
-    let with_options : (t -> t) Concolic_options.Fun.t =
-      Concolic_options.Fun.make
-      @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with base = Concolic_options.Fun.appl Basic.with_options r x.base }
+    let with_options : (t -> t) Options.Fun.t =
+      Options.Fun.make
+      @@ fun (r : Options.t) -> fun (x : t) -> { x with base = Options.Fun.appl Basic.with_options r x.base }
 
     let found_abort (a : t) : t =
       { a with
@@ -259,9 +259,9 @@ module Finished =
       ; prev          : Basic.t
       ; hit_max_depth : bool}
 
-    let with_options : (t -> t) Concolic_options.Fun.t =
-      Concolic_options.Fun.make
-      @@ fun (r : Concolic_options.t) -> fun (x : t) -> { x with prev = Concolic_options.Fun.appl Basic.with_options r x.prev }
+    let with_options : (t -> t) Options.Fun.t =
+      Options.Fun.make
+      @@ fun (r : Options.t) -> fun (x : t) -> { x with prev = Options.Fun.appl Basic.with_options r x.prev }
 
     let of_basic (s : Basic.t) (root : Root.t) : t =
       (* logically sound to have hit target if formulas are consistent with JIL program *)
@@ -285,13 +285,13 @@ let get_key_depth (x : t) : int =
   | At_max_depth s -> Depth_logic.get_key_depth s.base.depth
   | Finished _ -> failwith "cannot get depth from finished symbolic session"
 
-let with_options : (t -> t) Concolic_options.Fun.t =
-  Concolic_options.Fun.make
-  @@ fun (r : Concolic_options.t) -> fun (x : t) ->
+let with_options : (t -> t) Options.Fun.t =
+  Options.Fun.make
+  @@ fun (r : Options.t) -> fun (x : t) ->
     match x with
-    | Basic s -> Basic (Concolic_options.Fun.appl Basic.with_options r s)
-    | At_max_depth s -> At_max_depth (Concolic_options.Fun.appl At_max_depth.with_options r s)
-    | Finished s -> Finished (Concolic_options.Fun.appl Finished.with_options r s)
+    | Basic s -> Basic (Options.Fun.appl Basic.with_options r s)
+    | At_max_depth s -> At_max_depth (Options.Fun.appl At_max_depth.with_options r s)
+    | Finished s -> Finished (Options.Fun.appl Finished.with_options r s)
 
 (* [lazy_expr] does not get evaluated unless [x] is [Basic]. *)
 let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =

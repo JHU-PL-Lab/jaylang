@@ -75,7 +75,7 @@ type t
 val empty : t
 (** [empty] is a default empty session *)
 
-val with_options : (t -> t) Concolic_options.Fun.t
+val with_options : (t -> t) Options.Fun.t
 (** [with_options t] is [t] that has all relevant info loaded in from the optional arguments. *)
 
 val of_expr : Jayil.Ast.expr -> t
