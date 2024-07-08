@@ -1,5 +1,6 @@
 open Core
 open Dbmc
+open Concolic
 
 (* This executable is to run the concolic evaluator. Think CJ = "concolic jil" *)
 let usage_msg =

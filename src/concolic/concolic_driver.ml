@@ -1,4 +1,6 @@
 open Core
+open Dbmc
+open Dj_common
 
 module CLog = Dj_common.Log.Export.CLog
 
@@ -37,7 +39,7 @@ let[@landmark] lwt_test_one : (Jayil.Ast.expr -> Test_result.t Lwt.t) Concolic_o
   @@ fun (r : Concolic_options.t) ->
       fun (e : Jayil.Ast.expr) ->
         let t0 = Caml_unix.gettimeofday () in
-        Concolic_options.Fun.appl Concolic.lwt_eval r e
+        Concolic_options.Fun.appl Concolic_eval.lwt_eval r e
         >|= function res, has_pruned ->
           CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
           Branch_info.find res ~f:(fun _ -> function Branch_info.Status.Found_abort _ | Type_mismatch _ -> true | _ -> false)

@@ -1,6 +1,6 @@
 open Core
 open Dj_common
-open Dbmc
+open Concolic
 
 let test_for_abort is_error_expected testname _args = 
   let _, extension = Filename.split_extension testname in
@@ -34,7 +34,7 @@ module From_lib =
         root
   end
 
-let dir = "test/dbmc/concolic/"
+let dir = "test/concolic/"
 
 let make_tests e s t = From_lib.group_tests (dir ^ s) t (test_for_abort e)
 

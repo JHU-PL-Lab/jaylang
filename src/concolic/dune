@@ -1,0 +1,45 @@
+(include_subdirs unqualified)
+
+(library
+ (name concolic)
+ (public_name jay.concolic)
+ (libraries
+  core
+  fmt
+  lwt
+  lwt.unix
+  z3
+  logs
+  logs.lwt
+  logs.fmt
+  ocamlgraph
+  hashcons
+  dbmc
+  jayil
+  jay_translate
+  jay_instrumentation
+  jayil_parser
+  bluejay
+  dj_common
+  ddpa_for_dj
+  jil_analysis
+  unroll
+  sudu
+  psq) ; psq added for concolic queue of target branches
+ (instrumentation
+  (backend landmarks))
+ (synopsis "dbmc is demand-driven bounded model checking")
+ (inline_tests)
+ (preprocess
+  (pps
+   ppx_jane
+   ppx_deriving.show
+   lwt_ppx
+   ; for profiling
+   landmarks-ppx
+   --auto)))
+
+(env
+ (dev
+  (flags
+   (:standard -w -33 -w -26 -w -27))))

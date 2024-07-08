@@ -15,6 +15,7 @@
   jayil
   jayil_parser
   dbmc
+  concolic
   sato
  )
  (synopsis "Sato, the Symbolic Analysis Typechecker for Odefa, dynamically locates type errors using demand-driven symbolic execution.")

@@ -1,5 +1,6 @@
 open Core
 open Jayil.Ast
+open Dbmc
 open Dj_common (* exposes Concrete_stack *)
 open Dvalue (* just to expose constructors *)
 

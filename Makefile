@@ -101,7 +101,7 @@ test-dummy:
 	dune exec src-test/dbmc/test_dummy.exe
 
 test-concolic:
-	dune exec src-test/dbmc/test_concolic.exe
+	dune exec src-test/test_concolic.exe
 
 # profiling
 
