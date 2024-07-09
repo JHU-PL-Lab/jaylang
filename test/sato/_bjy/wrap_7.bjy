@@ -1,2 +1,2 @@
 let f (x : int) (y : bool) : int = x in
-f 5
+f true

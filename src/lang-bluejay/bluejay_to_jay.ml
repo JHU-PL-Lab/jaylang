@@ -63,7 +63,6 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
     | Typed_funsig (Ident f, typed_params, (f_body, ret_type)) ->
         let%bind ret_type' = wrap ret_type in
         let%bind f_body' = wrap f_body in
-        (* let%bind f' = fresh_ident f in *)
         let typed_params' =
           typed_params |> List.map (fun (p, t) -> (p, wrap t))
         in
@@ -79,10 +78,11 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
                    else return @@ None
                  in
                  let%bind eta_arg = fresh_ident p in
-                 return ((p, eta_arg), (t, t_id_opt)))
+                 let%bind t_wrap_id = fresh_ident "wrap_t" in
+                 return ((p, eta_arg), (t, t_id_opt, t_wrap_id)))
           |> sequence
         in
-        let folder1 ((og_arg, arg), (t, t_id_opt)) acc =
+        let folder2 ((og_arg, arg), (t, t_id_opt, wrap_t)) acc =
           let%bind proj_ed_1 =
             match t_id_opt with
             | None -> new_instrumented_ed @@ RecordProj (t, Label "checker")
@@ -99,16 +99,14 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
                    new_expr_desc @@ Appl (proj_ed_1, new_expr_desc @@ Var arg),
                    new_expr_desc @@ Bool true )
           in
-          let (Ident arg_id) = arg in
-          let wrap_var = Var (Ident (arg_id ^ "_wrap")) in
           let wrapped_arg =
             new_expr_desc
-            @@ Appl (new_expr_desc @@ wrap_var, new_expr_desc @@ Var arg)
+            @@ Appl (new_expr_desc @@ Var wrap_t, new_expr_desc @@ Var arg)
           in
           let rebind_arg =
             new_expr_desc @@ Let (Ident og_arg, wrapped_arg, acc)
           in
-          let cond =
+          let%bind layered_fn =
             let%bind fn_body =
               new_instrumented_ed
               @@ If
@@ -118,28 +116,23 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
             in
             return @@ new_expr_desc @@ Function ([ arg ], fn_body)
           in
-          cond
-        in
-        let folder2 acc ((_og_arg, Ident arg), (t, t_id_opt)) =
           let acc' =
             match t_id_opt with
             | None ->
-                let wrapper_id = Ident (arg ^ "_wrap") in
                 let%bind wrap_fn =
                   new_instrumented_ed @@ RecordProj (t, Label "wrapper")
                 in
                 let wrap_def =
-                  new_expr_desc @@ Let (wrapper_id, wrap_fn, acc)
+                  new_expr_desc @@ Let (wrap_t, wrap_fn, layered_fn)
                 in
                 return wrap_def
             | Some t_id ->
-                let wrapper_id = Ident (arg ^ "_wrap") in
                 let%bind wrap_fn =
                   new_instrumented_ed
                   @@ RecordProj (new_expr_desc @@ Var t_id, Label "wrapper")
                 in
                 let wrap_def =
-                  new_expr_desc @@ Let (wrapper_id, wrap_fn, acc)
+                  new_expr_desc @@ Let (wrap_t, wrap_fn, layered_fn)
                 in
                 let new_fn = new_expr_desc @@ Function ([ t_id ], wrap_def) in
                 return new_fn
@@ -147,87 +140,24 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
           acc'
         in
         let%bind proj_ed_ret =
-          new_instrumented_ed @@ RecordProj (ret_type', Label "wrapper")
+          let ret_wrapper_id =
+            List.fold_left
+              (fun acc (_, (t, _, wrap_t)) ->
+                if Bluejay_ast_internal.tagless_equal_expr_desc ret_type' t
+                then Some wrap_t
+                else acc)
+              None eta_ps
+          in
+          match ret_wrapper_id with
+          | None ->
+              new_instrumented_ed @@ RecordProj (ret_type', Label "wrapper")
+          | Some wrap_t -> return @@ new_expr_desc @@ Var wrap_t
         in
         let final_appl = new_expr_desc @@ Appl (proj_ed_ret, f_body') in
-        (* let%bind check_args = list_fold_right_m folder1 eta_ps final_appl in *)
-        let%bind transformed_fn = list_fold_right_m folder1 eta_ps final_appl in
-        let%bind wrapped_appl =
-          eta_ps |> list_fold_left_m folder2 transformed_fn
-        in
-
-        (* let params = eta_ps |> List.map (fun ((_, p), _) -> p) in
-           let extra_params =
-             eta_ps |> List.filter_map (fun (_, (_, t_id_opt)) -> t_id_opt)
-           in *)
-        let ret_fsig = new_expr_desc @@ Let (Ident f, wrapped_appl, let_expr) in
+        let%bind wrapped_appl = list_fold_right_m folder2 eta_ps final_appl in
+        let ret_ed = new_expr_desc @@ Let (Ident f, wrapped_appl, let_expr) in
         return
-        @@ (Typed_funsig (Ident f, typed_params, (f_body', ret_type')), ret_fsig)
-        (* @@ ( Typed_funsig (Ident f, typed_params, (f_body', ret_type')),
-             Funsig
-               ( Ident f,
-                 extra_params @ params,
-                 new_expr_desc
-                 @@ If
-                      ( check_args,
-                        final_appl,
-                        new_expr_desc @@ Assert check_args ) ) ) *)
-
-        (* let build_is_type (ed : 'a expr_desc) (success : 'a expr_desc) :
-               'a expr_desc m =
-             let type_rec_pat =
-               RecPat
-                 (Ident_map.empty
-                 |> Ident_map.add (Ident "checker") None
-                 |> Ident_map.add (Ident "wrapper") None)
-             in
-             new_instrumented_ed
-             @@ Match
-                  ( ed,
-                    [
-                      (type_rec_pat, success);
-                      ( AnyPat,
-                        new_expr_desc @@ Assert (new_expr_desc @@ Bool false) );
-                    ] )
-           in
-           let poly = not @@ List.is_empty extra_params in
-           if poly
-           then
-             let actual_fn =
-               new_expr_desc
-               @@ Function
-                    ( params,
-                      new_expr_desc
-                      @@ If
-                           ( check_args,
-                             final_appl,
-                             new_expr_desc @@ Assert check_args ) )
-             in
-             let param_vars =
-               List.map (fun p -> new_expr_desc @@ Var p) extra_params
-             in
-             let%bind body =
-               list_fold_right_m
-                 (fun elm acc -> build_is_type elm acc)
-                 param_vars actual_fn
-             in
-             (* let ret_fsig = Funsig (Ident f, extra_params, body) in *)
-             let ret_fsig = Funsig (Ident f, extra_params, body) in
-             (* let ret_fsig = Let (Ident f, transformed_fn, let_expr) in *)
-             return
-             @@ ( Typed_funsig (Ident f, typed_params, (f_body', ret_type')),
-                  ret_fsig )
-           else
-             return
-             @@ ( Typed_funsig (Ident f, typed_params, (f_body', ret_type')),
-                  Funsig
-                    ( Ident f,
-                      params,
-                      new_expr_desc
-                      @@ If
-                           ( check_args,
-                             final_appl,
-                             new_expr_desc @@ Assert check_args ) ) ) *)
+        @@ (Typed_funsig (Ident f, typed_params, (f_body', ret_type')), ret_ed)
     | _ -> failwith "TBI"
     (* | DTyped_funsig (Ident f, (Ident p, pt), (f_body, ret_type)) ->
        let%bind ret_type' = wrap ret_type in
