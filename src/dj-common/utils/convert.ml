@@ -89,10 +89,15 @@ let bluejay_to_jayil ~do_wrap ~do_instrument raw_bluejay =
     bluejay_edesc_to_jay ~do_wrap bluejay_edesc
   in
   let bluejay_instruments = bluejay_jay_map.instrumented_tags in
+  let () =
+    Fmt.pr "\nThis is the Jay expr: %a \n"
+      Jay.Jay_ast_pp.pp_expr_desc_without_tag jay_edesc
+  in
   let a, b, c =
     Jay_translate.Jay_to_jayil.translate ~is_jay:true
       ~is_instrumented:do_instrument ~consts ~bluejay_instruments jay_edesc
   in
+  let () = Fmt.pr "\nThis is the Jayil expr: %a \n" Jayil.Pp.expr a in
   convert_t_of6 a (Some jay_edesc) (Some bluejay_edesc) b (Some c)
     (Some bluejay_jay_map)
 
