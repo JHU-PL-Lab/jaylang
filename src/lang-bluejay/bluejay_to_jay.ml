@@ -58,7 +58,7 @@ let mk_gc_pair_cod arg_id cod arg =
 let wrap_flag = ref false
 
 let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
-  let mk_check_from_fun_sig fun_sig let_expr =
+  let mk_check_from_fun_sig fun_sig =
     match fun_sig with
     | Typed_funsig (Ident f, typed_params, (f_body, ret_type)) ->
         let%bind ret_type' = wrap ret_type in
@@ -152,10 +152,78 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
           new_instrumented_ed @@ RecordProj (ret_type'', Label "wrapper")
         in
         let final_appl = new_expr_desc @@ Appl (proj_ed_ret, f_body') in
-        let%bind wrapped_appl = list_fold_right_m folder2 eta_ps final_appl in
-        let ret_ed = new_expr_desc @@ Let (Ident f, wrapped_appl, let_expr) in
+        let%bind wrapped_appl =
+          list_fold_right_m folder2 (List.tl eta_ps) final_appl
+        in
+        let (fst_og_arg, fst_arg), (fst_t, fst_t_id_opt, fst_wrap_t) =
+          List.hd eta_ps
+        in
+        let%bind handle_fst =
+          let%bind proj_ed_1 =
+            match fst_t_id_opt with
+            | None -> new_instrumented_ed @@ RecordProj (fst_t, Label "checker")
+            | Some tid ->
+                new_instrumented_ed
+                @@ RecordProj (new_expr_desc @@ Var tid, Label "checker")
+          in
+          let%bind check_arg =
+            new_instrumented_ed
+            @@ If
+                 ( new_expr_desc
+                   @@ GreaterThan
+                        (new_expr_desc @@ Input, new_expr_desc @@ Int 0),
+                   new_expr_desc
+                   @@ Appl (proj_ed_1, new_expr_desc @@ Var fst_arg),
+                   new_expr_desc @@ Bool true )
+          in
+          let wrapped_arg =
+            new_expr_desc
+            @@ Appl
+                 (new_expr_desc @@ Var fst_wrap_t, new_expr_desc @@ Var fst_arg)
+          in
+          let rebind_arg =
+            new_expr_desc @@ Let (Ident fst_og_arg, wrapped_arg, wrapped_appl)
+          in
+          let%bind layered_fn =
+            let%bind fn_body =
+              new_instrumented_ed
+              @@ If
+                   ( check_arg,
+                     rebind_arg,
+                     new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+            in
+            return @@ new_expr_desc @@ Function ([ fst_arg ], fn_body)
+          in
+          match fst_t_id_opt with
+          | None ->
+              let%bind wrap_fn =
+                new_instrumented_ed @@ RecordProj (fst_t, Label "wrapper")
+              in
+              let wrap_def =
+                new_expr_desc @@ Let (fst_wrap_t, wrap_fn, layered_fn)
+              in
+              let%bind eta_arg = fresh_ident "eta" in
+              let%bind eta_appl =
+                new_instrumented_ed
+                @@ Appl (wrap_def, new_expr_desc @@ Var eta_arg)
+              in
+              return @@ Funsig (Ident f, [ eta_arg ], eta_appl)
+          | Some t_id ->
+              let%bind wrap_fn =
+                new_instrumented_ed
+                @@ RecordProj (new_expr_desc @@ Var t_id, Label "wrapper")
+              in
+              let wrap_def =
+                new_expr_desc @@ Let (fst_wrap_t, wrap_fn, layered_fn)
+              in
+              (* let new_fn = new_expr_desc @@ Function ([ t_id ], wrap_def) in *)
+              let new_fn = Funsig (Ident f, [ t_id ], wrap_def) in
+              return new_fn
+        in
+        (* let ret_ed = new_expr_desc @@ Let (Ident f, wrapped_appl, let_expr) in *)
         return
-        @@ (Typed_funsig (Ident f, typed_params, (f_body', ret_type')), ret_ed)
+        @@ ( Typed_funsig (Ident f, typed_params, (f_body', ret_type')),
+             handle_fst )
     | DTyped_funsig (Ident f, ((Ident p as og_arg), t), (f_body, ret_type)) ->
         let%bind ret_type' = wrap ret_type in
         let%bind f_body' = wrap f_body in
@@ -227,7 +295,13 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
               let wrap_def =
                 new_expr_desc @@ Let (wrap_t, wrap_fn, layered_fn)
               in
-              return wrap_def
+              let%bind eta_arg = fresh_ident "eta" in
+              let%bind eta_appl =
+                new_instrumented_ed
+                @@ Appl (wrap_def, new_expr_desc @@ Var eta_arg)
+              in
+              return @@ Funsig (Ident f, [ eta_arg ], eta_appl)
+              (* return wrap_def *)
           | Some t_id ->
               let%bind wrap_fn =
                 new_instrumented_ed
@@ -236,12 +310,15 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
               let wrap_def =
                 new_expr_desc @@ Let (wrap_t, wrap_fn, layered_fn)
               in
-              let new_fn = new_expr_desc @@ Function ([ t_id ], wrap_def) in
+              (* let new_fn = new_expr_desc @@ Function ([ t_id ], wrap_def) in
+                 return new_fn *)
+              let new_fn = Funsig (Ident f, [ t_id ], wrap_def) in
               return new_fn
         in
-        let ret_ed = new_expr_desc @@ Let (Ident f, wrap_ret, let_expr) in
+        (* let ret_ed = new_expr_desc @@ Let (Ident f, wrap_ret, let_expr) in *)
         return
-        @@ (DTyped_funsig (Ident f, (og_arg, t'), (f_body', ret_type')), ret_ed)
+        @@ ( DTyped_funsig (Ident f, (og_arg, t'), (f_body', ret_type')),
+             wrap_ret )
   in
   let og_tag = e_desc.tag in
   let og_e = e_desc.body in
@@ -352,24 +429,22 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
         let res = new_expr_desc @@ LetWithType (x, e1'', e2', t') in
         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
         return res
-    (* | LetRecFunWithType (sig_lst, e) -> *)
-    | LetRecFunWithType _ ->
-        failwith "TBI"
-        (* let%bind a = sequence @@ List.map mk_check_from_fun_sig sig_lst e in
-           let sig_lst', sig_lst_wrapped =
-             List.fold_right
-               (fun (l, r) (lacc, racc) -> (l :: lacc, r :: racc))
-               a ([], [])
-           in
-           let%bind og_e' = wrap e in
-           let overrides = new_expr_desc @@ LetRecFun (sig_lst_wrapped, og_e') in
-           let res = new_expr_desc @@ LetRecFunWithType (sig_lst', overrides) in
-           let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
-           return res *)
+    | LetRecFunWithType (sig_lst, e) ->
+        let%bind a = sequence @@ List.map mk_check_from_fun_sig sig_lst in
+        let sig_lst', sig_lst_wrapped =
+          List.fold_right
+            (fun (l, r) (lacc, racc) -> (l :: lacc, r :: racc))
+            a ([], [])
+        in
+        let%bind og_e' = wrap e in
+        let overrides = new_expr_desc @@ LetRecFun (sig_lst_wrapped, og_e') in
+        let res = new_expr_desc @@ LetRecFunWithType (sig_lst', overrides) in
+        let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
+        return res
     | LetFunWithType (fun_sig, e) ->
         let%bind og_e' = wrap e in
-        let%bind fun_sig', override = mk_check_from_fun_sig fun_sig og_e' in
-        (* let override = new_expr_desc @@ LetFun (fun_sig_wrapped, og_e') in *)
+        let%bind fun_sig', fun_sig_wrapped = mk_check_from_fun_sig fun_sig in
+        let override = new_expr_desc @@ LetFun (fun_sig_wrapped, og_e') in
         let res = new_expr_desc @@ LetFunWithType (fun_sig', override) in
         let%bind () = add_wrapped_to_unwrapped_mapping res e_desc in
         return res
