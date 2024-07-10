@@ -6,9 +6,11 @@ let bind
   (f : 'a -> List 'b -> {: value : 'c , store : List 'b :})
   :          List 'b -> {: value : 'c , store : List 'b :}
   =
-  fun ss ->
+  let g (ss : List 'b) : {: value : 'c , store : List 'b :} =
     let r = x ss in
     f r.value r.store
+  in
+  g
 in
 
 bind

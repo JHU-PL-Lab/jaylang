@@ -9,10 +9,10 @@ module Pop_kind =
       | Random
 
     let random () =
-      match Random.int 3 with
+      match Random.int 2 with
       | 0 -> DFS
       | 1 -> BFS
-      | _ -> Prioritize_uncovered
+      | _ -> Prioritize_uncovered (* NOTE: this is unreachable right now *)
   end
 
 module Q = Psq.Make (Target) (Int) (* functional priority search queue *)

@@ -6,7 +6,7 @@ module T =
       { quit_on_abort      : bool  [@default false]
       ; global_timeout_sec : float [@default 30.0]
       ; solver_timeout_sec : float [@default 1.0]
-      ; global_max_step    : int   [@default Int.(5 * 10**3)]
+      ; global_max_step    : int   [@default Int.(50 * 10**3)]
       ; max_tree_depth     : int   [@default 50]
       ; random             : bool  [@default false]}
       [@@deriving sexp]

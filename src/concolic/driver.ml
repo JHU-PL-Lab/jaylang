@@ -19,12 +19,13 @@ module Test_result =
       (* When abort and type mismatch are found, we can conclusively end *)
       | (Found_abort _ as x), _ | _, (Found_abort _ as x)
       | (Type_mismatch _ as x), _ | _, (Type_mismatch _ as x) -> x
+      (* Similarly, if we exhausted a tree, then we tried literally everything, so can end *)
+      | Exhausted,_  | _, Exhausted -> Exhausted
       (* For the following results, we want to keep the one with the least information to be conservative *)
       | Timeout, _ | _, Timeout -> Timeout
-      | Exhausted_pruned_tree,_  | _, Exhausted_pruned_tree -> Exhausted_pruned_tree
-      | Exhausted, Exhausted -> Exhausted
+      | Exhausted_pruned_tree, Exhausted_pruned_tree -> Exhausted_pruned_tree
 
-    let default : t = Exhausted (* has the least information *)
+    let default : t = Exhausted_pruned_tree (* has the least information *)
   end
 
 (*
@@ -66,7 +67,7 @@ let[@landmark] test_incremental n : (Jayil.Ast.expr -> Test_result.t Lwt.t) Opti
             ~f:(fun acc d ->
                 acc
                 >>= function
-                  | Test_result.Found_abort _ | Type_mismatch _ | Timeout -> acc
+                  | Test_result.Found_abort _ | Type_mismatch _ | Timeout | Exhausted -> acc
                   | acc -> begin
                     Options.Fun.appl lwt_test_one { r with max_tree_depth = d } e
                     >|= Test_result.merge acc

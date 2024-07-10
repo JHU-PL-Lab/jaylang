@@ -17,10 +17,10 @@ in
 let value = Mu t. ``Int int || ``Bool bool || ``Fun (t -> t)
 in
 
-let env_type =
+let env_type = Mu t.
   {: get : ident -> option (value)
-   , clear : unit_type -> env_type
-   , add : ident -> value -> env_type :}
+   , clear : unit_type -> t
+   , add : ident -> value -> t :}
 in
 
 let (empty : env_type) =
