@@ -195,7 +195,14 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
             | Some tid ->
                 replace_tagless_expr_desc ret_type' t (new_expr_desc @@ Var tid)
           in
-          new_instrumented_ed @@ RecordProj (ret_type'', Label "wrapper")
+          let%bind arg' = fresh_ident p in
+          let ret_type_renamed =
+            replace_var_of_expr_desc ret_type'' og_arg arg
+          in
+          let final_ret_type =
+            new_expr_desc @@ mk_gc_pair_cod arg' ret_type_renamed arg
+          in
+          new_instrumented_ed @@ RecordProj (final_ret_type, Label "wrapper")
         in
         let final_appl = new_expr_desc @@ Appl (proj_ed_ret, f_body') in
         let rebind_arg =
@@ -1133,7 +1140,9 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let%bind tid = fresh_ident "tid" in
           let%bind proj_ed_1 =
             if is_dom_poly
-            then return @@ new_expr_desc @@ Var tid
+            then
+              new_instrumented_ed
+              @@ RecordProj (new_expr_desc @@ Var tid, Label "checker")
             else
               new_instrumented_ed
               @@ RecordProj (gc_pair_dom_check, Label "checker")
@@ -1268,11 +1277,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind wrapper =
           let%bind gc_pair_dom = semantic_type_of t1 in
           let%bind gc_pair_cod = semantic_type_of t2 in
-          (* let%bind proj_ed_1_inner =
-               new_instrumented_ed @@ RecordProj (gc_pair_dom, Label "~actual_rec")
-             in *)
+
+          let is_dom_poly = is_polymorphic_type t1 in
+          let%bind tid = fresh_ident "tid" in
           let%bind proj_ed_1 =
-            new_instrumented_ed @@ RecordProj (gc_pair_dom, Label "checker")
+            if is_dom_poly
+            then
+              new_instrumented_ed
+              @@ RecordProj (new_expr_desc @@ Var tid, Label "checker")
+            else new_instrumented_ed @@ RecordProj (gc_pair_dom, Label "checker")
           in
           let%bind expr_id = fresh_ident "expr" in
           let%bind arg_id = fresh_ident "arg" in
@@ -1409,8 +1422,8 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           return @@ Function ([ expr_id ], new_expr_desc check_type)
         in
         let%bind wrapper =
-          let%bind expr_id = fresh_ident "expr" in
-          return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+          let%bind sem_t = semantic_type_of t in
+          new_instrumented_ed @@ RecordProj (sem_t, Label "wrapper")
         in
         let rec_map =
           if !wrap_flag
@@ -1418,7 +1431,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             Ident_map.empty
             |> Ident_map.add (Ident "generator") (new_expr_desc generator)
             |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-            |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+            |> Ident_map.add (Ident "wrapper") wrapper
           else
             Ident_map.empty
             |> Ident_map.add (Ident "generator") (new_expr_desc generator)
