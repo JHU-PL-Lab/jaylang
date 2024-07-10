@@ -1,7 +1,7 @@
 # subtyping of refined intersection type.
 # wrap is helpful for catching error, but I'm not sure why
 
-let t = {. (int -> int) && (bool -> bool) | fun x -> x true }
+let t = {. (int -> int) && (bool -> bool) | fun f -> f true }
 in
 
 # this is a subtype of t

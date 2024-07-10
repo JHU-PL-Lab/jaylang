@@ -1,14 +1,14 @@
 
-let color = {. int | fun i -> i >= 0 and i < 256 }
+let color_type = {. int | fun i -> i >= 0 and i < 256 }
 in
 
 let point = {: x : int , y : int :}
 in
 
-let colored_point = {: x : int , y : int , color : color :}
+let colored_point = {: x : int , y : int , color : color_type :}
 in
 
-let get_color (p : point) : color =
+let get_color (p : point) : color_type =
   p.color # should have required p : colored_point
 in
 

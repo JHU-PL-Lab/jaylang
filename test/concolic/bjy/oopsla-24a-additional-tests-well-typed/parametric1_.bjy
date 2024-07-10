@@ -1,6 +1,7 @@
 
 # state monad bind
 
+# TODO: where is the error here?
 let bind 
   (x :       List 'b -> {: value : 'a , store : List 'b :})
   (f : 'a -> List 'b -> {: value : 'c , store : List 'b :})
