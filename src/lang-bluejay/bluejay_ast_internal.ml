@@ -1443,3 +1443,478 @@ let rec is_subtype (ed1 : syn_bluejay_edesc) (ed2 : syn_bluejay_edesc) : bool =
         then is_subtype ed1 t2
         else false (* TODO: What other cases are we missing here? *)
     | _ -> failwith "TBI!"
+
+let rec replace_var_of_expr_desc (ed : 'a expr_desc) (og_id : ident)
+    (new_id : ident) : 'a expr_desc =
+  let e = ed.body in
+  { tag = ed.tag; body = replace_var_of_expr e og_id new_id }
+
+and replace_var_of_expr (e : 'a expr) (og_id : ident) (new_id : ident) : 'a expr
+    =
+  match e with
+  | Int _ | Bool _ | Input | TypeInt | TypeBool | TypeUntouched _ | TypeVar _
+  | TypeError _ ->
+      e
+  | Var x -> if Ident.equal x og_id then Var new_id else Var x
+  | Function (params, ed) ->
+      if List.mem og_id params
+      then e
+      else Function (params, replace_var_of_expr_desc ed og_id new_id)
+  | Appl (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      Appl (ed1', ed2')
+  | Plus (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      Plus (ed1', ed2')
+  | Minus (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      Minus (ed1', ed2')
+  | Times (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      Times (ed1', ed2')
+  | Divide (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      Divide (ed1', ed2')
+  | Modulus (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      Modulus (ed1', ed2')
+  | Equal (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      Equal (ed1', ed2')
+  | Neq (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      Neq (ed1', ed2')
+  | LessThan (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      LessThan (ed1', ed2')
+  | Leq (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      Leq (ed1', ed2')
+  | GreaterThan (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      GreaterThan (ed1', ed2')
+  | Geq (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      Geq (ed1', ed2')
+  | And (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      And (ed1', ed2')
+  | Or (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      Or (ed1', ed2')
+  | ListCons (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      ListCons (ed1', ed2')
+  | TypeArrow (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      TypeArrow (ed1', ed2')
+  | TypeSet (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      TypeSet (ed1', ed2')
+  | TypeUnion (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      TypeUnion (ed1', ed2')
+  | TypeIntersect (ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      TypeIntersect (ed1', ed2')
+  | Not ed ->
+      let ed' = replace_var_of_expr_desc ed og_id new_id in
+      Not ed'
+  | RecordProj (ed, lbl) ->
+      let ed' = replace_var_of_expr_desc ed og_id new_id in
+      RecordProj (ed', lbl)
+  | VariantExpr (v_lbl, ed) ->
+      let ed' = replace_var_of_expr_desc ed og_id new_id in
+      VariantExpr (v_lbl, ed')
+  | Assert ed ->
+      let ed' = replace_var_of_expr_desc ed og_id new_id in
+      Assert ed'
+  | Assume ed ->
+      let ed' = replace_var_of_expr_desc ed og_id new_id in
+      Assume ed'
+  | TypeList ed ->
+      let ed' = replace_var_of_expr_desc ed og_id new_id in
+      TypeList ed'
+  | TypeVariant vs ->
+      let vs' =
+        List.map
+          (fun (v_lbl, t_ed) ->
+            (v_lbl, replace_var_of_expr_desc t_ed og_id new_id))
+          vs
+      in
+      TypeVariant vs'
+  | If (ed1, ed2, ed3) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+      let ed3' = replace_var_of_expr_desc ed3 og_id new_id in
+      If (ed1', ed2', ed3')
+  | Record r ->
+      let r' =
+        Ident_map.map (fun ed -> replace_var_of_expr_desc ed og_id new_id) r
+      in
+      Record r'
+  | TypeRecord r ->
+      let r' =
+        Ident_map.map (fun ed -> replace_var_of_expr_desc ed og_id new_id) r
+      in
+      TypeRecord r'
+  | List eds ->
+      let eds' =
+        List.map (fun ed -> replace_var_of_expr_desc ed og_id new_id) eds
+      in
+      List eds'
+  | Match (med, pat_ed_lst) ->
+      let med' = replace_var_of_expr_desc med og_id new_id in
+      let pat_ed_lst' =
+        List.map
+          (fun (pat, p_ed) -> (pat, replace_var_of_expr_desc p_ed og_id new_id))
+          pat_ed_lst
+      in
+      Match (med', pat_ed_lst')
+  | Let (x, ed1, ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' =
+        if Ident.equal x og_id
+        then ed2
+        else replace_var_of_expr_desc ed2 og_id new_id
+      in
+      Let (x, ed1', ed2')
+  | LetWithType (x, ed1, ed2, ed3) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' =
+        if Ident.equal x og_id
+        then ed2
+        else replace_var_of_expr_desc ed2 og_id new_id
+      in
+      let ed3' = replace_var_of_expr_desc ed3 og_id new_id in
+      LetWithType (x, ed1', ed2', ed3')
+  | LetFun (fun_sig, ed) ->
+      let fun_sig' = replace_var_of_funsig fun_sig og_id new_id in
+      let ed' = replace_var_of_expr_desc ed og_id new_id in
+      LetFun (fun_sig', ed')
+  | LetFunWithType (fun_sig, ed) ->
+      let fun_sig' = replace_var_of_typed_funsig fun_sig og_id new_id in
+      let ed' = replace_var_of_expr_desc ed og_id new_id in
+      LetFunWithType (fun_sig', ed')
+  | LetRecFun (fun_sigs, ed) ->
+      let fun_sigs' =
+        List.map
+          (fun f_sig -> replace_var_of_funsig f_sig og_id new_id)
+          fun_sigs
+      in
+      let ed' = replace_var_of_expr_desc ed og_id new_id in
+      LetRecFun (fun_sigs', ed')
+  | LetRecFunWithType (fun_sigs, ed) ->
+      let fun_sigs' =
+        List.map
+          (fun f_sig -> replace_var_of_typed_funsig f_sig og_id new_id)
+          fun_sigs
+      in
+      let ed' = replace_var_of_expr_desc ed og_id new_id in
+      LetRecFunWithType (fun_sigs', ed')
+  | TypeArrowD ((x, ed1), ed2) ->
+      let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+      let ed2' =
+        if Ident.equal x og_id
+        then ed2
+        else replace_var_of_expr_desc ed2 og_id new_id
+      in
+      TypeArrowD ((x, ed1'), ed2')
+  | TypeRecurse (x, ed) ->
+      let ed' =
+        if Ident.equal x og_id
+        then ed
+        else replace_var_of_expr_desc ed og_id new_id
+      in
+      TypeRecurse (x, ed')
+
+and replace_var_of_funsig (Funsig (f, params, ed) : 'a funsig) (og_id : ident)
+    (new_id : ident) : 'a funsig =
+  if Ident.equal f og_id || List.mem og_id params
+  then Funsig (f, params, ed)
+  else
+    let ed' = replace_var_of_expr_desc ed og_id new_id in
+    Funsig (f, params, ed')
+
+and replace_var_of_typed_funsig (fun_sig : 'a typed_funsig) (og_id : ident)
+    (new_id : ident) : 'a typed_funsig =
+  match fun_sig with
+  | Typed_funsig (f, typed_params, (body, ret_type)) ->
+      let params = List.map fst typed_params in
+      (* TODO: Check logic here; might be buggy. *)
+      if List.mem og_id params
+      then
+        let typed_params' =
+          List.map
+            (fun (x, t) -> (x, replace_var_of_expr_desc t og_id new_id))
+            typed_params
+        in
+        let ret_type' = replace_var_of_expr_desc ret_type og_id new_id in
+        Typed_funsig (f, typed_params', (body, ret_type'))
+      else if Ident.equal f og_id
+      then
+        let typed_params' =
+          List.map
+            (fun (x, t) -> (x, replace_var_of_expr_desc t og_id new_id))
+            typed_params
+        in
+        Typed_funsig (f, typed_params', (body, ret_type))
+      else
+        let body' = replace_var_of_expr_desc body og_id new_id in
+        let typed_params' =
+          List.map
+            (fun (x, t) -> (x, replace_var_of_expr_desc t og_id new_id))
+            typed_params
+        in
+        let ret_type' = replace_var_of_expr_desc ret_type og_id new_id in
+        Typed_funsig (f, typed_params', (body', ret_type'))
+  | DTyped_funsig (f, (x, t), (body, ret_type)) ->
+      (* TODO: Check logic here *)
+      if Ident.equal x og_id
+      then
+        let t' = replace_var_of_expr_desc t og_id new_id in
+        DTyped_funsig (f, (x, t'), (body, ret_type))
+      else if Ident.equal f og_id
+      then
+        let t' = replace_var_of_expr_desc t og_id new_id in
+        DTyped_funsig (f, (x, t'), (body, ret_type))
+      else
+        let body' = replace_var_of_expr_desc body og_id new_id in
+        let t' = replace_var_of_expr_desc t og_id new_id in
+        let ret_type' = replace_var_of_expr_desc ret_type og_id new_id in
+        DTyped_funsig (f, (x, t'), (body', ret_type'))
+
+let rec replace_tagless_expr_desc (ed : 'a expr_desc) (target : 'a expr_desc)
+    (replacement : 'a expr_desc) : 'a expr_desc =
+  if tagless_equal_expr_desc ed target
+  then replacement
+  else
+    let e = ed.body in
+    { tag = ed.tag; body = replace_tagless_expr e target replacement }
+
+and replace_tagless_expr (e : 'a expr) (target : 'a expr_desc)
+    (replacement : 'a expr_desc) : 'a expr =
+  match e with
+  | Int _ | Bool _ | Input | TypeInt | TypeBool | TypeUntouched _ | TypeVar _
+  | TypeError _ | Var _ ->
+      e
+  | Function (params, ed) ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      Function (params, ed')
+  | Appl (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Appl (ed1', ed2')
+  | Plus (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Plus (ed1', ed2')
+  | Minus (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Minus (ed1', ed2')
+  | Times (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Times (ed1', ed2')
+  | Divide (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Divide (ed1', ed2')
+  | Modulus (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Modulus (ed1', ed2')
+  | Equal (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Equal (ed1', ed2')
+  | Neq (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Neq (ed1', ed2')
+  | LessThan (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      LessThan (ed1', ed2')
+  | Leq (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Leq (ed1', ed2')
+  | GreaterThan (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      GreaterThan (ed1', ed2')
+  | Geq (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Geq (ed1', ed2')
+  | And (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      And (ed1', ed2')
+  | Or (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Or (ed1', ed2')
+  | ListCons (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      ListCons (ed1', ed2')
+  | TypeArrow (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      TypeArrow (ed1', ed2')
+  | TypeSet (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      TypeSet (ed1', ed2')
+  | TypeUnion (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      TypeUnion (ed1', ed2')
+  | TypeIntersect (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      TypeIntersect (ed1', ed2')
+  | Not ed ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      Not ed'
+  | RecordProj (ed, lbl) ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      RecordProj (ed', lbl)
+  | VariantExpr (v_lbl, ed) ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      VariantExpr (v_lbl, ed')
+  | Assert ed ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      Assert ed'
+  | Assume ed ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      Assume ed'
+  | TypeList ed ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      TypeList ed'
+  | TypeVariant vs ->
+      let vs' =
+        List.map
+          (fun (v_lbl, t_ed) ->
+            (v_lbl, replace_tagless_expr_desc t_ed target replacement))
+          vs
+      in
+      TypeVariant vs'
+  | If (ed1, ed2, ed3) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      let ed3' = replace_tagless_expr_desc ed3 target replacement in
+      If (ed1', ed2', ed3')
+  | Record r ->
+      let r' =
+        Ident_map.map
+          (fun ed -> replace_tagless_expr_desc ed target replacement)
+          r
+      in
+      Record r'
+  | TypeRecord r ->
+      let r' =
+        Ident_map.map
+          (fun ed -> replace_tagless_expr_desc ed target replacement)
+          r
+      in
+      TypeRecord r'
+  | List eds ->
+      let eds' =
+        List.map (fun ed -> replace_tagless_expr_desc ed target replacement) eds
+      in
+      List eds'
+  | Match (med, pat_ed_lst) ->
+      let med' = replace_tagless_expr_desc med target replacement in
+      let pat_ed_lst' =
+        List.map
+          (fun (pat, p_ed) ->
+            (pat, replace_tagless_expr_desc p_ed target replacement))
+          pat_ed_lst
+      in
+      Match (med', pat_ed_lst')
+  | Let (x, ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Let (x, ed1', ed2')
+  | LetWithType (x, ed1, ed2, ed3) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      let ed3' = replace_tagless_expr_desc ed3 target replacement in
+      LetWithType (x, ed1', ed2', ed3')
+  | LetFun (fun_sig, ed) ->
+      let fun_sig' = replace_tagless_funsig fun_sig target replacement in
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      LetFun (fun_sig', ed')
+  | LetFunWithType (fun_sig, ed) ->
+      let fun_sig' = replace_tagless_typed_funsig fun_sig target replacement in
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      LetFunWithType (fun_sig', ed')
+  | LetRecFun (fun_sigs, ed) ->
+      let fun_sigs' =
+        List.map
+          (fun f_sig -> replace_tagless_funsig f_sig target replacement)
+          fun_sigs
+      in
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      LetRecFun (fun_sigs', ed')
+  | LetRecFunWithType (fun_sigs, ed) ->
+      let fun_sigs' =
+        List.map
+          (fun f_sig -> replace_tagless_typed_funsig f_sig target replacement)
+          fun_sigs
+      in
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      LetRecFunWithType (fun_sigs', ed')
+  | TypeArrowD ((x, ed1), ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      TypeArrowD ((x, ed1'), ed2')
+  | TypeRecurse (x, ed) ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      TypeRecurse (x, ed')
+
+and replace_tagless_funsig (Funsig (f, params, ed) : 'a funsig)
+    (target : 'a expr_desc) (replacement : 'a expr_desc) : 'a funsig =
+  let ed' = replace_tagless_expr_desc ed target replacement in
+  Funsig (f, params, ed')
+
+and replace_tagless_typed_funsig (fun_sig : 'a typed_funsig)
+    (target : 'a expr_desc) (replacement : 'a expr_desc) : 'a typed_funsig =
+  match fun_sig with
+  | Typed_funsig (f, typed_params, (body, ret_type)) ->
+      let typed_params' =
+        List.map
+          (fun (x, t) -> (x, replace_tagless_expr_desc t target replacement))
+          typed_params
+      in
+      let body' = replace_tagless_expr_desc body target replacement in
+      let ret_type' = replace_tagless_expr_desc ret_type target replacement in
+      Typed_funsig (f, typed_params', (body', ret_type'))
+  | DTyped_funsig (f, (x, t), (body, ret_type)) ->
+      let body' = replace_tagless_expr_desc body target replacement in
+      let t' = replace_tagless_expr_desc t target replacement in
+      let ret_type' = replace_tagless_expr_desc ret_type target replacement in
+      DTyped_funsig (f, (x, t'), (body', ret_type'))

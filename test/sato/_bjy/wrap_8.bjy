@@ -1,0 +1,2 @@
+let fst (x : 'a) (y : 'b) : 'a = x in
+fst (int) 5 (bool) true

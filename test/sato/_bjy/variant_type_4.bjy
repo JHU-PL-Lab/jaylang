@@ -1,0 +1,7 @@
+let t = ``A int
+in
+
+let (x : t) = `A 0
+in
+
+x
