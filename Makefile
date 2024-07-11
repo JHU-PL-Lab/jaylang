@@ -36,6 +36,9 @@ jil:
 
 jay:
 	dune build src/bin/jay.exe
+
+ft:
+	dune build src-test/concolic/feature_tagger.exe
 	
 # clean up
 

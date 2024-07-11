@@ -1,5 +1,16 @@
+(executable
+ (name feature_tagger)
+ (modules feature_tagger)
+ (libraries core core_unix.sys_unix)
+ (preprocess
+  (pps ppx_jane ppx_deriving.show))
+ (promote
+  (until-clean)
+  (into "../..")))
+
 (tests
  (names test_concolic)
+ (modules test_concolic)
  (libraries
   core
   core_unix.sys_unix
