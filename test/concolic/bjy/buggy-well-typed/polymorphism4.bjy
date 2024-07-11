@@ -10,9 +10,11 @@ in
 
 let r =
   compose
-    id
-    id
-    4
+    (int)
+    (int)
+    (id (int))
+    (int)
+    (id (int))
 in
 
 r

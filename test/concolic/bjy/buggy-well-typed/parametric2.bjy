@@ -1,9 +1,14 @@
 # Continuation monad
 
-let bind
-  (ar_r : {: continuation : ('a -> 'r) -> 'r :})
-  : ('a -> {: continuation : ('b -> 'r) -> 'r :}) -> {: continuation : ('b -> 'r) -> 'r :}
-  =
+let a = 'a in let b = 'b in let r = 'r in
+
+let ta = {: continuation : (a -> r) -> r :} 
+in
+
+let tb = {: continuation : (b -> r) -> r :}
+in
+
+let bind (ar_r : ta) : (a -> tb) -> tb =
   fun a_br_r ->
     { continuation = 
       fun br ->
