@@ -140,16 +140,6 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
           acc'
         in
         let%bind proj_ed_ret =
-          (* let ret_wrapper_id =
-               List.fold_left
-                 (fun acc (_, (t, _, wrap_t)) ->
-                   if Bluejay_ast_internal.tagless_equal_expr_desc ret_type' t
-                   then Some wrap_t
-                   else acc)
-                 None eta_ps
-             in
-             match ret_wrapper_id with
-             | None -> *)
           let ret_type'' =
             List.fold_left
               (fun acc (_, (t, t_id_opt, _)) ->
@@ -160,163 +150,98 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
               ret_type' eta_ps
           in
           new_instrumented_ed @@ RecordProj (ret_type'', Label "wrapper")
-          (* | Some wrap_t -> return @@ new_expr_desc @@ Var wrap_t *)
         in
         let final_appl = new_expr_desc @@ Appl (proj_ed_ret, f_body') in
         let%bind wrapped_appl = list_fold_right_m folder2 eta_ps final_appl in
         let ret_ed = new_expr_desc @@ Let (Ident f, wrapped_appl, let_expr) in
         return
         @@ (Typed_funsig (Ident f, typed_params, (f_body', ret_type')), ret_ed)
-    (* | DTyped_funsig (Ident f, (Ident p, pt), (f_body, ret_type)) -> *)
-    | _ -> failwith "TBI!"
-    (* let%bind ret_type' = wrap ret_type in
-       let%bind f_body' = wrap f_body in
-       let%bind eta_p = fresh_ident p in
-       let%bind eta_t = wrap pt in
-       let%bind wrap_t_id = fresh_ident "wrap_t" in
-       let%bind t_id_opt =
-         if is_polymorphic_type eta_t
-         then
-           let%bind t_id = fresh_ident "t" in
-           return @@ Some t_id
-         else return @@ None
-       in
-       let%bind proj_ed_1 =
-         match t_id_opt with
-         | None -> new_instrumented_ed @@ RecordProj (eta_t, Label "checker")
-         | Some tid ->
-             new_instrumented_ed
-             @@ RecordProj (new_expr_desc @@ Var tid, Label "checker")
-       in
-       let%bind check_arg =
-         new_instrumented_ed
-         @@ If
-              ( new_expr_desc
-                @@ GreaterThan (new_expr_desc @@ Input, new_expr_desc @@ Int 0),
-                new_expr_desc @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_p),
-                new_expr_desc @@ Bool true )
-       in
-       let%bind cond =
-         new_instrumented_ed
-         @@ If
-              ( check_arg,
-                new_expr_desc @@ Bool true,
-                new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
-       in
-       let%bind wrapped_appl =
-         let%bind proj_ed_1 =
-           match t_id_opt with
-           | None ->
-               let%bind wrap_fn =
-                 new_instrumented_ed @@ RecordProj (eta_t, Label "wrapper")
-               in
-               let wrap_def =
-                 new_expr_desc @@ Let (wrap_t_id, wrap_fn, cond)
-               in
-               let new_fn =
-                 new_expr_desc @@ Function ([ wrap_t_id ], wrap_def)
-               in
-               return new_fn
-           | Some t_id ->
-               let%bind wrap_fn =
-                 new_instrumented_ed
-                 @@ RecordProj (new_expr_desc @@ Var t_id, Label "wrapper")
-               in
-               let wrap_def =
-                 new_expr_desc @@ Let (wrap_t_id, wrap_fn, cond)
-               in
-               let new_fn =
-                 new_expr_desc @@ Function ([ wrap_t_id ], wrap_def)
-               in
-               return new_fn
-         in
-         let wrapped_arg =
-           new_expr_desc
-           @@ Appl (new_expr_desc @@ Var wrap_t_id, new_expr_desc @@ Var eta_p)
-         in
-         let acc' = new_expr_desc @@ Let (Ident p, wrapped_arg, f_body') in
-         return acc'
-       in
-       let%bind proj_ed_ret =
-         let%bind eta_p' = fresh_ident p in
-         let ret_type_renamed =
-           replace_var_of_expr_desc ret_type' (Ident p) eta_p
-         in
-         let ret_type'' =
-           new_expr_desc @@ mk_gc_pair_cod eta_p' ret_type_renamed eta_p
-         in
-         new_instrumented_ed @@ RecordProj (ret_type'', Label "wrapper")
-       in
-       let final_appl = new_expr_desc @@ Appl (proj_ed_ret, wrapped_appl) in
-       let ret =
-         ( DTyped_funsig (Ident f, (Ident p, pt), (f_body', ret_type')),
-           Funsig
-             ( Ident f,
-               [ eta_p ],
-               new_expr_desc
-               @@ If
-                    (check_args, final_appl, new_expr_desc @@ Assert check_args)
-             ) )
-       in
-       failwith "TBI" *)
-    (* | DTyped_funsig (Ident f, (Ident p, pt), (f_body, ret_type)) ->
-       let%bind ret_type' = wrap ret_type in
-          let%bind f_body' = wrap f_body in
-          let%bind eta_p = fresh_ident p in
-          let%bind eta_t = wrap pt in
-          let%bind check_args =
-            let%bind proj_ed_1 =
-              new_instrumented_ed @@ RecordProj (eta_t, Label "checker")
-            in
-            let%bind check_arg =
+    | DTyped_funsig (Ident f, ((Ident p as og_arg), t), (f_body, ret_type)) ->
+        let%bind ret_type' = wrap ret_type in
+        let%bind f_body' = wrap f_body in
+        let%bind t' = wrap t in
+        let%bind t_id_opt =
+          if is_polymorphic_type t
+          then
+            let%bind t_id = fresh_ident "t" in
+            return @@ Some t_id
+          else return @@ None
+        in
+        let%bind arg = fresh_ident p in
+        let%bind wrap_t = fresh_ident "wrap_t" in
+        let%bind proj_ed_1 =
+          match t_id_opt with
+          | None -> new_instrumented_ed @@ RecordProj (t, Label "checker")
+          | Some tid ->
               new_instrumented_ed
-              @@ If
-                   ( new_expr_desc
-                     @@ GreaterThan
-                          (new_expr_desc @@ Input, new_expr_desc @@ Int 0),
-                     new_expr_desc @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_p),
-                     new_expr_desc @@ Bool true )
-            in
-            let cond =
-              new_instrumented_ed
-              @@ If
-                   ( check_arg,
-                     new_expr_desc @@ Bool true,
-                     new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
-            in
-            cond
+              @@ RecordProj (new_expr_desc @@ Var tid, Label "checker")
+        in
+        let%bind check_arg =
+          new_instrumented_ed
+          @@ If
+               ( new_expr_desc
+                 @@ GreaterThan (new_expr_desc @@ Input, new_expr_desc @@ Int 0),
+                 new_expr_desc @@ Appl (proj_ed_1, new_expr_desc @@ Var arg),
+                 new_expr_desc @@ Bool true )
+        in
+        let wrapped_arg =
+          new_expr_desc
+          @@ Appl (new_expr_desc @@ Var wrap_t, new_expr_desc @@ Var arg)
+        in
+        let%bind proj_ed_ret =
+          let ret_type'' =
+            match t_id_opt with
+            | None -> ret_type'
+            | Some tid ->
+                replace_tagless_expr_desc ret_type' t (new_expr_desc @@ Var tid)
           in
-          let%bind wrapped_appl =
-            let%bind proj_ed_1 =
-              new_instrumented_ed @@ RecordProj (eta_t, Label "wrapper")
-            in
-            let wrapped_arg =
-              new_expr_desc @@ Appl (proj_ed_1, new_expr_desc @@ Var eta_p)
-            in
-            let acc' = new_expr_desc @@ Let (Ident p, wrapped_arg, f_body') in
-            return acc'
+          let%bind arg' = fresh_ident p in
+          let ret_type_renamed =
+            replace_var_of_expr_desc ret_type'' og_arg arg
           in
-          let%bind proj_ed_ret =
-            let%bind eta_p' = fresh_ident p in
-            let ret_type_renamed =
-              replace_var_of_expr_desc ret_type' (Ident p) eta_p
-            in
-            let ret_type'' =
-              new_expr_desc @@ mk_gc_pair_cod eta_p' ret_type_renamed eta_p
-            in
-            new_instrumented_ed @@ RecordProj (ret_type'', Label "wrapper")
+          let final_ret_type =
+            new_expr_desc @@ mk_gc_pair_cod arg' ret_type_renamed arg
           in
-          let final_appl = new_expr_desc @@ Appl (proj_ed_ret, wrapped_appl) in
-          return
-          @@ ( DTyped_funsig (Ident f, (Ident p, pt), (f_body', ret_type')),
-               Funsig
-                 ( Ident f,
-                   [ eta_p ],
-                   new_expr_desc
-                   @@ If
-                        ( check_args,
-                          final_appl,
-                          new_expr_desc @@ Assert check_args ) ) ) *)
+          new_instrumented_ed @@ RecordProj (final_ret_type, Label "wrapper")
+        in
+        let final_appl = new_expr_desc @@ Appl (proj_ed_ret, f_body') in
+        let rebind_arg =
+          new_expr_desc @@ Let (og_arg, wrapped_arg, final_appl)
+        in
+        let%bind layered_fn =
+          let%bind fn_body =
+            new_instrumented_ed
+            @@ If
+                 ( check_arg,
+                   rebind_arg,
+                   new_expr_desc @@ Assert (new_expr_desc @@ Bool false) )
+          in
+          return @@ new_expr_desc @@ Function ([ arg ], fn_body)
+        in
+        let%bind wrap_ret =
+          match t_id_opt with
+          | None ->
+              let%bind wrap_fn =
+                new_instrumented_ed @@ RecordProj (t, Label "wrapper")
+              in
+              let wrap_def =
+                new_expr_desc @@ Let (wrap_t, wrap_fn, layered_fn)
+              in
+              return wrap_def
+          | Some t_id ->
+              let%bind wrap_fn =
+                new_instrumented_ed
+                @@ RecordProj (new_expr_desc @@ Var t_id, Label "wrapper")
+              in
+              let wrap_def =
+                new_expr_desc @@ Let (wrap_t, wrap_fn, layered_fn)
+              in
+              let new_fn = new_expr_desc @@ Function ([ t_id ], wrap_def) in
+              return new_fn
+        in
+        let ret_ed = new_expr_desc @@ Let (Ident f, wrap_ret, let_expr) in
+        return
+        @@ (DTyped_funsig (Ident f, (og_arg, t'), (f_body', ret_type')), ret_ed)
   in
   let og_tag = e_desc.tag in
   let og_e = e_desc.body in
@@ -1215,7 +1140,9 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           let%bind tid = fresh_ident "tid" in
           let%bind proj_ed_1 =
             if is_dom_poly
-            then return @@ new_expr_desc @@ Var tid
+            then
+              new_instrumented_ed
+              @@ RecordProj (new_expr_desc @@ Var tid, Label "checker")
             else
               new_instrumented_ed
               @@ RecordProj (gc_pair_dom_check, Label "checker")
@@ -1350,11 +1277,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         let%bind wrapper =
           let%bind gc_pair_dom = semantic_type_of t1 in
           let%bind gc_pair_cod = semantic_type_of t2 in
-          (* let%bind proj_ed_1_inner =
-               new_instrumented_ed @@ RecordProj (gc_pair_dom, Label "~actual_rec")
-             in *)
+
+          let is_dom_poly = is_polymorphic_type t1 in
+          let%bind tid = fresh_ident "tid" in
           let%bind proj_ed_1 =
-            new_instrumented_ed @@ RecordProj (gc_pair_dom, Label "checker")
+            if is_dom_poly
+            then
+              new_instrumented_ed
+              @@ RecordProj (new_expr_desc @@ Var tid, Label "checker")
+            else new_instrumented_ed @@ RecordProj (gc_pair_dom, Label "checker")
           in
           let%bind expr_id = fresh_ident "expr" in
           let%bind arg_id = fresh_ident "arg" in
@@ -1491,8 +1422,8 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
           return @@ Function ([ expr_id ], new_expr_desc check_type)
         in
         let%bind wrapper =
-          let%bind expr_id = fresh_ident "expr" in
-          return @@ Function ([ expr_id ], new_expr_desc @@ Var expr_id)
+          let%bind sem_t = semantic_type_of t in
+          new_instrumented_ed @@ RecordProj (sem_t, Label "wrapper")
         in
         let rec_map =
           if !wrap_flag
@@ -1500,7 +1431,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             Ident_map.empty
             |> Ident_map.add (Ident "generator") (new_expr_desc generator)
             |> Ident_map.add (Ident "checker") (new_expr_desc checker)
-            |> Ident_map.add (Ident "wrapper") (new_expr_desc wrapper)
+            |> Ident_map.add (Ident "wrapper") wrapper
           else
             Ident_map.empty
             |> Ident_map.add (Ident "generator") (new_expr_desc generator)
