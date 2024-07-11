@@ -10,10 +10,7 @@ in
 
 let r =
   compose
-    (int)
-    (int)
     (id (int))
-    (int)
     (id (int))
 in
 
