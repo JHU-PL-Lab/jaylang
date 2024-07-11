@@ -1,10 +1,29 @@
 
 # state monad bind
 
+#let bind 
+#  (x :       List 'b -> {: value : 'a , store : List 'b :})
+#  (f : 'a -> List 'b -> {: value : 'c , store : List 'b :})
+#  :          List 'b -> {: value : 'c , store : List 'b :}
+#  =
+#  fun ss ->
+#    let r = x ss in
+#    f r.value r.store
+#in
+#
+#bind
+let a = 'a in let b = 'b in let c = 'c in
+
+let t1 = List b -> {: value : a , store : List b :}
+in
+
+let t2 = List b -> {: value : c , store : List b :}
+in
+
 let bind 
-  (x :       List 'b -> {: value : 'a , store : List 'b :})
-  (f : 'a -> List 'b -> {: value : 'c , store : List 'b :})
-  :          List 'b -> {: value : 'c , store : List 'b :}
+  (x : t1)
+  (f : a -> t2)
+  : t2
   =
   fun ss ->
     let r = x ss in
