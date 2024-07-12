@@ -202,6 +202,13 @@ in
 h
 ```
 
+Likely solution: just write like the following:
+```
+let f ('a) ('b) (g : {: x : 'a -> 'b :}) ('c) ('d) (h : 'c -> 'd) : 'd =
+  ...
+```
+so that the user knows where to write the type variables. Also because this allows for partial application better than putting them all at the front.
+
 FIXED? No
 
 **Polymorphic types don't work with the new encoding**
