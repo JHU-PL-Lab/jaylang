@@ -19,11 +19,8 @@
 # - Trees:  y   
 # - Wrap required:
 
-let t a = a
+let f (a : 'a) (b : 'a) : 'a = 
+  b
 in
 
-letd f (x : t (int)) : t (int) =
-  x
-in
-
-f 0
+f 1 { x = 1 }

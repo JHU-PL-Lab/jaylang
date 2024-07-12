@@ -222,7 +222,7 @@ Notes: okay this might actually be fixed
 
 FIXED? Maybe
 
-**Dependent types with polymorphic types cause bugs**
+**Dependent types with polymorphic types are bugged**
 
 Example:
 
@@ -304,3 +304,24 @@ g
 ```
 
 FIXED? Yes... in the version with huge translations
+
+**Values defined in sequence get checked in sequence**
+
+Example:
+
+```
+let rec loop (x : int) : bool = 
+  loop x
+in
+
+# This is easy to check, but we get stuck on loop above and never get here.
+let f (y : int) : bool = 
+  y
+in
+
+f
+```
+
+Likely solution(s): turn off all but one generator, and test the files separately, OR have a coin flip for each generator.
+
+Question: are the generators for nested functions run every time the outside function is called?
