@@ -18,3 +18,12 @@
 # - Records:
 # - Trees:  y   
 # - Wrap required:
+
+let t a = a
+in
+
+letd f (x : t (int)) : t (int) =
+  x
+in
+
+f 0

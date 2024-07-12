@@ -148,3 +148,159 @@ Types of features of the programming language we want to include in tests:
 * Record
 * Trees
 * Requires wrap
+
+## Bug Summary
+
+**OOP-style records can't return self because checker loops forever**
+
+Likely solution: flip coin to run checker
+
+Example:
+
+```
+let t = Mu tt. {: f : int -> tt :}
+in
+
+let g (x : t) : t = x
+in
+
+g
+```
+
+FIXED? No
+
+**Higher order polymorphic functions aren't supported by the new polymorphic types**
+
+Example:
+
+```
+# How to apply type to this?
+let appl (f : 'a -> 'b) (a : 'a) : 'b =
+  f a
+in
+
+let t a = 'a in
+
+# Or this?
+let f (a : t ('a)) : t ('a) = 
+  a
+in
+
+# Or this?
+let g (x : {: continuation = ('a -> 'r) -> 'r :}) : ... =
+  ...
+in
+
+let t2 = {: a : 'a :}
+in
+
+# Or this?
+let h (x : t2) : t2 =
+  x
+in
+
+h
+```
+
+FIXED? No
+
+**Variants still need `Mu tt.` or else we get an unguarded (i.e. uninstrumented) type mismatch**
+
+Example:
+
+```
+let t = ``A int
+in
+
+let (x : t) = `A 0
+in
+
+x
+```
+
+Notes: okay this might actually be fixed
+
+FIXED? Maybe
+
+**Dependent types with polymorphic types cause bugs**
+
+Example:
+
+```
+let t a = a
+in
+
+letd f (x : t ('a)) : t ('a) =
+  x
+in
+
+f 0
+```
+
+Notes:
+  * Error seems to be from wrap
+  * If `x : 'a`, no error
+  * Error still happens if `let` instead of `letd`, but `letd` has error with no inputs
+  * This works with `t (int)`
+
+FIXED? No
+
+**Functions with polymorphic types can be translated to massive programs**
+
+Example:
+
+``` 
+let bind 
+  (x :       List 'b -> {: value : 'a , store : List 'b :})
+  (f : 'a -> List 'b -> {: value : 'c , store : List 'b :})
+  :          List 'b -> {: value : 'c , store : List 'b :}
+  =
+  fun ss ->
+    let r = x ss in
+    f r.value r.store
+in
+
+bind
+```
+
+... and this program errors, when I think it should be well-typed.
+
+FIXED? No
+
+**Record label cannot have same name as the type**
+
+Example:
+
+```
+let t = int
+in
+
+let r = {: t : t :}
+in
+
+let (x : r) = { t = 1 }
+in
+
+x
+```
+
+Note: this isn't an abort. It is an exception during interpretation.
+
+FIXED? No
+
+**Refined functions aren't generated properly in unmerged code (and in the merge, the translation can take too long)**
+
+Example:
+
+```
+let t = {. (int -> int) | fun f -> (f 0) == 0 }
+in
+
+let g (x : t) : int =
+  0
+in
+
+g
+```
+
+FIXED? Yes... in the version with huge translations

@@ -1,6 +1,5 @@
 # No longer subtyping, but just a minimal version of another test
 
-# TODO: document this bug, and rename
 let t = {. (int -> int) | fun f -> (f 0) == 0 }
 in
 
