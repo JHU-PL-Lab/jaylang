@@ -204,6 +204,26 @@ h
 
 FIXED? No
 
+**Polymorphic types don't work with the new encoding**
+
+On the latest `sato-variant-type` branch, where polymorphic types need to be declared when wrap `-w` is on, polymorphic types in general cause an exception.
+
+Example:
+
+```
+let f (a : 'a) (b : 'a) : 'a = 
+  b
+in
+
+f (int) 1 true
+```
+
+Notes:
+  * We get an exception `"project on a non record"` or `Not_found`.
+  * In the old version (without the `(int)` call), there is no error in this code.
+
+FIXED? No
+
 **Variants still need `Mu tt.` or else we get an unguarded (i.e. uninstrumented) type mismatch**
 
 Example:
