@@ -1,0 +1,22 @@
+
+# state monad bind
+
+let a = 'a in let b = 'b in let c = 'c in
+
+let ta = (List 'b) -> {: value : 'a , store : List 'b :}
+in
+
+let tb = (List 'b) -> {: value : 'c , store : List 'b :}
+in
+
+let bind 
+  (x : ta)
+  (f : 'a -> tb)
+  : tb
+  =
+  fun ss ->
+    let r = x ss in
+    f r.value r.store
+in
+
+bind
