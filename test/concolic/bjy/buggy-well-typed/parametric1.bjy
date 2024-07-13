@@ -1,31 +1,10 @@
 
 # state monad bind
 
-# TODO: fix how this takes 5 1/2 minutes to translate to jayil with wrap on
-#let bind 
-#  (x :       List 'b -> {: value : 'a , store : List 'b :})
-#  (f : 'a -> List 'b -> {: value : 'c , store : List 'b :})
-#  :          List 'b -> {: value : 'c , store : List 'b :}
-#  =
-#  fun ss ->
-#    let r = x ss in
-#    f r.value r.store
-#in
-#
-#bind
-
-let a = 'a in let b = 'b in let c = 'c in
-
-let t1 = List b -> {: value : a , store : List b :}
-in
-
-let t2 = List b -> {: value : c , store : List b :}
-in
-
 let bind 
-  (x : t1)
-  (f : a -> t2)
-  : t2
+  (x :       (List 'b) -> {: value : 'a , store : List 'b :})
+  (f : 'a -> (List 'b) -> {: value : 'c , store : List 'b :})
+  :          (List 'b) -> {: value : 'c , store : List 'b :}
   =
   fun ss ->
     let r = x ss in
@@ -33,3 +12,4 @@ let bind
 in
 
 bind
+
