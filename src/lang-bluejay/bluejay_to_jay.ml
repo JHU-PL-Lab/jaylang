@@ -62,6 +62,13 @@ let mk_gc_pair_cod arg_id cod arg =
 
 let wrap_flag = ref false
 
+let rec check_type_presence (bound_types_with_tid : ('a expr_desc * ident) list)
+    (t : 'a expr_desc) : bool =
+  match bound_types_with_tid with
+  | [] -> false
+  | (hd_t, _) :: tl ->
+      if tagless_equal_expr_desc hd_t t then true else check_type_presence tl t
+
 let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
   let mk_check_from_fun_sig fun_sig =
     match fun_sig with
@@ -70,16 +77,6 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
         let%bind f_body' = wrap f_body in
         let typed_params' =
           typed_params |> List.map (fun (p, t) -> (p, wrap t))
-        in
-        let rec check_type_presence
-            (bound_types_with_tid : ('a expr_desc * ident) list)
-            (t : 'a expr_desc) : bool =
-          match bound_types_with_tid with
-          | [] -> false
-          | (hd_t, _) :: tl ->
-              if tagless_equal_expr_desc hd_t t
-              then true
-              else check_type_presence tl t
         in
         let%bind processed_params, _ =
           list_fold_left_m
@@ -280,21 +277,24 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
         let%bind ret_type' = wrap ret_type in
         let%bind f_body' = wrap f_body in
         let%bind t' = wrap t in
-        let%bind t_id_opt =
-          if is_polymorphic_type t
-          then
-            let%bind t_id = fresh_ident "t" in
-            return @@ Some t_id
-          else return @@ None
+        let tvs = get_poly_vars t' [] in
+        let%bind tvs_tids =
+          tvs
+          |> List.map (fun tv ->
+                 let%bind tid = fresh_ident "t" in
+                 return @@ (tv, tid))
+          |> sequence
+        in
+        let t'' =
+          List.fold_left
+            (fun acc (poly_var, tid) ->
+              replace_tagless_expr_desc acc poly_var (new_expr_desc @@ Var tid))
+            t tvs_tids
         in
         let%bind arg = fresh_ident p in
         let%bind wrap_t = fresh_ident "wrap_t" in
         let%bind proj_ed_1 =
-          match t_id_opt with
-          | None -> new_instrumented_ed @@ RecordProj (t, Label "checker")
-          | Some tid ->
-              new_instrumented_ed
-              @@ RecordProj (new_expr_desc @@ Var tid, Label "checker")
+          new_instrumented_ed @@ RecordProj (t'', Label "checker")
         in
         let%bind check_arg =
           new_instrumented_ed
@@ -310,10 +310,10 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
         in
         let%bind proj_ed_ret =
           let ret_type'' =
-            match t_id_opt with
-            | None -> ret_type'
-            | Some tid ->
-                replace_tagless_expr_desc ret_type' t (new_expr_desc @@ Var tid)
+            List.fold_left
+              (fun acc (poly_var, tid) ->
+                replace_tagless_expr_desc acc poly_var (new_expr_desc @@ Var tid))
+              ret_type' tvs_tids
           in
           let%bind arg' = fresh_ident p in
           let ret_type_renamed =
@@ -339,33 +339,29 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
           return @@ new_expr_desc @@ Function ([ arg ], fn_body)
         in
         let%bind wrap_ret =
-          match t_id_opt with
-          | None ->
-              let%bind wrap_fn =
-                new_instrumented_ed @@ RecordProj (t, Label "wrapper")
-              in
-              let wrap_def =
-                new_expr_desc @@ Let (wrap_t, wrap_fn, layered_fn)
-              in
-              let%bind eta_arg = fresh_ident "eta" in
-              let%bind eta_appl =
-                new_instrumented_ed
-                @@ Appl (wrap_def, new_expr_desc @@ Var eta_arg)
-              in
-              return @@ Funsig (Ident f, [ eta_arg ], eta_appl)
-              (* return wrap_def *)
-          | Some t_id ->
-              let%bind wrap_fn =
-                new_instrumented_ed
-                @@ RecordProj (new_expr_desc @@ Var t_id, Label "wrapper")
-              in
-              let wrap_def =
-                new_expr_desc @@ Let (wrap_t, wrap_fn, layered_fn)
-              in
-              (* let new_fn = new_expr_desc @@ Function ([ t_id ], wrap_def) in
-                 return new_fn *)
-              let new_fn = Funsig (Ident f, [ t_id ], wrap_def) in
-              return new_fn
+          if List.is_empty tvs_tids
+          then
+            let%bind wrap_fn =
+              new_instrumented_ed @@ RecordProj (t'', Label "wrapper")
+            in
+            let wrap_def = new_expr_desc @@ Let (wrap_t, wrap_fn, layered_fn) in
+            let%bind eta_arg = fresh_ident "eta" in
+            let%bind eta_appl =
+              new_instrumented_ed
+              @@ Appl (wrap_def, new_expr_desc @@ Var eta_arg)
+            in
+            return @@ Funsig (Ident f, [ eta_arg ], eta_appl)
+            (* return wrap_def *)
+          else
+            let%bind wrap_fn =
+              new_instrumented_ed @@ RecordProj (t'', Label "wrapper")
+            in
+            let wrap_def = new_expr_desc @@ Let (wrap_t, wrap_fn, layered_fn) in
+            (* let new_fn = new_expr_desc @@ Function ([ t_id ], wrap_def) in
+               return new_fn *)
+            let tids = List.map snd tvs_tids in
+            let new_fn = Funsig (Ident f, tids, wrap_def) in
+            return new_fn
         in
         (* let ret_ed = new_expr_desc @@ Let (Ident f, wrap_ret, let_expr) in *)
         return

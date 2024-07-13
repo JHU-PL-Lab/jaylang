@@ -1,0 +1,8 @@
+let t a = a
+in
+
+letd f (x : t ('a)) : t ('a) =
+  x
+in
+
+f (int) 0
