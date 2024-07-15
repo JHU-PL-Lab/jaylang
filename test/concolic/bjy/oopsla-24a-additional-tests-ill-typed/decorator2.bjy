@@ -1,6 +1,6 @@
 
 let t = Mu tt.
-  {: f : int -> tt
+  {: f : int -> bool
    , g : int -> int
    , x : bool :}
 in

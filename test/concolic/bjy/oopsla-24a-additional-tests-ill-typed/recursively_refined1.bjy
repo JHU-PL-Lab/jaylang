@@ -29,7 +29,7 @@ letd rec get_abs_coord (r : t)
   {. coord | fun abs_coord -> 
     match r.parent with
     | `Some p ->
-      if is_coord_nonzero (get_abs_coord p)
+      if is_coord_nonzero (get_abs_coord p) # Note: recursive call here
       then not (coord_equal abs_coord r.relative_coord)
       else true
     | `None ignore -> true

@@ -1,8 +1,8 @@
 # subtyping of refined intersection type.
 # wrap is helpful for catching error, but I'm not sure why
 
-# TODO: I can't even get a well-typed version to work. subtyping4 is basically the same and works though
 
+# TODO: fix the bug where functions can't be refined (it seems fixed on latest sato branch)
 let t = {. (int -> int) && (bool -> bool) | fun x -> x true }
 in
 
