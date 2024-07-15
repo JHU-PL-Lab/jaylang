@@ -1918,3 +1918,140 @@ and replace_tagless_typed_funsig (fun_sig : 'a typed_funsig)
       let t' = replace_tagless_expr_desc t target replacement in
       let ret_type' = replace_tagless_expr_desc ret_type target replacement in
       DTyped_funsig (f, (x, t'), (body', ret_type'))
+
+let rec get_poly_vars (t : 'a expr_desc) (acc : 'a expr_desc list) :
+    'a expr_desc list =
+  let e = t.body in
+  let ret_lst =
+    match e with
+    | Int _ | Bool _ | Input | TypeInt | TypeBool | TypeVar _ | TypeError _
+    | Var _ ->
+        acc
+    | TypeUntouched _ -> List.rev @@ (t :: acc)
+    | Function (_, ed) ->
+        let acc' = get_poly_vars ed acc in
+        acc'
+    | Appl (ed1, ed2)
+    | Plus (ed1, ed2)
+    | Minus (ed1, ed2)
+    | Times (ed1, ed2)
+    | Divide (ed1, ed2)
+    | Modulus (ed1, ed2)
+    | Equal (ed1, ed2)
+    | Neq (ed1, ed2)
+    | LessThan (ed1, ed2)
+    | Leq (ed1, ed2)
+    | GreaterThan (ed1, ed2)
+    | Geq (ed1, ed2)
+    | And (ed1, ed2)
+    | Or (ed1, ed2)
+    | ListCons (ed1, ed2)
+    | TypeArrow (ed1, ed2)
+    | TypeSet (ed1, ed2)
+    | TypeUnion (ed1, ed2)
+    | TypeIntersect (ed1, ed2) ->
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        acc''
+    | Not ed
+    | RecordProj (ed, _)
+    | VariantExpr (_, ed)
+    | Assert ed
+    | Assume ed
+    | TypeList ed ->
+        let acc' = get_poly_vars ed acc in
+        acc'
+    | TypeVariant vs ->
+        let acc' =
+          List.fold_left
+            (fun tv_lst (_, t_ed) -> get_poly_vars t_ed tv_lst)
+            acc vs
+        in
+        acc'
+    | If (ed1, ed2, ed3) ->
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        let acc''' = get_poly_vars ed3 acc'' in
+        acc'''
+    | Record r | TypeRecord r ->
+        let acc' =
+          Ident_map.fold (fun _ ed acc -> get_poly_vars ed acc) r acc
+        in
+        acc'
+    | List eds ->
+        let acc' =
+          List.fold_left (fun acc ed -> get_poly_vars ed acc) acc eds
+        in
+        acc'
+    | Match (med, pat_ed_lst) ->
+        let acc' = get_poly_vars med acc in
+        let acc'' =
+          List.fold_left
+            (fun acc (_, ed) -> get_poly_vars ed acc)
+            acc' pat_ed_lst
+        in
+        acc''
+    | Let (_, ed1, ed2) ->
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        acc''
+    | LetWithType (_, ed1, ed2, ed3) ->
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        let acc''' = get_poly_vars ed3 acc'' in
+        acc'''
+    | LetFun (fun_sig, ed) ->
+        let acc' = get_poly_vars_funsig fun_sig acc in
+        let acc'' = get_poly_vars ed acc' in
+        acc''
+    | LetFunWithType (fun_sig, ed) ->
+        let acc' = get_poly_vars_typed_funsig fun_sig acc in
+        let acc'' = get_poly_vars ed acc' in
+        acc''
+    | LetRecFun (fun_sigs, ed) ->
+        let acc' =
+          List.fold_left
+            (fun acc f_sig -> get_poly_vars_funsig f_sig acc)
+            acc fun_sigs
+        in
+        let acc'' = get_poly_vars ed acc' in
+        acc''
+    | LetRecFunWithType (fun_sigs, ed) ->
+        let acc' =
+          List.fold_left
+            (fun acc f_sig -> get_poly_vars_typed_funsig f_sig acc)
+            acc fun_sigs
+        in
+        let acc'' = get_poly_vars ed acc' in
+        acc''
+    | TypeArrowD ((_, ed1), ed2) ->
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        acc''
+    | TypeRecurse (_, ed) ->
+        let acc' = get_poly_vars ed acc in
+        acc'
+  in
+  List.unique ~eq:tagless_equal_expr_desc ret_lst
+
+and get_poly_vars_funsig (fsig : 'a funsig) (tv_lst : 'a expr_desc list) :
+    'a expr_desc list =
+  match fsig with Funsig (_, _, fed) -> get_poly_vars fed tv_lst
+
+and get_poly_vars_typed_funsig (typed_fsig : 'a typed_funsig)
+    (tv_lst : 'a expr_desc list) : 'a expr_desc list =
+  match typed_fsig with
+  | Typed_funsig (_, typed_params, (ret_type, f_body)) ->
+      let acc' =
+        List.fold_left
+          (fun acc (_, t) -> get_poly_vars t acc)
+          tv_lst typed_params
+      in
+      let acc'' = get_poly_vars ret_type acc' in
+      let acc''' = get_poly_vars f_body acc'' in
+      acc'''
+  | DTyped_funsig (_, (_, pt), (ret_type, f_body)) ->
+      let acc' = get_poly_vars pt tv_lst in
+      let acc'' = get_poly_vars ret_type acc' in
+      let acc''' = get_poly_vars f_body acc'' in
+      acc'''

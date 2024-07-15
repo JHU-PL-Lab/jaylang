@@ -1,0 +1,2 @@
+let f (a : 'a) (b : 'a) : 'a = b in
+f (int) 1 true

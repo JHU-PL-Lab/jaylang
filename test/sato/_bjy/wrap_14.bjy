@@ -1,0 +1,13 @@
+let compose (a_b : 'a -> 'b) (b_a : 'b -> 'a) (a : 'a) : 'a =
+  b_a (a_b a)
+in
+
+let id (a : 'a) : 'a =
+  a
+in
+
+let r =
+  compose (int) (int) (id (int)) (id (int))
+in
+
+r
