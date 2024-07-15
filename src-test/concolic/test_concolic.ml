@@ -47,6 +47,9 @@ let () =
     Test_argparse.config 
     (
       []
+      @ make_tests_well_typed "bjy/buggy-ill-typed"
+      @ make_tests_well_typed "bjy/buggy-well-typed"
+
       @ make_tests_ill_typed "bjy/oopsla-24a-additional-tests-ill-typed"
       @ make_tests_well_typed "bjy/oopsla-24a-additional-tests-well-typed"
 
