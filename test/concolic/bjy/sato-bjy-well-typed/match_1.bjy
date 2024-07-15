@@ -1,0 +1,7 @@
+let x = {a = 1} in 
+match x with
+| {a = z} ->
+    match z with
+    | int -> 1
+    end
+end

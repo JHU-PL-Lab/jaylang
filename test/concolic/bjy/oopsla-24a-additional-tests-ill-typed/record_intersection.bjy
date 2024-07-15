@@ -1,0 +1,18 @@
+
+let t = {: a : int :} && {: b : bool :} && {: c : int , d : bool :}
+in
+
+let t2 = {: a : int , b : bool , c : int , d : bool :}
+in
+
+let f (x : t) : int =
+  if x.b or x.d
+  then x.a
+  else x.c
+in
+
+let g (x : t2) : int = 
+  f { a = x.c , b = x.d , c = x.d , d = x.b } # ERROR: label `c` is bool. Needs to be int
+in
+
+f

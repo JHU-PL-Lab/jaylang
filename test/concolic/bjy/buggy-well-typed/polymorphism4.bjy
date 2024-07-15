@@ -1,0 +1,18 @@
+# Polymorphic compose
+
+let compose (b_c : 'b -> 'c) (a_b : 'a -> 'b) (a : 'a) : 'c =
+  b_c (a_b a)
+in
+
+let id (a : 'a) : 'a =
+  a
+in
+
+let r =
+  compose
+    (id (int))
+    (id (int))
+    4 
+in
+
+r

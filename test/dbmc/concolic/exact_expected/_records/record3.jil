@@ -1,9 +1,0 @@
-
-one = 1;
-a = { a = one , b = one };
-
-p1 = a ~ { a , b, _ }; # loose match
-p2 = a ~ { a }; # strict ie exact match
-
-v = p1 and p2;
-v1 = p1

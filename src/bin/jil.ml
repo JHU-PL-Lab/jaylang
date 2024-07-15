@@ -2,7 +2,7 @@ open Core
 open Dbmc
 
 let usage_msg = "jil -i <file> [<input_i>]"
-let source_file = ref ""
+(* let source_file = ref "" *)
 let inputs = ref []
 
 let anon_fun i_raw =
@@ -22,7 +22,13 @@ let run_program source =
   | ex -> raise ex
 
 let () =
-  Arg.parse
-    [ ("-i", Arg.Set_string source_file, "Iutput source file") ]
+  match Sys.get_argv () |> List.of_array with
+  | _ :: "-i" :: source_file :: inputs ->
+    List.iter inputs ~f:anon_fun;
+    run_program source_file
+  | _ -> Format.printf "error in parsing. Usage message: %s\n" usage_msg
+  (* Arg.parse
+    [ ("-i", Arg.Set_string source_file, "Iutput source file")
+    ; "-", String anon_fun, "anonymous arguments starting with -" ]
     anon_fun usage_msg ;
-  run_program !source_file
+  run_program !source_file *)

@@ -1,0 +1,35 @@
+
+let city = {: population : int :}
+in
+
+let shop = {: inventory : int :}
+in
+
+let sight = {: is_open : bool :}
+in
+
+let node_kind = ``City city || ``Shop shop || ``Sight sight
+in
+
+let node = Mu tt. ({: kind : node_kind , neighbors : List tt :})
+in
+
+let result_type = {: result : int :}
+in
+
+let visitor  =
+  {: visit_city : city -> result_type
+   , visit_shop : shop -> result_type
+   , visit_sight : sight -> result_type :}
+in
+
+let visit (v : visitor) (start_node : node) : result_type =
+  match start_node.kind with
+  | `City c -> v.visit_city c
+  | `Shop s -> v.visit_shop s
+  | `Sight s -> v.visit_sight s
+  end
+in
+
+visit
+

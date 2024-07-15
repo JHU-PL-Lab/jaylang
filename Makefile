@@ -36,6 +36,9 @@ jil:
 
 jay:
 	dune build src/bin/jay.exe
+
+ft:
+	dune build src-test/concolic/feature_tagger.exe
 	
 # clean up
 
@@ -101,7 +104,7 @@ test-dummy:
 	dune exec src-test/dbmc/test_dummy.exe
 
 test-concolic:
-	dune exec src-test/dbmc/test_concolic.exe
+	dune exec src-test/concolic/test_concolic.exe
 
 # profiling
 

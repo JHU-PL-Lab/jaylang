@@ -16,16 +16,7 @@ let is_mac =
 let time_bin = if is_mac then "gtime" else "/usr/bin/time"
 let timeout_bin = if is_mac then "gtimeout" else "/usr/bin/timeout"
 let testcase_path (cfg : Cconfig.t) test =
-  let open Core in
-  let filenames =
-    List.filter_map cfg.test_paths ~f:(fun path ->
-      let filename = Filename.concat path test in
-      if Sys_unix.is_file_exn filename
-      then Some filename
-      else None
-      )
-  in
-  List.hd_exn filenames
+  Filename.concat cfg.test_path test
 
 let escape_path s = String.substr_replace_all ~pattern:"/" ~with_:"_" s
 
@@ -62,10 +53,11 @@ let benchmark_time (cfg : Cconfig.t) test n : unit t =
             cfg.timeout;
             cfg.bin;
             "-t";
-            "30.0"; (* single test timeout *)
+            "90.0"; (* single test timeout *)
             "-q"; (* quits when finds abort *)
             "-i";
             file;
+            (* Note I don't add the `r` flag for randomness. This way benchmarks are reproducable. *)
           ])
   >> echo @@ " done - " ^ string_of_int n
 (* |- run "tee" ["-a"; result_file] *)
@@ -74,7 +66,8 @@ let stat (cfg : Cconfig.t) : unit t =
   let working_path = cfg.working_path in
   let testcases = cfg.testcases_to_time in
   let table = working_path ^ "/0table.txt" in
-  List.iter testcases ~f:(fun testcase ->
+  stdout_to ~append:() table (echo @@ "Testing files from " ^ cfg.test_path ^ "\n")
+  >> List.iter testcases ~f:(fun testcase ->
       stdout_to ~append:() table
         (run "echo" [ testcase ]
         >> run "awk"
@@ -117,7 +110,7 @@ let rec countdown n task : unit t =
 
 let read_config () =
   let engine = ref "concolic" in
-  let config_path = ref "benchmark/concolic/config.s" in
+  let config_path = ref "benchmark/concolic/config_scheme.s" in
 
   Arg.parse
     [
@@ -126,7 +119,7 @@ let read_config () =
     ]
     (fun _ -> ())
     "Please use `make cbenchmark`." ;
-  assert (Core.List.mem [ "ddse"; "dbmc" ; "concolic" ] !engine ~equal:String.equal) ;
+  assert (Core.List.mem [ "concolic" ] !engine ~equal:String.equal) ;
 
   let config = Sexp.load_sexp_conv_exn !config_path Cconfig.t_of_sexp in
   { config with engine = !engine }

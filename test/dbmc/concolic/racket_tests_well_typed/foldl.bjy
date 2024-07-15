@@ -1,8 +1,0 @@
-
-let rec foldl (f : int -> bool -> bool) (z : bool) (xs : List int) : bool =
-  match xs with
-  | [] -> z
-  | x :: rest -> foldl f (f x z) rest
-  end
-in
-foldl

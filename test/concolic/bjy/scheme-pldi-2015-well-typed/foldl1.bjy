@@ -1,0 +1,19 @@
+# error is that input list xs should be nonempty
+
+let is_nonempty ls =
+  match ls with
+  | [] -> false
+  | _ -> true
+  end
+in
+
+let rec foldl1 (f : 'a -> 'a -> 'a) (xs : {. List 'a | is_nonempty } ) : 'a =
+  match xs with
+  | z :: zs ->
+    match zs with 
+    | [] -> z
+    | z1 :: tl -> foldl1 f ((f z z1) :: tl)
+    end
+  end
+in
+foldl1

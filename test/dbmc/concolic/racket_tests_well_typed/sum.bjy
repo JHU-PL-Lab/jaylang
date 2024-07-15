@@ -1,9 +1,0 @@
-# well-typed would require that n > 1 (but only on first call)
-
-letd rec sum (n : {. int | fun i -> i > 1 }) : {. int | fun c -> c > n } =
-  if n <= 0
-  then 0
-  else n + sum (n - 1)
-in
-
-sum

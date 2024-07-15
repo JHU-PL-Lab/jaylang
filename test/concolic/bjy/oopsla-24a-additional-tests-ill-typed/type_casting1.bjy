@@ -1,0 +1,6 @@
+
+let f (x : 'a) : int = 
+  x + 1
+in
+
+f

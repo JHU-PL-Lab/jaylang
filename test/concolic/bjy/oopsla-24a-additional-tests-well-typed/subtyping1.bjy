@@ -1,0 +1,14 @@
+# "subrecords". requires wrap
+# Calls a function with a supertype, so should be error. i.e. not actually subtyping here
+
+let t = {: a : bool , b : int :}
+in
+
+let rec f (x : {: b : int :}) : int =
+  match x with
+  | { a = a , b = b } -> f { b = b }
+  | { b = b } -> b 
+  end
+in
+
+f

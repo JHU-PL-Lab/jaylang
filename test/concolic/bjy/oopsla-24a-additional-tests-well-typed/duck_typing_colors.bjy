@@ -1,0 +1,45 @@
+let color =
+  { t =
+    {. int | fun i -> i >= 0 and i < 256 }
+  }
+in
+
+let point =
+  { t =
+    {: x : int
+    , y : int
+    , deg : int :}
+  }
+in
+
+let colored_point =
+  { t =
+    {: x : int
+    , y : int
+    , deg : int
+    , c : color.t :}
+  }
+in
+
+let get_color (p : colored_point.t) : color.t =
+  p.c
+in
+
+let (obj : colored_point.t) =
+  let ob =
+    fun self ->
+      { x = 0
+      , y = 0
+      , deg = 
+          let s = (self self) in
+          let tan = s.y / s.x in
+          tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 # approx arctan with taylor expansion
+      , color = 255 }
+  in
+  ob ob
+in
+
+let result = get_color obj # this application is fine. Error is in `get_color` 
+in
+
+result

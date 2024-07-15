@@ -1,0 +1,7 @@
+# subtype of union type
+
+let f (i : int) (b : bool) (a : 'a) : (``Int int || ``Bool bool || ``L List 'a) =
+  `L (i :: []) # Error is that `i` is int and is not necessarily 'a, so type of returned list is not always subtype
+in
+
+f
