@@ -1,0 +1,10 @@
+# No longer subtyping, but just a minimal version of another test
+
+let t = {. (int -> int) | fun f -> (f 0) == 0 }
+in
+
+let g (x : t) : int =
+  0
+in
+
+g
