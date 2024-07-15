@@ -1,0 +1,2 @@
+let (f : bool -> ('a -> 'a)) = fun b -> fun a -> a in 
+f true (int) 5
