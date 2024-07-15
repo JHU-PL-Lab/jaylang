@@ -62,12 +62,12 @@ let mk_gc_pair_cod arg_id cod arg =
 
 let wrap_flag = ref false
 
-let rec check_type_presence (bound_types_with_tid : ('a expr_desc * ident) list)
+let rec check_type_presence (present_types : 'a expr_desc list)
     (t : 'a expr_desc) : bool =
-  match bound_types_with_tid with
+  match present_types with
   | [] -> false
-  | (hd_t, _) :: tl ->
-      if tagless_equal_expr_desc hd_t t then true else check_type_presence tl t
+  | hd :: tl ->
+      if tagless_equal_expr_desc hd t then true else check_type_presence tl t
 
 let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
   let mk_check_from_fun_sig fun_sig =
@@ -87,7 +87,7 @@ let rec wrap (e_desc : syntactic_only expr_desc) : syntactic_only expr_desc m =
                 let%bind tvs_tids_m =
                   tvs
                   |> List.map (fun tv ->
-                         if check_type_presence bound_types tv
+                         if check_type_presence (List.map fst bound_types) tv
                          then return @@ None
                          else
                            let%bind tid = fresh_ident "t" in
@@ -1248,6 +1248,10 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         in
         let%bind wrapper =
           let tvs = get_poly_vars t1 [] in
+          let tvs2 =
+            get_poly_vars t2 []
+            |> List.filter (fun t -> not @@ check_type_presence tvs t)
+          in
           let%bind tvs_tids =
             tvs
             |> List.map (fun tv ->
@@ -1255,7 +1259,15 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
                    return @@ (tv, tid))
             |> sequence
           in
+          let%bind tvs_tids2 =
+            tvs2
+            |> List.map (fun tv ->
+                   let%bind tid = fresh_ident "t" in
+                   return @@ (tv, tid))
+            |> sequence
+          in
           let tids = List.map snd tvs_tids in
+          let tids2 = List.map snd tvs_tids2 in
           let t1' =
             List.fold_left
               (fun acc (poly_var, tid) ->
@@ -1266,7 +1278,7 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             List.fold_left
               (fun acc (poly_var, tid) ->
                 replace_tagless_expr_desc acc poly_var (new_expr_desc @@ Var tid))
-              t1 tvs_tids
+              t2 (tvs_tids @ tvs_tids2)
           in
           let%bind gc_pair_dom_check = semantic_type_of t1' in
           let%bind gc_pair_cod_check = semantic_type_of t2' in
@@ -1290,7 +1302,13 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             new_expr_desc
             @@ Appl (new_expr_desc @@ Var expr_id, new_expr_desc @@ Var arg_id)
           in
-          let wrap_res = new_expr_desc @@ Appl (proj_ed_2, eta_appl) in
+          let wrap_res =
+            if List.is_empty tids2
+            then new_expr_desc @@ Appl (proj_ed_2, eta_appl)
+            else
+              new_expr_desc
+              @@ Function (tids2, new_expr_desc @@ Appl (proj_ed_2, eta_appl))
+          in
           let check_cls =
             new_expr_desc @@ If (check_arg, wrap_res, assert_cls)
           in
@@ -1392,8 +1410,19 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
         in
         let%bind wrapper =
           let tvs = get_poly_vars t1 [] in
+          let tvs2 =
+            get_poly_vars t2 []
+            |> List.filter (fun t -> not @@ check_type_presence tvs t)
+          in
           let%bind tvs_tids =
             tvs
+            |> List.map (fun tv ->
+                   let%bind tid = fresh_ident "t" in
+                   return @@ (tv, tid))
+            |> sequence
+          in
+          let%bind tvs_tids2 =
+            tvs2
             |> List.map (fun tv ->
                    let%bind tid = fresh_ident "t" in
                    return @@ (tv, tid))
@@ -1409,9 +1438,10 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             List.fold_left
               (fun acc (poly_var, tid) ->
                 replace_tagless_expr_desc acc poly_var (new_expr_desc @@ Var tid))
-              t1 tvs_tids
+              t2 (tvs_tids @ tvs_tids2)
           in
           let tids = List.map snd tvs_tids in
+          let tids2 = List.map snd tvs_tids2 in
           let%bind gc_pair_dom = semantic_type_of t1' in
           let%bind gc_pair_cod = semantic_type_of t2' in
           let%bind proj_ed_1 =
@@ -1441,7 +1471,13 @@ let rec semantic_type_of (e_desc : syntactic_only expr_desc) :
             new_expr_desc
             @@ Appl (new_expr_desc @@ Var expr_id, new_expr_desc @@ Var arg_id)
           in
-          let wrap_res = new_expr_desc @@ Appl (proj_ed_2, eta_appl) in
+          let wrap_res =
+            if List.is_empty tids2
+            then new_expr_desc @@ Appl (proj_ed_2, eta_appl)
+            else
+              new_expr_desc
+              @@ Function (tids2, new_expr_desc @@ Appl (proj_ed_2, eta_appl))
+          in
           let check_cls =
             new_expr_desc @@ If (check_arg, wrap_res, assert_cls)
           in
