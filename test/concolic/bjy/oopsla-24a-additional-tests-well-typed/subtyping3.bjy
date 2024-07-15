@@ -1,7 +1,6 @@
 # subtype of union type
 
-# TODO: remove unnecessary Mu tt.
-let f (i : int) (b : bool) (a : 'a) : Mu tt. (``Int int || ``Bool bool || ``L List 'a) =
+let f (i : int) (b : bool) (a : 'a) : (``Int int || ``Bool bool || ``L List 'a) =
   `L (a :: [])
 in
 

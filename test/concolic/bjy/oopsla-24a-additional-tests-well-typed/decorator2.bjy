@@ -1,5 +1,5 @@
 
-let t = Mu tt.
+let t =
   {: f : int -> bool
    , g : int -> int
    , x : bool :}

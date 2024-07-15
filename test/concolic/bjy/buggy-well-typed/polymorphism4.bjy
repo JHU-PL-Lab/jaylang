@@ -12,6 +12,7 @@ let r =
   compose
     (id (int))
     (id (int))
+    4 
 in
 
 r

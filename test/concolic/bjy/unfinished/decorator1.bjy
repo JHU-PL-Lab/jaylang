@@ -5,7 +5,7 @@ in
 let unit = { unit = 0 }
 in
 
-let option a = Mu todo_delete_this_mu. ``None unit_type || ``Some a
+let option a = ``None unit_type || ``Some a
 in
 
 let none = option unit
