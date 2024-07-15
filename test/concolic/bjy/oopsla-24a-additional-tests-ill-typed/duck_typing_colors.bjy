@@ -1,25 +1,32 @@
 
-let color_type = {. int | fun i -> i >= 0 and i < 256 }
+let color =
+  { t =
+    {. int | fun i -> i >= 0 and i < 256 }
+  }
 in
 
 let point =
-  {: x : int
-   , y : int
-   , deg : int :}
+  { t =
+    {: x : int
+    , y : int
+    , deg : int :}
+  }
 in
 
 let colored_point =
-  {: x : int
-   , y : int
-   , deg : int
-   , color : color_type :}
+  { t =
+    {: x : int
+    , y : int
+    , deg : int
+    , c : color.t :}
+  }
 in
 
-let get_color (p : point) : color_type =
-  p.color # should have required p : colored_point
+let get_color (p : point.t) : color.t =
+  p.c
 in
 
-let (obj : colored_point) =
+let (obj : colored_point.t) =
   let ob =
     fun self ->
       { x = 0
