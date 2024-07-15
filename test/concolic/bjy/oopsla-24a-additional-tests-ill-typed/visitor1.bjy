@@ -17,7 +17,7 @@ in
 let result_type = {: result : int :}
 in
 
-let visitor  =
+let visitor =
   {: visit_city : city -> result_type
    , visit_shop : shop -> result_type
    , visit_sight : sight -> result_type :}

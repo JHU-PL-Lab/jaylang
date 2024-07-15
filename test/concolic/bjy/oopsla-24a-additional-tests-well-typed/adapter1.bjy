@@ -2,17 +2,37 @@
 let int_wrapper = {: value : int :}
 in
 
-let module =
-  { square = let square (i : int) : int = i * i in square
-  , double = let double (i : int) : int = i + i in double }
+let t =
+  {: square : int -> int
+  ,  add_x : int -> int
+  ,  x : int :}
 in
 
-let adapter module =
-  { square = let square (r : int_wrapper) : int_wrapper = { value = module.square r.value } in square
-  , double = let double (r : int_wrapper) : int_wrapper = { value = module.double r.value } in double }
+let ob =
+  fun x -> 
+    fun self ->
+      { square = fun i -> i * i
+      , add_x = fun i -> i + (self self).x
+      , x = x }
 in
 
-let (x : int_wrapper) = (adapter module).square { value = 36 }
+let ob_5 = ob 5
+in
+
+let (obj : t) = ob_5 ob_5
+in
+
+let adapter obj =
+  let s =
+    fun self ->
+      { square = fun i_w -> { value = obj.square i_w.value }
+      , add_x = fun i_w -> { value = obj.add_x i_w.value }
+      , x = { value = obj.x } }
+  in
+  s s
+in
+
+let (x : int_wrapper) = (adapter obj).square { value = 36 }
 in
 
 x
