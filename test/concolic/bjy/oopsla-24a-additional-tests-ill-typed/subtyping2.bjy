@@ -1,8 +1,6 @@
 # subtyping of refined intersection type.
 # wrap is helpful for catching error, but I'm not sure why
 
-
-# TODO: fix the bug where functions can't be refined (it seems fixed on latest sato branch)
 let t = {. (int -> int) && (bool -> bool) | fun x -> x true }
 in
 
@@ -18,10 +16,9 @@ let f =
 in
 
 let g (h : t) : t =
-  #let k (i : int) : int = h i # error: this is not a subtype of t
-  #in
-  #k
-  f
+  let k (i : int) : int = h i # error: this is not a subtype of t
+  in
+  k
 in
 
 let x = g f # well-typed function application here. Error is in body of g

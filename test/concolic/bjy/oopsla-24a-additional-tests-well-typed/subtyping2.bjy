@@ -11,7 +11,7 @@ let f =
     match x with
     | bool -> true
     | int -> x
-    #| _ -> 1 :: 2 :: []
+    | _ -> 1 :: 2 :: []
     end
 in
 
