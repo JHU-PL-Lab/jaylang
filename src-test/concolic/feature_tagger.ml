@@ -10,10 +10,8 @@
 open Core
 
 [@@@ocaml.warning "-32"]
-[@@@ocaml.warning "-37"]
-[@@@ocaml.warning "-34"]
 
-module Bjy_comments =
+(* module Bjy_comments =
   struct
     let read_file (filename : Filename.t) : string list option =
       if Sys_unix.file_exists_exn filename
@@ -22,66 +20,7 @@ module Bjy_comments =
         |> List.filter ~f:(String.is_prefix ~prefix:"#")
         |> Option.return
       else None
-  end
-
-module Tags =
-  struct
-
-    module Status =
-      struct
-        type t = Checked | Unchecked | Missing [@@deriving compare]
-
-        let t_of_sexp sexp =
-          match String.t_of_sexp sexp with
-          | "" -> Unchecked
-          | "x" -> Checked
-          | _ -> Missing
-        
-        let sexp_of_t x =
-          begin
-          match x with
-          | Checked -> "x"
-          | Unchecked -> ""
-          | Missing -> "TODO"
-          end
-          |> String.sexp_of_t
-      end
-
-    type t =
-      { polymorphic_types      : Status.t [@sexplib.default ""]
-      ; variants               : Status.t
-      ; intersection_types     : Status.t
-      ; recursive_functions    : Status.t
-      ; mu_types               : Status.t
-      ; higher_order_functions : Status.t
-      ; subtyping              : Status.t
-      ; type_casing            : Status.t
-      ; oop_style              : Status.t
-      ; refinement_types       : Status.t
-      ; dependent_types        : Status.t
-      ; parametric_types       : Status.t
-      ; records                : Status.t
-      ; trees                  : Status.t
-      ; wrap_required          : Status.t }
-      [@@deriving sexp, compare]
-
-    let default =
-      { polymorphic_types      = Checked
-      ; variants               = Checked
-      ; intersection_types     = Checked
-      ; recursive_functions    = Missing
-      ; mu_types               = Checked
-      ; higher_order_functions = Checked
-      ; subtyping              = Unchecked
-      ; type_casing            = Checked
-      ; oop_style              = Checked
-      ; refinement_types       = Checked
-      ; dependent_types        = Checked
-      ; parametric_types       = Checked
-      ; records                = Checked
-      ; trees                  = Checked
-      ; wrap_required          = Checked }
-  end
+  end *)
 
 module Tag =
   struct
@@ -91,7 +30,7 @@ module Tag =
       | Intersection_types
       | Recursive_functions
       | Mu_types
-      | Higher_order_functions
+      | Higher_order_functions (* includes first class functions *)
       | Subtyping
       | Type_casing
       | OOP_style
@@ -103,92 +42,54 @@ module Tag =
       | Wrap_required
       [@@deriving variants, sexp, compare, enumerate]
 
-    let show (x : t) : string = 
-      x
-      |> Variants.to_name
-      |> String.substr_replace_all ~pattern:"_" ~with_:" "
-
-    let show_as_comment (x : t) : string =
-      "# - " ^ show x ^ ":    "
-
-    let show_all : string =
-      let open List.Let_syntax in
+    let sexp_all : Sexp.t =
       all
-      >>| show_as_comment
-      |> String.concat ~sep:"\n"
-
-    let str_contains_tag (s : string) (tag : t) : bool =
-      String.substr_index s ~pattern:(show tag)
-      |> Option.is_some
-
-    let read (s : string) : t option = 
-      List.find all ~f:(str_contains_tag s)
-
-    let read_checked (s : string) : t option * bool =
-      match read s with
-      | None -> None, false
-      | Some tag ->
-        let remainder =
-          String.substr_replace_all
-            s
-            ~pattern:(String.strip (show_as_comment tag))
-            ~with_:""
-        in
-        let is_checked =
-          String.find remainder ~f:(
-            fun c ->
-              not (Char.is_whitespace c)
-          )
-          |> Option.is_some
-        in
-        (Some tag), is_checked
-
-    module Status =
-      struct
-        type t =
-          | Checked        
-          | Unchecked
-          | Missing
-
-      end
-
-    (*
-      I want to call read_checked on every line, and then I have a map from tag to checked status.
-
-      Then do n^2 iteration over tags and those found, and for missing tags, I need to add the tag to
-        the file, and tell the user to update it. This can be by adding "TODO" to the tag, so I should
-        discount that from the read_checked function.
-
-      The missing tags are added to the top of the file. It would be nice if they're added after the 
-        last seen tag.
-
-      I could also have a "description" box at the top of the file, and a "tags" box. Then it's easier
-        to know where to add the tags.
-    *)
+      |> List.sexp_of_t sexp_of_t
 
   end
+
+let get_all_bjy_files (dir : Filename.t) : Filename.t list =
+  let is_bjy_file fname =
+    Filename.check_suffix fname ".bjy"
+  in
+  let rec loop outlist = function
+    | [] -> outlist
+    | f :: fs -> begin
+      match Sys_unix.is_directory f with
+      | `Yes -> f |> Sys_unix.ls_dir |> List.map ~f:(( ^ ) (f ^ "/")) |> List.append fs |> loop outlist
+      | _ when is_bjy_file f -> loop (f :: outlist) fs
+      | _ -> loop outlist fs
+    end
+  in
+  loop [] [dir]
+
+(* let prepend_to_file (new_line : string) (filename : Filename.t) : unit =
+  let lines = In_channel.read_lines filename in
+  Out_channel.write_lines filename (new_line :: lines) *)
+
+let write_tags (bjy_file : Filename.t) : unit =
+  let fname, _ = Filename.split_extension bjy_file in
+  Out_channel.write_lines
+    (fname ^ ".features.s")
+    (["("]
+      @ (List.map Tag.all ~f:(fun t -> Tag.sexp_of_t t |> Sexp.to_string))
+      @ [")"]
+    )
+
 
 let () =
-  Format.printf "%s\n" (Tags.sexp_of_t Tags.default |> Sexp.to_string_hum ~indent:2)
-  (* Format.printf "%s\n" Tag.show_all;
-  match Sys.get_argv () |> List.of_array with
-  | _ :: filename :: [] -> begin
-    match Bjy_comments.read_file filename with
-    | None -> Format.eprintf "Filename %s does not exist\n" filename
-    | Some lines ->
-      List.iter lines ~f:(fun line ->
-        let tag_opt_string, is_checked =
-          Tag.read_checked line
-          |> Tuple2.map_fst ~f:(function None -> "none" | Some tag -> Tag.show tag)
-        in
-        Format.printf
-          "Line is '%s', tag is '%s', checked is %b\n"
-          line
-          tag_opt_string
-          is_checked
-      )
-  end
-  | _ -> Format.eprintf "Bad arguments\n" *)
+  let open List.Let_syntax in
+  let _ = 
+    get_all_bjy_files "./test/concolic/bjy"
+    >>| write_tags
+  in
+  ()
+  (* write_tags "./test/concolic/bjy/buggy-ill-typed/test_prepend.bjy" *)
+  (* Format.printf "# %s\n" (Tag.sexp_all |> Sexp.to_string_mach) *)
+  (* let s = "# " ^ Sexp.to_string_mach Tag.sexp_all in
+  prepend_to_file s "./test/concolic/bjy/buggy-ill-typed/test_prepend.bjy" *)
+  (* get_all_bjy_files "./test/concolic/bjy"
+  |> List.iter ~f:(prepend_to_file s) *)
   
 
 
