@@ -102,7 +102,7 @@ let () =
   let open List.Let_syntax in
   let _ = 
     get_all_bjy_files "./test/concolic/bjy"
-    >>| Fn.flip add_tags [ Assertions ; Operator_misuse ; Return_type ; Match ]
+    >>| Fn.flip add_tags [ ]
   in
   ()
   
