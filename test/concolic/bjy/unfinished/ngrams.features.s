@@ -14,4 +14,8 @@ Parametric_types
 Records
 Trees
 Wrap_required
+Assertions
+Operator_misuse
+Return_type
+Match
 )
