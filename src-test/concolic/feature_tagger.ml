@@ -40,6 +40,7 @@ module Tag =
       | Records
       | Trees
       | Wrap_required
+      | Assertions
       [@@deriving variants, sexp, compare, enumerate]
 
     let sexp_all : Sexp.t =
