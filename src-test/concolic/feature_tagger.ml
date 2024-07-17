@@ -41,6 +41,9 @@ module Tag =
       | Trees
       | Wrap_required
       | Assertions
+      | Operator_misuse (* e.g. 1 + true *)
+      | Return_type (* e.g. f (x : int) : int = true *)
+      | Match
       [@@deriving variants, sexp, compare, enumerate]
 
     let sexp_all : Sexp.t =
@@ -57,7 +60,12 @@ let get_all_bjy_files (dir : Filename.t) : Filename.t list =
     | [] -> outlist
     | f :: fs -> begin
       match Sys_unix.is_directory f with
-      | `Yes -> f |> Sys_unix.ls_dir |> List.map ~f:(( ^ ) (f ^ "/")) |> List.append fs |> loop outlist
+      | `Yes ->
+          f
+          |> Sys_unix.ls_dir
+          |> List.map ~f:(( ^ ) (f ^ "/"))
+          |> List.append fs
+          |> loop outlist
       | _ when is_bjy_file f -> loop (f :: outlist) fs
       | _ -> loop outlist fs
     end
@@ -68,29 +76,35 @@ let get_all_bjy_files (dir : Filename.t) : Filename.t list =
   let lines = In_channel.read_lines filename in
   Out_channel.write_lines filename (new_line :: lines) *)
 
-let write_tags (bjy_file : Filename.t) : unit =
-  let fname, _ = Filename.split_extension bjy_file in
+let feature_filename (bjy_file : Filename.t) : Filename.t =
+  let fname, _ = Filename.split_extension bjy_file 
+  in fname ^ ".features.s"
+
+let write_tags (bjy_file : Filename.t) (tags : Tag.t list) : unit =
   Out_channel.write_lines
-    (fname ^ ".features.s")
+    (feature_filename bjy_file)
     (["("]
-      @ (List.map Tag.all ~f:(fun t -> Tag.sexp_of_t t |> Sexp.to_string))
+      @ (List.map tags ~f:(fun t -> Tag.sexp_of_t t |> Sexp.to_string))
       @ [")"]
     )
 
+let add_tags (bjy_file : Filename.t) (tags : Tag.t list) : unit = 
+  let existing_tags =
+    bjy_file
+    |> feature_filename
+    |> In_channel.create
+    |> Sexp.input_sexp
+    |> List.t_of_sexp Tag.t_of_sexp
+  in
+  write_tags bjy_file (existing_tags @ tags)
 
 let () =
   let open List.Let_syntax in
   let _ = 
     get_all_bjy_files "./test/concolic/bjy"
-    >>| write_tags
+    >>| Fn.flip add_tags [ Assertions ; Operator_misuse ; Return_type ; Match ]
   in
   ()
-  (* write_tags "./test/concolic/bjy/buggy-ill-typed/test_prepend.bjy" *)
-  (* Format.printf "# %s\n" (Tag.sexp_all |> Sexp.to_string_mach) *)
-  (* let s = "# " ^ Sexp.to_string_mach Tag.sexp_all in
-  prepend_to_file s "./test/concolic/bjy/buggy-ill-typed/test_prepend.bjy" *)
-  (* get_all_bjy_files "./test/concolic/bjy"
-  |> List.iter ~f:(prepend_to_file s) *)
   
 
 
