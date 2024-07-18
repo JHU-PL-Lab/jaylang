@@ -1,4 +1,0 @@
-let f (type t1 t2) (a : t1) (b : t2) : (t1) = 
-  a
-in
-f (int) (bool) true
