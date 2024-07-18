@@ -1,0 +1,2 @@
+let appl (type t1 t2) (fn : t1 -> t2) (x : t1) : t2 = fn x in
+appl (int) (bool) (fun x -> true) 1

@@ -1,2 +1,2 @@
-let fst (x : 'a) (y : 'b) : 'a -> 'b = fun a -> y in
-(fst (int) 5 (bool) true) 5
+let fst (type t1 t2) (x : t1) (y : t2) : t1 -> t2 = fun a -> y in
+(fst (int) (bool) 5 true) 5

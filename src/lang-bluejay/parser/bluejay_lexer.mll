@@ -71,6 +71,7 @@ rule token = parse
 | "end"                { END }
 | "assert"             { ASSERT }
 | "assume"             { ASSUME }
+| "type"               { TYPE }
 | "Mu"                 { MU }
 | "List"               { LIST }
 | "+"                  { PLUS }

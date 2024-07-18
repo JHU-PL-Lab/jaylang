@@ -87,6 +87,14 @@ and pp_typed_funsig : Format.formatter -> typed_funsig -> unit =
       Format.fprintf formatter "%a %a : %a = @[%a@]" pp_ident f
         pp_ident_with_type id_with_type pp_expr_desc_without_tag ret_type
         pp_expr_desc_without_tag f_body
+  | PTyped_funsig (f, tvars, id_with_type_lst, (f_body, ret_type)) ->
+      Format.fprintf formatter "%a (type %a) %a : %a = @[%a@]" pp_ident f
+        pp_ident_list tvars pp_ident_with_type_list id_with_type_lst
+        pp_expr_desc_without_tag ret_type pp_expr_desc_without_tag f_body
+  | PDTyped_funsig (f, tvars, id_with_type, (f_body, ret_type)) ->
+      Format.fprintf formatter "%a (type %a) %a : %a = @[%a@]" pp_ident f
+        pp_ident_list tvars pp_ident_with_type id_with_type
+        pp_expr_desc_without_tag ret_type pp_expr_desc_without_tag f_body
 
 and pp_typed_funsig_list : Format.formatter -> typed_funsig list -> unit =
  fun formatter funsig_lst ->
@@ -292,7 +300,7 @@ and pp_expr (formatter : Format.formatter) (expr : expr) : unit =
       Format.fprintf formatter "%a ^ %a" pp_expr_desc t1 pp_expr_desc t2
   | TypeRecurse (tvar, t) ->
       Format.fprintf formatter "Mu %a.%a" pp_ident tvar pp_expr_desc t
-  | TypeUntouched s -> Format.pp_print_string formatter @@ "'" ^ s
+  | TypeUntouched s -> Format.pp_print_string formatter @@ s
   | TypeVariant vs ->
       Pp_utils.pp_concat_sep_delim "" "" "||"
         (fun formatter (v_lbl, ve) ->
@@ -399,7 +407,7 @@ and pp_expr_with_tag (formatter : Format.formatter) (expr : expr) : unit =
       Format.fprintf formatter "%a ^ %a" pp_expr_desc t1 pp_expr_desc t2
   | TypeRecurse (tvar, t) ->
       Format.fprintf formatter "Mu %a.%a" pp_ident tvar pp_expr_desc t
-  | TypeUntouched s -> Format.pp_print_string formatter @@ "'" ^ s
+  | TypeUntouched s -> Format.pp_print_string formatter @@ s
   | TypeVariant vs ->
       Pp_utils.pp_concat_sep_delim "" "" "||"
         (fun formatter (v_lbl, ve) ->

@@ -1,3 +1,2 @@
-
 letd f (x : bool) : {. 'a -> 'a | fun a -> x or true } = fun a -> a in 
 f true (int) 5

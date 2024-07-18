@@ -1,5 +1,4 @@
-let f (a : 'a) (b : 'a) : 'a = 
-  b
+let f (type t1 t2) (a : t1) (b : t2) : (t1) = 
+  a
 in
-
-f ({: i : int :}) { i = 0 } 1
+f (int) (bool) true

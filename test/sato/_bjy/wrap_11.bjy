@@ -1,2 +1,0 @@
-let appl (fn : 'a -> 'b) (x : 'a) : 'b = fn x in
-appl (int) (bool) (fun x -> true) 1

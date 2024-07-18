@@ -1,0 +1,70 @@
+let f t1  a = a in
+let f t1 =
+  let wrap_t_b_0 = t1.wrapper in
+  fun a_b_1 ->
+  if if input > 0 then t1.checker a_b_1 else true then
+    let a = wrap_t_b_0 a_b_1 in t1.wrapper a else assert false
+  in
+  f {
+       checker = fun expr_b_17
+        ->
+       let rec_fail_b_16 = false in
+         let rec_fail_b_15 = false in
+         let rec_fail_b_14 = false in
+         match expr_b_17 with
+         
+           | {actual_rec = none,_} ->
+           match expr_b_17.decl_lbls with
+             
+               | {i = i,_} ->
+               match expr_b_17.actual_rec with
+                 
+                   | {i = i,_} ->
+                   {
+                      checker = let
+                      fail_b_19 =
+                      false
+                      in
+                      fun expr_b_18 ->
+                      match expr_b_18 with | int -> true | any -> fail_b_19
+                        end,
+                      generator = fun null
+                       ->
+                      input,
+                      wrapper = fun expr_b_20
+                       ->
+                      expr_b_20
+                   }.checker i
+                   | any -> rec_fail_b_14
+                  end
+               | any -> rec_fail_b_15
+              end
+           | any -> rec_fail_b_16
+          end,
+       generator = fun null
+        ->
+       {
+          actual_rec = let
+          i_b_10 =
+          {
+             checker = let
+             fail_b_12 =
+             false
+             in
+             fun expr_b_11 ->
+             match expr_b_11 with | int -> true | any -> fail_b_12 end,
+             generator = fun null
+              ->
+             input,
+             wrapper = fun expr_b_13
+              ->
+             expr_b_13
+          }.generator 0
+          in
+          {i = i_b_10},
+          decl_lbls = {i = {}}
+       },
+       wrapper = fun expr_b_21
+        ->
+       {actual_rec = expr_b_21.actual_rec, decl_lbls = {i = {}}}
+    } 1
