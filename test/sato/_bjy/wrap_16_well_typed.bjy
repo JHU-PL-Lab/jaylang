@@ -1,2 +1,2 @@
-let (f : 'a -> 'a) = fun x -> x in
+let f (type t1) (x : t1) : t1 = x in
 f (int) 1

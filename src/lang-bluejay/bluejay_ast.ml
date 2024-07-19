@@ -47,6 +47,10 @@ and funsig = Funsig of ident * ident list * expr_desc
 and typed_funsig =
   | Typed_funsig of ident * (ident * expr_desc) list * (expr_desc * expr_desc)
   | DTyped_funsig of ident * (ident * expr_desc) * (expr_desc * expr_desc)
+  | PTyped_funsig of
+      ident * ident list * (ident * expr_desc) list * (expr_desc * expr_desc)
+  | PDTyped_funsig of
+      ident * ident list * (ident * expr_desc) * (expr_desc * expr_desc)
 [@@deriving eq, ord, show, to_yojson]
 
 and expr_desc = { body : expr; tag : int } [@@deriving eq, ord, show, to_yojson]

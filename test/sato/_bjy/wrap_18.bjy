@@ -1,2 +1,2 @@
-let (f : bool -> ('a -> 'a)) = fun b -> fun a -> a in 
-f true (bool) 5
+let f (type t1) (b : bool) : t1 -> t1 = fun a -> a in 
+f (bool) true 1

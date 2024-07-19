@@ -1,7 +1,7 @@
 let t a = a
 in
 
-letd f (x : t ('a)) : t ('a) =
+let f (type t1) (x : t (t1)) : t (t1) =
   x
 in
 

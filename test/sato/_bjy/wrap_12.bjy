@@ -1,2 +1,2 @@
-let f (a : 'a) (b : 'a) : 'a = b in
+let f (type t1) (a : t1) (b : t1) : t1 = b in
 f (int) 1 true

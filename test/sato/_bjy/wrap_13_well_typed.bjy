@@ -1,2 +1,2 @@
-let f (a : 'a) (b : 'b) : 'a -> 'b = fun x -> b in
-(f (int) 1 (bool) true) 1
+let f (type t1 t2) (a : t1) (b : t2) : t1 -> t2 = fun x -> b in
+f (int) (bool) 1 true 2

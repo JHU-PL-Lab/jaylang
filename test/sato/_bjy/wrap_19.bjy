@@ -1,2 +1,2 @@
-let (f :((x : bool) -> {. 'a -> 'a | fun a -> x or true })) = fun b -> fun a -> a in 
-f true (bool) 5
+letd f (type t1) (x : bool) : {. t1 -> t1 | fun a -> x or true } = fun a -> a in
+f (bool) true 1
