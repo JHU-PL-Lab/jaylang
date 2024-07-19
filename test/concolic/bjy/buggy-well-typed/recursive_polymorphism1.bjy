@@ -6,11 +6,11 @@ let t a b i =
 in
 
 # 'a and 'b alternate by call here, so can't assume 'a stays the same in recursive calls
-letd rec f (i : int) : 'a -> 'b -> t ('a) ('b) i =
+letd rec f (type a_ b_) (i : int) : a_ -> b_ -> t (a_) (b_) i =
   fun a -> fun b -> 
     if i == 0
     then b
-    else f (i - 1) b a
+    else f (a_) (b_) (i - 1) b a
 in
 
-f 2 (int) 0 (bool) true
+f (int) (bool) 2 0 true

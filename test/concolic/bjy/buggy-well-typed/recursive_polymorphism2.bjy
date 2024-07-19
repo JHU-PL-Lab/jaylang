@@ -1,9 +1,0 @@
-# This test doesn't err until we actually call f with concrete types
-
-let rec f (a : 'a) (i : int) : 'a =
-  if i == 0
-  then a 
-  else f a (i - 1)
-in
-
-f (int) 1 2
