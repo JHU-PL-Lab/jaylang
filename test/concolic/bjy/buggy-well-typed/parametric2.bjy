@@ -10,8 +10,8 @@ let bind (type a_ b_ r_) (ar_r : t a_ r_) : (a_ -> t b_ r_) -> t b_ r_ =
     }
 in
 
-let f = bind { continuation = fun ir -> ir 0 }
-in
+#let f = bind { continuation = fun ir -> ir 0 }
+#in
 
-f
+bind
       
