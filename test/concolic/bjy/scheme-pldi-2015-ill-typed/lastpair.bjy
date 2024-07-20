@@ -7,10 +7,10 @@ let is_nonempty ls =
   end
 in
 
-let rec lastpair (x : {. List 'a | is_nonempty }) : {. List 'a | is_nonempty } =
+let rec lastpair (type a_) (x : {. List a_ | is_nonempty }) : {. List a_ | is_nonempty } =
   match x with
   | [] -> []
-  | h :: xs -> lastpair xs 
+  | h :: xs -> lastpair a_ xs 
   end
 in
 

@@ -8,7 +8,7 @@ let rec ycomb f =
     y
 in
 
-let last (l : List 'a) : 'a =
+let last (type a_) (l : List a_) : a_ =
   ycomb (
     fun self x ->
       match x with

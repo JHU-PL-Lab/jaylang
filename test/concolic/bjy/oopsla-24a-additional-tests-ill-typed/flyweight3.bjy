@@ -1,5 +1,8 @@
 # well-typed version is same as flyweight1
 
+# NOTE: This suffers from the same bug as `project_non_record.bjy`
+#  See comment in `get_color` below
+
 let color =
   { t =
     {. int | fun i -> i >= 0 and i < 256 }
@@ -33,7 +36,10 @@ let colored_point =
 in
 
 let get_color p =
-  p.flyweight.c
+  match p with
+  | { flyweight = fw } -> fw.c
+  end
+  #p.flyweight.c # This is the old, usual implementation if we didn't have to overcome the buggy record projection
 in
 
 let make_obj (cs : common_state.t) (x : int) (y : int) : colored_point.t =
@@ -63,7 +69,7 @@ let dark_color =
   ob ob
 in
 
-let result = get_color (make_obj dark_color) # ERROR: did not apply coordinate arguments
+let result = get_color (make_obj dark_color) # ERROR: did not apply coordinate arguments, so `get_color` is passed a function instead of a record
 in
 
 result

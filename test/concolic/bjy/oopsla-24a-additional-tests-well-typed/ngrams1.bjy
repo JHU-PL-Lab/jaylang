@@ -12,14 +12,14 @@ let rec len ls =
   end
 in
 
-letd rec take (n : pos_int) : (List 'a) -> {. List 'a | fun ls -> len ls <= n } =
+letd rec take (type a_) (n : pos_int) : (List a_) -> {. List a_ | fun ls -> len ls <= n } =
   fun l ->
     match l with
     | [] -> []
     | hd :: tl ->
       if n == 1
       then [ hd ]
-      else hd :: take (n - 1) tl
+      else hd :: take a_ (n - 1) tl
     end
 in
 

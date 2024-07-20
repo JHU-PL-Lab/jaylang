@@ -1,9 +1,0 @@
-# NOTE: not buggy. Just a simple version of buggy parametric5
-let f (type a_) (a : a_) : a_ = a
-in
-let g (i : int) : int = f (int) i
-in
-
-g
-
-      

@@ -1,6 +1,6 @@
 
-let appl (f : 'a -> 'b) (a : 'a) : 'b =
-  f (f a)
+let appl (type a_ b_) (f : a_ -> b_) (a : a_) : b_ =
+  f (f a) # ERROR: should be `f a`
 in
 
 appl

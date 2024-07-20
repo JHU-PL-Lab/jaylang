@@ -1,26 +1,26 @@
 # Polymorphic types in higher order functions are wrong
 
 # No error in this. It is here to slow down the concolic evaluator and make a bigger haystack in which to find the needle
-let rec fold2 (ls1 : List 'd) (ls2 : List 'e) (init : 'acc) (f : 'acc -> 'd -> 'e -> 'acc) : 'acc =
+let rec fold2 (type a_ b_ acc_) (ls1 : List a_) (ls2 : List b_) (init : acc_) (f : acc_ -> a_ -> b_ -> acc_) : acc_ =
   match ls1 with
   | [] -> init
   | hd1 :: tl1 ->
     match ls2 with
     | [] -> init
     | hd2 :: tl2 ->
-      fold2 tl1 tl2 (f init hd1 hd2) f
+      fold2 a_ b_ acc_ tl1 tl2 (f init hd1 hd2) f
     end
   end
 in
 
-let rec map2 (ls1 : List 'a) (ls2 : List 'b) (f : 'a -> 'b -> 'c) : List 'c =
+let rec map2 (type a_ b_ c_) (ls1 : List a_) (ls2 : List b_) (f : a_ -> b_ -> c_) : List c_ =
   match ls1 with
   | [] -> []
   | hd1 :: tl1 -> 
     match ls2 with
     | [] -> []
     | hd2 :: tl2 -> 
-      f hd1 hd2 :: map2 tl1 tl2 f
+      f hd1 hd2 :: map2 a_ b_ c_ tl1 tl2 f
     end
   end
 in

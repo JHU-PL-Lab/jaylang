@@ -1,8 +1,10 @@
 # dbmc: times out
 
-let rec map (mf : 'a -> 'b) (l : List 'a) : List 'b =
+let rec map (type a_ b_) (mf : a_ -> b_) (l : List a_) : List b_ =
     match l with
     | [] -> []
-    | hd :: tl -> hd :: (map mf tl)
+    | hd :: tl -> hd :: (map a_ b_ mf tl)
     end
-in map
+in
+
+map

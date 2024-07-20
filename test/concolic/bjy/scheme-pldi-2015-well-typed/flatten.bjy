@@ -1,6 +1,6 @@
 # flatten the input down to just a list of ints and bools
 
-let any_type = Mu tt. ( ``A 'a || ``L List tt ) in
+let any_type a = Mu tt. ( ``A a || ``L List tt ) in
 
 let rec append a b =
   match a with
@@ -9,12 +9,12 @@ let rec append a b =
   end
 in
 
-let rec flatten (x : any_type) : List 'a =
+let rec flatten (type a_) (x : any_type a_) : List a_ =
   match x with
   | `L ls ->
     match ls with
     | [] -> []
-    | hd :: tl -> append (flatten hd) (flatten (`L tl))
+    | hd :: tl -> append (flatten a_ hd) (flatten a_ (`L tl))
     end
   | `A a -> [ a ]
   end

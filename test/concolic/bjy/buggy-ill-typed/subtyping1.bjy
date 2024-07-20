@@ -4,6 +4,10 @@
 let t = {: a : bool , b : int :}
 in
 
+# Note that instead of calling `f` recursively below, if we have ...
+#  let g (x : t) : int = x.b in
+# then we do get an error (which is correct and the expected result) when calling, so it's like we're not wrapping recursive calls
+
 let rec f (x : t) : int =
   match x with
   | { a = a , b = b } -> f { b = b } # ERROR: calls with not enough record fields 

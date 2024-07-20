@@ -1,7 +1,7 @@
 # error is that item is always inserted on the left, so it doesn't stay balanced
 # the concolic evaluator doesn't always find this error, probably because the union type is expensive
 
-let t = Mu tt. (``Node {: v : 'a , l : tt , r : tt :} || ``Leaf {: leaf : bool :}) in
+let t a = Mu tt. (``Node {: v : a , l : tt , r : tt :} || ``Leaf {: leaf : bool :}) in
 
 let rec size n = 
   match n with
@@ -26,14 +26,14 @@ let rec is_braun_tree x =
   end
 in
 
-let bt = {. t | is_braun_tree } in
+let bt a = {. t a | is_braun_tree } in
 
-let rec insert (tree : bt) (x : 'a) : bt =
+let rec insert (type a_) (tree : bt a_) (x : a_) : bt a_ =
   match tree with
   | `Leaf l -> `Node { v = x , l = `Leaf { leaf = true } , r = `Leaf { leaf = true } }
   | `Node node ->
     match node with
-    | { v = v , l = l , r = r } -> `Node { l = insert l x , r = r , v = v }
+    | { v = v , l = l , r = r } -> `Node { l = insert a_ l x , r = r , v = v }
     end
   end
 in

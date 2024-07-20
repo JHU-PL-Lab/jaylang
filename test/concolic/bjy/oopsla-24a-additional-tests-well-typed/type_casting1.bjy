@@ -1,5 +1,5 @@
 
-let f (x : 'a) : int = 
+let f (type a_) (x : a_) : int = 
   1
 in
 

@@ -1,10 +1,14 @@
 
 # state monad bind
 
+let t a b = (List b) -> {: value : a , store : List b :}
+in
+
 let bind 
-  (x :       (List 'b) -> {: value : 'a , store : List 'b :})
-  (f : 'a -> (List 'b) -> {: value : 'c , store : List 'b :})
-  :          (List 'b) -> {: value : 'c , store : List 'b :}
+  (type a_ b_ c_)
+  (x : t a_ b_) 
+  (f : a_ -> t c_ b_)
+  : t c_ b_
   =
   fun ss ->
     let r = x ss in

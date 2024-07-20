@@ -1,6 +1,6 @@
 # subtype of union type
 
-let f (i : int) (b : bool) (a : 'a) : (``Int int || ``Bool bool || ``L List 'a) =
+let f (type a_) (i : int) (b : bool) (a : a_) : (``Int int || ``Bool bool || ``L List a_) =
   `L (a :: [])
 in
 
