@@ -14,8 +14,6 @@ This snapshot is for the artifact for the paper **Semantic-Type-Guided Bug Findi
 
 ## Getting Started Guide
 
-### Install
-
 The repo is tested under MacOS, Ubuntu, and WSL on Windows.
 
 After cloning the repository, make sure that the branch is switched to `oopsla-24`.
@@ -24,6 +22,19 @@ After cloning the repository, make sure that the branch is switched to `oopsla-2
 # git clone https://github.com/JHU-PL-Lab/jaylang.git
 git checkout oopsla-24
 ```
+
+### Install from docker
+
+```
+docker build -t jaylang .
+docker run -it jaylang
+
+# go to Section run
+make sc
+
+```
+
+### Install from source
 
 Prepare and upgrade `apt` and the ocaml environment
 ```
