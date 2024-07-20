@@ -1,7 +1,7 @@
 Jay Lang
 =====
 
-(Update: July 5th, 2024)
+(Update: July 20th, 2024)
 
 This is the codebase for languages BlueJay, Jay and Jay Intermediate Language 
 (JayIL), as well as the language's semantic-type-guided type checker. This code 
