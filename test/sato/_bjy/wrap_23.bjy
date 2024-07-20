@@ -1,0 +1,17 @@
+let f
+  (type ta)
+  (a : ta)
+  : ta
+  =
+  a
+in
+
+let g
+  (type tb)
+  (b : tb)
+  : tb
+  =
+  f (tb) b
+in
+
+g

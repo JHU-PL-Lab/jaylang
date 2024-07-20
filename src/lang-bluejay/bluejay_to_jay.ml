@@ -2873,10 +2873,12 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         in
         let%bind mk_type_appl =
           list_fold_left_m
-            (fun acc _ ->
-              let%bind appl_ed_2 =
-                new_instrumented_ed @@ Appl (acc, new_expr_desc @@ Int 0)
+            (fun acc (Ident tv) ->
+              let%bind sem_type_tv =
+                semantic_type_of @@ new_expr_desc @@ TypeUntouched tv
               in
+              let%bind core_tv = bluejay_to_jay @@ sem_type_tv in
+              let%bind appl_ed_2 = new_instrumented_ed @@ Appl (acc, core_tv) in
               return @@ appl_ed_2)
             (new_expr_desc @@ Var f) tvars
         in
@@ -2920,10 +2922,12 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
         let%bind ret_type_core = bluejay_to_jay ret_type in
         let%bind mk_type_appl =
           list_fold_left_m
-            (fun acc _ ->
-              let%bind appl_ed_2 =
-                new_instrumented_ed @@ Appl (acc, new_expr_desc @@ Int 0)
+            (fun acc (Ident tv) ->
+              let%bind sem_type_tv =
+                semantic_type_of @@ new_expr_desc @@ TypeUntouched tv
               in
+              let%bind core_tv = bluejay_to_jay @@ sem_type_tv in
+              let%bind appl_ed_2 = new_instrumented_ed @@ Appl (acc, core_tv) in
               return @@ appl_ed_2)
             (new_expr_desc @@ Var f) tvars
         in
