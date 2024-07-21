@@ -2,7 +2,7 @@
 
 let rec foldr1 (type a_) (f : a_ -> a_ -> a_) (xs : List a_) : a_ =
   match xs with
-  | [] -> assert false
+  | [] -> assert false # ERROR: xs chould be empty
   | z :: zs ->
     match zs with
     | [] -> z

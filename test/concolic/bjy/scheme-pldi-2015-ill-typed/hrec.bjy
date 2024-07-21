@@ -7,7 +7,7 @@ let rec f g x =
 in
 
 let main (n : int) : {. int | fun i -> i >= 0 } =
-  f (fun x -> x + 1) n
+  f (fun x -> x + 1) n # ERROR: could be negative when `n` is negative
 in
 
 main

@@ -12,7 +12,7 @@ let last (type a_) (l : List a_) : a_ =
   ycomb (
     fun self x ->
       match x with
-      | [] -> assert false
+      | [] -> assert false # ERROR : `l` could be empty
       | x :: xs -> 
         match xs with
         | [] -> x
