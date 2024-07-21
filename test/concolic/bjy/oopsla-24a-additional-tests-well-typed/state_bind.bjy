@@ -4,12 +4,7 @@
 let t a b = (List b) -> {: value : a , store : List b :}
 in
 
-let bind 
-  (type a_ b_ c_)
-  (x : t a_ b_) 
-  (f : a_ -> t c_ b_)
-  : t c_ b_
-  =
+let bind (type a_ b_ c_) (x : t a_ b_) (f : a_ -> t c_ b_) : t c_ b_ =
   fun ss ->
     let r = x ss in
     f r.value r.store
