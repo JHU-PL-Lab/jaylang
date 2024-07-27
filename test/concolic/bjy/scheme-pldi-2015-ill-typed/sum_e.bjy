@@ -1,4 +1,3 @@
-# Error is that 100 should always be less than sum, but easily `sum 0` breaks that.
 
 let rec sum x =
   if x <= 0
@@ -7,7 +6,7 @@ let rec sum x =
 in
 
 let main (n : int) : {. int | fun i -> 100 <= i } =
-  sum n
+  sum n # ERROR: sum can be less than `100` if `n` is less than `14`
 in
 
 main

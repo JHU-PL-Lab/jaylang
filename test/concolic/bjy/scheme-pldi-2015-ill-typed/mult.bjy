@@ -1,5 +1,3 @@
-# error is that squaring 0 or 1 doesn't make it larger like predicate requires
-# Requiring n > 1 fixes the error
 
 let rec mult (x : {: n : int , m : int :}) : {. int | fun i -> i >= 0 } =
   if x.n <= 0 or x.m <= 0
@@ -7,6 +5,7 @@ let rec mult (x : {: n : int , m : int :}) : {. int | fun i -> i >= 0 } =
   else x.n + mult { n = x.n , m = (x.m - 1) } 
 in
 
+# ERROR: `n` as 0 or 1 fails predicate. `n > 1` fixes
 letd sqr (n : int) : {. int | fun c -> c >= n + 1 } =
   mult { n = n , m = n }
 in

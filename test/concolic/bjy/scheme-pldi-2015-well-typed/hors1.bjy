@@ -1,3 +1,4 @@
+# This is one well-typed version of `hors`
 
 let unit_type = {: empty_label : int :} # treat as empty_record
 in
@@ -13,7 +14,7 @@ let b x =
     x 1
 in
 
-let a (x : int -> unit_type) (y : int -> unit_type) (q : {. int | fun i -> i == 0 }) : unit_type =
+let a (x : int -> unit_type) (y : int -> unit_type) (q : int) : unit_type =
   let ignore = x 0 in
   y 0
 in
@@ -22,8 +23,6 @@ let rec f n x q =
   if n <= 0
   then x q
   else a x (fun p -> f (n - 1) (fun ignore -> b x ignore) p) q
-  # ERROR: `p` in this needs to be zero because is `q` in next recursive level, but it is checked against `x : int -> unit_type`, so is checked with nonzero `p`.
-  # i.e. to be well-typed, we need instead `q` can be any int, or `x` has type `{. int | fun i -> i == 0 } -> unit_type`
 in
 
 let s n q =

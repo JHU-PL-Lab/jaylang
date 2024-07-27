@@ -6,7 +6,7 @@ let rec mult x y =
 in
 
 let main (n : int) : {. int | fun i -> 600 <= i } =
-  mult 100 n
+  mult 100 n # ERROR: `n` should be at least `6`, or remove refinement
 in
 
 main

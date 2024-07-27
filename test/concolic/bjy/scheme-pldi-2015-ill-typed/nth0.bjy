@@ -1,7 +1,6 @@
-# error is that we check n == 1 when should check n == 0
 
 let rec nth n xs =
-  if n == 1 # should be 0
+  if n == 1 # ERROR: should be `n == 0`
   then 
     match xs with
     | hd :: tl -> hd
