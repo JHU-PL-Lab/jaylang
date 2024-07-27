@@ -8,7 +8,8 @@ module T =
       ; solver_timeout_sec : float [@default 1.0]
       ; global_max_step    : int   [@default Int.(5 * 10**4)]
       ; max_tree_depth     : int   [@default 50]
-      ; random             : bool  [@default false]}
+      ; random             : bool  [@default false]
+      ; n_depth_increments : int   [@default 5] }
       [@@deriving sexp]
   end
 
@@ -23,7 +24,8 @@ module Refs =
       ; solver_timeout_sec : float ref
       ; global_max_step    : int ref
       ; max_tree_depth     : int ref
-      ; random             : bool ref }
+      ; random             : bool ref
+      ; n_depth_increments : int ref }
 
     let create_default () : t =
       { quit_on_abort      = ref default.quit_on_abort
@@ -31,7 +33,8 @@ module Refs =
       ; solver_timeout_sec = ref default.solver_timeout_sec
       ; global_max_step    = ref default.global_max_step
       ; max_tree_depth     = ref default.max_tree_depth
-      ; random             = ref default.random }
+      ; random             = ref default.random
+      ; n_depth_increments = ref default.n_depth_increments }
 
     let without_refs (x : t) : T.t =
       { quit_on_abort      = !(x.quit_on_abort)
@@ -39,7 +42,8 @@ module Refs =
       ; solver_timeout_sec = !(x.solver_timeout_sec)
       ; global_max_step    = !(x.global_max_step)
       ; max_tree_depth     = !(x.max_tree_depth)
-      ; random             = !(x.random) }
+      ; random             = !(x.random)
+      ; n_depth_increments = !(x.n_depth_increments) }
   end
 
 (* `Fun` for optional arguments on functions *)
@@ -52,6 +56,7 @@ module Fun =
       -> ?global_max_step    : int
       -> ?max_tree_depth     : int
       -> ?random             : bool
+      -> ?n_depth_increments : int
       -> 'a (* 'a = 'b -> 'c *) (* so maybe make this a ('a, 'b) t *)
 
     let appl (x : 'a t) (r : T.t) : 'a =
@@ -62,6 +67,7 @@ module Fun =
         ~global_max_step:r.global_max_step
         ~max_tree_depth:r.max_tree_depth
         ~random:r.random
+        ~n_depth_increments:r.n_depth_increments
 
     let make (f : T.t -> 'a) : 'a t =
       fun
@@ -71,13 +77,15 @@ module Fun =
       ?(global_max_step    : int   = default.global_max_step)
       ?(max_tree_depth     : int   = default.max_tree_depth)
       ?(random             : bool  = default.random)
+      ?(n_depth_increments : int   = default.n_depth_increments)
       ->
       { global_timeout_sec
       ; solver_timeout_sec
       ; quit_on_abort
       ; global_max_step
       ; max_tree_depth
-      ; random }
+      ; random
+      ; n_depth_increments }
       |> f 
 
     let map (x : ('a -> 'b) t) (f : 'b -> 'c) : ('a -> 'c) t =

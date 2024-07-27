@@ -53,15 +53,15 @@ let[@landmark] lwt_test_one : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fu
             end
         
 (* [test_incremental n] incrementally increases the max tree depth in [n] equal steps until it reaches the given max depth *)
-let[@landmark] test_incremental n : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fun.t =
+let[@landmark] test_incremental : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fun.t =
   let open Lwt.Infix in
   Options.Fun.make
   @@ fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
         Lwt_unix.with_timeout r.global_timeout_sec
         @@ fun () ->
-          n
-          |> List.init ~f:(fun i -> (i + 1) * r.max_tree_depth / n)
+          r.n_depth_increments
+          |> List.init ~f:(fun i -> (i + 1) * r.max_tree_depth / r.n_depth_increments)
           |> List.fold
             ~init:(Lwt.return Test_result.default)
             ~f:(fun acc d ->
@@ -81,7 +81,7 @@ let test_with_timeout : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
       fun (e : Jayil.Ast.expr) ->
         try
           Lwt_main.run
-          @@ Options.Fun.appl (test_incremental 5) r e
+          @@ Options.Fun.appl test_incremental r e
         with
         | Lwt_unix.Timeout ->
           CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
