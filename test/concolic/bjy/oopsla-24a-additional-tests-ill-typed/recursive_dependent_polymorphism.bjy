@@ -10,7 +10,7 @@ letd rec f (type a_ b_) (i : int) : a_ -> b_ -> t (a_) (b_) i =
   fun a -> fun b -> 
     if i == 0
     then b
-    else f (a_) (b_) (i - 1) b a
+    else f (a_) (b_) (i - 1) b a # ERROR: need to flip a_ and b_
 in
 
 f (int) (bool) 2 0 true
