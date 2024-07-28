@@ -168,7 +168,6 @@ module Counts_table =
   end
 
 let () =
-  let open List.Let_syntax in
   let path = "./test/concolic/bjy/" in
   let dirs =
     [ "oopsla-24a-additional-tests-ill-typed"
