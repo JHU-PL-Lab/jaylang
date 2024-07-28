@@ -9,7 +9,7 @@ module T =
       ; global_max_step    : int   [@default Int.(5 * 10**4)]
       ; max_tree_depth     : int   [@default 50]
       ; random             : bool  [@default false]
-      ; n_depth_increments : int   [@default 5] }
+      ; n_depth_increments : int   [@default 1] }
       [@@deriving sexp]
   end
 

@@ -6,13 +6,15 @@ module Pop_kind =
       | DFS
       | BFS
       | Prioritize_uncovered
-      | Random
+      | Uniform (* uniformly randomly sample from all of the targets *)
+      | Random (* randomly choose one of the above pop kinds *)
 
     let random () =
       match Random.int 2 with
       | 0 -> DFS
       | 1 -> BFS
       | _ -> Prioritize_uncovered (* NOTE: this is unreachable right now *)
+      (* TODO: maybe add uniform *)
   end
 
 module Q = Psq.Make (Target) (Int) (* functional priority search queue *)
@@ -74,22 +76,26 @@ module T =
 type t =
   { dfs : T.t
   ; bfs : T.t
+  ; uniform : Q.t
   ; hit : Q.t } (* prioritized by number of times the target has been hit *)
   
 let empty : t =
   { dfs = T.empty Front
   ; bfs = T.empty Back
+  ; uniform = Q.empty
   ; hit = Q.empty }
 
 (* Deeper targets are at the front of [ls] *)
-let push_list ({ dfs ; bfs ; hit } : t) (ls : Target.t list) (hits : int list) : t =
+let push_list ({ dfs ; bfs ; hit ; uniform } : t) (ls : Target.t list) (hits : int list) : t =
   { dfs = T.push_list dfs (List.rev ls) (* reverse so that deeper targets have better priority *)
   ; bfs = T.push_list bfs ls
+  ; uniform = List.fold ls ~init:uniform ~f:(fun acc k -> Q.push k (Random.int Int.max_value) acc) (* give random priority *)
   ; hit = hit (* List.fold2_exn ls hits ~init:hit ~f:(fun acc k p -> Q.push k p acc) *) }
 
 let remove (x : t) (target : Target.t) : t =
   { bfs = T.remove x.bfs target
   ; dfs = T.remove x.dfs target
+  ; uniform = Q.remove target x.uniform
   ; hit = x.hit (* Q.remove target x.hit *) }
 
 let rec pop ?(kind : Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
@@ -104,6 +110,12 @@ let rec pop ?(kind : Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
     | Some (target, bfs) -> Some (target, remove { x with bfs } target)
     | None -> None
   end
+  | Uniform ->
+    begin
+    match Q.pop x.uniform with
+    | Some ((target, _), uniform) -> Some (target, remove { x with uniform } target)
+    | None -> None
+    end
   | Prioritize_uncovered -> 
     failwith "commented out for speed because currently is unused"
     (* begin
