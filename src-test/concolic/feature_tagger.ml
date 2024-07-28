@@ -125,11 +125,13 @@ module Full_table =
       { row_module = (module Row)
       ; rows = 
         get_all_files dirs (Fn.flip Filename.check_suffix ".features.s")
-        >>| (fun filename -> Row.{ filename ; tags = read_tags filename })
+        >>| (fun filename -> Latex_table.Row_or_hline.Row Row.{ filename ; tags = read_tags filename })
+        |> List.cons Latex_table.Row_or_hline.Hline
+      ; col_options = [ Some { right_align = true ; vertical_line_to_right = true }]
       }
   end
 
-(* Should the number of tests that use each feature. *)
+(* Show the number of tests that use each feature. *)
 module Counts_table =
   struct
     module Row (* : Latex_table.ROW *) =
@@ -150,14 +152,19 @@ module Counts_table =
     let make_of_dirs (dirs : Filename.t list) : Row.t Latex_table.t =
       { row_module = (module Row)
       ; rows =
+        begin
         let files = get_all_files dirs (Fn.flip Filename.check_suffix ".features.s") in
         let count tag =
           files
           >>= read_tags
           |> List.count ~f:(Tag.equal tag)
         in
-        List.map Tag.all ~f:(fun tag -> Row.{ feature = tag ; count = count tag })
-        }
+        Tag.all
+        >>| (fun tag -> Latex_table.Row_or_hline.Row Row.{ feature = tag ; count = count tag })
+        |> List.cons Latex_table.Row_or_hline.Hline
+        end
+      ; col_options = [ Some { right_align = true ; vertical_line_to_right = true }]
+      }
   end
 
 let () =
