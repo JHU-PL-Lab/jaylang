@@ -1,0 +1,39 @@
+
+let rec append a b =
+  match a with
+  | [] -> b
+  | hd :: tl -> hd :: append tl b
+  end
+in
+
+let plus =
+  fun left ->
+    fun right ->
+      match left with
+      | int -> left + right
+      | bool -> left and right
+      | hd :: tl -> append left right
+      | _ -> left
+      end
+in
+
+let nonempty_list a =
+  {. List a | fun ls ->
+    match ls with
+    | [] -> false
+    | hd :: tl -> true
+    end
+  }
+in
+
+let rec reduce_plus (type a_) (ls : nonempty_list a_) : a_ =
+  match ls with
+  | hd :: tl ->
+    match tl with
+    | [] -> hd
+    | _ -> plus hd (reduce_plus a_ tl) # ERROR: this is type casing on polymorphic type
+    end
+  end
+in
+
+reduce_plus

@@ -1,7 +1,14 @@
+
+(library
+  (name latex_table)
+  (modules latex_table)
+  (libraries
+    core))
+
 (executable
  (name feature_tagger)
  (modules feature_tagger)
- (libraries core core_unix.sys_unix)
+ (libraries latex_table core core_unix.sys_unix)
  (preprocess
   (pps ppx_jane ppx_deriving.show))
  (promote

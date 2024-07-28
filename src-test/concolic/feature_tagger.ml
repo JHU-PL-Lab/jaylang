@@ -1,26 +1,12 @@
 
-(*
-  GOAL:
-    * annotate all tests in the test folder with some tags
-    * allow the user to go through those tests and mark the tags
-    * allow easy edits
-    * 
-*)
-
 open Core
+
+open List.Let_syntax
 
 [@@@ocaml.warning "-32"]
 
-(* module Bjy_comments =
-  struct
-    let read_file (filename : Filename.t) : string list option =
-      if Sys_unix.file_exists_exn filename
-      then
-        In_channel.read_lines filename
-        |> List.filter ~f:(String.is_prefix ~prefix:"#")
-        |> Option.return
-      else None
-  end *)
+let texttt (s : string) : string =
+  "\\texttt{" ^ String.substr_replace_all ~pattern:"_" ~with_:"\\_" s ^ "}"
 
 module Tag =
   struct
@@ -52,6 +38,10 @@ module Tag =
     let to_string x =
       Sexp.to_string
       @@ sexp_of_t x
+
+    let to_texttt x =
+      texttt
+      @@ to_string x
 
   end
 
@@ -109,53 +99,66 @@ let base_filename (fname : Filename.t) : Filename.t =
   Filename.basename fname
   |> String.take_while ~f:(Char.(<>) '.')
 
-let texttt (s : string) : string =
-  "\\texttt{" ^ String.substr_replace_all ~pattern:"_" ~with_:"\\_" s ^ "}"
+(* Show every feature with an "x" that is used in the test. This table is WAY too big *)
+module Full_table = 
+  struct
+    module Row (* : Latex_table.ROW *) =
+      struct
+        type t =
+          { filename : Filename.t (* as full path, without any "texttt" or similar *)
+          ; tags : Tag.t list }
 
-let make_full_table (dirs : Filename.t list) =
-  let open List.Let_syntax in
-  let create_row fname =
-    let tags = read_tags fname in
-    Tag.all
-    >>| List.mem tags ~equal:Tag.equal
-    >>| (function true -> "x" | false -> " ")
-    |> String.concat ~sep:" & "
-    |> fun row ->
-      (texttt @@ base_filename fname)
-      ^ " & "
-      ^ row
-  in
-  let header =
-    Tag.all
-    >>| Tag.to_string
-    >>| texttt
-    |> List.cons "Filename"
-    |> String.concat ~sep:" & "
-  in
-  get_all_files dirs (Fn.flip Filename.check_suffix ".features.s")
-  >>| create_row
-  |> List.cons header (* TODO: add the latex env stuff to make this actually a table *)
-  |> String.concat ~sep:"\\\\ \n"
-  |> Format.printf "%s\n"
+        let names =
+          Tag.all
+          >>| Tag.to_string
+          >>| texttt
+          |> List.cons "Filename"
 
-let make_count_table (dirs : Filename.t list) =
-  let open List.Let_syntax in
-  let files = get_all_files dirs (Fn.flip Filename.check_suffix ".features.s") in
-  let count tag =
-    files
-    >>= read_tags
-    |> List.count ~f:(Tag.equal tag)
-  in
-  Tag.all
-  >>| (fun x ->
-      (texttt @@Tag.to_string x)
-      ^ " & " 
-      ^ (Int.to_string @@ count x)
-  )
-  |> List.cons "Feature & Count"
-  |> String.concat ~sep:"\\\\ \n"
-  |> Format.printf "%s\n"
-  
+        let to_strings (x : t) : string list =
+          Tag.all (* for every tag ... *)
+          >>| List.mem x.tags ~equal:Tag.equal (* check if exists in x's tags *)
+          >>| (function true -> "x" | false -> " ") (* mark as "x" or blank based on existence *)
+          |> List.cons (texttt (base_filename x.filename)) (* put filename at front of row *)
+      end
+
+    let make_of_dirs (dirs : Filename.t list) : Row.t Latex_table.t =
+      { row_module = (module Row)
+      ; rows = 
+        get_all_files dirs (Fn.flip Filename.check_suffix ".features.s")
+        >>| (fun filename -> Row.{ filename ; tags = read_tags filename })
+      }
+  end
+
+(* Should the number of tests that use each feature. *)
+module Counts_table =
+  struct
+    module Row (* : Latex_table.ROW *) =
+      struct
+        type t =
+          { feature : Tag.t
+          ; count   : int }
+
+        let names =
+          [ "Feature"
+          ; "Count" ]
+
+        let to_strings (x : t) : string list =
+          [ Tag.to_texttt x.feature
+          ; Int.to_string x.count ]
+      end
+
+    let make_of_dirs (dirs : Filename.t list) : Row.t Latex_table.t =
+      { row_module = (module Row)
+      ; rows =
+        let files = get_all_files dirs (Fn.flip Filename.check_suffix ".features.s") in
+        let count tag =
+          files
+          >>= read_tags
+          |> List.count ~f:(Tag.equal tag)
+        in
+        List.map Tag.all ~f:(fun tag -> Row.{ feature = tag ; count = count tag })
+        }
+  end
 
 let () =
   let open List.Let_syntax in
@@ -171,7 +174,9 @@ let () =
     >>| Fn.flip add_tags [ ] *)
     dirs
     >>| String.append path
-    |> make_count_table
+    |> Counts_table.make_of_dirs
+    |> Latex_table.show
+    |> print_endline
   in
   ()
   
