@@ -5,9 +5,6 @@ open List.Let_syntax
 
 [@@@ocaml.warning "-32"]
 
-let texttt (s : string) : string =
-  "\\texttt{" ^ String.substr_replace_all ~pattern:"_" ~with_:"\\_" s ^ "}"
-
 module Tag =
   struct
     type t =
@@ -40,7 +37,7 @@ module Tag =
       @@ sexp_of_t x
 
     let to_texttt x =
-      texttt
+      Latex_table.texttt
       @@ to_string x
 
   end
@@ -111,21 +108,21 @@ module Full_table =
         let names =
           Tag.all
           >>| Tag.to_string
-          >>| texttt
+          >>| Latex_table.texttt
           |> List.cons "Filename"
 
         let to_strings (x : t) : string list =
           Tag.all (* for every tag ... *)
           >>| List.mem x.tags ~equal:Tag.equal (* check if exists in x's tags *)
           >>| (function true -> "x" | false -> " ") (* mark as "x" or blank based on existence *)
-          |> List.cons (texttt (base_filename x.filename)) (* put filename at front of row *)
+          |> List.cons (Latex_table.texttt (base_filename x.filename)) (* put filename at front of row *)
       end
 
     let make_of_dirs (dirs : Filename.t list) : Row.t Latex_table.t =
       { row_module = (module Row)
       ; rows = 
         get_all_files dirs (Fn.flip Filename.check_suffix ".features.s")
-        >>| (fun filename -> Latex_table.Row_or_hline.Row Row.{ filename ; tags = read_tags filename })
+        >>| (fun filename -> Latex_table.Row_or_hline.return Row.{ filename ; tags = read_tags filename })
         |> List.cons Latex_table.Row_or_hline.Hline
       ; col_options = [ Some { right_align = true ; vertical_line_to_right = true }]
       }
@@ -160,7 +157,7 @@ module Counts_table =
           |> List.count ~f:(Tag.equal tag)
         in
         Tag.all
-        >>| (fun tag -> Latex_table.Row_or_hline.Row Row.{ feature = tag ; count = count tag })
+        >>| (fun tag -> Latex_table.Row_or_hline.return Row.{ feature = tag ; count = count tag })
         |> List.cons Latex_table.Row_or_hline.Hline
         end
       ; col_options = [ Some { right_align = true ; vertical_line_to_right = true }]

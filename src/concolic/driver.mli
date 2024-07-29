@@ -7,6 +7,9 @@ module Test_result :
       | Exhausted               (* Ran all possible tree paths, and no paths were too deep *)
       | Exhausted_pruned_tree   (* Ran all possible tree paths up to the given max depth *)
       | Timeout                 (* total evaluation timeout *)
+
+    val to_string : t -> string
+    (** [to_string t] is a capitalized string for [t], with an underscore *)
   end
 
 val test_expr : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t

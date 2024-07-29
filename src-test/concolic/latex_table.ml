@@ -1,6 +1,9 @@
 
 open Core
 
+let texttt (s : string) : string =
+  "\\texttt{" ^ String.substr_replace_all ~pattern:"_" ~with_:"\\_" s ^ "}"
+
 module type ROW =
   sig
     type t  (* expected to be a record *)
@@ -15,6 +18,8 @@ module Row_or_hline =
     type 'a t =
       | Row of 'a
       | Hline
+
+    let return x = Row x
   end
 
 module Col_option =
