@@ -2,7 +2,7 @@
 let rec mk_list n =
   if n <= 0
   then []   
-  else (fun m -> m - n) :: mk_list (n - 1) # should be m + n to be well-typed
+  else (fun m -> m - n) :: mk_list (n - 1) # ERROR: be `m + n` instead of `m - n`
 in
 
 let rec foldr f z xs =

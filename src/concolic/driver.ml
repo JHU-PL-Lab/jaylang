@@ -14,6 +14,13 @@ module Test_result =
       | Exhausted_pruned_tree   (* Ran all possible tree paths up to the given max step *)
       | Timeout                 (* total evaluation timeout *)
 
+    let to_string = function
+    | Found_abort _ ->         "FOUND_ABORT"
+    | Type_mismatch _ ->       "TYPE_MISMATCH"
+    | Exhausted ->             "EXHAUSTED"
+    | Exhausted_pruned_tree -> "EXHAUSTED_PRUNED_TREE"
+    | Timeout ->               "TIMEOUT"
+
     let merge a b =
       match a, b with
       (* When abort and type mismatch are found, we can conclusively end *)
@@ -53,15 +60,15 @@ let[@landmark] lwt_test_one : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fu
             end
         
 (* [test_incremental n] incrementally increases the max tree depth in [n] equal steps until it reaches the given max depth *)
-let[@landmark] test_incremental n : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fun.t =
+let[@landmark] test_incremental : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fun.t =
   let open Lwt.Infix in
   Options.Fun.make
   @@ fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
         Lwt_unix.with_timeout r.global_timeout_sec
         @@ fun () ->
-          n
-          |> List.init ~f:(fun i -> (i + 1) * r.max_tree_depth / n)
+          r.n_depth_increments
+          |> List.init ~f:(fun i -> (i + 1) * r.max_tree_depth / r.n_depth_increments)
           |> List.fold
             ~init:(Lwt.return Test_result.default)
             ~f:(fun acc d ->
@@ -81,7 +88,7 @@ let test_with_timeout : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
       fun (e : Jayil.Ast.expr) ->
         try
           Lwt_main.run
-          @@ Options.Fun.appl (test_incremental 5) r e
+          @@ Options.Fun.appl test_incremental r e
         with
         | Lwt_unix.Timeout ->
           CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
@@ -90,17 +97,7 @@ let test_with_timeout : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
 let[@landmark] test_expr : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
   Options.Fun.map
     test_with_timeout
-    (fun r ->
-      begin
-      match r with
-      | Test_result.Found_abort _ -> Format.printf "\nFOUND_ABORT\n"
-      | Type_mismatch _ ->           Format.printf "\nTYPE_MISMATCH\n"
-      | Exhausted ->                 Format.printf "\nEXHAUSTED\n"
-      | Exhausted_pruned_tree ->     Format.printf "\nEXHAUSTED_PRUNED_TREE\n"
-      | Timeout ->                   Format.printf "\nTIMEOUT\n"
-      end;
-      r
-    )
+    (fun r -> Format.printf "\n%s\n" (Test_result.to_string r); r)
 
 
 (*

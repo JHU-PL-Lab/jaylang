@@ -1,87 +1,9 @@
 
-(*
-  GOAL:
-    * annotate all tests in the test folder with some tags
-    * allow the user to go through those tests and mark the tags
-    * allow easy edits
-    * 
-*)
-
 open Core
 
+open List.Let_syntax
+
 [@@@ocaml.warning "-32"]
-[@@@ocaml.warning "-37"]
-[@@@ocaml.warning "-34"]
-
-module Bjy_comments =
-  struct
-    let read_file (filename : Filename.t) : string list option =
-      if Sys_unix.file_exists_exn filename
-      then
-        In_channel.read_lines filename
-        |> List.filter ~f:(String.is_prefix ~prefix:"#")
-        |> Option.return
-      else None
-  end
-
-module Tags =
-  struct
-
-    module Status =
-      struct
-        type t = Checked | Unchecked | Missing [@@deriving compare]
-
-        let t_of_sexp sexp =
-          match String.t_of_sexp sexp with
-          | "" -> Unchecked
-          | "x" -> Checked
-          | _ -> Missing
-        
-        let sexp_of_t x =
-          begin
-          match x with
-          | Checked -> "x"
-          | Unchecked -> ""
-          | Missing -> "TODO"
-          end
-          |> String.sexp_of_t
-      end
-
-    type t =
-      { polymorphic_types      : Status.t [@sexplib.default ""]
-      ; variants               : Status.t
-      ; intersection_types     : Status.t
-      ; recursive_functions    : Status.t
-      ; mu_types               : Status.t
-      ; higher_order_functions : Status.t
-      ; subtyping              : Status.t
-      ; type_casing            : Status.t
-      ; oop_style              : Status.t
-      ; refinement_types       : Status.t
-      ; dependent_types        : Status.t
-      ; parametric_types       : Status.t
-      ; records                : Status.t
-      ; trees                  : Status.t
-      ; wrap_required          : Status.t }
-      [@@deriving sexp, compare]
-
-    let default =
-      { polymorphic_types      = Checked
-      ; variants               = Checked
-      ; intersection_types     = Checked
-      ; recursive_functions    = Missing
-      ; mu_types               = Checked
-      ; higher_order_functions = Checked
-      ; subtyping              = Unchecked
-      ; type_casing            = Checked
-      ; oop_style              = Checked
-      ; refinement_types       = Checked
-      ; dependent_types        = Checked
-      ; parametric_types       = Checked
-      ; records                = Checked
-      ; trees                  = Checked
-      ; wrap_required          = Checked }
-  end
 
 module Tag =
   struct
@@ -91,104 +13,196 @@ module Tag =
       | Intersection_types
       | Recursive_functions
       | Mu_types
-      | Higher_order_functions
+      | Higher_order_functions (* includes first class functions *)
       | Subtyping
       | Type_casing
       | OOP_style
       | Refinement_types
       | Dependent_types
-      | Parametric_types
+      | Parametric_types (* not including List *)
       | Records
-      | Trees
       | Wrap_required
-      [@@deriving variants, sexp, compare, enumerate]
+      | Assertions
+      | Operator_misuse (* e.g. 1 + true *)
+      | Return_type (* where return type is just fundamentally wrong, e.g. f (x : int) : int = true *)
+      | Match (* uses match anywhere, not necessarily as the source of the error *)
+      [@@deriving variants, sexp, compare, enumerate, equal]
 
-    let show (x : t) : string = 
-      x
-      |> Variants.to_name
-      |> String.substr_replace_all ~pattern:"_" ~with_:" "
-
-    let show_as_comment (x : t) : string =
-      "# - " ^ show x ^ ":    "
-
-    let show_all : string =
-      let open List.Let_syntax in
+    let sexp_all : Sexp.t =
       all
-      >>| show_as_comment
-      |> String.concat ~sep:"\n"
+      |> List.sexp_of_t sexp_of_t
 
-    let str_contains_tag (s : string) (tag : t) : bool =
-      String.substr_index s ~pattern:(show tag)
-      |> Option.is_some
+    let to_string = function
+    | Polymorphic_types -> "Polymorphic types"
+    | Variants -> "Variants"
+    | Intersection_types -> "Intersection types"
+    | Recursive_functions -> "Recursive functions"
+    | Mu_types -> "Mu types"
+    | Higher_order_functions -> "Higher order functions"
+    | Subtyping -> "Subtyping"
+    | Type_casing -> "Type casing"
+    | OOP_style -> "OOP-style"
+    | Refinement_types -> "Refinement types"
+    | Dependent_types -> "Dependent types"
+    | Parametric_types -> "Parametric types"
+    | Records -> "Records"
+    | Wrap_required -> "Wrap required"
+    | Assertions -> "Assertions"
+    | Operator_misuse -> "Operator misuse"
+    | Return_type -> "Return type"
+    | Match -> "Match"
+     
 
-    let read (s : string) : t option = 
-      List.find all ~f:(str_contains_tag s)
+    (* let to_string x =
+      Sexp.to_string
+      @@ sexp_of_t x
 
-    let read_checked (s : string) : t option * bool =
-      match read s with
-      | None -> None, false
-      | Some tag ->
-        let remainder =
-          String.substr_replace_all
-            s
-            ~pattern:(String.strip (show_as_comment tag))
-            ~with_:""
-        in
-        let is_checked =
-          String.find remainder ~f:(
-            fun c ->
-              not (Char.is_whitespace c)
-          )
-          |> Option.is_some
-        in
-        (Some tag), is_checked
+    let to_texttt x =
+      Latex_table.texttt
+      @@ to_string x *)
 
-    module Status =
+  end
+
+let get_all_files (dirs : Filename.t list) (filter : Filename.t -> bool) : Filename.t list =
+  let rec loop outlist = function
+    | [] -> outlist
+    | f :: fs -> begin
+      match Sys_unix.is_directory f with
+      | `Yes ->
+          f
+          |> Sys_unix.ls_dir
+          |> List.map ~f:(( ^ ) (f ^ "/"))
+          |> List.append fs
+          |> loop outlist
+      | _ when filter f -> loop (f :: outlist) fs
+      | _ -> loop outlist fs
+    end
+  in
+  loop [] dirs
+
+(* let prepend_to_file (new_line : string) (filename : Filename.t) : unit =
+  let lines = In_channel.read_lines filename in
+  Out_channel.write_lines filename (new_line :: lines) *)
+
+let get_feature_filename (bjy_file : Filename.t) : Filename.t =
+  let fname, _ = Filename.split_extension bjy_file 
+  in fname ^ ".features.s"
+
+let write_tags (bjy_file : Filename.t) (tags : Tag.t list) : unit =
+  Out_channel.write_lines
+    (get_feature_filename bjy_file)
+    (["("]
+      @ (List.map tags ~f:Tag.to_string)
+      @ [")"]
+    )
+
+let read_tags (feature_filename : Filename.t) : Tag.t list =
+  let sexp =
+    let ic = In_channel.create feature_filename in
+    let s = Sexp.input_sexp ic in
+    In_channel.close ic;
+    s
+  in
+  List.t_of_sexp Tag.t_of_sexp sexp
+
+let add_tags (bjy_file : Filename.t) (tags : Tag.t list) : unit = 
+  let existing_tags =
+    bjy_file
+    |> get_feature_filename
+    |> read_tags
+  in
+  write_tags bjy_file (existing_tags @ tags)
+
+let base_filename (fname : Filename.t) : Filename.t =
+  Filename.basename fname
+  |> String.take_while ~f:(Char.(<>) '.')
+
+(* Show every feature with an "x" that is used in the test. This table is WAY too big *)
+module Full_table = 
+  struct
+    module Row (* : Latex_table.ROW *) =
       struct
         type t =
-          | Checked        
-          | Unchecked
-          | Missing
+          { filename : Filename.t (* as full path, without any "texttt" or similar *)
+          ; tags : Tag.t list }
 
+        let names =
+          Tag.all
+          >>| Tag.to_string
+          >>| Latex_table.texttt
+          |> List.cons "Filename"
+
+        let to_strings (x : t) : string list =
+          Tag.all (* for every tag ... *)
+          >>| List.mem x.tags ~equal:Tag.equal (* check if exists in x's tags *)
+          >>| (function true -> "x" | false -> " ") (* mark as "x" or blank based on existence *)
+          |> List.cons (Latex_table.texttt (base_filename x.filename)) (* put filename at front of row *)
       end
 
-    (*
-      I want to call read_checked on every line, and then I have a map from tag to checked status.
+    let make_of_dirs (dirs : Filename.t list) : Row.t Latex_table.t =
+      { row_module = (module Row)
+      ; rows = 
+        get_all_files dirs (Fn.flip Filename.check_suffix ".features.s")
+        >>| (fun filename -> Latex_table.Row_or_hline.return Row.{ filename ; tags = read_tags filename })
+        |> List.cons Latex_table.Row_or_hline.Hline
+      ; col_options = [ Some { right_align = true ; vertical_line_to_right = true }]
+      }
+  end
 
-      Then do n^2 iteration over tags and those found, and for missing tags, I need to add the tag to
-        the file, and tell the user to update it. This can be by adding "TODO" to the tag, so I should
-        discount that from the read_checked function.
+(* Show the number of tests that use each feature. *)
+module Counts_table =
+  struct
+    module Row (* : Latex_table.ROW *) =
+      struct
+        type t =
+          { feature : Tag.t
+          ; count   : int }
 
-      The missing tags are added to the top of the file. It would be nice if they're added after the 
-        last seen tag.
+        let names =
+          [ "Feature"
+          ; "Count" ]
 
-      I could also have a "description" box at the top of the file, and a "tags" box. Then it's easier
-        to know where to add the tags.
-    *)
+        let to_strings (x : t) : string list =
+          [ Tag.to_string x.feature (* used to be to_texttt *)
+          ; Int.to_string x.count ]
+      end
 
+    let make_of_dirs (dirs : Filename.t list) : Row.t Latex_table.t =
+      { row_module = (module Row)
+      ; rows =
+        begin
+        let files = get_all_files dirs (Fn.flip Filename.check_suffix ".features.s") in
+        let count tag =
+          files
+          >>= read_tags
+          |> List.count ~f:(Tag.equal tag)
+        in
+        Tag.all
+        >>| (fun tag -> Latex_table.Row_or_hline.return Row.{ feature = tag ; count = count tag })
+        |> List.cons Latex_table.Row_or_hline.Hline
+        end
+      ; col_options = [ Some { right_align = true ; vertical_line_to_right = true }]
+      }
   end
 
 let () =
-  Format.printf "%s\n" (Tags.sexp_of_t Tags.default |> Sexp.to_string_hum ~indent:2)
-  (* Format.printf "%s\n" Tag.show_all;
-  match Sys.get_argv () |> List.of_array with
-  | _ :: filename :: [] -> begin
-    match Bjy_comments.read_file filename with
-    | None -> Format.eprintf "Filename %s does not exist\n" filename
-    | Some lines ->
-      List.iter lines ~f:(fun line ->
-        let tag_opt_string, is_checked =
-          Tag.read_checked line
-          |> Tuple2.map_fst ~f:(function None -> "none" | Some tag -> Tag.show tag)
-        in
-        Format.printf
-          "Line is '%s', tag is '%s', checked is %b\n"
-          line
-          tag_opt_string
-          is_checked
-      )
-  end
-  | _ -> Format.eprintf "Bad arguments\n" *)
+  let path = "./test/concolic/bjy/" in
+  let dirs =
+    [ "oopsla-24a-additional-tests-ill-typed"
+    ; "sato-bjy-ill-typed"
+    ; "scheme-pldi-2015-ill-typed" ]
+  in
+    
+  let _ = 
+    (* get_all_files "./test/concolic/bjy" (Fn.flip Filename.check_suffix ".bjy")
+    >>| Fn.flip add_tags [ ] *)
+    dirs
+    >>| String.append path
+    |> Counts_table.make_of_dirs
+    |> Latex_table.show
+    |> print_endline
+  in
+  ()
   
 
 

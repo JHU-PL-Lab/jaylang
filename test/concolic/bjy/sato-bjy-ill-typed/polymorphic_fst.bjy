@@ -1,2 +1,5 @@
-let fst (x : 'a) (y : 'b) : 'a = y in
+let fst (type a_ b_) (x : a_) (y : b_) : a_ =
+  y
+in
+
 fst

@@ -1,4 +1,3 @@
-# error is that `q` arg to `a` can be nonzero because `main` can pass in any int
 
 let unit_type = {: empty_label : int :} # treat as empty_record
 in
@@ -23,6 +22,8 @@ let rec f n x q =
   if n <= 0
   then x q
   else a x (fun p -> f (n - 1) (fun ignore -> b x ignore) p) q
+  # ERROR: `p` in this needs to be zero because is `q` in next recursive level, but it is checked against `x : int -> unit_type`, so is checked with nonzero `p`.
+  # i.e. to be well-typed, we need instead `q` can be any int, or `x` has type `{. int | fun i -> i == 0 } -> unit_type`
 in
 
 let s n q =

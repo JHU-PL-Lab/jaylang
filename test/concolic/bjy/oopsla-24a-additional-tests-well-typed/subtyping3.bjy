@@ -1,7 +1,0 @@
-# subtype of union type
-
-let f (i : int) (b : bool) (a : 'a) : (``Int int || ``Bool bool || ``L List 'a) =
-  `L (a :: [])
-in
-
-f

@@ -1,8 +1,0 @@
-
-let flyweight_t =
-  {: common_state : List (List int) :}
-in
-
-let context_t = 
-  {:
-  }

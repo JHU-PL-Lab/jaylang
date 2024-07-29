@@ -1,12 +1,12 @@
 # error is that xs should be nonempty
 
-let rec foldr1 (f : 'a -> 'a -> 'a) (xs : List 'a) : 'a =
+let rec foldr1 (type a_) (f : a_ -> a_ -> a_) (xs : List a_) : a_ =
   match xs with
-  | [] -> assert false
+  | [] -> assert false # ERROR: xs chould be empty
   | z :: zs ->
     match zs with
     | [] -> z
-    | _ -> f z (foldr1 f zs)
+    | _ -> f z (foldr1 a_ f zs)
     end 
   end
 in

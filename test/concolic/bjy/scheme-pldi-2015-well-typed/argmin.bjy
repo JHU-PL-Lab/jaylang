@@ -17,7 +17,7 @@ let rec argmin_acc f a b xs =
   end
 in
 
-let argmin (f : 'a -> int) (xs : {. List 'a | is_cons }) : 'a =
+let argmin (type a_) (f : a_ -> int) (xs : {. List a_ | is_cons }) : a_ =
   match xs with
   | hd :: tl -> argmin_acc f hd (f hd) tl
   end

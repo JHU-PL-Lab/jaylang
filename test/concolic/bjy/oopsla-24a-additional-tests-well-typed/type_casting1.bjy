@@ -1,6 +1,0 @@
-
-let f (x : 'a) : int = 
-  1
-in
-
-f

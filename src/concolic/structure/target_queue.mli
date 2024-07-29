@@ -4,6 +4,7 @@ module Pop_kind :
       | DFS
       | BFS
       | Prioritize_uncovered
+      | Uniform
       | Random
   end
 

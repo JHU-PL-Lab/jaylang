@@ -1,12 +1,12 @@
 # simple error with return type in singleton case
 
-let rec all (p : 'a -> bool) (xs : List 'a) : bool =
+let rec all (type a_) (p : a_ -> bool) (xs : List a_) : bool =
   match xs with
   | [] -> true
   | x :: xss -> 
     match xss with
     | [] -> p x
-    | _ -> (p x) and (all p xss)
+    | _ -> (p x) and (all a_ p xss)
     end
   end
 in

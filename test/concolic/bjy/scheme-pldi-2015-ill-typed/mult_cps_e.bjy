@@ -1,4 +1,3 @@
-# error is that 100 * n does not always exceed 600, but assert says it should
 
 let acc z m =
   fun r -> m (z + r)
@@ -15,7 +14,7 @@ let check100 w =
 in
 
 let main (n : int) : int =
-  mult 100 n check100
+  mult 100 n check100 # ERROR: 100 * n does not always exceed 600
 in
 
 main

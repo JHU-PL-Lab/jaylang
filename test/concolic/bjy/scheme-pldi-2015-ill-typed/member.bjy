@@ -3,7 +3,7 @@
 
 let rec member (x : int) (l : List int) : bool =
   match l with
-  | [] -> []
+  | [] -> [] # ERROR: isn't bool
   | hd :: tl ->
     if x == hd
     then true

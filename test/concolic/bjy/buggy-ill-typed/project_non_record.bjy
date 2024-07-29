@@ -1,0 +1,4 @@
+
+# We get an interpretation exception, but this is only supposed to be ill-typed
+
+(fun i -> 0).x

@@ -1,0 +1,6 @@
+
+let appl (type a_ b_) (f : a_ -> b_) (a : a_) : b_ =
+  f a
+in
+
+appl
