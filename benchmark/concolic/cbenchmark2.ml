@@ -87,9 +87,4 @@ let run dirs =
 
 let () =
   run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ];
-  (* let res = Report_row.of_testname "test/concolic/bjy/oopsla-24a-additional-tests-ill-typed/visitor_tree1.bjy"
-  in
-  Format.printf "%f, %f\n"
-    (Time_float.Span.to_sec res.time_to_only_run_on_jil)
-    (Time_float.Span.to_sec res.time_to_parse_and_translate) *)
 
