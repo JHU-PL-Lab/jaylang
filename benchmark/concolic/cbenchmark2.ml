@@ -132,5 +132,6 @@ let run dirs =
   |> Format.printf "%s\n"
 
 let () =
-  run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ];
+  (* run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ]; *)
+  run [ "test/concolic/bjy/oopsla-24a-additional-tests-ill-typed" ];
 

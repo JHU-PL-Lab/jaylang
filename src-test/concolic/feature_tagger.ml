@@ -32,13 +32,34 @@ module Tag =
       all
       |> List.sexp_of_t sexp_of_t
 
-    let to_string x =
+    let to_string = function
+    | Polymorphic_types -> "Polymorphic types"
+    | Variants -> "Variants"
+    | Intersection_types -> "Intersection types"
+    | Recursive_functions -> "Recursive functions"
+    | Mu_types -> "Mu types"
+    | Higher_order_functions -> "Higher order functions"
+    | Subtyping -> "Subtyping"
+    | Type_casing -> "Type casing"
+    | OOP_style -> "OOP-style"
+    | Refinement_types -> "Refinement types"
+    | Dependent_types -> "Dependent types"
+    | Parametric_types -> "Parametric types"
+    | Records -> "Records"
+    | Wrap_required -> "Wrap required"
+    | Assertions -> "Assertions"
+    | Operator_misuse -> "Operator misuse"
+    | Return_type -> "Return type"
+    | Match -> "Match"
+     
+
+    (* let to_string x =
       Sexp.to_string
       @@ sexp_of_t x
 
     let to_texttt x =
       Latex_table.texttt
-      @@ to_string x
+      @@ to_string x *)
 
   end
 
@@ -142,7 +163,7 @@ module Counts_table =
           ; "Count" ]
 
         let to_strings (x : t) : string list =
-          [ Tag.to_texttt x.feature
+          [ Tag.to_string x.feature (* used to be to_texttt *)
           ; Int.to_string x.count ]
       end
 
