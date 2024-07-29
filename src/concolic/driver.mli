@@ -10,6 +10,9 @@ module Test_result :
 
     val to_string : t -> string
     (** [to_string t] is a capitalized string for [t], with an underscore *)
+
+    val merge : t -> t -> t
+    (** [merge a b] is the more information of the two [a] and [b]. *)
   end
 
 val test_expr : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t

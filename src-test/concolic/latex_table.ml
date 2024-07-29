@@ -45,6 +45,9 @@ type 'row t =
   ; rows : 'row Row_or_hline.t list
   ; col_options : Col_option.t option list } (* of same or lesser length than (val row_module).to_strings *)
 
+(* let remove_column (col_name : string) (tbl : 'row t) : 'row t = *)
+
+
 let show (type row) (x : row t) : string =
   let open List.Let_syntax in
   let module R = (val x.row_module) in
