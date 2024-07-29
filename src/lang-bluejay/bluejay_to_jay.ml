@@ -3266,8 +3266,8 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
           if instrumented_bool
           then return @@ new_expr_desc @@ RecordProj (e', lbl)
           else
-            let%bind decl_lbls =
-              new_instrumented_ed @@ RecordProj (e', Label "~decl_lbls")
+            let decl_lbls =
+              new_expr_desc @@ RecordProj (e', Label "~decl_lbls")
             in
             let pat = RecPat (Ident_map.singleton (Ident l) None) in
             let%bind assert_cls =
