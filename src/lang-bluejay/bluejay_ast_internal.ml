@@ -128,9 +128,6 @@ and 'a expr =
       ((ident * syntactic_only expr_desc) * syntactic_only expr_desc)
       -> syntactic_only expr
   | TypeSet : syntactic_only expr_desc * predicate -> syntactic_only expr
-  | TypeUnion :
-      (syntactic_only expr_desc * syntactic_only expr_desc)
-      -> syntactic_only expr
   | TypeIntersect :
       (syntactic_only expr_desc * syntactic_only expr_desc)
       -> syntactic_only expr
@@ -290,7 +287,6 @@ and equal_expr : type a. a expr -> a expr -> bool =
   | TypeRecord t1, TypeRecord t2 -> Ident_map.equal equal_expr_desc t1 t2
   | TypeList t1, TypeList t2 -> equal_expr_desc t1 t2
   | TypeArrow (lt1, rt1), TypeArrow (lt2, rt2)
-  | TypeUnion (lt1, rt1), TypeUnion (lt2, rt2)
   | TypeIntersect (lt1, rt1), TypeIntersect (lt2, rt2)
   | TypeSet (lt1, rt1), TypeSet (lt2, rt2) ->
       equal_expr_desc lt1 lt2 && equal_expr_desc rt1 rt2
@@ -449,7 +445,6 @@ and tagless_equal_expr : type a. a expr -> a expr -> bool =
       Ident_map.equal tagless_equal_expr_desc t1 t2
   | TypeList t1, TypeList t2 -> tagless_equal_expr_desc t1 t2
   | TypeArrow (lt1, rt1), TypeArrow (lt2, rt2)
-  | TypeUnion (lt1, rt1), TypeUnion (lt2, rt2)
   | TypeIntersect (lt1, rt1), TypeIntersect (lt2, rt2)
   | TypeSet (lt1, rt1), TypeSet (lt2, rt2) ->
       tagless_equal_expr_desc lt1 lt2 && tagless_equal_expr_desc rt1 rt2
@@ -607,7 +602,6 @@ and compare_expr : type a. a expr -> a expr -> int =
   | TypeRecord t1, TypeRecord t2 -> Ident_map.compare compare_expr_desc t1 t2
   | TypeList t1, TypeList t2 -> compare_expr_desc t1 t2
   | TypeArrow (lt1, rt1), TypeArrow (lt2, rt2)
-  | TypeUnion (lt1, rt1), TypeUnion (lt2, rt2)
   | TypeIntersect (lt1, rt1), TypeIntersect (lt2, rt2)
   | TypeSet (lt1, rt1), TypeSet (lt2, rt2) ->
       compare_expr_desc lt1 lt2 + compare_expr_desc rt1 rt2
@@ -712,8 +706,6 @@ and compare_expr : type a. a expr -> a expr -> int =
   | _, TypeArrowD _ -> -1
   | TypeSet _, _ -> 1
   | _, TypeSet _ -> -1
-  | TypeUnion _, _ -> 1
-  | _, TypeUnion _ -> -1
   | TypeIntersect _, _ -> 1
   | _, TypeIntersect _ -> -1
   | TypeRecurse _, _ -> 1
@@ -780,7 +772,7 @@ let expr_precedence_p1 : type a. a expr -> int =
   | Int _ | Bool _ | Input | Var _ | List _ | Record _ -> 12
   (* TODO: For now, all type expressions will have the lowest precedence coz I'm lazy and don't wanna think about it *)
   | TypeVar _ | TypeInt | TypeBool | TypeRecord _ | TypeList _ | TypeArrow _
-  | TypeArrowD _ | TypeSet _ | TypeUnion _ | TypeIntersect _ | TypeRecurse _
+  | TypeArrowD _ | TypeSet _ | TypeIntersect _ | TypeRecurse _
   | TypeError _ | TypeUntouched _ | TypeVariant _ ->
       13
 
@@ -987,10 +979,6 @@ and from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
       let ed' = from_internal_expr_desc ed in
       let p' = from_internal_expr_desc p in
       TypeSet (ed', p')
-  | TypeUnion (ed1, ed2) ->
-      let ed1' = from_internal_expr_desc ed1 in
-      let ed2' = from_internal_expr_desc ed2 in
-      TypeUnion (ed1', ed2')
   | TypeIntersect (ed1, ed2) ->
       let ed1' = from_internal_expr_desc ed1 in
       let ed2' = from_internal_expr_desc ed2 in
@@ -1291,7 +1279,7 @@ and to_jay_expr (e : core_bluejay) : Jay.Jay_ast.expr =
 let is_type_expr (ed : syn_bluejay_edesc) : bool =
   match ed.body with
   | TypeVar _ | TypeInt | TypeBool | TypeRecord _ | TypeList _ | TypeArrow _
-  | TypeArrowD _ | TypeUnion _ | TypeIntersect _ | TypeSet _ | TypeRecurse _
+  | TypeArrowD _ | TypeIntersect _ | TypeSet _ | TypeRecurse _
   | TypeVariant _ | TypeUntouched _ ->
       true
   | _ -> false
@@ -1341,8 +1329,6 @@ let rec is_subtype (ed1 : syn_bluejay_edesc) (ed2 : syn_bluejay_edesc) : bool =
     | TypeList t1, TypeList t2 -> is_subtype t1 t2
     | TypeArrow (dom1, cod1), TypeArrow (dom2, cod2) ->
         is_subtype dom2 dom1 && is_subtype cod1 cod2
-    | _, TypeUnion (t1, t2) ->
-        if is_subtype ed1 t1 then true else is_subtype ed1 t2
     | _, TypeIntersect (t1, t2) ->
         if is_subtype ed1 t1
         then is_subtype ed1 t2
@@ -1433,10 +1419,6 @@ let rec is_subtype (ed1 : syn_bluejay_edesc) (ed2 : syn_bluejay_edesc) : bool =
          let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
          let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
          TypeSet (ed1', ed2')
-     | TypeUnion (ed1, ed2) ->
-         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
-         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
-         TypeUnion (ed1', ed2')
      | TypeIntersect (ed1, ed2) ->
          let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
          let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
@@ -1693,10 +1675,6 @@ and replace_tagless_expr (e : 'a expr) (target : 'a expr_desc)
       let ed1' = replace_tagless_expr_desc ed1 target replacement in
       let ed2' = replace_tagless_expr_desc ed2 target replacement in
       TypeSet (ed1', ed2')
-  | TypeUnion (ed1, ed2) ->
-      let ed1' = replace_tagless_expr_desc ed1 target replacement in
-      let ed2' = replace_tagless_expr_desc ed2 target replacement in
-      TypeUnion (ed1', ed2')
   | TypeIntersect (ed1, ed2) ->
       let ed1' = replace_tagless_expr_desc ed1 target replacement in
       let ed2' = replace_tagless_expr_desc ed2 target replacement in
@@ -1867,7 +1845,6 @@ let rec get_poly_vars (t : 'a expr_desc) (acc : 'a expr_desc list) :
     | ListCons (ed1, ed2)
     | TypeArrow (ed1, ed2)
     | TypeSet (ed1, ed2)
-    | TypeUnion (ed1, ed2)
     | TypeIntersect (ed1, ed2) ->
         let acc' = get_poly_vars ed1 acc in
         let acc'' = get_poly_vars ed2 acc' in
@@ -2220,10 +2197,6 @@ and to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
       let ed' = to_internal_expr_desc ed in
       let p' = to_internal_expr_desc p in
       TypeSet (ed', p')
-  | TypeUnion (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      TypeUnion (ed1', ed2')
   | TypeIntersect (ed1, ed2) ->
       let ed1' = to_internal_expr_desc ed1 in
       let ed2' = to_internal_expr_desc ed2 in
