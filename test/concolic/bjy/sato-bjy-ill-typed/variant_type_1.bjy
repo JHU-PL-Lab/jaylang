@@ -1,1 +1,6 @@
-let (x : ``A int) = `A true in x
+
+let (x : ``A int) =
+  `A true
+in
+
+x

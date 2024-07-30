@@ -1,7 +1,6 @@
-# EXPECT-WELL-FORMED
-# EXPECT-NO-TYPE-ERRORS
 
 let access_record (r : {: a : int, b : bool :}) : int = 
     r.b
 in
+
 access_record

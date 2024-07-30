@@ -1,3 +1,5 @@
+# has same well-typed version as flyweight_color1
+
 let color =
   { t =
     {. int | fun i -> i >= 0 and i < 256 }

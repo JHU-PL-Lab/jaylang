@@ -1,5 +1,5 @@
-# Continuation monad -- improper use of bind
-# Has same well-typed version as parametric3
+# Continuation monad -- improper definition of bind
+# Has same well-typed version as continuation_bind1
 
 let t a r = {: continuation : (a -> r) -> r :}
 in

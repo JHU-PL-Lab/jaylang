@@ -1,6 +1,6 @@
-# EXPECT-WELL-FORMED
-# EXPECT-NO-TYPE-ERRORS
 
 let create_record (x : int) (y : bool) : {: a : int, b : bool :} =
     {a = x, b = x}
-in create_record
+in
+
+create_record

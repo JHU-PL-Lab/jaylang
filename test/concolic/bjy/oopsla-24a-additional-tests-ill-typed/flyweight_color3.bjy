@@ -1,4 +1,4 @@
-# well-typed version is same as flyweight1
+# has same well-typed version as flyweight_color1
 
 # NOTE: This suffers from the same bug as `project_non_record.bjy`
 #  See comment in `get_color` below

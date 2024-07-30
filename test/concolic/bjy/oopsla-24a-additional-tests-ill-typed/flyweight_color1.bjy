@@ -1,4 +1,3 @@
-# well-typed version is same as flyweight1
 
 let color =
   { t =

@@ -1,4 +1,3 @@
-# DBMC: Detects wrapper error
 
 let f (x : {. int | fun a -> a > 0}) : {. int | fun a -> a < 0} = 
     x * (0-1)

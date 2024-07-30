@@ -1,5 +1,3 @@
-# DDSE: 1min4s
-# DBMC: 4min6s
 
 let rec sum x acc = 
     match x with

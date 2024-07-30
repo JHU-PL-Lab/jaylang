@@ -1,4 +1,6 @@
-# EXPECT-WELL-FORMED
-# EXPECT-NO-TYPE-ERRORS
 
-let (r : {: a : int, b : bool :}) = {a = 1, b = 1} in r
+let (r : {: a : int, b : bool :}) =
+  {a = 1, b = 1}
+in
+
+r
