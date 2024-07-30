@@ -16,9 +16,10 @@ let f =
 in
 
 let g (h : t) : t =
-  let k (i : int) : int = h i # error: this is not a subtype of t
+  let k (i : int) : int =
+    h i
   in
-  k
+  k # ERROR: this is not a subtype of t
 in
 
 let x = g f # well-typed function application here. Error is in body of g

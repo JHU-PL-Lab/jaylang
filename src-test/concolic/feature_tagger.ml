@@ -8,7 +8,7 @@ open List.Let_syntax
 module Tag =
   struct
     type t =
-      | Polymorphic_types
+      | Polymorphic_types (* as reason, includes errors in instantiations of polymorphic types, and any code where error directly involves a polymorphic type *)
       | Variants
       | Intersection_types
       | Recursive_functions
@@ -20,10 +20,10 @@ module Tag =
       | Refinement_types
       | Dependent_types
       | Parametric_types (* not including List *)
-      | Records
+      | Records (* as reason, includes errors related to projection *)
       | Wrap_required
       | Assertions
-      | Operator_misuse (* e.g. 1 + true *)
+      | Operator_misuse (* e.g. 1 + true, 0 0, etc. *)
       | Return_type (* where return type is just fundamentally wrong, e.g. f (x : int) : int = true *)
       | Match (* uses match anywhere, not necessarily as the source of the error *)
       [@@deriving variants, sexp, compare, enumerate, equal]
@@ -33,24 +33,44 @@ module Tag =
       |> List.sexp_of_t sexp_of_t
 
     let to_string = function
-    | Polymorphic_types -> "Polymorphic types"
-    | Variants -> "Variants"
-    | Intersection_types -> "Intersection types"
-    | Recursive_functions -> "Recursive functions"
-    | Mu_types -> "Mu types"
+    | Polymorphic_types      -> "Polymorphic types"
+    | Variants               -> "Variants"
+    | Intersection_types     -> "Intersection types"
+    | Recursive_functions    -> "Recursive functions"
+    | Mu_types               -> "Mu types"
     | Higher_order_functions -> "Higher order functions"
-    | Subtyping -> "Subtyping"
-    | Type_casing -> "Type casing"
-    | OOP_style -> "OOP-style"
-    | Refinement_types -> "Refinement types"
-    | Dependent_types -> "Dependent types"
-    | Parametric_types -> "Parametric types"
-    | Records -> "Records"
-    | Wrap_required -> "Wrap required"
-    | Assertions -> "Assertions"
-    | Operator_misuse -> "Operator misuse"
-    | Return_type -> "Return type"
-    | Match -> "Match"
+    | Subtyping              -> "Subtyping"
+    | Type_casing            -> "Type casing"
+    | OOP_style              -> "OOP-style"
+    | Refinement_types       -> "Refinement types"
+    | Dependent_types        -> "Dependent types"
+    | Parametric_types       -> "Parametric types"
+    | Records                -> "Records"
+    | Wrap_required          -> "Wrap required"
+    | Assertions             -> "Assertions"
+    | Operator_misuse        -> "Operator misuse"
+    | Return_type            -> "Return type"
+    | Match                  -> "Match"
+
+    let to_string_short = function
+    | Polymorphic_types      -> "Po"
+    | Variants               -> "V"
+    | Intersection_types     -> "I"
+    | Recursive_functions    -> "Rf"
+    | Mu_types               -> "Mu"
+    | Higher_order_functions -> "H"
+    | Subtyping              -> "S"
+    | Type_casing            -> "T"
+    | OOP_style              -> "O"
+    | Refinement_types       -> "Rt"
+    | Dependent_types        -> "D"
+    | Parametric_types       -> "Pa"
+    | Records                -> "Rc"
+    | Wrap_required          -> "W"
+    | Assertions             -> "A"
+    | Operator_misuse        -> "Om"
+    | Return_type            -> "Ry"
+    | Match                  -> "Ma"
      
 
     (* let to_string x =
