@@ -294,8 +294,6 @@ and pp_expr (formatter : Format.formatter) (expr : expr) : unit =
         pp_expr_desc t2
   | TypeSet (t, p) ->
       Format.fprintf formatter "{%a | %a}" pp_expr_desc t pp_expr_desc p
-  | TypeUnion (t1, t2) ->
-      Format.fprintf formatter "%a v %a" pp_expr_desc t1 pp_expr_desc t2
   | TypeIntersect (t1, t2) ->
       Format.fprintf formatter "%a ^ %a" pp_expr_desc t1 pp_expr_desc t2
   | TypeRecurse (tvar, t) ->
@@ -401,8 +399,6 @@ and pp_expr_with_tag (formatter : Format.formatter) (expr : expr) : unit =
         pp_expr_desc t2
   | TypeSet (t, p) ->
       Format.fprintf formatter "{%a | %a}" pp_expr_desc t pp_expr_desc p
-  | TypeUnion (t1, t2) ->
-      Format.fprintf formatter "%a v %a" pp_expr_desc t1 pp_expr_desc t2
   | TypeIntersect (t1, t2) ->
       Format.fprintf formatter "%a ^ %a" pp_expr_desc t1 pp_expr_desc t2
   | TypeRecurse (tvar, t) ->

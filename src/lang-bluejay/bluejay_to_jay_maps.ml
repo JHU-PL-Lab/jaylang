@@ -197,7 +197,6 @@ let find_all_syn_tags bluejay_jay_maps (edesc : syn_bluejay_edesc) =
     | TypeArrow (e1, e2)
     | TypeArrowD ((_, e1), e2)
     | TypeSet (e1, e2)
-    | TypeUnion (e1, e2)
     | TypeIntersect (e1, e2) ->
         let acc' = cur_tag :: acc in
         let acc'' = loop acc' e1 in
@@ -1082,10 +1081,6 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
           let td' = replace_type td new_t tag in
           let pred' = replace_type pred new_t tag in
           TypeSet (td', pred')
-      | TypeUnion (td1, td2) ->
-          let td1' = replace_type td1 new_t tag in
-          let td2' = replace_type td2 new_t tag in
-          TypeUnion (td1', td2')
       | TypeIntersect (td1, td2) ->
           let td1' = replace_type td1 new_t tag in
           let td2' = replace_type td2 new_t tag in

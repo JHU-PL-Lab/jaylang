@@ -103,7 +103,6 @@ and expr =
   | TypeArrow of expr_desc * expr_desc
   | TypeArrowD of (ident * expr_desc) * expr_desc
   | TypeSet of expr_desc * predicate
-  | TypeUnion of expr_desc * expr_desc
   | TypeIntersect of expr_desc * expr_desc
   | TypeRecurse of ident * expr_desc
   | TypeUntouched of string
@@ -133,7 +132,7 @@ let expr_precedence_p1 (expr : expr) : int =
   | Int _ | Bool _ | Input | Var _ | List _ | Record _ -> 12
   (* TODO: For now, all type expressions will have the lowest precedence coz I'm lazy and don't wanna think about it *)
   | TypeVar _ | TypeInt | TypeBool | TypeRecord _ | TypeList _ | TypeArrow _
-  | TypeArrowD _ | TypeSet _ | TypeUnion _ | TypeIntersect _ | TypeRecurse _
+  | TypeArrowD _ | TypeSet _ | TypeIntersect _ | TypeRecurse _
   | TypeError _ | TypeUntouched _ | TypeVariant _ ->
       13
 

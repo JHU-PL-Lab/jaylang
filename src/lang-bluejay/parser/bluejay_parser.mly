@@ -346,10 +346,6 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
       let e_desc1' = build_recursive_type t_var e_desc1 in
       let e_desc2' = build_recursive_type t_var e_desc2 in
       TypeSet (e_desc1', e_desc2')
-    | TypeUnion (e_desc1, e_desc2) ->
-      let e_desc1' = build_recursive_type t_var e_desc1 in
-      let e_desc2' = build_recursive_type t_var e_desc2 in
-      TypeUnion (e_desc1', e_desc2')
     | TypeIntersect (e_desc1, e_desc2) ->
       let e_desc1' = build_recursive_type t_var e_desc1 in
       let e_desc2' = build_recursive_type t_var e_desc2 in
@@ -548,7 +544,6 @@ expr:
   | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr { TypeArrowD (($2, new_expr_desc $4), new_expr_desc $7) }
   // TODO: Change this to fancy curly
   | OPEN_BRACE DOT expr PIPE expr CLOSE_BRACE { TypeSet (new_expr_desc $3, new_expr_desc $5) } 
-  // | expr DOUBLE_PIPE expr { TypeUnion (new_expr_desc $1, new_expr_desc $3) }
   | expr DOUBLE_AMPERSAND expr { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
   | variant_type_body { TypeVariant $1 }
 ;

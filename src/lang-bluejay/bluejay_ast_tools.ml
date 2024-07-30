@@ -29,7 +29,6 @@ and defined_vars_of_expr (e : expr) : Ident_set.t =
   | ListCons (ed1, ed2)
   | TypeArrow (ed1, ed2)
   | TypeSet (ed1, ed2)
-  | TypeUnion (ed1, ed2)
   | TypeIntersect (ed1, ed2) ->
       let s1 = defined_vars_of_expr_desc ed1 in
       let s2 = defined_vars_of_expr_desc ed2 in

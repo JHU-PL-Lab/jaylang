@@ -962,11 +962,6 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
               let ed2' = type_resolution ed2 in
               let body' = TypeArrowD ((x, ed1'), ed2') in
               { tag; body = body' }
-          | TypeUnion (ed1, ed2) ->
-              let ed1' = type_resolution ed1 in
-              let ed2' = type_resolution ed2 in
-              let body' = TypeUnion (ed1', ed2') in
-              { tag; body = body' }
           | TypeIntersect (ed1, ed2) ->
               let ed1' = type_resolution ed1 in
               let ed2' = type_resolution ed2 in
