@@ -36,17 +36,17 @@ module Report_row (* : Latex_table.ROW *) =
       ; trial                       : Trial.t }
 
     let names =
-      [ "Testname" ; "Result" ; "Runtime (ms)" ; "Parsetime (ms)" ; "Trial" ]
+      [ "Testname" ; "Result" ; "Runtime (ms)" ; "Translation time (ms)" ; "Trial" ]
 
     let to_strings x =
       let span_to_ms_string =
         fun span ->
           span
           |> Time_float.Span.to_ms
+          |> Float.round_up
           |> Float.to_int
-          |> (+) 1 (* round up to next millisecond *)
           |> Int.to_string
-        in
+      in
       [ Filename.basename x.testname |> String.take_while ~f:(Char.(<>) '.') |> Latex_table.texttt
       ; Concolic.Driver.Test_result.to_string x.test_result |> Latex_table.texttt
       ; span_to_ms_string x.time_to_only_run_on_jil
@@ -127,11 +127,12 @@ module Result_table =
 
 let run dirs =
   dirs
-  |> Result_table.of_dirs 5
+  |> Result_table.of_dirs 10 (* run 10 trials of each test *)
   |> Latex_table.show
   |> Format.printf "%s\n"
 
 let () =
   (* run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ]; *)
-  run [ "test/concolic/bjy/oopsla-24a-additional-tests-ill-typed" ];
+  (* run [ "test/concolic/bjy/oopsla-24a-additional-tests-ill-typed" ]; *)
+  run [ "test/concolic/bjy/sato-bjy-ill-typed" ]
 

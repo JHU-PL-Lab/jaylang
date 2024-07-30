@@ -148,8 +148,9 @@ module Full_table =
 
         let names =
           Tag.all
-          >>| Tag.to_string
-          >>| Latex_table.texttt
+          (* >>| Tag.to_string
+          >>| Latex_table.texttt *)
+          >>| Tag.to_string_short
           |> List.cons "Filename"
 
         let to_strings (x : t) : string list =
@@ -163,6 +164,7 @@ module Full_table =
       { row_module = (module Row)
       ; rows = 
         get_all_files dirs (Fn.flip Filename.check_suffix ".features.s")
+        |> List.sort ~compare:String.compare
         >>| (fun filename -> Latex_table.Row_or_hline.return Row.{ filename ; tags = read_tags filename })
         |> List.cons Latex_table.Row_or_hline.Hline
       ; col_options = [ Some { right_align = true ; vertical_line_to_right = true }]
@@ -209,11 +211,11 @@ let () =
   let path = "./test/concolic/bjy/" in
   let dirs =
     [ "oopsla-24a-additional-tests-ill-typed"
-    ; "sato-bjy-ill-typed"
+    (* ; "sato-bjy-ill-typed" *)
     ; "scheme-pldi-2015-ill-typed" ]
   in
     
-  let _ = 
+  (* let _ = 
     (* get_all_files "./test/concolic/bjy" (Fn.flip Filename.check_suffix ".bjy")
     >>| Fn.flip add_tags [ ] *)
     dirs
@@ -221,7 +223,16 @@ let () =
     |> Counts_table.make_of_dirs
     |> Latex_table.show
     |> print_endline
+  in *)
+
+  let _ =
+    dirs
+    >>| String.append path
+    |> Full_table.make_of_dirs
+    |> Latex_table.show
+    |> print_endline
   in
+
   ()
   
 

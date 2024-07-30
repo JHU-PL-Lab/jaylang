@@ -7,9 +7,9 @@ module T =
       ; global_timeout_sec : float [@default 30.0]
       ; solver_timeout_sec : float [@default 1.0]
       ; global_max_step    : int   [@default Int.(5 * 10**4)]
-      ; max_tree_depth     : int   [@default 50]
+      ; max_tree_depth     : int   [@default 60]
       ; random             : bool  [@default false]
-      ; n_depth_increments : int   [@default 5] }
+      ; n_depth_increments : int   [@default 4] }
       [@@deriving sexp]
   end
 
