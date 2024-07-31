@@ -136,12 +136,12 @@ module Fetch =
     let fetch_val_to_direct ~(conc_session : Session.Concrete.t) ~stk env vx : value =
       match fetch_val ~conc_session ~stk env vx with
       | Direct v -> v
-      | _ -> failwith "eval to non direct value"
+      | _ -> failwith "eval to non direct value" (* TODO: add type mismatch here *)
 
     let fetch_val_to_bool ~(conc_session : Session.Concrete.t) ~stk env vx : bool =
       match fetch_val ~conc_session ~stk env vx with
       | Direct (Value_bool b) -> b
-      | _ -> failwith "eval to non bool"
+      | _ -> failwith "eval to non bool" (* TODO: add type mismatch here *)
 
     let check_pattern ~(conc_session : Session.Concrete.t) ~stk env vx pattern : bool =
       match (fetch_val ~conc_session ~stk env vx, pattern) with
@@ -337,7 +337,7 @@ and eval_clause
         retv, Session.Symbolic.add_alias symb_session x_key proj_key
       | Direct (Value_record (Record_value _record)) ->
         failwith "project should also have a closure"
-      | _ -> failwith "project on a non record"
+      | _ -> failwith "project on a non record" (* TODO: type mismatch here *)
       end
     | Not_body vy ->
       (* x = not y ; *)
