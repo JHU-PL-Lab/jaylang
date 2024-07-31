@@ -1,23 +1,6 @@
 
 open Core
 
-let get_all_files ?(filter : Filename.t -> bool = fun _ -> true) (dirs : Filename.t list) : Filename.t list =
-  let rec loop outlist = function
-    | [] -> outlist
-    | f :: fs -> begin
-      match Sys_unix.is_directory f with
-      | `Yes ->
-          f
-          |> Sys_unix.ls_dir
-          |> List.map ~f:(( ^ ) (f ^ "/"))
-          |> List.append fs
-          |> loop outlist
-      | _ when filter f -> loop (f :: outlist) fs
-      | _ -> loop outlist fs
-    end
-  in
-  loop [] dirs
-
 module Report_row (* : Latex_table.ROW *) =
   struct
     module Trial =
@@ -26,7 +9,6 @@ module Report_row (* : Latex_table.ROW *) =
           | Number of int
           | Average
       end
-
 
     type t =
       { testname                    : Filename.t
@@ -48,8 +30,8 @@ module Report_row (* : Latex_table.ROW *) =
           |> Float.to_int
           |> Int.to_string
       in
-      [ Filename.basename x.testname |> String.take_while ~f:(Char.(<>) '.') |> Latex_table.texttt
-      ; Concolic.Driver.Test_result.to_string x.test_result |> Latex_table.texttt
+      [ Filename.basename x.testname |> String.take_while ~f:(Char.(<>) '.') |> Latex_format.texttt
+      ; Concolic.Driver.Test_result.to_string x.test_result |> Latex_format.texttt
       ; span_to_ms_string x.time_to_only_run_on_jil
       ; span_to_ms_string x.time_to_parse_and_translate
       ; (match x.trial with Number i -> Int.to_string i | Average -> "avg")
@@ -119,7 +101,7 @@ module Report_row (* : Latex_table.ROW *) =
 module Result_table =
   struct
 
-    type t = Report_row.t Latex_table.t
+    type t = Report_row.t Latex_tbl.t
 
     (* TODO: add show_result so that we don't have the see the `FOUND_ABORT` *)
     let of_dirs ?(avg_only : bool = true) (*?(show_result : bool = false)*) (n_trials : int) (dirs : Filename.t list) : t =
@@ -127,22 +109,22 @@ module Result_table =
       { row_module = (module Report_row)
       ; rows =
         dirs
-        |> get_all_files ~filter:(fun fname -> Filename.check_suffix fname ".bjy")
+        |> Ttag.get_all_files ~filter:(Fn.flip Filename.check_suffix ".bjy")
         |> List.sort ~compare:String.compare
         >>= Report_row.of_testname n_trials
         |> List.filter ~f:(fun row ->
           not avg_only || match row.trial with Average -> true | _ -> false
           )
-        >>| Latex_table.Row_or_hline.return
-        |> List.cons Latex_table.Row_or_hline.Hline
-      ; col_options = [ Some { right_align = true ; vertical_line_to_right = true } ; Some { right_align = false ; vertical_line_to_right = true } ]
+        >>| Latex_tbl.Row_or_hline.return
+        |> List.cons Latex_tbl.Row_or_hline.Hline
+      ; columns = [ [ Right_align ; Vertical_line_to_right ] ; [ Vertical_line_to_right ] ]
       }
   end
 
 let run dirs =
   dirs
   |> Result_table.of_dirs 10 (* run 10 trials of each test *)
-  |> Latex_table.show
+  |> Latex_tbl.show
   |> Format.printf "%s\n"
 
 let () =

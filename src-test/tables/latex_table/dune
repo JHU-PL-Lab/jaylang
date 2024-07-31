@@ -1,0 +1,12 @@
+
+(library
+  (name latex_format)
+  (modules latex_format)
+  (libraries
+    core))
+
+(library
+  (name latex_tbl)
+  (modules latex_tbl)
+  (libraries
+    core))
