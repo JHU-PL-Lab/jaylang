@@ -37,7 +37,7 @@ module Report_row (* : Latex_table.ROW *) =
       ; lines_of_code               : int }
 
     let names =
-      [ "Testname" ; "Result" ; "Runtime (ms)" ; "Translation time (ms)" ; "Trial" ; "LOC" ]
+      [ "Testname" ; "Result" ; "Run (ms)" ; "Translation (ms)" ; "Trial" ; "LOC" ]
 
     let to_strings x =
       let span_to_ms_string =
@@ -146,7 +146,7 @@ let run dirs =
   |> Format.printf "%s\n"
 
 let () =
-  (* run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ]; *)
-  run [ "test/concolic/bjy/oopsla-24a-additional-tests-ill-typed" ];
+  run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ];
+  (* run [ "test/concolic/bjy/oopsla-24a-additional-tests-ill-typed" ]; *)
   (* run [ "test/concolic/bjy/sato-bjy-ill-typed" ] *)
 
