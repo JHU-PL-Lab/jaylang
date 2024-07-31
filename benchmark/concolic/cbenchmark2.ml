@@ -33,10 +33,11 @@ module Report_row (* : Latex_table.ROW *) =
       ; test_result                 : Concolic.Driver.Test_result.t
       ; time_to_only_run_on_jil     : Time_float.Span.t
       ; time_to_parse_and_translate : Time_float.Span.t
-      ; trial                       : Trial.t }
+      ; trial                       : Trial.t
+      ; lines_of_code               : int }
 
     let names =
-      [ "Testname" ; "Result" ; "Runtime (ms)" ; "Translation time (ms)" ; "Trial" ]
+      [ "Testname" ; "Result" ; "Runtime (ms)" ; "Translation time (ms)" ; "Trial" ; "LOC" ]
 
     let to_strings x =
       let span_to_ms_string =
@@ -51,7 +52,17 @@ module Report_row (* : Latex_table.ROW *) =
       ; Concolic.Driver.Test_result.to_string x.test_result |> Latex_table.texttt
       ; span_to_ms_string x.time_to_only_run_on_jil
       ; span_to_ms_string x.time_to_parse_and_translate
-      ; match x.trial with Number i -> Int.to_string i | Average -> "avg" ]
+      ; (match x.trial with Number i -> Int.to_string i | Average -> "avg")
+      ; Int.to_string x.lines_of_code ]
+
+    (* Duplicate code from src-test/concolic/bjy_cloc.ml *)
+    let cloc filename =
+      In_channel.with_file filename ~f:(fun file ->
+          In_channel.fold_lines file ~init:0 ~f:(fun count line ->
+              if String.is_empty (String.strip line) || String.is_prefix line ~prefix:"#" then
+                count
+              else
+                count + 1))
 
     let of_testname (n_trials : int) (testname : Filename.t) : t list =
       assert (n_trials > 0);
@@ -71,7 +82,8 @@ module Report_row (* : Latex_table.ROW *) =
           ; test_result
           ; time_to_only_run_on_jil = Time_float.Span.of_sec (t2 -. t1)
           ; time_to_parse_and_translate = Time_float.Span.of_sec (t1 -. t0)
-          ; trial = Number n }
+          ; trial = Number n
+          ; lines_of_code = cloc testname }
         in
         Format.printf "Tested %s -- %d : %d ms\n" testname n (Time_float.Span.to_ms row.time_to_only_run_on_jil |> Float.to_int);
         row
@@ -86,6 +98,7 @@ module Report_row (* : Latex_table.ROW *) =
             ; time_to_only_run_on_jil = Time_float.Span.of_sec 0.0
             ; time_to_parse_and_translate = Time_float.Span.of_sec 0.0
             ; trial = Average
+            ; lines_of_code = cloc testname (* won't even average this out. Just pre-calculate it *)
           }
           ~f:(fun acc x ->
             { acc with
@@ -108,7 +121,8 @@ module Result_table =
 
     type t = Report_row.t Latex_table.t
 
-    let of_dirs ?(avg_only : bool = true) (n_trials : int) (dirs : Filename.t list) : t =
+    (* TODO: add show_result so that we don't have the see the `FOUND_ABORT` *)
+    let of_dirs ?(avg_only : bool = true) (*?(show_result : bool = false)*) (n_trials : int) (dirs : Filename.t list) : t =
       let open List.Let_syntax in
       { row_module = (module Report_row)
       ; rows =
@@ -133,6 +147,6 @@ let run dirs =
 
 let () =
   (* run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ]; *)
-  (* run [ "test/concolic/bjy/oopsla-24a-additional-tests-ill-typed" ]; *)
-  run [ "test/concolic/bjy/sato-bjy-ill-typed" ]
+  run [ "test/concolic/bjy/oopsla-24a-additional-tests-ill-typed" ];
+  (* run [ "test/concolic/bjy/sato-bjy-ill-typed" ] *)
 

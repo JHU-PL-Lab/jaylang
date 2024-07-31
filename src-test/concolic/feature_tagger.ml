@@ -71,6 +71,26 @@ module Tag =
     | Operator_misuse        -> "Om"
     | Return_type            -> "Ry"
     | Match                  -> "Ma"
+
+    let to_string_super_short = function
+    | Polymorphic_types      -> "P"
+    | Variants               -> "V"
+    | Intersection_types     -> "I"
+    | Recursive_functions    -> "R"
+    | Mu_types               -> "M"
+    | Higher_order_functions -> "H"
+    | Subtyping              -> "S"
+    | Type_casing            -> "T"
+    | OOP_style              -> "O"
+    | Refinement_types       -> "F"
+    | Dependent_types        -> "D"
+    | Parametric_types       -> "A"
+    | Records                -> "C"
+    | Wrap_required          -> "W"
+    | Assertions             -> "N"
+    | Operator_misuse        -> "U"
+    | Return_type            -> "Y"
+    | Match                  -> "X"
      
 
     (* let to_string x =
@@ -150,7 +170,7 @@ module Full_table =
           Tag.all
           (* >>| Tag.to_string
           >>| Latex_table.texttt *)
-          >>| Tag.to_string_short
+          >>| Tag.to_string_super_short
           |> List.cons "Filename"
 
         let to_strings (x : t) : string list =
