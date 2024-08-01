@@ -156,7 +156,7 @@ let run dirs =
 
 let () =
   (* run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ]; *)
-  run [ "test/concolic/bjy/oopsla-24a-additional-tests-ill-typed" ];
-  run [ "test/concolic/bjy/oopsla-24-long-ill-typed" ];
+  (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ]; *)
+  run [ "test/concolic/bjy/oopsla-24-benchmarks-ill-typed" ];
   (* run [ "test/concolic/bjy/sato-bjy-ill-typed" ] *)
 

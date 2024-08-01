@@ -52,8 +52,11 @@ let () =
       @ make_tests_ill_typed "bjy/buggy-ill-typed"
       @ make_tests_well_typed "bjy/buggy-well-typed"
 
-      @ make_tests_ill_typed "bjy/oopsla-24a-additional-tests-ill-typed"
-      @ make_tests_well_typed "bjy/oopsla-24a-additional-tests-well-typed"
+      @ make_tests_ill_typed "bjy/oopsla-24-tests-ill-typed"
+      @ make_tests_well_typed "bjy/oopsla-24-tests-well-typed"
+
+      @ make_tests_ill_typed "bjy/oopsla-24-benchmarks-ill-typed"
+      @ make_tests_well_typed "bjy/oopsla-24-benchmarks-well-typed"
 
       @ make_tests_ill_typed "bjy/scheme-pldi-2015-ill-typed"
       @ make_tests_well_typed "bjy/scheme-pldi-2015-well-typed"
