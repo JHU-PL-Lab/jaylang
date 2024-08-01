@@ -7,7 +7,7 @@ let () =
   let dirs =
     [ "oopsla-24a-additional-tests-ill-typed"
     ; "oopsla-24-long-ill-typed"
-    (* ; "sato-bjy-ill-typed" *)
+    ; "sato-bjy-ill-typed"
     ; "scheme-pldi-2015-ill-typed" ]
   in
     

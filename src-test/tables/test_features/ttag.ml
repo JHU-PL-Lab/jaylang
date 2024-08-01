@@ -112,6 +112,8 @@ let get_all_files ?(filter : Filename.t -> bool = fun _ -> true) (dirs : Filenam
 module Make (F : sig val fname_of_bjy : Filename.t -> Filename.t val is_valid_fname : Filename.t -> bool end) =
   struct
 
+    include F
+
     let get_all_files = get_all_files ~filter:F.is_valid_fname
 
     let write_tags (bjy_file : Filename.t) (tags : T.t list) : unit =
@@ -164,6 +166,18 @@ module Reasons = Make (struct
     let is_valid_fname (fname : Filename.t) : bool =
       Filename.check_suffix fname ".reasons.s"
 end)
+
+let reasons bjy_file =
+  Reasons.read_tags
+  @@ Reasons.fname_of_bjy bjy_file
+
+let features bjy_file =
+  Features.read_tags
+  @@ Features.fname_of_bjy bjy_file
+
+let rec list_to_string = function
+| [] -> ""
+| hd :: tl -> T.to_string_super_short hd ^ list_to_string tl
 
 
 (* let prepend_to_file (new_line : string) (filename : Filename.t) : unit =
