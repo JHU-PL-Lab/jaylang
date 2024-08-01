@@ -129,7 +129,7 @@ module Result_table =
       ; rows =
         dirs
         |> Ttag.get_all_files ~filter:(Fn.flip Filename.check_suffix ".bjy")
-        |> List.sort ~compare:String.compare
+        |> List.sort ~compare:(fun a b -> String.compare (Filename.basename a) (Filename.basename b))
         >>= Report_row.of_testname n_trials
         |> List.filter ~f:(fun row ->
           not avg_only || match row.trial with Average -> true | _ -> false
@@ -155,8 +155,9 @@ let run dirs =
   |> Format.printf "%s\n"
 
 let () =
-  run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ];
+  (* run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ]; *)
   (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ]; *)
   (* run [ "test/concolic/bjy/oopsla-24-benchmarks-ill-typed" ]; *)
-  (* run [ "test/concolic/bjy/sato-bjy-ill-typed" ] *)
+  run [ "test/concolic/bjy/deep-type-error" ]
+  (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ; "test/concolic/bjy/sato-bjy-ill-typed" ] *)
 
