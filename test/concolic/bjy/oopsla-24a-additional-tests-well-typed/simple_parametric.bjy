@@ -1,9 +1,0 @@
-
-let t a = a -> a
-in
-
-let f (type a_) (x : a_) : t a_ =
-  fun y -> x                  # any -> 'a is a subtype is 'a -> 'a, so this is good
-in
-
-f
