@@ -53,7 +53,7 @@ module Counts_table =
           ; "Err count" ]
 
         let to_strings (x : t) : string list =
-          [ Ttag.to_string x.feature (* used to be to_texttt *)
+          [ Ttag.to_string x.feature ^ " (" ^ Ttag.to_string_super_short x.feature ^ ")"
           ; Int.to_string x.count
           ; Int.to_string x.err_count ]
       end
@@ -77,6 +77,6 @@ module Counts_table =
                 ; err_count = count tag reason_files Ttag.Reasons.read_tags })
         |> List.cons Latex_tbl.Row_or_hline.Hline
         end
-      ; columns = [ [ Right_align ; Vertical_line_to_right ]]
+      ; columns = [ [ Right_align ; Vertical_line_to_right ] ]
       }
   end
