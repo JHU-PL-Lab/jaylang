@@ -88,6 +88,9 @@ module T =
     | Operator_misuse        -> "U"
     | Return_type            -> "Y"
     | Match                  -> "X"
+
+    let sort_list =
+      List.sort ~compare:(fun a b -> Int.compare (Variants.to_rank a) (Variants.to_rank b))
   end
 
 include T
@@ -132,6 +135,7 @@ module Make (F : sig val fname_of_bjy : Filename.t -> Filename.t val is_valid_fn
         s
       in
       List.t_of_sexp T.t_of_sexp sexp
+      |> sort_list
 
     let add_tags (bjy_file : Filename.t) (tags : T.t list) : unit = 
       let existing_tags =
@@ -178,6 +182,7 @@ let features bjy_file =
 let rec list_to_string = function
 | [] -> ""
 | hd :: tl -> T.to_string_super_short hd ^ list_to_string tl
+
 
 
 (* let prepend_to_file (new_line : string) (filename : Filename.t) : unit =

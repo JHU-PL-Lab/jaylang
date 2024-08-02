@@ -1,6 +1,6 @@
 
 let create_record (x : int) (y : bool) : {: a : int, b : bool :} =
-    {a = x, b = x}
+  {a = x, b = x}
 in
 
 create_record
