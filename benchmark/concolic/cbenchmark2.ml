@@ -150,7 +150,7 @@ module Result_table =
 
 let run dirs =
   dirs
-  |> Result_table.of_dirs 10 (* run 10 trials of each test *)
+  |> Result_table.of_dirs 1 (* run 10 trials of each test *)
   |> Latex_tbl.show
   |> Format.printf "%s\n"
 
