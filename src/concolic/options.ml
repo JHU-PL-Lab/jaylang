@@ -4,7 +4,7 @@ module T =
   struct
     type t =
       { quit_on_abort      : bool  [@default false]
-      ; global_timeout_sec : float [@default 30.0]
+      ; global_timeout_sec : float [@default 7200.0]
       ; solver_timeout_sec : float [@default 1.0]
       ; global_max_step    : int   [@default Int.(5 * 10**4)]
       ; max_tree_depth     : int   [@default 60]
