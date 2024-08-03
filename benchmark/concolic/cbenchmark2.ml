@@ -27,7 +27,7 @@ module Report_row (* : Latex_table.ROW *) =
 
     (* with information only for paper (to keep short and sweet) *)
     let names =
-      [ "Testname" ; (*"Result" ;*) "Run" ; "Transl" ; "Tot" ;(*"Trial" ;*) "LOC" ; "Features" ; "Ill-type" ]
+      [ "Testname" ; (*"Result" ;*) "Run" ; "Transl" ; "Tot" ;(*"Trial" ;*) "LOC" ; "Features used" ; "Errors on" ]
 
     let to_strings x =
       let span_to_ms_string =
