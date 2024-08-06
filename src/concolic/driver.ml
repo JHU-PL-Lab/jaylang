@@ -4,6 +4,8 @@ open Dj_common
 
 module CLog = Dj_common.Log.Export.CLog
 
+[@@@ocaml.warning "-32"]
+
       
 module Test_result =
   struct
@@ -81,14 +83,15 @@ let[@landmark] test_incremental : (Jayil.Ast.expr -> Test_result.t Lwt.t) Option
                   end
               )
 
-(* runs [test_incremental 5] and catches lwt timeout *)
+(* runs [test_incremental] and catches lwt timeout *)
 let test_with_timeout : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
         try
           Lwt_main.run
-          @@ Options.Fun.appl test_incremental r e
+          (* @@ Options.Fun.appl test_incremental r e *)
+          @@ Options.Fun.appl lwt_test_one r e
         with
         | Lwt_unix.Timeout ->
           CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);

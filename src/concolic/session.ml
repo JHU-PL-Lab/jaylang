@@ -121,7 +121,9 @@ let empty : t =
 
 let with_options : (t -> t) Options.Fun.t =
   Options.Fun.make
-  @@ fun (r : Options.t) -> fun (x : t) -> { x with options = r } 
+  @@ fun (r : Options.t) -> fun (x : t) ->
+    { x with options = r
+    ; target_queue = Options.Fun.appl Target_queue.with_options r x.target_queue } 
 
 let of_expr (expr : Jayil.Ast.expr) : t =
   { empty with branch_info = Branch_info.of_expr expr }
