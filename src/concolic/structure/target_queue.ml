@@ -1,5 +1,20 @@
 open Core
 
+[@@@ocaml.warning "-37"]
+
+(*
+  Goal:
+  * Completely exhaust shallower depths before continuing on.
+  * e.g. exhaust with dfs and bfs only targeting up to 15 deep, then continue to 30, etc
+
+  Strategy:
+  * BFS will always target shallower, so no change needed there
+  * Have several DFS queues, only drawing from later ones if earlier are empty
+    * Later queues hold only targets at deeper depths
+  * Need to forward options through
+  * Need to send depth with target, or just use list length of path
+*)
+
 module Pop_kind =
   struct
     type t =
@@ -73,36 +88,123 @@ module T =
       { x with q = Q.remove target q }
   end
 
+module DFS =
+  struct
+    type t = Dfs of Q.t
+
+    let default_prio = 0
+
+    let empty = Dfs Q.empty
+
+    let return q = Dfs q
+
+    let push_one (Dfs q : t) (target : Target.t) : t =
+      match Q.min q with
+      | None -> return @@ Q.push target default_prio q (* queue was empty *)
+      | Some (_, best_prio) -> return @@ Q.push target (best_prio - 1) q (* push with better, lower prio *)
+
+    let push_list (x : t) (ls : Target.t list) : t =
+      List.fold  
+        ls
+        ~init:x
+        ~f:push_one
+
+    let pop (Dfs q : t) : (Target.t * t) option =
+      match Q.pop q with
+      | None -> None
+      | Some ((target, _), q) -> Some (target, return q)
+
+    let is_empty (Dfs q : t) : bool =
+      Q.is_empty q
+
+    let remove (Dfs q : t) (target : Target.t) : t =
+      return @@ Q.remove target q
+  end
+
+module DFS_tower =
+  struct
+    type t = (DFS.t * int) list
+
+    let empty = [] (* placeholder. No meaning here *)
+
+    let of_options : (unit -> t) Options.Fun.t =
+      Options.Fun.make
+      @@ fun (r : Options.t) -> fun () ->
+        List.init
+          r.n_depth_increments
+          ~f:(fun i -> DFS.empty, (i + 1) * r.max_tree_depth / r.n_depth_increments)
+
+    let push_one (x : t) (target : Target.t) : t =
+      let d = List.length target.path.forward_path in
+      let rec loop = function
+      | [] -> []
+      | (dfs, n) :: tl when d <= n -> (DFS.push_one dfs target, n) :: tl
+      | hd :: tl -> hd :: loop tl
+      in
+      loop x
+
+    let push_list (x : t) (ls : Target.t list) : t =
+      List.fold  
+        ls
+        ~init:x
+        ~f:push_one
+
+    let pop (x : t) : (Target.t * t) option =
+      let rec loop = function
+      | [] -> None
+      | (dfs, n) as hd :: tl ->
+        match DFS.pop dfs with
+        | Some (target, dfs) -> Some (target, (dfs, n) :: tl)
+        | None -> begin
+          match loop tl with
+          | None -> None
+          | Some (target, tl) -> Some (target, hd :: tl)
+        end
+      in
+      loop x
+
+    let remove (x : t) (target : Target.t) : t =
+      List.map
+        x
+        ~f:(fun (dfs, i) -> DFS.remove dfs target, i)
+
+  end
+
 type t =
-  { dfs : T.t
+  { dfs_tower : DFS_tower.t
   ; bfs : T.t
   ; uniform : Q.t
   ; hit : Q.t } (* prioritized by number of times the target has been hit *)
   
 let empty : t =
-  { dfs = T.empty Front
+  { dfs_tower = DFS_tower.empty
   ; bfs = T.empty Back
   ; uniform = Q.empty
   ; hit = Q.empty }
 
+let with_options : (t -> t) Options.Fun.t =
+  Options.Fun.make
+  @@ fun (r : Options.t) -> fun (x : t) ->
+    { x with dfs_tower = Options.Fun.appl DFS_tower.of_options r () }
+
 (* Deeper targets are at the front of [ls] *)
-let push_list ({ dfs ; bfs ; hit ; uniform } : t) (ls : Target.t list) (hits : int list) : t =
-  { dfs = T.push_list dfs (List.rev ls) (* reverse so that deeper targets have better priority *)
+let push_list ({ dfs_tower ; bfs ; hit ; uniform } : t) (ls : Target.t list) (hits : int list) : t =
+  { dfs_tower = DFS_tower.push_list dfs_tower (List.rev ls) (* reverse so that deeper targets have better priority *)
   ; bfs = T.push_list bfs ls
   ; uniform = List.fold ls ~init:uniform ~f:(fun acc k -> Q.push k (Random.int Int.max_value) acc) (* give random priority *)
   ; hit = hit (* List.fold2_exn ls hits ~init:hit ~f:(fun acc k p -> Q.push k p acc) *) }
 
 let remove (x : t) (target : Target.t) : t =
   { bfs = T.remove x.bfs target
-  ; dfs = T.remove x.dfs target
+  ; dfs_tower = DFS_tower.remove x.dfs_tower target
   ; uniform = Q.remove target x.uniform
   ; hit = x.hit (* Q.remove target x.hit *) }
 
 let rec pop ?(kind : Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
   match kind with
   | DFS -> begin
-    match T.pop x.dfs with
-    | Some (target, dfs) -> Some (target, remove { x with dfs } target)
+    match DFS_tower.pop x.dfs_tower with
+    | Some (target, dfs_tower) -> Some (target, remove { x with dfs_tower } target)
     | None -> None
   end
   | BFS -> begin
