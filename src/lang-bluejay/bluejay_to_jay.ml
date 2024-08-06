@@ -2964,16 +2964,24 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
           let check_cls = Let (check_res, check_expr, res_cls) in
           return @@ new_expr_desc @@ check_cls
         in
-        let%bind test_exprs =
-          let%bind e' = bluejay_to_jay e in
-          list_fold_right_m folder sig_lst e'
-        in
+        let%bind e' = bluejay_to_jay e in
+
+        let%bind test_exprs = list_fold_right_m folder sig_lst e' in
         let%bind sig_lst' =
           sig_lst
           |> List.map (remove_type_from_funsig bluejay_to_jay)
           |> sequence
         in
-        let res = new_expr_desc @@ LetRecFun (sig_lst', test_exprs) in
+        let execute_check =
+          If
+            ( new_expr_desc
+              @@ GreaterThan (new_expr_desc @@ Input, new_expr_desc @@ Int 0),
+              test_exprs,
+              e' )
+        in
+        let res =
+          new_expr_desc @@ LetRecFun (sig_lst', new_expr_desc execute_check)
+        in
         let%bind () = add_core_to_sem_mapping res e_desc in
         return res
     | LetFunWithType (fun_sig, e) ->
@@ -2989,7 +2997,14 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
           new_instrumented_ed
           @@ If (new_expr_desc @@ Var check_res, e', error_cls)
         in
-        let check_cls = Let (check_res, check_expr, res_cls) in
+        let execute_check =
+          If
+            ( new_expr_desc
+              @@ GreaterThan (new_expr_desc @@ Input, new_expr_desc @@ Int 0),
+              check_expr,
+              new_expr_desc @@ Bool true )
+        in
+        let check_cls = Let (check_res, new_expr_desc execute_check, res_cls) in
         let%bind fun_sig' = remove_type_from_funsig bluejay_to_jay fun_sig in
         let res = new_expr_desc @@ LetFun (fun_sig', new_expr_desc check_cls) in
         let%bind () = add_core_to_sem_mapping res e_desc in
