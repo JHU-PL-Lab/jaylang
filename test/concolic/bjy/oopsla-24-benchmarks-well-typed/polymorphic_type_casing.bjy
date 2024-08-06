@@ -1,12 +1,12 @@
 
-let t = (int -> int) && (bool -> bool)
+let t = ((``Int int) -> int) && ((``Bool bool) -> bool)
 in
 
 let (f : t) = 
   fun x ->
     match x with
-    | int -> x + 1
-    | bool -> not x
+    | `Int i -> i + 1
+    | `Bool b -> not b
     end
 in
 

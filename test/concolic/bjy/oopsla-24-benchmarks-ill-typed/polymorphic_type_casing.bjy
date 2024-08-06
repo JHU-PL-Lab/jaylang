@@ -1,12 +1,12 @@
 
-let t = (int -> int) && (bool -> bool)
+let t = ((``Int int) -> int) && ((``Bool bool) -> bool)
 in
 
 let (f : t) = 
   let g (type a_) (x : a_) : a_ =
     match x with
-    | int -> x + 1 # ERROR: type casing on polymorphic type
-    | bool -> not x
+    | `Int x -> x + 1 # ERROR: type casing on polymorphic type
+    | `Bool x -> not x
     | _ -> x
     end
   in
