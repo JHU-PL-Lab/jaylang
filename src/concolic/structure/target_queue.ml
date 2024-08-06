@@ -2,19 +2,6 @@ open Core
 
 [@@@ocaml.warning "-37"]
 
-(*
-  Goal:
-  * Completely exhaust shallower depths before continuing on.
-  * e.g. exhaust with dfs and bfs only targeting up to 15 deep, then continue to 30, etc
-
-  Strategy:
-  * BFS will always target shallower, so no change needed there
-  * Have several DFS queues, only drawing from later ones if earlier are empty
-    * Later queues hold only targets at deeper depths
-  * Need to forward options through
-  * Need to send depth with target, or just use list length of path
-*)
-
 module Pop_kind =
   struct
     type t =
@@ -25,11 +12,11 @@ module Pop_kind =
       | Random (* randomly choose one of the above pop kinds *)
 
     let random () =
-      match Random.int 2 with
+      match Random.int 3 with
       | 0 -> DFS
       | 1 -> BFS
+      | 2 -> Uniform
       | _ -> Prioritize_uncovered (* NOTE: this is unreachable right now *)
-      (* TODO: maybe add uniform *)
   end
 
 module Q = Psq.Make (Target) (Int) (* functional priority search queue *)
@@ -124,6 +111,12 @@ module DFS =
 module DFS_tower =
   struct
     type t = (DFS.t * int) list
+    (*
+      TODO: 
+      * Think about how we don't need to use the list, but instead we can use priority to partition the targets 
+      * Only issue is we would do this with some "large base" number, but the theoritical limit for number of targets is just too big
+      * Instead could approximate (with room for incorrectness in a stupidly massive case) by just partitioning the integer space
+    *)
 
     let empty = [] (* placeholder. No meaning here *)
 
