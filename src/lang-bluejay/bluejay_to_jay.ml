@@ -2961,7 +2961,16 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
             @@ If (new_expr_desc @@ Var check_res, acc, error_cls)
           in
           let%bind check_expr = mk_check_from_fun_sig fun_sig in
-          let check_cls = Let (check_res, check_expr, res_cls) in
+          let execute_check =
+            If
+              ( new_expr_desc
+                @@ GreaterThan (new_expr_desc @@ Input, new_expr_desc @@ Int 0),
+                check_expr,
+                new_expr_desc @@ Bool true )
+          in
+          let check_cls =
+            Let (check_res, new_expr_desc execute_check, res_cls)
+          in
           return @@ new_expr_desc @@ check_cls
         in
         let%bind e' = bluejay_to_jay e in
@@ -2972,16 +2981,7 @@ and bluejay_to_jay (e_desc : semantic_only expr_desc) : core_only expr_desc m =
           |> List.map (remove_type_from_funsig bluejay_to_jay)
           |> sequence
         in
-        let execute_check =
-          If
-            ( new_expr_desc
-              @@ GreaterThan (new_expr_desc @@ Input, new_expr_desc @@ Int 0),
-              test_exprs,
-              e' )
-        in
-        let res =
-          new_expr_desc @@ LetRecFun (sig_lst', new_expr_desc execute_check)
-        in
+        let res = new_expr_desc @@ LetRecFun (sig_lst', test_exprs) in
         let%bind () = add_core_to_sem_mapping res e_desc in
         return res
     | LetFunWithType (fun_sig, e) ->
