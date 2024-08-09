@@ -1,5 +1,5 @@
 
-let t = (int -> int) && (bool -> bool)
+let t = ((``Int int) -> int) && ((``Bool bool) -> bool)
 in
 
 let (f : t) = 
