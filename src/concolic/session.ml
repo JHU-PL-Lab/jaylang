@@ -174,6 +174,7 @@ let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t *
     match x.last_sym with
     | Some s when Symbolic.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
     | _ -> Random
+    (* Target_queue.Pop_kind.BFS *)
     (* Target_queue.Pop_kind.Uniform *)
     (* Target_queue.Pop_kind.Prioritize_uncovered *) (* This appears bugged because tree gets exhausted when it shouldn't *)
   in

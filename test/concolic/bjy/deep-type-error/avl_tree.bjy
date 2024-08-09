@@ -10,6 +10,10 @@
 # 2. `is_balanced` is necessarily recursive, so it is a costly constraint to check
 # 3. Needs types on rotate functions and wrapped, or else can hit runtime non-abort error, but then we are type-checking many functions in the same file
 
+# Seems like we have to get lucky to hit this. With the typical seed, we hit an error in 19 seconds.
+# With BFS search only, we don't hit it in 10 minutes. Bad look...
+# It also times out at 10 minutes when uncurried
+
 let is_pos x = x > 0 in
 let max a b = if a > b then a else b in
 
@@ -40,7 +44,8 @@ let and_ b1 b2 =
   else false
 in
 
-let is_leaf (x : t) : bool =
+#let is_leaf (x : t) : bool =
+let is_leaf x =
   match x with
   | `Leaf l -> true
   | _ -> false
@@ -128,7 +133,7 @@ let rotate_right_left x =
   end
 in
 
-let rec insert (tree : {. t | is_balanced }) (i : int) : {. t | is_balanced } =
+let rec insert (r : {: tree : {. t | is_balanced } , i : int :}) : {. t | is_balanced } =
   let rebalance i node =
     let bf = balance_factor node in
     if bf > 1
@@ -145,23 +150,58 @@ let rec insert (tree : {. t | is_balanced }) (i : int) : {. t | is_balanced } =
       else
         node
   in
-  match tree with
-  | `Leaf l -> create_node i (`Leaf { leaf = true }) (`Leaf { leaf = true })
+  match r.tree with
+  | `Leaf l -> create_node r.i (`Leaf { leaf = true }) (`Leaf { leaf = true })
   | `Node node ->
     match node with
     | { item = item , left = left , right = right , _ } ->
       let new_node =
-        if i < item 
-        then create_node item (insert left i) right
+        if r.i < item 
+        then create_node item (insert { tree = left , i = r.i }) right
         else
-          if i > item
-          then create_node item left (insert right i)
-          else tree
+          if r.i > item
+          then create_node item left (insert { tree = right , i = r.i })
+          else r.tree
       in
-      rebalance i new_node
+      rebalance r.i new_node
     end
   end
 in
+
+#let rec insert (tree : {. t | is_balanced }) (i : int) : {. t | is_balanced } =
+#  let rebalance i node =
+#    let bf = balance_factor node in
+#    if bf > 1
+#    then
+#      if i < item_exn (left_exn node)
+#      then rotate_left node           # ERROR HERE! should be rotate_right
+#      else rotate_left_right node
+#    else
+#      if bf < (0 - 1)
+#      then
+#        if i > item_exn (right_exn node)
+#        then rotate_left node
+#        else rotate_right_left node
+#      else
+#        node
+#  in
+#  match tree with
+#  | `Leaf l -> create_node i (`Leaf { leaf = true }) (`Leaf { leaf = true })
+#  | `Node node ->
+#    match node with
+#    | { item = item , left = left , right = right , _ } ->
+#      let new_node =
+#        if i < item 
+#        then create_node item (insert left i) right
+#        else
+#          if i > item
+#          then create_node item left (insert right i)
+#          else tree
+#      in
+#      rebalance i new_node
+#    end
+#  end
+#in
 
 insert
 
