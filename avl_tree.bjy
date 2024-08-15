@@ -37,6 +37,14 @@ let rec height x =
   end
 in
 
+# short-circuiting `and` -- necessary for types on rotate functions
+#let and_ b1 b2 =
+#  if b1
+#  then b2 0
+#  else false
+#in
+
+#let is_leaf (x : t) : bool =
 let is_leaf x =
   match x with
   | `Leaf l -> true
@@ -128,6 +136,8 @@ let create_node item left right =
   `Node { item = item , left = left , right = right }
 in
 
+# use short-circuiting `and` in the type
+#let rotate_left (x : {. t | fun x -> and_ (not (is_leaf x)) (fun y -> not (is_leaf (right_exn x)))}) : t = 
 let rotate_left x = 
   match x with
   | `Node node ->
@@ -138,6 +148,8 @@ let rotate_left x =
   end
 in
 
+# use short-circuiting `and` in the type
+#let rotate_right (x : {. t | fun x -> and_ (not (is_leaf x)) (fun y -> not (is_leaf (left_exn x)))}) : t =
 let rotate_right x = 
   match x with
   | `Node node ->
@@ -161,6 +173,7 @@ let rotate_right_left x =
 in
 
 let rec insert (tree : avl_tree) (i : int) : avl_tree =
+#let rec insert tree i =
   let rebalance i node =
     let bf = balance_factor node in
     if bf > 1
@@ -195,4 +208,19 @@ let rec insert (tree : avl_tree) (i : int) : avl_tree =
   end
 in
 
+# This (without types on a correct `insert` gets exhausted between 600 and 700 branches in 18 seconds)
+#let (res : avl_tree) =
+#  let a =
+#    `Node {
+#      left = `Node
+#        { left = empty , right = empty 
+#        , item = 10 }
+#    , right = empty
+#    , item = 100
+#    }
+#  in
+#  insert a 0
+#in
+
 insert
+
