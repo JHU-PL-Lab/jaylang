@@ -1,7 +1,7 @@
 # subtyping of refined intersection type.
 # wrap is helpful for catching error, but I'm not sure why
 
-let t = {. (int -> int) && (bool -> bool) | fun x -> x true }
+let t = {. ((``Int int) -> int) && ((``Bool bool) -> bool) | fun x -> x (`Bool true) }
 in
 
 # this is a subtype of t
@@ -9,15 +9,15 @@ in
 let f =
   fun x ->
     match x with
-    | bool -> true
-    | int -> x
+    | `Bool b -> true
+    | `Int i -> i
     | _ -> 1 :: 2 :: []
     end
 in
 
 let g (h : t) : t =
   let k (i : int) : int =
-    h i
+    h (`Int i)
   in
   k # ERROR: this is not a subtype of t
 in
