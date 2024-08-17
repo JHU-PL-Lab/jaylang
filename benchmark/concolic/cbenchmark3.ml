@@ -21,13 +21,13 @@ module Report_row (* : Latex_table.ROW *) =
       ; features                    : Ttag.t list
       ; reasons                     : Ttag.t list }
 
-    (* with full information ... *)
-    (* let names =
-      [ "Testname" ; "Result" ; "Run (ms)" ; "Translation (ms)" ; "Trial" ; "LOC" ; "Features" ; "Ill-type reason" ] *)
-
-    (* with information only for paper (to keep short and sweet) *)
     let names =
-      [ "Testname" ; (*"Result" ;*) "Run" ; "Transl" ; "Tot" ;(*"Trial" ;*) "LOC" ; "Features used" ; "Errors on" ]
+      [ "Test Name" ; "Run" ; "Transl" ; "Tot" ; "LOC" ]
+      @ (List.map Ttag.all ~f:(fun tag ->
+          Format.sprintf "\\rot{%s}" (* assume \rot has been defined to rotate column headers 90 degrees *)
+          @@ Ttag.to_string tag
+        )
+      )
 
     let to_strings x =
       let span_to_ms_string =
@@ -39,14 +39,25 @@ module Report_row (* : Latex_table.ROW *) =
           |> Int.to_string
       in
       [ Filename.basename x.testname |> String.take_while ~f:(Char.(<>) '.') |> Latex_format.texttt
-      (* ; Concolic.Driver.Test_result.to_string x.test_result |> Latex_format.texttt *)
       ; span_to_ms_string x.time_to_only_run_on_jil
       ; span_to_ms_string x.time_to_parse_and_translate
       ; span_to_ms_string x.total_time
-      (* ; (match x.trial with Number i -> Int.to_string i | Average -> "avg") *)
-      ; Int.to_string x.lines_of_code
-      ; Ttag.list_to_string x.features
-      ; Ttag.list_to_string x.reasons ]
+      ; Int.to_string x.lines_of_code ]
+      @ (
+        Ttag.all
+        |> List.map ~f:(fun tag ->
+          if List.mem x.reasons tag ~equal:Ttag.equal
+          then
+            (* sanity check that reasons is subset of features *)
+            let _ = assert (List.mem x.features tag ~equal:Ttag.equal) in
+            Format.sprintf "\\red{%s}" (* assume \red{%s} is \textcolor{red}{%s} *)
+            @@ Ttag.to_string_super_short tag
+          else
+            if List.mem x.features tag ~equal:Ttag.equal
+            then Ttag.to_string_super_short tag
+            else " "
+        )
+      )
 
     let of_testname (n_trials : int) (testname : Filename.t) : t list =
       assert (n_trials > 0);
@@ -72,7 +83,6 @@ module Report_row (* : Latex_table.ROW *) =
           ; features = Ttag.features testname
           ; reasons = Ttag.reasons testname }
         in
-        (* Format.printf "Tested %s -- %d : %d ms\n" testname n (Time_float.Span.to_ms row.time_to_only_run_on_jil |> Float.to_int); *)
         row
       in
       let trials = List.init n_trials ~f:test_one in
@@ -113,7 +123,7 @@ module Result_table =
 
     type t = Report_row.t Latex_tbl.t
 
-    let of_dirs ?(avg_only : bool = true) (*?(show_result : bool = false)*) (n_trials : int) (dirs : Filename.t list) : t =
+    let of_dirs ?(avg_only : bool = true)  (n_trials : int) (dirs : Filename.t list) : t =
       let open List.Let_syntax in
       { row_module = (module Report_row)
       ; rows =
@@ -127,20 +137,19 @@ module Result_table =
         >>| Latex_tbl.Row_or_hline.return
         |> List.cons Latex_tbl.Row_or_hline.Hline
       ; columns =
-        [ [ Right_align ; Vertical_line_to_right ]
+        [ [ Latex_tbl.Col_option.Right_align ; Vertical_line_to_right ]
         ; [] (* run time *)
         ; [] (* translation time *)
         ; [ Vertical_line_to_right ] (* total time *)
-        ; [ Vertical_line_to_right ] (* loc *)
-        ; [ Left_align ; Vertical_line_to_right ] (* features *)
-        ; [ Left_align ] (* ill-type reason *)
-        ]
+        ; [ Vertical_line_to_right ] (* loc *) ]
+        @
+        List.init (List.length Ttag.all) ~f:(fun _ -> [ Latex_tbl.Col_option.Little_space { point_size = 3 } ]) 
       }
   end
 
 let run dirs =
   dirs
-  |> Result_table.of_dirs 3 (* run 10 trials of each test *)
+  |> Result_table.of_dirs 10
   |> Latex_tbl.show
   |> Format.printf "%s\n"
 

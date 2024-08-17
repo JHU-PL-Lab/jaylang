@@ -146,6 +146,10 @@ cbenchmark2:
 	dune build
 	dune exec $(BENCH_C)/cbenchmark2.exe
 
+cbenchmark3:
+	dune build
+	dune exec $(BENCH_C)/cbenchmark3.exe
+
 benchmark-icfp-artifact:
 	dune exec $(BENCH_D)/benchmark.exe -- -e dbmc -f $(BENCH_D)/icfp20-artifact.s
 # dune exec $(BENCH_D)/benchmark.exe -- -e ddse -f $(BENCH_D)/icfp20-artifact.s

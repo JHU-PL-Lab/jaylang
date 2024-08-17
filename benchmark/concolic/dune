@@ -19,7 +19,16 @@
  (modules cbenchmark2)
  (package jay)
  (public_name jay.cbenchmark2_test_generation)
- (libraries ttag latex_tbl latex_format dj_common concolic shexp.process core core_unix.sys_unix)
+ (libraries cloc_lib ttag latex_tbl latex_format dj_common concolic shexp.process core core_unix.sys_unix)
+ (preprocess
+  (pps ppx_jane)))
+
+(executable
+ (name cbenchmark3)
+ (modules cbenchmark3)
+ (package jay)
+ (public_name jay.cbenchmark3_test_generation)
+ (libraries cloc_lib ttag latex_tbl latex_format dj_common concolic shexp.process core core_unix.sys_unix)
  (preprocess
   (pps ppx_jane)))
 

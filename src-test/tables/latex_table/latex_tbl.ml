@@ -28,6 +28,7 @@ module Col_option =
       | Left_align
       | Center
       | No_space
+      | Little_space of { point_size : int } (* incompatible with No_space *)
       | Vertical_line_to_right
 
     let to_string = function
@@ -35,16 +36,8 @@ module Col_option =
     | Left_align -> "l"
     | Center -> "c"
     | No_space -> "@{}"
+    | Little_space { point_size } -> "@{\\hspace{" ^ Int.to_string point_size ^ "pt}}" (* strangly, Format.sprintf can't show "@{" *)
     | Vertical_line_to_right -> "|"
-    
-    (* let to_string x =
-      (if x.right_align then "r" else "c")
-      ^ (if x.vertical_line_to_right then "|" else "") *)
-
-    (* let opt_to_string x =
-      match x with
-      | None -> to_string { right_align = false ; vertical_line_to_right = false }
-      | Some r -> to_string r *)
   end
 
 module Column =
@@ -82,32 +75,61 @@ type 'row t =
   ; rows : 'row Row_or_hline.t list
   ; columns : Column.t list } (* of same or lesser length than (val row_module).to_strings *)
 
-(* let remove_column (col_name : string) (tbl : 'row t) : 'row t = *)
-
-let show (type row) (x : row t) : string =
+let align_ampersands (ls : string list) : string list =
   let open List.Let_syntax in
-  let module R = (val x.row_module) in
-  let show_row row =
-    match row with
-    | Row_or_hline.Hline -> "    \\hline"
+  ls
+  >>| String.split ~on:'&'
+  |> List.transpose_exn
+  >>| begin fun row -> 
+    let m =
+      List.max_elt row ~compare:(fun a b -> Int.compare (String.length a) (String.length b))
+      |> Option.value_exn
+      |> String.length
+    in
+    row
+    >>| fun s -> s ^ String.make (m - String.length s) ' '
+  end
+  |> List.transpose_exn
+  >>| String.concat ~sep: " & "
+
+let show_rows (type row) (row_to_strings : row -> string list) (x : row Row_or_hline.t list) : string list =
+  let show_single_row = function
+    | Row_or_hline.Hline -> "      \\hline"
     | Row row ->
       row
-      |> R.to_strings
+      |> row_to_strings
       |> String.concat ~sep:" & " (* column delimiter in latex *)
-      |> fun s -> "    " ^ s ^ " \\\\" (* line delimiter in latex *)
+      |> fun s -> "      " ^ s ^ " \\\\" (* line delimiter in latex *)
   in
+  let non_hline_rows = 
+    x
+    |> List.filter ~f:(function Row_or_hline.Hline -> false | _ -> true)
+    |> List.map ~f:show_single_row
+    |> align_ampersands
+  in
+  List.fold x ~init:(0, []) ~f:(fun (i, acc) row ->
+    match row with
+    | Row_or_hline.Hline -> (i, show_single_row row :: acc)
+    | _ -> (i + 1, List.nth_exn non_hline_rows i :: acc)
+    )
+  |> Tuple2.get2
+
+let show (type row) (x : row t) : string =
+  let module R = (val x.row_module) in
   let tabular_cols = Column.tabular_cols (List.length R.names) x.columns
   in
   let table_begin =
-    [ "\\begin{center}"
-    ; "  \\begin{tabular}{" ^ tabular_cols ^ "}" ]
+    [ "\\begin{table}"
+    ; "  \\begin{center}"
+    ; "    \\begin{tabular}{" ^ tabular_cols ^ "}" ]
   in
   let table_end =
-    [ "  \\end{tabular}"
-    ; "\\end{center}" ]
+    [ "    \\end{tabular}"
+    ; "  \\end{center}"
+    ; "\\end{table}" ]
   in
   table_begin
   @ [ "    " ^ String.concat R.names ~sep:" & " ^ "\\\\"]
-  @ (x.rows >>| show_row)
+  @ (show_rows R.to_strings x.rows)
   @ table_end
   |> String.concat ~sep:"\n"
