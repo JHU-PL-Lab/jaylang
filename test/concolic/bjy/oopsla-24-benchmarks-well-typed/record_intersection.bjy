@@ -12,12 +12,12 @@ let f (g : t) : t =
     in
     let b = 
       match r with
-      | { b = b , c = c } -> c
+      | { b = b , c = c } -> b
       | { a = a , b = b } -> b
       end
     in
     match b with
-    | int -> b * g x # ERROR: `g x` may be `bool`
+    | int -> b * g x
     | bool -> b and g x
     end
 in

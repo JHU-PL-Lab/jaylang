@@ -113,6 +113,7 @@ let show_rows (type row) (row_to_strings : row -> string list) (x : row Row_or_h
     | _ -> (i + 1, List.nth_exn non_hline_rows i :: acc)
     )
   |> Tuple2.get2
+  |> List.rev
 
 let show (type row) (x : row t) : string =
   let module R = (val x.row_module) in

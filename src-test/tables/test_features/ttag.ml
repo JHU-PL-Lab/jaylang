@@ -49,6 +49,26 @@ module T =
     | Return_type            -> "Return type"
     | Match                  -> "Match"
 
+    let to_string_with_underline = function
+    | Polymorphic_types      -> "\\underline{P}olymorphic types"  
+    | Variants               -> "\\underline{V}ariants"           
+    | Intersection_types     -> "\\underline{I}ntersection types" 
+    | Recursive_functions    -> "\\underline{R}ecursive functions"
+    | Mu_types               -> "\\underline{M}u types"           
+    | Higher_order_functions -> "\\underline{H}igher order functions"
+    | Subtyping              -> "\\underline{S}ubtyping"             
+    | Type_casing            -> "\\underline{T}ype casing"           
+    | OOP_style              -> "\\underline{O}OP-style"            
+    | Refinement_types       -> "Re\\underline{f}inement types"     
+    | Dependent_types        -> "\\underline{D}ependent types"      
+    | Parametric_types       -> "P\\underline{a}rametric types"     
+    | Records                -> "Re\\underline{c}ords"              
+    | Wrap_required          -> "\\underline{W}rap required"        
+    | Assertions             -> "Assertio\\underline{n}s"           
+    | Operator_misuse        -> "Operator mis\\underline{u}se"      
+    | Return_type            -> "Return t\\underline{y}pe"          
+    | Match                  -> "Match (X)"                   
+
     let to_string_short = function
     | Polymorphic_types      -> "Po"
     | Variants               -> "V"

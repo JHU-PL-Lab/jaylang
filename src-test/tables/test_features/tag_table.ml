@@ -49,8 +49,8 @@ module Counts_table =
 
         let names =
           [ "Feature"
-          ; "use"
-          ; "err" ]
+          ; "uses"
+          ; "errors" ]
 
         let to_strings (x : t) : string list =
           [ Ttag.to_string x.feature ^ " (" ^ Ttag.to_string_super_short x.feature ^ ")"
