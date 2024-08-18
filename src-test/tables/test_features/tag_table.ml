@@ -16,7 +16,7 @@ module Full_table =
           Ttag.all
           (* >>| Ttag.to_string
           >>| Latex_table.texttt *)
-          >>| Ttag.to_string_super_short
+          >>| Ttag.to_string_short
           |> List.cons "Filename"
 
         let to_strings (x : t) : string list =
@@ -53,7 +53,7 @@ module Counts_table =
           ; "errors" ]
 
         let to_strings (x : t) : string list =
-          [ Ttag.to_string x.feature ^ " (" ^ Ttag.to_string_super_short x.feature ^ ")"
+          [ Ttag.to_string x.feature ^ " (" ^ Ttag.to_string_short x.feature ^ ")"
           ; Int.to_string x.count
           ; Int.to_string x.err_count ]
       end

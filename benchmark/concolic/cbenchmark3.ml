@@ -51,10 +51,10 @@ module Report_row (* : Latex_table.ROW *) =
             (* sanity check that reasons is subset of features *)
             let _ = assert (List.mem x.features tag ~equal:Ttag.equal) in
             Format.sprintf "\\red{%s}" (* assume \red{%s} is \textcolor{red}{%s} *)
-            @@ Ttag.to_string_super_short tag
+            @@ Ttag.to_string_short tag
           else
             if List.mem x.features tag ~equal:Ttag.equal
-            then Ttag.to_string_super_short tag
+            then Ttag.to_string_short tag
             else "-"
         )
       )

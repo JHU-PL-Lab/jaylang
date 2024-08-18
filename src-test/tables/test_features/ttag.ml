@@ -70,26 +70,6 @@ module T =
     | Match                  -> "Match (X)"                   
 
     let to_string_short = function
-    | Polymorphic_types      -> "Po"
-    | Variants               -> "V"
-    | Intersection_types     -> "I"
-    | Recursive_functions    -> "Rf"
-    | Mu_types               -> "Mu"
-    | Higher_order_functions -> "H"
-    | Subtyping              -> "S"
-    | Type_casing            -> "T"
-    | OOP_style              -> "O"
-    | Refinement_types       -> "Rt"
-    | Dependent_types        -> "D"
-    | Parametric_types       -> "Pa"
-    | Records                -> "Rc"
-    | Wrap_required          -> "W"
-    | Assertions             -> "A"
-    | Operator_misuse        -> "Om"
-    | Return_type            -> "Ry"
-    | Match                  -> "Ma"
-
-    let to_string_super_short = function
     | Polymorphic_types      -> "P"
     | Variants               -> "V"
     | Intersection_types     -> "I"
@@ -201,7 +181,7 @@ let features bjy_file =
 
 let rec list_to_string = function
 | [] -> ""
-| hd :: tl -> T.to_string_super_short hd ^ list_to_string tl
+| hd :: tl -> T.to_string_short hd ^ list_to_string tl
 
 
 
