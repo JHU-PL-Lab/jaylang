@@ -55,7 +55,7 @@ module Report_row (* : Latex_table.ROW *) =
           else
             if List.mem x.features tag ~equal:Ttag.equal
             then Ttag.to_string_super_short tag
-            else " "
+            else "-"
         )
       )
 
@@ -149,14 +149,14 @@ module Result_table =
 
 let run dirs =
   dirs
-  |> Result_table.of_dirs 3
+  |> Result_table.of_dirs 10
   |> Latex_tbl.show
   |> Format.printf "%s\n"
 
 let () =
-  (* run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ]; *)
+  run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ];
   (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ]; *)
   (* run [ "test/concolic/bjy/oopsla-24-benchmarks-ill-typed" ]; *)
-  run [ "test/concolic/bjy/deep-type-error" ]
+  (* run [ "test/concolic/bjy/deep-type-error" ] *)
   (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ; "test/concolic/bjy/sato-bjy-ill-typed" ] *)
 
