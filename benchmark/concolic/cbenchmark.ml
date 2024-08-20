@@ -1,137 +1,162 @@
+
 open Core
-open Shexp_process
-open Shexp_process.Infix
 
-(* open Shexp_process.Logged *)
-(* let _make_result_file () =
-   run "date" [ "-u"; "+%Y_%m_%d_%H_%M_%S" ]
-   |- run "xargs" [ "-I"; "%"; "mkdir"; "-p"; "result/%" ] *)
+module Report_row (* : Latex_table.ROW *) =
+  struct
+    module Trial =
+      struct
+        type t =
+          | Number of int
+          | Average
+      end
 
-let is_mac =
-  let ic = Caml_unix.open_process_in "uname" in
-  let uname = In_channel.input_line ic in
-  let () = In_channel.close ic in
-  Option.value_map uname ~default:false ~f:(fun os -> String.equal os "Darwin")
+    type t =
+      { testname                    : Filename.t
+      ; test_result                 : Concolic.Driver.Test_result.t
+      ; time_to_only_run_on_jil     : Time_float.Span.t
+      ; time_to_parse_and_translate : Time_float.Span.t
+      ; total_time                  : Time_float.Span.t
+      ; trial                       : Trial.t
+      ; lines_of_code               : int
+      ; features                    : Ttag.t list
+      ; reasons                     : Ttag.t list }
 
-let time_bin = if is_mac then "gtime" else "/usr/bin/time"
-let timeout_bin = if is_mac then "gtimeout" else "/usr/bin/timeout"
-let testcase_path (cfg : Cconfig.t) test =
-  Filename.concat cfg.test_path test
+    let names =
+      [ "Test Name" ; "Run" ; "Transl" ; "Total" ; "LOC" ]
+      @ (List.map Ttag.all ~f:(fun tag ->
+          Format.sprintf "\\rot{%s}" (* assume \rot has been defined to rotate column headers 90 degrees *)
+          @@ Ttag.to_string_with_underline tag
+        )
+      )
 
-let escape_path s = String.substr_replace_all ~pattern:"/" ~with_:"_" s
+    let to_strings x =
+      let span_to_ms_string =
+        fun span ->
+          span
+          |> Time_float.Span.to_ms
+          |> Float.round_up
+          |> Float.to_int
+          |> Int.to_string
+      in
+      [ Filename.basename x.testname |> String.take_while ~f:(Char.(<>) '.') |> Latex_format.texttt
+      ; span_to_ms_string x.time_to_only_run_on_jil
+      ; span_to_ms_string x.time_to_parse_and_translate
+      ; span_to_ms_string x.total_time
+      ; Int.to_string x.lines_of_code ]
+      @ (
+        Ttag.all
+        |> List.map ~f:(fun tag ->
+          if List.mem x.reasons tag ~equal:Ttag.equal
+          then
+            (* sanity check that reasons is subset of features *)
+            let _ = assert (List.mem x.features tag ~equal:Ttag.equal) in
+            Format.sprintf "\\red{%s}" (* assume \red{%s} is \textcolor{red}{%s} *)
+            @@ Ttag.to_string_short tag
+          else
+            if List.mem x.features tag ~equal:Ttag.equal
+            then Ttag.to_string_short tag
+            else "--"
+        )
+      )
 
-let result_path (cfg : Cconfig.t) test n =
-  Filename.concat cfg.working_path
-    ((escape_path test ^ "_" ^ string_of_int n) ^ ".txt")
+    let of_testname (n_trials : int) (testname : Filename.t) : t list =
+      assert (n_trials > 0);
+      let test_one (n : int) : t =
+        let t0 = Caml_unix.gettimeofday () in
+        let source =  
+          Dj_common.Convert.jil_ast_of_convert
+          @@ Dj_common.File_utils.read_source_full ~do_wrap:true ~do_instrument:true testname
+        in
+        let t1 = Caml_unix.gettimeofday () in
+        let test_result =
+          Concolic.Driver.test_expr source ~quit_on_abort:true ~global_timeout_sec:90.0
+        in
+        let t2 = Caml_unix.gettimeofday () in
+        let row =
+          { testname
+          ; test_result
+          ; time_to_only_run_on_jil = Time_float.Span.of_sec (t2 -. t1)
+          ; time_to_parse_and_translate = Time_float.Span.of_sec (t1 -. t0)
+          ; total_time = Time_float.Span.of_sec (t2 -. t0)
+          ; trial = Number n
+          ; lines_of_code = Cloc_lib.count_bjy_lines testname
+          ; features = Ttag.features testname
+          ; reasons = Ttag.reasons testname }
+        in
+        row
+      in
+      let trials = List.init n_trials ~f:test_one in
+      let avg_trial =
+        List.fold
+          trials
+          ~init:{
+            testname
+            ; test_result = Concolic.Driver.Test_result.Exhausted_pruned_tree
+            ; time_to_only_run_on_jil = Time_float.Span.of_sec 0.0
+            ; time_to_parse_and_translate = Time_float.Span.of_sec 0.0
+            ; total_time = Time_float.Span.of_sec 0.0
+            ; trial = Average
+            ; lines_of_code = Cloc_lib.count_bjy_lines testname (* won't even average the remaining fields out. Just pre-calculate it *)
+            ; features = Ttag.features testname
+            ; reasons = Ttag.reasons testname
+          }
+          ~f:(fun acc x ->
+            { acc with (* sum up *)
+              test_result = Concolic.Driver.Test_result.merge acc.test_result x.test_result (* keeps best test result *)
+            ; time_to_only_run_on_jil = Time_float.Span.(acc.time_to_only_run_on_jil + x.time_to_only_run_on_jil)
+            ; time_to_parse_and_translate = Time_float.Span.(acc.time_to_parse_and_translate + x.time_to_parse_and_translate)
+            ; total_time = Time_float.Span.(acc.total_time + x.total_time)
+            })
+        |> fun r ->
+          { r with (* average out *)
+            time_to_only_run_on_jil = Time_float.Span.(r.time_to_only_run_on_jil / (Int.to_float n_trials))
+          ; time_to_parse_and_translate = Time_float.Span.(r.time_to_parse_and_translate / (Int.to_float n_trials))
+          ; total_time = Time_float.Span.(r.total_time / (Int.to_float n_trials))
+          }
+      in
+      Format.printf "Tested %s -- avg : %d ms\n" testname (Time_float.Span.to_ms avg_trial.time_to_only_run_on_jil |> Float.to_int);
+      trials @ [ avg_trial ]
+  end
 
-let time_result_path (cfg : Cconfig.t) test =
-  Filename.concat cfg.working_path (escape_path test ^ ".time.txt")
+module Result_table =
+  struct
 
-let prepare (cfg : Cconfig.t) : unit t =
-  run "rm" [ "-rf"; cfg.working_path ]
-  >> run "mkdir" [ "-p"; cfg.working_path ]
-  >> run "mkdir" [ "-p"; cfg.result_path ]
+    type t = Report_row.t Latex_tbl.t
 
-let benchmark_time (cfg : Cconfig.t) test n : unit t =
-  let file = testcase_path cfg test
-  and test_time_result = time_result_path cfg test in
-  print test
-  (* time gtimeout --foreground 1m ls *)
-  >> stdout_to ~append:() (result_path cfg test n)
-       (call
-          [
-            time_bin;
-            "-o";
-            test_time_result;
-            "-a";
-            "-f";
-            "%e\n\
-             %Uuser %Ssystem %Eelapsed %PCPU (%Xtext+%Ddata %Mmax)k \
-             %Iinputs+%Ooutputs (%Fmajor+%Rminor)pagefaults %Wswaps";
-            timeout_bin;
-            "--foreground";
-            cfg.timeout;
-            cfg.bin;
-            "-t";
-            "90.0"; (* single test timeout *)
-            "-q"; (* quits when finds abort *)
-            "-i";
-            file;
-            (* Note I don't add the `r` flag for randomness. This way benchmarks are reproducable. *)
-          ])
-  >> echo @@ " done - " ^ string_of_int n
-(* |- run "tee" ["-a"; result_file] *)
+    let of_dirs ?(avg_only : bool = true)  (n_trials : int) (dirs : Filename.t list) : t =
+      let open List.Let_syntax in
+      { row_module = (module Report_row)
+      ; rows =
+        dirs
+        |> Ttag.get_all_files ~filter:(Fn.flip Filename.check_suffix ".bjy")
+        |> List.sort ~compare:(fun a b -> String.compare (Filename.basename a) (Filename.basename b))
+        >>= Report_row.of_testname n_trials
+        |> List.filter ~f:(fun row ->
+          not avg_only || match row.trial with Average -> true | _ -> false
+          )
+        >>| Latex_tbl.Row_or_hline.return
+        |> List.cons Latex_tbl.Row_or_hline.Hline
+      ; columns =
+        [ [ Latex_tbl.Col_option.Right_align ; Vertical_line_to_right ]
+        ; [] (* run time *)
+        ; [] (* translation time *)
+        ; [ Vertical_line_to_right ] (* total time *)
+        ; [ Vertical_line_to_right ] (* loc *) ]
+        @
+        List.init (List.length Ttag.all) ~f:(fun _ -> [ Latex_tbl.Col_option.Little_space { point_size = 3 } ]) 
+      }
+  end
 
-let stat (cfg : Cconfig.t) : unit t =
-  let working_path = cfg.working_path in
-  let testcases = cfg.testcases_to_time in
-  let table = working_path ^ "/0table.txt" in
-  stdout_to ~append:() table (echo @@ "Testing files from " ^ cfg.test_path ^ "\n")
-  >> List.iter testcases ~f:(fun testcase ->
-      stdout_to ~append:() table
-        (run "echo" [ testcase ]
-        >> run "awk"
-             [
-               "BEGIN {sum=0;count=0} {if (NR%2==1) {sum=sum+$1; \
-                count=count+1}}  END {print sum/count} ";
-               time_result_path cfg testcase;
-             ]
-        >> run "awk" [ "FNR == 2"; result_path cfg testcase 1 ]
-           (* >> run "awk" ["BEGIN {sum=0;count=0} {FNR==NR; if (NR==2) {sum=sum+$1; count=count+1}} {next} {print sum/count}' result/evaluate-2020-05-22-23:55:15Z/*.result.txt"] *)
-        ))
-
-let benchmark_not_time (cfg : Cconfig.t) : unit t =
-  let extra_result = cfg.working_path ^ "/1extra.txt" in
-  let testcases = cfg.testcases_not_time in
-  List.iter testcases ~f:(fun test ->
-      let file = testcase_path cfg test in
-      stdout_to ~append:() extra_result
-        (call [ cfg.bin; "-i"; file; "-q"; "-t"; "10.0" ]))
-  >> echo @@ "done - extra"
-
-let collect_result (cfg : Cconfig.t) : unit t =
-  (* let awk_job = "awk 'BEGIN {sum=0;count=0} {if (NR%2==1) {sum=sum+$1;count=count+1}}  END {print sum/count}' $f"
-     in
-     in (run ("for f in " ^ working_path ^ "*.time.txt; do " ^ awk_job ^ "; done") [])
-     (run "./script/echo.sh" [])
-     >> *)
-  run "date" [ "-u"; "+%Y-%m-%d-%H:%M:%S" ]
-  |- run "xargs"
-       [
-         "-I";
-         "%";
-         "mv";
-         cfg.working_path;
-         Filename.concat cfg.result_path (cfg.engine ^ "-%");
-       ]
-
-let rec countdown n task : unit t =
-  if n > 0 then task n >> countdown (n - 1) task else echo "done"
-
-let read_config () =
-  let engine = ref "concolic" in
-  let config_path = ref "benchmark/concolic/config_scheme.s" in
-
-  Arg.parse
-    [
-      ("-e", Arg.Set_string engine, "Engine");
-      ("-f", Arg.Set_string config_path, "Config path");
-    ]
-    (fun _ -> ())
-    "Please use `make cbenchmark`." ;
-  assert (Core.List.mem [ "concolic" ] !engine ~equal:String.equal) ;
-
-  let config = Sexp.load_sexp_conv_exn !config_path Cconfig.t_of_sexp in
-  { config with engine = !engine }
+let run dirs =
+  dirs
+  |> Result_table.of_dirs 1
+  |> Latex_tbl.show
+  |> Format.printf "%s\n"
 
 let () =
-  let cfg = read_config () in
-  (* let s = cfg |> Cconfig.sexp_of_t |> Sexp.to_string_hum in
-     print_endline s ; *)
-  let testcases = cfg.testcases_to_time in
-  ignore
-  @@ eval
-       (prepare cfg
-       >> List.iter testcases ~f:(fun task ->
-              countdown cfg.repeat (benchmark_time cfg task))
-       >> stat cfg >> benchmark_not_time cfg >> collect_result cfg)
+  run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ];
+  (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ]; *)
+  (* run [ "test/concolic/bjy/oopsla-24-benchmarks-ill-typed" ]; *)
+  (* run [ "test/concolic/bjy/deep-type-error" ] *)
+  (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ; "test/concolic/bjy/sato-bjy-ill-typed" ] *)
+
