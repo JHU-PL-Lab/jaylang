@@ -1,3 +1,0 @@
-(
-Intersection_types
-)

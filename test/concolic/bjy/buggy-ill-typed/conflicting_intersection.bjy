@@ -1,9 +1,0 @@
-
-let t = int && bool
-in
-
-let f (x : t) : t =
-  x
-in
-
-f

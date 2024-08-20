@@ -1,5 +1,8 @@
 (
 Intersection_types
+Higher_order_functions
+Type_casing
 Records
-Return_type
+Operator_misuse
+Match
 )

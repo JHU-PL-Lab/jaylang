@@ -49,27 +49,27 @@ module T =
     | Return_type            -> "Return type"
     | Match                  -> "Match"
 
-    let to_string_short = function
-    | Polymorphic_types      -> "Po"
-    | Variants               -> "V"
-    | Intersection_types     -> "I"
-    | Recursive_functions    -> "Rf"
-    | Mu_types               -> "Mu"
-    | Higher_order_functions -> "H"
-    | Subtyping              -> "S"
-    | Type_casing            -> "T"
-    | OOP_style              -> "O"
-    | Refinement_types       -> "Rt"
-    | Dependent_types        -> "D"
-    | Parametric_types       -> "Pa"
-    | Records                -> "Rc"
-    | Wrap_required          -> "W"
-    | Assertions             -> "A"
-    | Operator_misuse        -> "Om"
-    | Return_type            -> "Ry"
-    | Match                  -> "Ma"
+    let to_string_with_underline = function
+    | Polymorphic_types      -> "\\underline{P}olymorphic types"  
+    | Variants               -> "\\underline{V}ariants"           
+    | Intersection_types     -> "\\underline{I}ntersection types" 
+    | Recursive_functions    -> "\\underline{R}ecursive functions"
+    | Mu_types               -> "\\underline{M}u types"           
+    | Higher_order_functions -> "\\underline{H}igher order functions"
+    | Subtyping              -> "\\underline{S}ubtyping"             
+    | Type_casing            -> "\\underline{T}ype casing"           
+    | OOP_style              -> "\\underline{O}OP-style"            
+    | Refinement_types       -> "Re\\underline{f}inement types"     
+    | Dependent_types        -> "\\underline{D}ependent types"      
+    | Parametric_types       -> "P\\underline{a}rametric types"     
+    | Records                -> "Re\\underline{c}ords"              
+    | Wrap_required          -> "\\underline{W}rap required"        
+    | Assertions             -> "Assertio\\underline{n}s"           
+    | Operator_misuse        -> "Operator mis\\underline{u}se"      
+    | Return_type            -> "Return t\\underline{y}pe"          
+    | Match                  -> "Match (X)"                   
 
-    let to_string_super_short = function
+    let to_string_short = function
     | Polymorphic_types      -> "P"
     | Variants               -> "V"
     | Intersection_types     -> "I"
@@ -181,7 +181,7 @@ let features bjy_file =
 
 let rec list_to_string = function
 | [] -> ""
-| hd :: tl -> T.to_string_super_short hd ^ list_to_string tl
+| hd :: tl -> T.to_string_short hd ^ list_to_string tl
 
 
 
