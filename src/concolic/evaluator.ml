@@ -398,7 +398,6 @@ and eval_clause
         else raise @@ Found_abort (ab_v, symb_session)
       end
     | Assert_body cx | Assume_body cx ->
-      (* TODO: should I ever treat assert and assume differently? *)
       let v = Fetch.fetch_val_to_direct ~conc_session ~stk env cx in 
       let b =
         match v with
