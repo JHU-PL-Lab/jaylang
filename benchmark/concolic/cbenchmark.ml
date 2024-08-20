@@ -137,26 +137,27 @@ module Result_table =
         >>| Latex_tbl.Row_or_hline.return
         |> List.cons Latex_tbl.Row_or_hline.Hline
       ; columns =
+        let little_space = Latex_tbl.Col_option.Little_space { point_size = 3 } in
         [ [ Latex_tbl.Col_option.Right_align ; Vertical_line_to_right ]
-        ; [] (* run time *)
-        ; [] (* translation time *)
-        ; [ Vertical_line_to_right ] (* total time *)
-        ; [ Vertical_line_to_right ] (* loc *) ]
+        ; [ little_space ] (* run time *)
+        ; [ little_space ] (* translation time *)
+        ; [ little_space ;  Vertical_line_to_right ] (* total time *)
+        ; [ little_space ; Vertical_line_to_right ] (* loc *) ]
         @
-        List.init (List.length Ttag.all) ~f:(fun _ -> [ Latex_tbl.Col_option.Little_space { point_size = 3 } ]) 
+        List.init (List.length Ttag.all) ~f:(fun _ -> [ little_space ]) 
       }
   end
 
 let run dirs =
   dirs
-  |> Result_table.of_dirs 1
+  |> Result_table.of_dirs 10
   |> Latex_tbl.show
   |> Format.printf "%s\n"
 
 let () =
-  run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ];
+  (* run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ]; *)
   (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ]; *)
-  (* run [ "test/concolic/bjy/oopsla-24-benchmarks-ill-typed" ]; *)
+  run [ "test/concolic/bjy/oopsla-24-benchmarks-ill-typed" ];
   (* run [ "test/concolic/bjy/deep-type-error" ] *)
   (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ; "test/concolic/bjy/sato-bjy-ill-typed" ] *)
 
