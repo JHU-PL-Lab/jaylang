@@ -112,7 +112,6 @@ module DFS_tower =
   struct
     type t = (DFS.t * int) list
     (*
-      TODO: 
       * Think about how we don't need to use the list, but instead we can use priority to partition the targets 
       * Only issue is we would do this with some "large base" number, but the theoritical limit for number of targets is just too big
       * Instead could approximate (with room for incorrectness in a stupidly massive case) by just partitioning the integer space
