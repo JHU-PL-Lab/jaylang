@@ -60,12 +60,12 @@ let main_lwt ~(config : Global_config.t) program_full :
       in
       let session =
         {
-          (Dbmc.Interpreter.make_default_session ()) with
+          (From_dbmc.Interpreter.make_default_session ()) with
           input_feeder = Input_feeder.from_list inputs;
         }
       in
-      try Dbmc.Interpreter.eval session program
-      with Dbmc.Interpreter.Found_abort ab_clo -> (
+      try From_dbmc.Interpreter.eval session program
+      with From_dbmc.Interpreter.Found_abort ab_clo -> (
         match ab_clo with
         | AbortClosure final_env ->
             (* let pp_dvalue_with_stack oc (dv, _) =

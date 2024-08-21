@@ -14,7 +14,7 @@
   bluejay
   jayil
   jayil_parser
-  dbmc
+  from_dbmc
   concolic
   sato
  )
