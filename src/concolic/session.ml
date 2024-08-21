@@ -1,14 +1,18 @@
 open Core
 open Path_tree
-open Dbmc
+(* open Dbmc *)
 open Dj_common
 open Jayil.Ast
+
+module Sudu = From_dbmc.Solver.SuduZ3
 
 (*
   Mutable record that tracks a run through the evaluation. aka "interpreter session"
 *)
 module Concrete =
   struct
+    open From_dbmc
+
     module Mode =
       struct
         type t =
@@ -151,7 +155,7 @@ let [@landmarks] check_solver solver =
   Z3.Solver.check solver []
 
 let [@landmarks] make_solver () =
-  Z3.Solver.mk_solver Solver.SuduZ3.ctx None
+  Z3.Solver.mk_solver Sudu.ctx None
 
 (* based on the landmarks, it's taking about as long to make the solver and load it as it is to solve *)
 (* This motivates a change to use the internal stack *)
@@ -161,7 +165,7 @@ let [@landmarks] load_solver solver formulas =
 
 (* This shows it might be faster to not load any formulas but just run 'check' *)
 let[@landmarks] check_solver' formulas =
-  let new_solver = Z3.Solver.mk_solver Solver.SuduZ3.ctx None in
+  let new_solver = Z3.Solver.mk_solver Sudu.ctx None in
   Z3.Solver.check new_solver formulas
 
 let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
@@ -195,7 +199,7 @@ let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t *
   and solve_for_target (x : t) (target : Target.t) =
     let t0 = Caml_unix.gettimeofday () in
     let new_solver = load_solver (make_solver ()) (Target.to_formulas target x.tree) in
-    Solver.set_timeout_sec Solver.SuduZ3.ctx (Some (Core.Time_float.Span.of_sec x.options.solver_timeout_sec));
+    From_dbmc.Solver.set_timeout_sec Sudu.ctx (Some (Core.Time_float.Span.of_sec x.options.solver_timeout_sec));
     Log.Export.CLog.debug (fun m -> m "Solving for target %s\n" (Branch.Runtime.to_string target.branch));
     Log.Export.CLog.debug (fun m -> m "Solver is:\n%s\n" (Z3.Solver.to_string new_solver));
     (* let[@landmarks] _ = check_solver' (Target.to_formulas target x.tree) in *)

@@ -1,6 +1,6 @@
 
 open Core
-open Dbmc
+(* open Dbmc *)
 open Path_tree
 
 
@@ -387,7 +387,7 @@ let add_match (x : t) (k : Concolic_key.Lazy.t) (m : Concolic_key.Lazy.t) (pat :
   add_lazy_formula x
   @@ fun () ->
     let k_expr = Concolic_riddler.key_to_var (k ()) in
-    Solver.SuduZ3.eq (Solver.SuduZ3.project_bool k_expr) (Concolic_riddler.if_pattern (m ()) pat)
+    From_dbmc.Solver.SuduZ3.eq (From_dbmc.Solver.SuduZ3.project_bool k_expr) (Concolic_riddler.if_pattern (m ()) pat)
 
 (*
   -----------------

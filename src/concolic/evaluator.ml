@@ -1,6 +1,6 @@
 open Core
 open Jayil.Ast
-open Dbmc
+(* open Dbmc *)
 open Dj_common (* exposes Concrete_stack *)
 open Dvalue (* just to expose constructors *)
 
@@ -23,6 +23,8 @@ let cond_fid b = if b then Ident "$tt" else Ident "$ff"
 
 module Debug =
   struct
+    open From_dbmc
+
     let debug_update_read_node session x stk =
       let open Session.Concrete in
       match (session.is_debug, session.mode) with
@@ -189,7 +191,7 @@ let rec eval_exp
   ILog.app (fun m -> m "@[-> %a@]\n" Concrete_stack.pp stk);
   (match conc_session.mode with
   | With_full_target (_, target_stk) ->
-      let r_stk = Rstack.relativize target_stk stk in
+      let r_stk = From_dbmc.Rstack.relativize target_stk stk in
       Hashtbl.change conc_session.rstk_picked r_stk ~f:(function
         | Some true -> Some false
         | Some false -> raise (Run_into_wrong_stack (Jayil.Ast_tools.first_id e, stk))

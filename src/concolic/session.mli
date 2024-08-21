@@ -1,5 +1,5 @@
 open Core
-open Dbmc
+open From_dbmc
 open Dj_common
 open Jayil.Ast
 

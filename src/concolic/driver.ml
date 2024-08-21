@@ -1,12 +1,8 @@
 open Core
-open Dbmc
 open Dj_common
 
 module CLog = Dj_common.Log.Export.CLog
 
-[@@@ocaml.warning "-32"]
-
-      
 module Test_result =
   struct
     type t =
@@ -33,8 +29,6 @@ module Test_result =
       (* For the following results, we want to keep the one with the least information to be conservative *)
       | Timeout, _ | _, Timeout -> Timeout
       | Exhausted_pruned_tree, Exhausted_pruned_tree -> Exhausted_pruned_tree
-
-    let default : t = Exhausted_pruned_tree (* has the least information *)
   end
 
 (*
@@ -60,37 +54,14 @@ let[@landmark] lwt_test_one : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fu
             | None -> Exhausted_pruned_tree
             | _ -> failwith "impossible abort in global branch"
             end
-        
-(* [test_incremental n] incrementally increases the max tree depth in [n] equal steps until it reaches the given max depth *)
-let[@landmark] test_incremental : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fun.t =
-  let open Lwt.Infix in
-  Options.Fun.make
-  @@ fun (r : Options.t) ->
-      fun (e : Jayil.Ast.expr) ->
-        Lwt_unix.with_timeout r.global_timeout_sec
-        @@ fun () ->
-          r.n_depth_increments
-          |> List.init ~f:(fun i -> (i + 1) * r.max_tree_depth / r.n_depth_increments)
-          |> List.fold
-            ~init:(Lwt.return Test_result.default)
-            ~f:(fun acc d ->
-                acc
-                >>= function
-                  | Test_result.Found_abort _ | Type_mismatch _ | Timeout | Exhausted -> acc
-                  | acc -> begin
-                    Options.Fun.appl lwt_test_one { r with max_tree_depth = d } e
-                    >|= Test_result.merge acc
-                  end
-              )
 
-(* runs [test_incremental] and catches lwt timeout *)
+(* runs [lwt_test_one] and catches lwt timeout *)
 let test_with_timeout : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
         try
           Lwt_main.run
-          (* @@ Options.Fun.appl test_incremental r e *)
           @@ Options.Fun.appl lwt_test_one r e
         with
         | Lwt_unix.Timeout ->
