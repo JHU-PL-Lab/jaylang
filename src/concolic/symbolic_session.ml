@@ -107,7 +107,7 @@ module Node_stack =
     (* Note that merging two trees would have to visit every node in both of them in the worst case,
       but we know that the tree made from the stack is a single path, so it only has to merge down
       that single path because only one child is hit and needs to be merged (see Path_tree.Status.merge). *)
-    let merge_with_tree (allowed_tree_depth : int) (stack : t) (tree : Root.t) : Root.t * Target.t list =
+    let merge_with_tree (stack : t) (tree : Root.t) : Root.t * Target.t list =
       let merged =
         Root.merge tree
         @@ to_tree stack
@@ -221,9 +221,9 @@ let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
   else { x with stack = Node_stack.add_formula x.stack @@ lazy_expr () }
 
 let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
-  if (Depth_tracker.incr_branch x.depth_tracker).is_max_depth
-  then x
-  else { x with stack = Node_stack.push x.stack branch ; depth_tracker = Depth_tracker.incr_branch x.depth_tracker}
+  if x.depth_tracker.is_max_depth
+  then { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker }
+  else { x with stack = Node_stack.push x.stack branch ; depth_tracker = Depth_tracker.incr_branch x.depth_tracker }
 
 let enter_fun (x : t) : t =
   { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker }
@@ -282,7 +282,7 @@ module Dead =
 
     let of_sym_session (s : T.t) (root : Root.t) : t =
       (* logically sound to have hit target if formulas are consistent with JIL program *)
-      let tree, targets = Node_stack.merge_with_tree s.depth_tracker.max_depth s.stack root in
+      let tree, targets = Node_stack.merge_with_tree s.stack root in
       assert (Option.is_none s.target || Target.is_hit (Option.value_exn s.target) tree); (* check that target was hit in new tree *)
       { tree
       ; targets
@@ -295,8 +295,6 @@ module Dead =
       x.targets
 
     let get_status (x : t) : Status.t =
-      let dt = x.prev.depth_tracker in
-      let pruned = dt.is_max_depth || dt.is_max_step in
       match x.prev.status with
       | `In_progress ->
           let dt = x.prev.depth_tracker in
