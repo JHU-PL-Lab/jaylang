@@ -221,9 +221,10 @@ let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
   else { x with stack = Node_stack.add_formula x.stack @@ lazy_expr () }
 
 let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
-  if x.depth_tracker.is_max_depth
-  then { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker }
-  else { x with stack = Node_stack.push x.stack branch ; depth_tracker = Depth_tracker.incr_branch x.depth_tracker }
+  let after_incr = { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker } in
+  if after_incr.depth_tracker.is_max_depth
+  then after_incr
+  else { after_incr with stack = Node_stack.push after_incr.stack branch }
 
 let enter_fun (x : t) : t =
   { x with depth_tracker = Depth_tracker.incr_fun x.depth_tracker }
