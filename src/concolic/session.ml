@@ -227,7 +227,6 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * 
     | Z3.Solver.UNSATISFIABLE ->
       let t1 = Caml_unix.gettimeofday () in
       Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0));
-      Format.printf "Found unsat branch\n";
       next { x with tree = Root.set_status x.tree target.branch Unsatisfiable target.path }
     | Z3.Solver.UNKNOWN ->
       Log.Export.CLog.info (fun m -> m "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n");

@@ -166,7 +166,6 @@ module T =
       ; status         : [ `In_progress | `Found_abort | `Type_mismatch ]
       ; inputs         : Jil_input.t list
       ; depth_tracker  : Depth_tracker.t }
-  (* TODO: track a path in a tree and only add formulas if at a new node. TODO: add a "pruned" variant to path tree status *)
   end
 
 include T
@@ -183,7 +182,6 @@ let with_options : (t -> t) Options.Fun.t =
   @@ fun (r : Options.t) -> fun (x : t) -> { x with depth_tracker = Options.Fun.appl Depth_tracker.with_options r x.depth_tracker }
 
 let found_abort (s : t) : t =
-  Format.printf "Found abort\n";
   { s with status = `Found_abort }
 
 let found_type_mismatch (s : t) : t =
@@ -216,7 +214,6 @@ let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
   then x
   else { x with stack = Node_stack.add_formula x.stack @@ lazy_expr () }
 
-(* may have bug here by not incrementing in `then` case *)
 let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
   if (Depth_tracker.incr_branch x.depth_tracker).is_max_depth
   then x
@@ -279,7 +276,6 @@ module Dead =
 
     let of_sym_session (s : T.t) (root : Root.t) : t =
       (* logically sound to have hit target if formulas are consistent with JIL program *)
-      Format.printf "Finishing sym where reach max step is %b\n" (s.depth_tracker.is_max_step);
       let tree, targets = Node_stack.merge_with_tree s.depth_tracker.max_depth s.stack root in
       assert (Option.is_none s.target || Target.is_hit (Option.value_exn s.target) tree); (* check that target was hit in new tree *)
       { tree
