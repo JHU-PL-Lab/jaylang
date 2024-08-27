@@ -252,7 +252,7 @@ module At_max_depth =
       }
   end
 
-module Finished =
+module Dead =
   struct
     type t =
       { tree          : Root.t
@@ -260,21 +260,31 @@ module Finished =
       ; prev          : Basic.t
       ; hit_max_depth : bool}
 
-    let with_options : (t -> t) Options.Fun.t =
-      Options.Fun.make
-      @@ fun (r : Options.t) -> fun (x : t) -> { x with prev = Options.Fun.appl Basic.with_options r x.prev }
-
     let of_basic (s : Basic.t) (root : Root.t) : t =
       (* logically sound to have hit target if formulas are consistent with JIL program *)
       let tree, targets = Node_stack.merge_with_tree s.depth.max_depth s.stack root in
       assert (Option.is_none s.target || Target.is_hit (Option.value_exn s.target) tree); (* check that target was hit in new tree *)
       { tree ; targets ; prev = s ; hit_max_depth = false }
+
+    let root (x : t) : Root.t =
+      x.tree
+
+    let targets (x : t) : Target.t list =
+      x.targets
+
+    let branch_info (x : t) : Branch_info.t =
+      x.prev.branch_info
+
+    let hit_max_depth (x : t) : bool =
+      x.hit_max_depth
+
+    let is_reach_max_step (x : t) : bool =
+      x.prev.reach_max_step
   end
 
 type t =
   | Basic of Basic.t
   | At_max_depth of At_max_depth.t
-  | Finished of Finished.t
   (* TODO: track a path in a tree and only add formulas if at a new node. TODO: add a "pruned" variant to path tree status *)
 
 let empty : t = Basic Basic.empty
@@ -283,7 +293,6 @@ let get_key_depth (x : t) : int =
   match x with
   | Basic s -> Depth_logic.get_key_depth s.depth
   | At_max_depth s -> Depth_logic.get_key_depth s.base.depth
-  | Finished _ -> failwith "cannot get depth from finished symbolic session"
 
 let with_options : (t -> t) Options.Fun.t =
   Options.Fun.make
@@ -291,14 +300,12 @@ let with_options : (t -> t) Options.Fun.t =
     match x with
     | Basic s -> Basic (Options.Fun.appl Basic.with_options r s)
     | At_max_depth s -> At_max_depth (Options.Fun.appl At_max_depth.with_options r s)
-    | Finished s -> Finished (Options.Fun.appl Finished.with_options r s)
 
 (* [lazy_expr] does not get evaluated unless [x] is [Basic]. *)
 let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
   match x with
   | Basic s -> Basic { s with stack = Node_stack.add_formula s.stack @@ lazy_expr () }
   | At_max_depth _ -> x
-  | Finished _ -> failwith "adding formula to finished symbolic session"
 
 let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
   match x with
@@ -309,49 +316,41 @@ let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
     ; depth = Depth_logic.incr_branch s.depth }
   | Basic s -> At_max_depth (At_max_depth.of_basic s)
   | At_max_depth a -> At_max_depth { last_branch = Branch.Runtime.to_ast_branch branch ; base = { a.base with depth = Depth_logic.incr_branch a.base.depth } }
-  | Finished _ -> failwith "using finished symbolic session to hit branch"
 
 let enter_fun (x : t) : t =
   match x with
   | Basic s -> Basic { s with depth = Depth_logic.incr_fun s.depth }
   | At_max_depth a -> At_max_depth { a with base = { a.base with depth = Depth_logic.incr_fun a.base.depth } } 
-  | Finished _ -> failwith "entering fun with finished symbolic session"
 
 let found_assume (x : t) (cx : Concolic_key.Lazy.t) : t =
   match x with
   | Basic s -> Basic (Basic.found_assume s cx)
   | At_max_depth _ -> x
-  | Finished _ -> failwith "found assume with finished symbolic session"
 
 let fail_assume (x : t) :  t =
   match x with
   | Basic s -> Basic (Basic.failed_assume s)
   | At_max_depth _ -> x
-  | Finished _ -> failwith "failed assume with finished symbolic session"
 
 let found_abort (x : t) : t =
   match x with
   | Basic s -> Basic (Basic.found_abort s)
   | At_max_depth a -> At_max_depth (At_max_depth.found_abort a)
-  | Finished _ -> failwith "found abort with finished symbolic session"
 
 let found_type_mismatch (x : t) (id : Jayil.Ast.Ident_new.t) : t =
   match x with
   | Basic s -> Basic (Basic.found_type_mismatch s id)
   | At_max_depth a -> At_max_depth (At_max_depth.found_type_mismatch a id)
-  | Finished _ -> failwith "found type mismatch with finished symbolic session"
 
 let reach_max_step (x : t) : t =
   match x with
   | Basic s -> Basic ({ s with reach_max_step = true})
   | At_max_depth a -> At_max_depth ({ a with base = { a.base with reach_max_step = true } })
-  | Finished _ -> failwith "reach max step with finished symbolic session"
 
 let add_basic_input (x : t) (i : Jil_input.t) : t =
   match x with
   | Basic s -> Basic (Basic.add_input s i)
   | At_max_depth a -> At_max_depth ({ a with base = Basic.add_input a.base i })
-  | Finished _ -> failwith "adding input to finished symbolic session"
 
 (*
   ------------------------------
@@ -396,39 +395,10 @@ let add_match (x : t) (k : Concolic_key.Lazy.t) (m : Concolic_key.Lazy.t) (pat :
 *)
 
 (* Note that other side of all new targets are all the new hits *)
-let[@landmarks] finish (x : t) (tree : Root.t) : t =
+let[@landmarks] finish (x : t) (tree : Root.t) : Dead.t =
   match x with
-  | Basic s -> Finished (Finished.of_basic s tree)
-  | At_max_depth a -> Finished ({ (Finished.of_basic a.base tree) with hit_max_depth = true })
-  | Finished r -> Finished ({ r with tree }) (* allow finishing twice by reseting the tree *)
+  | Basic s -> Dead.of_basic s tree
+  | At_max_depth a -> { (Dead.of_basic a.base tree) with hit_max_depth = true }
 
 let make (root : Root.t) (target : Target.t) : t =
   Basic { Basic.empty with stack = Node_stack.of_root root ; target = Some target }
-
-let root_exn (x : t) : Root.t =
-  match x with
-  | Finished { tree ; _ } -> tree
-  | _ -> failwith "no root"
-
-let targets_exn (x : t) : Target.t list =
-  match x with
-  | Finished { targets ; _ } -> targets
-  | _ -> failwith "no targets"
-
-let branch_info (x : t) : Branch_info.t =
-  match x with
-  | Basic { branch_info ; _ }
-  | At_max_depth { base = { branch_info ; _} ; _ }
-  | Finished { prev = { branch_info ; _ } ; _ } -> branch_info
-
-let hit_max_depth (x : t) : bool =
-  match x with
-  | Basic _ -> false
-  | At_max_depth _ -> true
-  | Finished { hit_max_depth ; _ } -> hit_max_depth
-
-let is_reach_max_step (x : t) : bool =
-  match x with
-  | Basic { reach_max_step ; _ }
-  | At_max_depth { base = { reach_max_step ; _ } ; _ }
-  | Finished { prev = { reach_max_step ; _ } ; _ } -> reach_max_step
