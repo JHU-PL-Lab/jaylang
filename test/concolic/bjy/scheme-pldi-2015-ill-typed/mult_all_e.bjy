@@ -1,0 +1,18 @@
+
+let rec mult x y =
+  if x <= 0 or y <= 0
+  then 0
+  else x + mult x (y - 1)
+in
+
+let h y =
+  let b = (y + y <= mult y y)
+  in
+  b
+in
+
+let main (n : int) : {. bool | fun b -> b } =
+  h n # ERROR: `n` needs to be at least `2` for `h n` to be true
+in
+
+main

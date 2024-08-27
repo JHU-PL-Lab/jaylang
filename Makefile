@@ -39,6 +39,9 @@ jil:
 
 jay:
 	dune build src/bin/jay.exe
+
+ft:
+	dune build src-test/tables/test_features/tagger.exe
 	
 # clean up
 
@@ -104,7 +107,7 @@ test-dummy:
 	dune exec src-test/dbmc/test_dummy.exe
 
 test-concolic:
-	dune exec src-test/dbmc/test_concolic.exe
+	dune exec src-test/concolic/test_concolic.exe
 
 # profiling
 
@@ -140,7 +143,7 @@ benchmark:
 
 cbenchmark:
 	make cj
-	dune exec $(BENCH_C)/cbenchmark.exe -- -e concolic
+	dune exec $(BENCH_C)/cbenchmark.exe
 
 benchmark-icfp-artifact:
 	dune exec $(BENCH_D)/benchmark.exe -- -e dbmc -f $(BENCH_D)/icfp20-artifact.s

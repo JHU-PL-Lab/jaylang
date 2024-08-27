@@ -1,0 +1,13 @@
+let compose (type t1 t2) (a_b : t1 -> t2) (b_a : t2 -> t1) (a : t1) : t1 =
+  b_a (a_b a)
+in
+
+let id (type t1) (a : t1) : t1 =
+  a
+in
+
+let r =
+  compose (int) (int) (id (int)) (id (int))
+in
+
+r

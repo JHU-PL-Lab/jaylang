@@ -1,0 +1,12 @@
+
+let rec mult x y =
+  if x <= 0 or y <= 0
+  then 0
+  else x + mult x (y - 1)
+in
+
+let main (n : int) : {. int | fun i -> 600 <= i } =
+  mult 100 n # ERROR: `n` should be at least `6`, or remove refinement
+in
+
+main

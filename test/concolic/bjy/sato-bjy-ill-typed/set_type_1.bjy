@@ -1,0 +1,16 @@
+
+let isPos n = n > 0
+in
+
+let isNeg n = n < 0
+in
+
+let twice (f : int -> int) (x : int) : int =
+  f (f x)
+in
+
+let inc (x : {. int | isPos} ) : {. int | isNeg} =
+  x + 1
+in
+
+twice inc 0

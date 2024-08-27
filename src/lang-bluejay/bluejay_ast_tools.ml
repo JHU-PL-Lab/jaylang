@@ -29,7 +29,6 @@ and defined_vars_of_expr (e : expr) : Ident_set.t =
   | ListCons (ed1, ed2)
   | TypeArrow (ed1, ed2)
   | TypeSet (ed1, ed2)
-  | TypeUnion (ed1, ed2)
   | TypeIntersect (ed1, ed2) ->
       let s1 = defined_vars_of_expr_desc ed1 in
       let s2 = defined_vars_of_expr_desc ed2 in
@@ -131,6 +130,26 @@ and defined_vars_of_typed_funsig (fun_sig : typed_funsig) : Ident_set.t =
       let s4 = defined_vars_of_expr_desc ret_type in
       s1 |> Ident_set.union s2 |> Ident_set.union s3 |> Ident_set.union s4
   | DTyped_funsig (f, (x, t), (body, ret_type)) ->
+      let s1 = Ident_set.of_list @@ [ f; x ] in
+      let s2 =
+        List.fold
+          ~f:(fun acc t -> Ident_set.union (defined_vars_of_expr_desc t) acc)
+          ~init:Ident_set.empty [ t; body; ret_type ]
+      in
+      Ident_set.union s1 s2
+  | PTyped_funsig (f, _tvars, typed_params, (body, ret_type)) ->
+      let params = List.map ~f:fst typed_params in
+      let types = List.map ~f:snd typed_params in
+      let s1 = Ident_set.of_list @@ (f :: params) in
+      let s2 =
+        List.fold
+          ~f:(fun acc t -> Ident_set.union (defined_vars_of_expr_desc t) acc)
+          ~init:Ident_set.empty types
+      in
+      let s3 = defined_vars_of_expr_desc body in
+      let s4 = defined_vars_of_expr_desc ret_type in
+      s1 |> Ident_set.union s2 |> Ident_set.union s3 |> Ident_set.union s4
+  | PDTyped_funsig (f, _tvars, (x, t), (body, ret_type)) ->
       let s1 = Ident_set.of_list @@ [ f; x ] in
       let s2 =
         List.fold

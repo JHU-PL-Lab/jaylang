@@ -1,0 +1,16 @@
+
+let t = ((``Int int) -> int) && ((``Bool bool) -> bool)
+in
+
+let (f : t) = 
+  let g (type a_) (x : a_) : a_ =
+    match x with
+    | `Int i -> i + 1 # ERROR: type casing on polymorphic type
+    | `Bool b -> not b
+    | _ -> x
+    end
+  in
+  g # Also error here -- no good type to put here 
+in
+
+f

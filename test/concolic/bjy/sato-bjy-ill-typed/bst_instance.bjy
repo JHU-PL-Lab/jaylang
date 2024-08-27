@@ -1,0 +1,50 @@
+# error is that x has 6 on left of root value 2, which is not a bst
+
+let rec is_bst t = 
+  match t with
+  | `Node node ->
+    match node with
+    | { left = lt , right = rt, item = n } ->
+      let check_left = 
+        match lt with
+        | `Node lnode -> n >= lnode.item
+        | `Leaf leaf -> true
+        end
+      in
+      if check_left then
+        let check_right =
+          match rt with
+          | `Node rnode -> n <= rnode.item
+          | `Leaf leaf -> true
+          end
+        in
+        if check_right
+        then
+          if is_bst lt then is_bst rt else false
+        else
+          false
+      else
+        false
+    end
+  | `Leaf leaf -> true
+  end
+in
+
+let tree_type = Mu tt.
+  (  ``Node {: left : tt, right : tt, item : int :}
+  || ``Leaf {: leaf : bool :}
+  )
+in
+
+let (x : {. tree_type | is_bst }) = 
+  `Node { left = 
+          `Node { left = `Leaf { leaf = true }
+                , right = `Leaf { leaf = true }
+                , item = 6  # ERROR: this item should be switched with the other
+                }
+        , right = `Leaf { leaf = true }
+        , item = 2
+        }
+in
+
+x

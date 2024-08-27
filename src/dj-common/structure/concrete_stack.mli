@@ -14,4 +14,11 @@ val of_list : (Id.t * Id.t) list -> t
 
 val push : Id.t * Id.t -> t -> t
 
+(* val inc_depth : t -> t *)
+val set_d : int -> t -> t
+
+val d : t -> int (* gets depth of conditional branch tree *)
+
 val equal_flip : t -> t -> bool
+
+val length : t -> int

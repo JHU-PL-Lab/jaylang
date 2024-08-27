@@ -1,0 +1,2 @@
+letd f (type t1) (x : bool) : {. t1 -> t1 | fun a -> x or true } = fun a -> a in 
+f (int) true false

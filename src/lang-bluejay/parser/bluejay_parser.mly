@@ -46,6 +46,17 @@ let new_dependent_fun
   (fun_body : expr_desc) = 
   DTyped_funsig (fun_name, typed_param, (fun_body, return_type))
 
+let new_poly_fun_with_type (fun_name : ident) (type_vars : ident list) (typed_param : (ident * expr_desc) list) (return_type : expr_desc)
+  (fun_body : expr_desc) = 
+  PTyped_funsig (fun_name, type_vars, typed_param, (fun_body, return_type))
+
+let new_poly_dependent_fun (fun_name : ident) 
+  (type_vars : ident list) 
+  (typed_param : ident * expr_desc)
+  (return_type : expr_desc)
+  (fun_body : expr_desc) =
+  PDTyped_funsig (fun_name, type_vars, typed_param, (fun_body, return_type))
+
 let rec build_recursive_type (t_var : ident) (ed : expr_desc) = 
   let e = ed.body in
   let tag = ed.tag in
@@ -108,7 +119,7 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
         List.fold_left 
           (fun acc fun_sig -> 
             match fun_sig with
-            | Typed_funsig (f, _, _) | DTyped_funsig (f, _, _) ->
+            | Typed_funsig (f, _, _) | DTyped_funsig (f, _, _) | PTyped_funsig (f, _, _, _) | PDTyped_funsig (f, _, _, _)->
               if f = t_var then true else acc)
           false funsigs
       in
@@ -136,6 +147,22 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
                 let f_body' = build_recursive_type t_var f_body in
                 let ret_type' = build_recursive_type t_var ret_type in
                 DTyped_funsig (f, typed_param', (f_body', ret_type'))
+              | PTyped_funsig (f, tvars, typed_params, (f_body, ret_type)) ->
+                let typed_params' = 
+                  List.map 
+                    (fun (arg, t) -> (arg, build_recursive_type t_var t))
+                    typed_params
+                in
+                let f_body' = build_recursive_type t_var f_body in
+                let ret_type' = build_recursive_type t_var ret_type in
+                PTyped_funsig (f, tvars, typed_params', (f_body', ret_type'))
+              | PDTyped_funsig (f, tvars, (arg, arg_type), (f_body, ret_type)) ->
+                let typed_param' = 
+                  (arg, build_recursive_type t_var arg_type) 
+                in
+                let f_body' = build_recursive_type t_var f_body in
+                let ret_type' = build_recursive_type t_var ret_type in
+                PDTyped_funsig (f, tvars, typed_param', (f_body', ret_type'))
               )
           funsigs
         in
@@ -168,6 +195,30 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
           let ret_type' = build_recursive_type t_var ret_type in
           let e_desc' = build_recursive_type t_var e_desc in
           LetFunWithType (DTyped_funsig(f, typed_param', (f_body', ret_type')), e_desc')
+      | PTyped_funsig (f, tvars, typed_params, (f_body, ret_type)) ->
+        if f = t_var 
+        then
+          e
+        else
+          let typed_params' = 
+            List.map 
+              (fun (arg, t) -> (arg, build_recursive_type t_var t))
+              typed_params
+          in
+          let f_body' = build_recursive_type t_var f_body in
+          let ret_type' = build_recursive_type t_var ret_type in
+          let e_desc' = build_recursive_type t_var e_desc in
+          LetFunWithType (PTyped_funsig(f, tvars, typed_params', (f_body', ret_type')), e_desc')
+      | PDTyped_funsig (f, tvars, (arg, arg_type), (f_body, ret_type)) ->
+        if f = t_var 
+        then
+          e
+        else
+          let typed_param' = arg, build_recursive_type t_var arg_type in
+          let f_body' = build_recursive_type t_var f_body in
+          let ret_type' = build_recursive_type t_var ret_type in
+          let e_desc' = build_recursive_type t_var e_desc in
+          LetFunWithType (PDTyped_funsig(f, tvars, typed_param', (f_body', ret_type')), e_desc')
       )
     | Plus (e_desc1, e_desc2) ->
       let e_desc1' = build_recursive_type t_var e_desc1 in
@@ -295,10 +346,6 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
       let e_desc1' = build_recursive_type t_var e_desc1 in
       let e_desc2' = build_recursive_type t_var e_desc2 in
       TypeSet (e_desc1', e_desc2')
-    | TypeUnion (e_desc1, e_desc2) ->
-      let e_desc1' = build_recursive_type t_var e_desc1 in
-      let e_desc2' = build_recursive_type t_var e_desc2 in
-      TypeUnion (e_desc1', e_desc2')
     | TypeIntersect (e_desc1, e_desc2) ->
       let e_desc1' = build_recursive_type t_var e_desc1 in
       let e_desc2' = build_recursive_type t_var e_desc2 in
@@ -363,6 +410,7 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
 %token END
 %token ASSERT
 %token ASSUME
+%token TYPE
 %token MU
 %token LIST
 %token PLUS
@@ -465,7 +513,11 @@ expr:
       { LetRecFun($3, new_expr_desc $5) }
   | LET REC fun_sig_with_type_list IN expr %prec prec_let 
       { LetRecFunWithType ($3, new_expr_desc $5) }
+  | LET REC fun_sig_poly_with_type_list IN expr %prec prec_let
+      { LetRecFunWithType ($3, new_expr_desc $5) }
   | LET_D REC fun_sig_dependent_list IN expr %prec prec_let 
+      { LetRecFunWithType ($3, new_expr_desc $5) }
+  | LET_D REC fun_sig_poly_dep_list IN expr %prec prec_let 
       { LetRecFunWithType ($3, new_expr_desc $5) }
   | LET ident_decl EQUALS expr IN expr %prec prec_let
       { Let($2, new_expr_desc $4, new_expr_desc $6) }
@@ -475,26 +527,29 @@ expr:
       { LetFun($2, new_expr_desc $4) }
   | LET fun_sig_with_type IN expr %prec prec_fun
       { LetFunWithType ($2, new_expr_desc $4) }
+  | LET fun_sig_poly_with_type IN expr %prec prec_fun 
+      { LetFunWithType ($2, new_expr_desc $4) }
   | LET_D fun_sig_dependent IN expr %prec prec_fun
+      { LetFunWithType ($2, new_expr_desc $4) }
+  | LET_D fun_sig_poly_dep IN expr %prec prec_fun
       { LetFunWithType ($2, new_expr_desc $4) }
   | MATCH expr WITH PIPE? match_expr_list END
       { Match(new_expr_desc $2, $5) }
   // Types expressions
   | basic_types { $1 }
-  | type_parameter { $1 }
+  // | type_parameter { $1 }
   | MU ident_decl DOT expr 
     { TypeRecurse ($2, build_recursive_type $2 (new_expr_desc $4)) }
   | expr ARROW expr { TypeArrow (new_expr_desc $1, new_expr_desc $3) }
   | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr { TypeArrowD (($2, new_expr_desc $4), new_expr_desc $7) }
   // TODO: Change this to fancy curly
   | OPEN_BRACE DOT expr PIPE expr CLOSE_BRACE { TypeSet (new_expr_desc $3, new_expr_desc $5) } 
-  // | expr DOUBLE_PIPE expr { TypeUnion (new_expr_desc $1, new_expr_desc $3) }
   | expr DOUBLE_AMPERSAND expr { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
   | variant_type_body { TypeVariant $1 }
 ;
 
-type_parameter:
-  | APOSTROPHE IDENTIFIER { TypeUntouched $2 }
+// type_parameter:
+//   | APOSTROPHE IDENTIFIER { TypeUntouched $2 }
 
 variant_type_body:
   | variant_type_label expr { [($1, new_expr_desc $2)] }
@@ -529,13 +584,20 @@ fun_sig_with_type:
   | ident_decl param_list_with_type COLON expr EQUALS expr
       { new_fun_with_type $1 $2 (new_expr_desc $4) (new_expr_desc $6) }
 
-fun_sig_dependent_list:
-  | fun_sig_dependent { [$1] }
-  | fun_sig_dependent WITH fun_sig_dependent_list { $1 :: $3 }
-
+/* letd foo (x : int) ... : t = ... */
 fun_sig_dependent:
   | ident_decl param_with_type COLON expr EQUALS expr
       { new_dependent_fun $1 $2 (new_expr_desc $4) (new_expr_desc $6) }
+
+/* let foo (type a b) (x : int) ... : t = ... */
+fun_sig_poly_with_type:
+  | ident_decl OPEN_PAREN TYPE param_list CLOSE_PAREN param_list_with_type COLON expr EQUALS expr 
+      { new_poly_fun_with_type $1 $4 $6 (new_expr_desc $8) (new_expr_desc $10) }
+
+/* letd foo (type a b) (x : int) ... : t = ... */
+fun_sig_poly_dep:
+   ident_decl OPEN_PAREN TYPE param_list CLOSE_PAREN param_with_type COLON expr EQUALS expr
+      { new_poly_dependent_fun $1 $4 $6 (new_expr_desc $8) (new_expr_desc $10) }
 
 /* let rec foo x y = ... with bar a b = ... in ... */
 fun_sig_list:
@@ -546,6 +608,21 @@ fun_sig_list:
 fun_sig_with_type_list:
   | fun_sig_with_type { [$1] }
   | fun_sig_with_type WITH fun_sig_with_type_list { $1 :: $3 }
+
+/* let rec foo (type a b) (x : int) (y : bool) ... : (bool -> bool) = ... with bar (a : int) (b : int) : ... = ... in ... */
+fun_sig_poly_with_type_list:
+  | fun_sig_poly_with_type { [$1] }
+  | fun_sig_poly_with_type WITH fun_sig_poly_with_type_list { $1 :: $3 }
+
+/* letd rec foo (x : int) ... : (bool -> bool) = ... with bar (a : int) : ... = ... in ... */
+fun_sig_dependent_list:
+  | fun_sig_dependent { [$1] }
+  | fun_sig_dependent WITH fun_sig_dependent_list { $1 :: $3 }
+
+/* letd rec foo (type a b) (x : int) ... : t = ... with bar (a : int) : ... = ... in ... */
+fun_sig_poly_dep_list:
+  | fun_sig_poly_dep { [$1] }
+  | fun_sig_poly_dep WITH fun_sig_poly_dep_list { $1 :: $3 } 
 
 /* (fun x -> x) y */
 appl_expr:

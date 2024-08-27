@@ -1,0 +1,28 @@
+
+let rec reverse l ac =
+  match l with
+  | [] -> ac
+  | hd :: tl -> reverse tl (hd :: ac)
+  end
+in
+
+let rec mk_list n =
+  if n < 0
+  then []
+  else n :: mk_list (n - 1)
+in
+
+let main (len : int) : int =
+  let xs = mk_list len in
+  if not (len == 0) # ERROR: should be `not (len < 0)` so there is no list of "negative length"
+  then
+    match reverse xs [] with
+    | hd :: tl -> hd
+    | [] -> assert false
+    end
+  else
+    0
+in
+
+main
+

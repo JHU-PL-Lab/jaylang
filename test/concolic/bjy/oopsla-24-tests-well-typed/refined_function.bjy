@@ -1,0 +1,9 @@
+
+let t = {. (int -> int) | fun f -> (f 0) == 0 }
+in
+
+let g (x : t) : int =
+  0
+in
+
+g

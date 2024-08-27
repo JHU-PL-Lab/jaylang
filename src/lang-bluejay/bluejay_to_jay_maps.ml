@@ -145,6 +145,22 @@ let transform_typed_funsig (f : 'a expr_desc -> 'b expr_desc)
       let e' = f e in
       let ret_type' = f ret_type in
       DTyped_funsig (fun_name, (param, t'), (e', ret_type'))
+  | PTyped_funsig (fun_name, tvars, typed_params, (e, ret_type)) ->
+      let typed_params' =
+        List.map
+          (fun (param, t) ->
+            let t' = f t in
+            (param, t'))
+          typed_params
+      in
+      let e' = f e in
+      let ret_type' = f ret_type in
+      PTyped_funsig (fun_name, tvars, typed_params', (e', ret_type'))
+  | PDTyped_funsig (fun_name, tvars, (param, t), (e, ret_type)) ->
+      let t' = f t in
+      let e' = f e in
+      let ret_type' = f ret_type in
+      PDTyped_funsig (fun_name, tvars, (param, t'), (e', ret_type'))
 
 let find_all_syn_tags bluejay_jay_maps (edesc : syn_bluejay_edesc) =
   let rec loop acc cur =
@@ -181,7 +197,6 @@ let find_all_syn_tags bluejay_jay_maps (edesc : syn_bluejay_edesc) =
     | TypeArrow (e1, e2)
     | TypeArrowD ((_, e1), e2)
     | TypeSet (e1, e2)
-    | TypeUnion (e1, e2)
     | TypeIntersect (e1, e2) ->
         let acc' = cur_tag :: acc in
         let acc'' = loop acc' e1 in
@@ -206,6 +221,11 @@ let find_all_syn_tags bluejay_jay_maps (edesc : syn_bluejay_edesc) =
               param_types @ [ f_body; ret_type; e ] @ acc
           | DTyped_funsig (_, (_, t), (f_body, ret_type)) ->
               [ t; f_body; ret_type; e ] @ acc
+          | PTyped_funsig (_, _, typed_params, (f_body, ret_type)) ->
+              let param_types = List.map (fun (_, t) -> t) typed_params in
+              param_types @ [ f_body; ret_type; e ] @ acc
+          | PDTyped_funsig (_, _, (_, t), (f_body, ret_type)) ->
+              [ t; f_body; ret_type; e ] @ acc
         in
         let types = List.fold collect_types [ e ] typed_funsigs in
         List.fold loop acc types
@@ -216,6 +236,13 @@ let find_all_syn_tags bluejay_jay_maps (edesc : syn_bluejay_edesc) =
             let all_exprs = param_types @ [ f_body; ret_type; e ] in
             List.fold loop acc all_exprs
         | DTyped_funsig (_, (_, t), (f_body, ret_type)) ->
+            let all_exprs = [ t; f_body; ret_type; e ] in
+            List.fold loop acc all_exprs
+        | PTyped_funsig (_, _, typed_params, (f_body, ret_type)) ->
+            let param_types = List.map (fun (_, t) -> t) typed_params in
+            let all_exprs = param_types @ [ f_body; ret_type; e ] in
+            List.fold loop acc all_exprs
+        | PDTyped_funsig (_, _, (_, t), (f_body, ret_type)) ->
             let all_exprs = [ t; f_body; ret_type; e ] in
             List.fold loop acc all_exprs)
     | If (e1, e2, e3) ->
@@ -410,6 +437,22 @@ let rec unwrapped_bluejay_from_wrapped_bluejay bluejay_jay_maps
         let e' = f e in
         let ret_type' = f ret_type in
         DTyped_funsig (fun_name, (param, t'), (e', ret_type'))
+    | PTyped_funsig (fun_name, tvars, typed_params, (e, ret_type)) ->
+        let typed_params =
+          List.map
+            (fun (param, t) ->
+              let t' = f t in
+              (param, t'))
+            typed_params
+        in
+        let e' = f e in
+        let ret_type' = f ret_type in
+        PTyped_funsig (fun_name, tvars, typed_params, (e', ret_type'))
+    | PDTyped_funsig (fun_name, tvars, (param, t), (e, ret_type)) ->
+        let t' = f t in
+        let e' = f e in
+        let ret_type' = f ret_type in
+        PDTyped_funsig (fun_name, tvars, (param, t'), (e', ret_type'))
   in
   match
     Typed_expr_desc_map.Exceptionless.find wrapped
@@ -1038,10 +1081,6 @@ let rec replace_type (t_desc : syn_bluejay_edesc) (new_t : syn_bluejay_edesc)
           let td' = replace_type td new_t tag in
           let pred' = replace_type pred new_t tag in
           TypeSet (td', pred')
-      | TypeUnion (td1, td2) ->
-          let td1' = replace_type td1 new_t tag in
-          let td2' = replace_type td2 new_t tag in
-          TypeUnion (td1', td2')
       | TypeIntersect (td1, td2) ->
           let td1' = replace_type td1 new_t tag in
           let td2' = replace_type td2 new_t tag in

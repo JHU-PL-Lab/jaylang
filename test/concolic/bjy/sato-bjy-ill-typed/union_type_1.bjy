@@ -1,0 +1,6 @@
+
+let (x : ``R {: a : bool :} || ``I int) =
+  true
+in
+
+x

@@ -1,0 +1,7 @@
+let f (x : bool) : (int -> int) = 
+  let g (y : int) : int =
+    y >= 0
+  in
+  g 
+in
+f

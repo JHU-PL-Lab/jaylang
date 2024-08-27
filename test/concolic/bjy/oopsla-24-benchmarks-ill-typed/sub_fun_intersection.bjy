@@ -1,0 +1,28 @@
+# subtyping of refined intersection type.
+# wrap is helpful for catching error, but I'm not sure why
+
+let t = {. ((``Int int) -> int) && ((``Bool bool) -> bool) | fun x -> x (`Bool true) }
+in
+
+# this is a subtype of t
+# error in this file still gets caught if we have `let (f : t) =`, but it is slower
+let f =
+  fun x ->
+    match x with
+    | `Bool b -> true
+    | `Int i -> i
+    | _ -> 1 :: 2 :: []
+    end
+in
+
+let g (h : t) : t =
+  let k (i : int) : int =
+    h (`Int i)
+  in
+  k # ERROR: this is not a subtype of t
+in
+
+let x = g f # well-typed function application here. Error is in body of g
+in
+
+x

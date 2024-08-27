@@ -1,0 +1,5 @@
+let fst (type a_ b_) (x : a_) (y : b_) : a_ =
+  y
+in
+
+fst

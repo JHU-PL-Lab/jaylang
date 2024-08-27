@@ -1,0 +1,21 @@
+
+let unit_type = {: e : int :} in
+let unit = { e = 0 } in
+
+let f x g =
+  g (x + 1)
+in
+
+letd h (z : int) : {. int | fun y -> z > y } -> unit_type = # ERROR: should be `z < y` instead of other way around
+  fun y -> 
+    unit
+in
+
+let main (n : int) : unit_type =
+  if n > 0
+  then f n (h n)
+  else unit
+in
+
+main
+

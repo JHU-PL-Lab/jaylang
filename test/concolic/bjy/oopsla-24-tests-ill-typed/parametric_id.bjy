@@ -1,0 +1,9 @@
+
+let t a = a
+in
+
+let f (type a_) (x : t a_) : t a_ =
+  x
+in
+
+f (int) true # ERROR: should be an integer

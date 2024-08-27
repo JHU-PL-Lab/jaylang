@@ -1,7 +1,8 @@
 #!/bin/bash
 
 input_dir="./test/sato/bjy/"
-output_dir="./test/dbmc/concolic/bjy_tests/"
+# output_dir="./test/dbmc/concolic/bjy_tests/"
+output_dir="./test/dbmc/concolic/no_instrument/"
 _input_dir="./test/sato/_bjy/"
 _output_dir="./test/dbmc/concolic/_bjy_tests/"
 translator_exe="./_build/default/src/bin/translator.exe"
@@ -77,7 +78,8 @@ else
         fi
 
         # Run the translator and save output to .jil file with the same name
-        (cat "${bjy_file}") | "${translator_exe}" -m bluejay-to-jayil -a -w > "${output_dir}${file_name}.jil"
+        # (cat "${bjy_file}") | "${translator_exe}" -m bluejay-to-jayil -a -w > "${output_dir}${file_name}.jil"
+        (cat "${bjy_file}") | "${translator_exe}" -m bluejay-to-jayil > "${output_dir}${file_name}.jil"
 
         # Check if .expect.s file exists, then copy it
         expect_s_file="${input_dir}${file_name}.expect.s"

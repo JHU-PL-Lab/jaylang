@@ -1,0 +1,8 @@
+
+let f (x : {. int | fun a -> a > 0}) : {. int | fun a -> a < 0} = 
+    x * (0-1)
+in
+let g (x : int) : {. int | fun a -> a < 0} = 
+    if (x > 0) then f x else f 0
+in
+g

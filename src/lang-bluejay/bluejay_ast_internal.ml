@@ -53,6 +53,16 @@ and 'a typed_funsig =
   (* TODO: In the future we may want to change this to argument list accomodate easier user experience *)
   | DTyped_funsig of
       ident * (ident * 'a expr_desc) * ('a expr_desc * 'a expr_desc)
+  | PTyped_funsig of
+      ident
+      * ident list
+      * (ident * 'a expr_desc) list
+      * ('a expr_desc * 'a expr_desc)
+  | PDTyped_funsig of
+      ident
+      * ident list
+      * (ident * 'a expr_desc)
+      * ('a expr_desc * 'a expr_desc)
 
 and 'a expr_desc = { body : 'a expr; tag : int }
 (*
@@ -118,9 +128,6 @@ and 'a expr =
       ((ident * syntactic_only expr_desc) * syntactic_only expr_desc)
       -> syntactic_only expr
   | TypeSet : syntactic_only expr_desc * predicate -> syntactic_only expr
-  | TypeUnion :
-      (syntactic_only expr_desc * syntactic_only expr_desc)
-      -> syntactic_only expr
   | TypeIntersect :
       (syntactic_only expr_desc * syntactic_only expr_desc)
       -> syntactic_only expr
@@ -165,6 +172,24 @@ and equal_typed_funsig : type a. a typed_funsig -> a typed_funsig -> bool =
   | ( DTyped_funsig (f1, (param1, t1), (f_body_1, ret_type_1)),
       DTyped_funsig (f2, (param2, t2), (f_body_2, ret_type_2)) ) ->
       equal_ident f1 f2 && equal_ident param1 param2 && equal_expr_desc t1 t2
+      && equal_expr_desc f_body_1 f_body_2
+      && equal_expr_desc ret_type_1 ret_type_2
+  | ( PTyped_funsig (f1, tvars1, params_with_type_1, (f_body_1, ret_type_1)),
+      PTyped_funsig (f2, tvars2, params_with_type_2, (f_body_2, ret_type_2)) )
+    ->
+      equal_ident f1 f2
+      && List.equal equal_ident tvars1 tvars2
+      && List.equal
+           (fun (param1, t1) (param2, t2) ->
+             equal_ident param1 param2 && equal_expr_desc t1 t2)
+           params_with_type_1 params_with_type_2
+      && equal_expr_desc f_body_1 f_body_2
+      && equal_expr_desc ret_type_1 ret_type_2
+  | ( PDTyped_funsig (f1, tvars1, (param1, t1), (f_body_1, ret_type_1)),
+      PDTyped_funsig (f2, tvars2, (param2, t2), (f_body_2, ret_type_2)) ) ->
+      equal_ident f1 f2
+      && List.equal equal_ident tvars1 tvars2
+      && equal_ident param1 param2 && equal_expr_desc t1 t2
       && equal_expr_desc f_body_1 f_body_2
       && equal_expr_desc ret_type_1 ret_type_2
   | _ -> false
@@ -262,7 +287,6 @@ and equal_expr : type a. a expr -> a expr -> bool =
   | TypeRecord t1, TypeRecord t2 -> Ident_map.equal equal_expr_desc t1 t2
   | TypeList t1, TypeList t2 -> equal_expr_desc t1 t2
   | TypeArrow (lt1, rt1), TypeArrow (lt2, rt2)
-  | TypeUnion (lt1, rt1), TypeUnion (lt2, rt2)
   | TypeIntersect (lt1, rt1), TypeIntersect (lt2, rt2)
   | TypeSet (lt1, rt1), TypeSet (lt2, rt2) ->
       equal_expr_desc lt1 lt2 && equal_expr_desc rt1 rt2
@@ -298,6 +322,25 @@ and tagless_equal_typed_funsig :
   | ( DTyped_funsig (f1, (param1, t1), (f_body_1, ret_type_1)),
       DTyped_funsig (f2, (param2, t2), (f_body_2, ret_type_2)) ) ->
       equal_ident f1 f2 && equal_ident param1 param2
+      && tagless_equal_expr_desc t1 t2
+      && tagless_equal_expr_desc f_body_1 f_body_2
+      && tagless_equal_expr_desc ret_type_1 ret_type_2
+  | ( PTyped_funsig (f1, tvars1, params_with_type_1, (f_body_1, ret_type_1)),
+      PTyped_funsig (f2, tvars2, params_with_type_2, (f_body_2, ret_type_2)) )
+    ->
+      equal_ident f1 f2
+      && List.equal equal_ident tvars1 tvars2
+      && List.equal
+           (fun (param1, t1) (param2, t2) ->
+             equal_ident param1 param2 && tagless_equal_expr_desc t1 t2)
+           params_with_type_1 params_with_type_2
+      && tagless_equal_expr_desc f_body_1 f_body_2
+      && tagless_equal_expr_desc ret_type_1 ret_type_2
+  | ( PDTyped_funsig (f1, tvars1, (param1, t1), (f_body_1, ret_type_1)),
+      PDTyped_funsig (f2, tvars2, (param2, t2), (f_body_2, ret_type_2)) ) ->
+      equal_ident f1 f2
+      && List.equal equal_ident tvars1 tvars2
+      && equal_ident param1 param2
       && tagless_equal_expr_desc t1 t2
       && tagless_equal_expr_desc f_body_1 f_body_2
       && tagless_equal_expr_desc ret_type_1 ret_type_2
@@ -402,7 +445,6 @@ and tagless_equal_expr : type a. a expr -> a expr -> bool =
       Ident_map.equal tagless_equal_expr_desc t1 t2
   | TypeList t1, TypeList t2 -> tagless_equal_expr_desc t1 t2
   | TypeArrow (lt1, rt1), TypeArrow (lt2, rt2)
-  | TypeUnion (lt1, rt1), TypeUnion (lt2, rt2)
   | TypeIntersect (lt1, rt1), TypeIntersect (lt2, rt2)
   | TypeSet (lt1, rt1), TypeSet (lt2, rt2) ->
       tagless_equal_expr_desc lt1 lt2 && tagless_equal_expr_desc rt1 rt2
@@ -447,8 +489,45 @@ and compare_typed_funsig : type a. a typed_funsig -> a typed_funsig -> int =
       |> compare_helper @@ compare_expr_desc t1 t2
       |> compare_helper @@ compare_expr_desc f_body_1 f_body_2
       |> compare_helper @@ compare_expr_desc ret_type_1 ret_type_2
+  | ( PTyped_funsig (f1, tvars1, params_with_type_1, (f_body_1, ret_type_1)),
+      PTyped_funsig (f2, tvars2, params_with_type_2, (f_body_2, ret_type_2)) )
+    ->
+      compare_ident f1 f2
+      |> compare_helper
+         @@ List.compare
+              (fun tvar1 tvar2 -> compare_ident tvar1 tvar2)
+              tvars1 tvars2
+      |> compare_helper
+         @@ List.compare
+              (fun (param1, t1) (param2, t2) ->
+                compare_ident param1 param2
+                |> compare_helper @@ compare_expr_desc t1 t2)
+              params_with_type_1 params_with_type_2
+      |> compare_helper @@ compare_expr_desc f_body_1 f_body_2
+      |> compare_helper @@ compare_expr_desc ret_type_1 ret_type_2
+  | ( PDTyped_funsig (f1, tvars1, (param1, t1), (f_body_1, ret_type_1)),
+      PDTyped_funsig (f2, tvars2, (param2, t2), (f_body_2, ret_type_2)) ) ->
+      compare_ident f1 f2
+      |> compare_helper
+         @@ List.compare
+              (fun tvar1 tvar2 -> compare_ident tvar1 tvar2)
+              tvars1 tvars2
+      |> compare_helper @@ compare_ident param1 param2
+      |> compare_helper @@ compare_expr_desc t1 t2
+      |> compare_helper @@ compare_expr_desc f_body_1 f_body_2
+      |> compare_helper @@ compare_expr_desc ret_type_1 ret_type_2
+  | PDTyped_funsig _, PTyped_funsig _ -> 1
+  | PDTyped_funsig _, DTyped_funsig _ -> 1
+  | PDTyped_funsig _, Typed_funsig _ -> 1
+  | PTyped_funsig _, DTyped_funsig _ -> 1
+  | PTyped_funsig _, Typed_funsig _ -> 1
   | DTyped_funsig _, Typed_funsig _ -> 1
   | Typed_funsig _, DTyped_funsig _ -> -1
+  | Typed_funsig _, PTyped_funsig _ -> -1
+  | Typed_funsig _, PDTyped_funsig _ -> -1
+  | DTyped_funsig _, PTyped_funsig _ -> -1
+  | DTyped_funsig _, PDTyped_funsig _ -> -1
+  | PTyped_funsig _, PDTyped_funsig _ -> -1
 
 and compare_expr_desc : type a. a expr_desc -> a expr_desc -> int =
  fun e1 e2 ->
@@ -523,7 +602,6 @@ and compare_expr : type a. a expr -> a expr -> int =
   | TypeRecord t1, TypeRecord t2 -> Ident_map.compare compare_expr_desc t1 t2
   | TypeList t1, TypeList t2 -> compare_expr_desc t1 t2
   | TypeArrow (lt1, rt1), TypeArrow (lt2, rt2)
-  | TypeUnion (lt1, rt1), TypeUnion (lt2, rt2)
   | TypeIntersect (lt1, rt1), TypeIntersect (lt2, rt2)
   | TypeSet (lt1, rt1), TypeSet (lt2, rt2) ->
       compare_expr_desc lt1 lt2 + compare_expr_desc rt1 rt2
@@ -628,8 +706,6 @@ and compare_expr : type a. a expr -> a expr -> int =
   | _, TypeArrowD _ -> -1
   | TypeSet _, _ -> 1
   | _, TypeSet _ -> -1
-  | TypeUnion _, _ -> 1
-  | _, TypeUnion _ -> -1
   | TypeIntersect _, _ -> 1
   | _, TypeIntersect _ -> -1
   | TypeRecurse _, _ -> 1
@@ -696,7 +772,7 @@ let expr_precedence_p1 : type a. a expr -> int =
   | Int _ | Bool _ | Input | Var _ | List _ | Record _ -> 12
   (* TODO: For now, all type expressions will have the lowest precedence coz I'm lazy and don't wanna think about it *)
   | TypeVar _ | TypeInt | TypeBool | TypeRecord _ | TypeList _ | TypeArrow _
-  | TypeArrowD _ | TypeSet _ | TypeUnion _ | TypeIntersect _ | TypeRecurse _
+  | TypeArrowD _ | TypeSet _ | TypeIntersect _ | TypeRecurse _
   | TypeError _ | TypeUntouched _ | TypeVariant _ ->
       13
 
@@ -738,6 +814,20 @@ and transform_typed_funsig (fun_sig : 'a typed_funsig) :
       let ret_type' = from_internal_expr_desc ret_type in
       Bluejay_ast.DTyped_funsig
         (f, (arg, from_internal_expr_desc t), (f_body', ret_type'))
+  | PTyped_funsig (f, tvars, args_with_type, (f_body, ret_type)) ->
+      let args_with_type' =
+        List.map
+          (fun (arg, t) -> (arg, from_internal_expr_desc t))
+          args_with_type
+      in
+      let f_body' = from_internal_expr_desc f_body in
+      let ret_type' = from_internal_expr_desc ret_type in
+      Bluejay_ast.PTyped_funsig (f, tvars, args_with_type', (f_body', ret_type'))
+  | PDTyped_funsig (f, tvars, (arg, t), (f_body, ret_type)) ->
+      let f_body' = from_internal_expr_desc f_body in
+      let ret_type' = from_internal_expr_desc ret_type in
+      Bluejay_ast.PDTyped_funsig
+        (f, tvars, (arg, from_internal_expr_desc t), (f_body', ret_type'))
 
 and from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
   match e with
@@ -889,10 +979,6 @@ and from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
       let ed' = from_internal_expr_desc ed in
       let p' = from_internal_expr_desc p in
       TypeSet (ed', p')
-  | TypeUnion (ed1, ed2) ->
-      let ed1' = from_internal_expr_desc ed1 in
-      let ed2' = from_internal_expr_desc ed2 in
-      TypeUnion (ed1', ed2')
   | TypeIntersect (ed1, ed2) ->
       let ed1' = from_internal_expr_desc ed1 in
       let ed2' = from_internal_expr_desc ed2 in
@@ -903,199 +989,6 @@ and from_internal_expr (e : syn_type_bluejay) : Bluejay_ast.expr =
   | TypeUntouched s -> TypeUntouched s
   | TypeVariant vs ->
       let vs' = List.map (fun (l, ve) -> (l, from_internal_expr_desc ve)) vs in
-      TypeVariant vs'
-
-(* Helper routines to transform external bluejay to internal bluejay *)
-
-let rec to_internal_expr_desc (e : Bluejay_ast.expr_desc) : syn_bluejay_edesc =
-  let tag' = e.tag in
-  let e' = to_internal_expr e.body in
-  { tag = tag'; body = e' }
-
-and transform_funsig (fun_sig : Bluejay_ast.funsig) : 'a funsig =
-  let (Bluejay_ast.Funsig (f, args, f_body)) = fun_sig in
-  let f_body' = to_internal_expr_desc f_body in
-  Funsig (f, args, f_body')
-
-and transform_typed_funsig (fun_sig : Bluejay_ast.typed_funsig) :
-    'a typed_funsig =
-  match fun_sig with
-  | Bluejay_ast.Typed_funsig (f, args_with_type, (f_body, ret_type)) ->
-      let args_with_type' =
-        List.map (fun (arg, t) -> (arg, to_internal_expr_desc t)) args_with_type
-      in
-      let f_body' = to_internal_expr_desc f_body in
-      let ret_type' = to_internal_expr_desc ret_type in
-      Typed_funsig (f, args_with_type', (f_body', ret_type'))
-  | Bluejay_ast.DTyped_funsig (f, (arg, t), (f_body, ret_type)) ->
-      let f_body' = to_internal_expr_desc f_body in
-      let ret_type' = to_internal_expr_desc ret_type in
-      DTyped_funsig (f, (arg, to_internal_expr_desc t), (f_body', ret_type'))
-
-and to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
-  match e with
-  | Int n -> Int n
-  | Bool b -> Bool b
-  | Var v -> Var v
-  | Function (args, f_edesc) -> Function (args, to_internal_expr_desc f_edesc)
-  | Input -> Input
-  | Appl (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      Appl (ed1', ed2')
-  | Let (x, ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      Let (x, ed1', ed2')
-  | LetRecFun (fs, ed) ->
-      let fs' = List.map transform_funsig fs in
-      let ed' = to_internal_expr_desc ed in
-      LetRecFun (fs', ed')
-  | LetFun (fun_sig, ed) ->
-      let fun_sig' = transform_funsig fun_sig in
-      let ed' = to_internal_expr_desc ed in
-      LetFun (fun_sig', ed')
-  | LetWithType (x, ed1, ed2, t) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      let t' = to_internal_expr_desc t in
-      LetWithType (x, ed1', ed2', t')
-  | LetRecFunWithType (fs, ed) ->
-      let fs' = List.map transform_typed_funsig fs in
-      let ed' = to_internal_expr_desc ed in
-      LetRecFunWithType (fs', ed')
-  | LetFunWithType (fun_sig, ed) ->
-      let fun_sig' = transform_typed_funsig fun_sig in
-      let ed' = to_internal_expr_desc ed in
-      LetFunWithType (fun_sig', ed')
-  | Plus (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      Plus (ed1', ed2')
-  | Minus (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      Minus (ed1', ed2')
-  | Times (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      Times (ed1', ed2')
-  | Divide (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      Divide (ed1', ed2')
-  | Modulus (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      Modulus (ed1', ed2')
-  | Equal (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      Equal (ed1', ed2')
-  | Neq (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      Neq (ed1', ed2')
-  | LessThan (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      LessThan (ed1', ed2')
-  | Leq (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      Leq (ed1', ed2')
-  | GreaterThan (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      GreaterThan (ed1', ed2')
-  | Geq (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      Geq (ed1', ed2')
-  | And (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      And (ed1', ed2')
-  | Or (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      Or (ed1', ed2')
-  | Not ed ->
-      let ed' = to_internal_expr_desc ed in
-      Not ed'
-  | If (ed1, ed2, ed3) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      let ed3' = to_internal_expr_desc ed3 in
-      If (ed1', ed2', ed3')
-  | Record r ->
-      let r' = Ident_map.map to_internal_expr_desc r in
-      Record r'
-  | RecordProj (ed, l) ->
-      let ed' = to_internal_expr_desc ed in
-      RecordProj (ed', l)
-  | Match (m_ed, pe_lst) ->
-      let m_ed' = to_internal_expr_desc m_ed in
-      let pe_lst' =
-        List.map
-          (fun (p, ed) ->
-            let ed' = to_internal_expr_desc ed in
-            (p, ed'))
-          pe_lst
-      in
-      Match (m_ed', pe_lst')
-  | VariantExpr (lbl, ed) ->
-      let ed' = to_internal_expr_desc ed in
-      VariantExpr (lbl, ed')
-  | List eds ->
-      let eds' = List.map to_internal_expr_desc eds in
-      List eds'
-  | ListCons (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      ListCons (ed1', ed2')
-  | TypeError x -> TypeError x
-  | Assert ed ->
-      let ed' = to_internal_expr_desc ed in
-      Assert ed'
-  | Assume ed ->
-      let ed' = to_internal_expr_desc ed in
-      Assume ed'
-  | TypeVar x -> TypeVar x
-  | TypeInt -> TypeInt
-  | TypeBool -> TypeBool
-  | TypeRecord r ->
-      let r' = Ident_map.map to_internal_expr_desc r in
-      TypeRecord r'
-  | TypeList ed ->
-      let ed' = to_internal_expr_desc ed in
-      TypeList ed'
-  | TypeArrow (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      TypeArrow (ed1', ed2')
-  | TypeArrowD ((x, ed1), ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      TypeArrowD ((x, ed1'), ed2')
-  | TypeSet (ed, p) ->
-      let ed' = to_internal_expr_desc ed in
-      let p' = to_internal_expr_desc p in
-      TypeSet (ed', p')
-  | TypeUnion (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      TypeUnion (ed1', ed2')
-  | TypeIntersect (ed1, ed2) ->
-      let ed1' = to_internal_expr_desc ed1 in
-      let ed2' = to_internal_expr_desc ed2 in
-      TypeIntersect (ed1', ed2')
-  | TypeRecurse (tv, ed) ->
-      let ed' = to_internal_expr_desc ed in
-      TypeRecurse (tv, ed')
-  | TypeUntouched s -> TypeUntouched s
-  | TypeVariant vs ->
-      let vs' = List.map (fun (l, ve) -> (l, to_internal_expr_desc ve)) vs in
       TypeVariant vs'
 
 (* Helper routines to transform jay to internal bluejay *)
@@ -1386,7 +1279,7 @@ and to_jay_expr (e : core_bluejay) : Jay.Jay_ast.expr =
 let is_type_expr (ed : syn_bluejay_edesc) : bool =
   match ed.body with
   | TypeVar _ | TypeInt | TypeBool | TypeRecord _ | TypeList _ | TypeArrow _
-  | TypeArrowD _ | TypeUnion _ | TypeIntersect _ | TypeSet _ | TypeRecurse _
+  | TypeArrowD _ | TypeIntersect _ | TypeSet _ | TypeRecurse _
   | TypeVariant _ | TypeUntouched _ ->
       true
   | _ -> false
@@ -1436,10 +1329,882 @@ let rec is_subtype (ed1 : syn_bluejay_edesc) (ed2 : syn_bluejay_edesc) : bool =
     | TypeList t1, TypeList t2 -> is_subtype t1 t2
     | TypeArrow (dom1, cod1), TypeArrow (dom2, cod2) ->
         is_subtype dom2 dom1 && is_subtype cod1 cod2
-    | _, TypeUnion (t1, t2) ->
-        if is_subtype ed1 t1 then true else is_subtype ed1 t2
     | _, TypeIntersect (t1, t2) ->
         if is_subtype ed1 t1
         then is_subtype ed1 t2
         else false (* TODO: What other cases are we missing here? *)
     | _ -> failwith "TBI!"
+
+(* let rec replace_var_of_expr_desc (ed : 'a expr_desc) (og_id : ident)
+       (new_id : ident) : 'a expr_desc =
+     let e = ed.body in
+     { tag = ed.tag; body = replace_var_of_expr e og_id new_id }
+
+   and replace_var_of_expr (e : 'a expr) (og_id : ident) (new_id : ident) : 'a expr
+       =
+     match e with
+     | Int _ | Bool _ | Input | TypeInt | TypeBool | TypeUntouched _ | TypeVar _
+     | TypeError _ ->
+         e
+     | Var x -> if Ident.equal x og_id then Var new_id else Var x
+     | Function (params, ed) ->
+         if List.mem og_id params
+         then e
+         else Function (params, replace_var_of_expr_desc ed og_id new_id)
+     | Appl (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         Appl (ed1', ed2')
+     | Plus (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         Plus (ed1', ed2')
+     | Minus (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         Minus (ed1', ed2')
+     | Times (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         Times (ed1', ed2')
+     | Divide (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         Divide (ed1', ed2')
+     | Modulus (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         Modulus (ed1', ed2')
+     | Equal (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         Equal (ed1', ed2')
+     | Neq (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         Neq (ed1', ed2')
+     | LessThan (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         LessThan (ed1', ed2')
+     | Leq (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         Leq (ed1', ed2')
+     | GreaterThan (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         GreaterThan (ed1', ed2')
+     | Geq (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         Geq (ed1', ed2')
+     | And (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         And (ed1', ed2')
+     | Or (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         Or (ed1', ed2')
+     | ListCons (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         ListCons (ed1', ed2')
+     | TypeArrow (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         TypeArrow (ed1', ed2')
+     | TypeSet (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         TypeSet (ed1', ed2')
+     | TypeIntersect (ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         TypeIntersect (ed1', ed2')
+     | Not ed ->
+         let ed' = replace_var_of_expr_desc ed og_id new_id in
+         Not ed'
+     | RecordProj (ed, lbl) ->
+         let ed' = replace_var_of_expr_desc ed og_id new_id in
+         RecordProj (ed', lbl)
+     | VariantExpr (v_lbl, ed) ->
+         let ed' = replace_var_of_expr_desc ed og_id new_id in
+         VariantExpr (v_lbl, ed')
+     | Assert ed ->
+         let ed' = replace_var_of_expr_desc ed og_id new_id in
+         Assert ed'
+     | Assume ed ->
+         let ed' = replace_var_of_expr_desc ed og_id new_id in
+         Assume ed'
+     | TypeList ed ->
+         let ed' = replace_var_of_expr_desc ed og_id new_id in
+         TypeList ed'
+     | TypeVariant vs ->
+         let vs' =
+           List.map
+             (fun (v_lbl, t_ed) ->
+               (v_lbl, replace_var_of_expr_desc t_ed og_id new_id))
+             vs
+         in
+         TypeVariant vs'
+     | If (ed1, ed2, ed3) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' = replace_var_of_expr_desc ed2 og_id new_id in
+         let ed3' = replace_var_of_expr_desc ed3 og_id new_id in
+         If (ed1', ed2', ed3')
+     | Record r ->
+         let r' =
+           Ident_map.map (fun ed -> replace_var_of_expr_desc ed og_id new_id) r
+         in
+         Record r'
+     | TypeRecord r ->
+         let r' =
+           Ident_map.map (fun ed -> replace_var_of_expr_desc ed og_id new_id) r
+         in
+         TypeRecord r'
+     | List eds ->
+         let eds' =
+           List.map (fun ed -> replace_var_of_expr_desc ed og_id new_id) eds
+         in
+         List eds'
+     | Match (med, pat_ed_lst) ->
+         let med' = replace_var_of_expr_desc med og_id new_id in
+         let pat_ed_lst' =
+           List.map
+             (fun (pat, p_ed) -> (pat, replace_var_of_expr_desc p_ed og_id new_id))
+             pat_ed_lst
+         in
+         Match (med', pat_ed_lst')
+     | Let (x, ed1, ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' =
+           if Ident.equal x og_id
+           then ed2
+           else replace_var_of_expr_desc ed2 og_id new_id
+         in
+         Let (x, ed1', ed2')
+     | LetWithType (x, ed1, ed2, ed3) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' =
+           if Ident.equal x og_id
+           then ed2
+           else replace_var_of_expr_desc ed2 og_id new_id
+         in
+         let ed3' = replace_var_of_expr_desc ed3 og_id new_id in
+         LetWithType (x, ed1', ed2', ed3')
+     | LetFun (fun_sig, ed) ->
+         let fun_sig' = replace_var_of_funsig fun_sig og_id new_id in
+         let ed' = replace_var_of_expr_desc ed og_id new_id in
+         LetFun (fun_sig', ed')
+     | LetFunWithType (fun_sig, ed) ->
+         let fun_sig' = replace_var_of_typed_funsig fun_sig og_id new_id in
+         let ed' = replace_var_of_expr_desc ed og_id new_id in
+         LetFunWithType (fun_sig', ed')
+     | LetRecFun (fun_sigs, ed) ->
+         let fun_sigs' =
+           List.map
+             (fun f_sig -> replace_var_of_funsig f_sig og_id new_id)
+             fun_sigs
+         in
+         let ed' = replace_var_of_expr_desc ed og_id new_id in
+         LetRecFun (fun_sigs', ed')
+     | LetRecFunWithType (fun_sigs, ed) ->
+         let fun_sigs' =
+           List.map
+             (fun f_sig -> replace_var_of_typed_funsig f_sig og_id new_id)
+             fun_sigs
+         in
+         let ed' = replace_var_of_expr_desc ed og_id new_id in
+         LetRecFunWithType (fun_sigs', ed')
+     | TypeArrowD ((x, ed1), ed2) ->
+         let ed1' = replace_var_of_expr_desc ed1 og_id new_id in
+         let ed2' =
+           if Ident.equal x og_id
+           then ed2
+           else replace_var_of_expr_desc ed2 og_id new_id
+         in
+         TypeArrowD ((x, ed1'), ed2')
+     | TypeRecurse (x, ed) ->
+         let ed' =
+           if Ident.equal x og_id
+           then ed
+           else replace_var_of_expr_desc ed og_id new_id
+         in
+         TypeRecurse (x, ed')
+
+   and replace_var_of_funsig (Funsig (f, params, ed) : 'a funsig) (og_id : ident)
+       (new_id : ident) : 'a funsig =
+     if Ident.equal f og_id || List.mem og_id params
+     then Funsig (f, params, ed)
+     else
+       let ed' = replace_var_of_expr_desc ed og_id new_id in
+       Funsig (f, params, ed')
+
+   and replace_var_of_typed_funsig (fun_sig : 'a typed_funsig) (og_id : ident)
+       (new_id : ident) : 'a typed_funsig =
+     match fun_sig with
+     | Typed_funsig (f, typed_params, (body, ret_type)) ->
+         let params = List.map fst typed_params in
+         (* TODO: Check logic here; might be buggy. *)
+         if List.mem og_id params
+         then
+           let typed_params' =
+             List.map
+               (fun (x, t) -> (x, replace_var_of_expr_desc t og_id new_id))
+               typed_params
+           in
+           let ret_type' = replace_var_of_expr_desc ret_type og_id new_id in
+           Typed_funsig (f, typed_params', (body, ret_type'))
+         else if Ident.equal f og_id
+         then
+           let typed_params' =
+             List.map
+               (fun (x, t) -> (x, replace_var_of_expr_desc t og_id new_id))
+               typed_params
+           in
+           Typed_funsig (f, typed_params', (body, ret_type))
+         else
+           let body' = replace_var_of_expr_desc body og_id new_id in
+           let typed_params' =
+             List.map
+               (fun (x, t) -> (x, replace_var_of_expr_desc t og_id new_id))
+               typed_params
+           in
+           let ret_type' = replace_var_of_expr_desc ret_type og_id new_id in
+           Typed_funsig (f, typed_params', (body', ret_type'))
+     | DTyped_funsig (f, (x, t), (body, ret_type)) ->
+         (* TODO: Check logic here *)
+         if Ident.equal x og_id
+         then
+           let t' = replace_var_of_expr_desc t og_id new_id in
+           DTyped_funsig (f, (x, t'), (body, ret_type))
+         else if Ident.equal f og_id
+         then
+           let t' = replace_var_of_expr_desc t og_id new_id in
+           DTyped_funsig (f, (x, t'), (body, ret_type))
+         else
+           let body' = replace_var_of_expr_desc body og_id new_id in
+           let t' = replace_var_of_expr_desc t og_id new_id in
+           let ret_type' = replace_var_of_expr_desc ret_type og_id new_id in
+           DTyped_funsig (f, (x, t'), (body', ret_type')) *)
+
+let rec replace_tagless_expr_desc (ed : 'a expr_desc) (target : 'a expr_desc)
+    (replacement : 'a expr_desc) : 'a expr_desc =
+  if tagless_equal_expr_desc ed target
+  then replacement
+  else
+    let e = ed.body in
+    { tag = ed.tag; body = replace_tagless_expr e target replacement }
+
+and replace_tagless_expr (e : 'a expr) (target : 'a expr_desc)
+    (replacement : 'a expr_desc) : 'a expr =
+  match e with
+  | Int _ | Bool _ | Input | TypeInt | TypeBool | TypeUntouched _ | TypeVar _
+  | TypeError _ | Var _ ->
+      e
+  | Function (params, ed) ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      Function (params, ed')
+  | Appl (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Appl (ed1', ed2')
+  | Plus (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Plus (ed1', ed2')
+  | Minus (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Minus (ed1', ed2')
+  | Times (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Times (ed1', ed2')
+  | Divide (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Divide (ed1', ed2')
+  | Modulus (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Modulus (ed1', ed2')
+  | Equal (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Equal (ed1', ed2')
+  | Neq (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Neq (ed1', ed2')
+  | LessThan (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      LessThan (ed1', ed2')
+  | Leq (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Leq (ed1', ed2')
+  | GreaterThan (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      GreaterThan (ed1', ed2')
+  | Geq (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Geq (ed1', ed2')
+  | And (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      And (ed1', ed2')
+  | Or (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Or (ed1', ed2')
+  | ListCons (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      ListCons (ed1', ed2')
+  | TypeArrow (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      TypeArrow (ed1', ed2')
+  | TypeSet (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      TypeSet (ed1', ed2')
+  | TypeIntersect (ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      TypeIntersect (ed1', ed2')
+  | Not ed ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      Not ed'
+  | RecordProj (ed, lbl) ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      RecordProj (ed', lbl)
+  | VariantExpr (v_lbl, ed) ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      VariantExpr (v_lbl, ed')
+  | Assert ed ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      Assert ed'
+  | Assume ed ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      Assume ed'
+  | TypeList ed ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      TypeList ed'
+  | TypeVariant vs ->
+      let vs' =
+        List.map
+          (fun (v_lbl, t_ed) ->
+            (v_lbl, replace_tagless_expr_desc t_ed target replacement))
+          vs
+      in
+      TypeVariant vs'
+  | If (ed1, ed2, ed3) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      let ed3' = replace_tagless_expr_desc ed3 target replacement in
+      If (ed1', ed2', ed3')
+  | Record r ->
+      let r' =
+        Ident_map.map
+          (fun ed -> replace_tagless_expr_desc ed target replacement)
+          r
+      in
+      Record r'
+  | TypeRecord r ->
+      let r' =
+        Ident_map.map
+          (fun ed -> replace_tagless_expr_desc ed target replacement)
+          r
+      in
+      TypeRecord r'
+  | List eds ->
+      let eds' =
+        List.map (fun ed -> replace_tagless_expr_desc ed target replacement) eds
+      in
+      List eds'
+  | Match (med, pat_ed_lst) ->
+      let med' = replace_tagless_expr_desc med target replacement in
+      let pat_ed_lst' =
+        List.map
+          (fun (pat, p_ed) ->
+            (pat, replace_tagless_expr_desc p_ed target replacement))
+          pat_ed_lst
+      in
+      Match (med', pat_ed_lst')
+  | Let (x, ed1, ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      Let (x, ed1', ed2')
+  | LetWithType (x, ed1, ed2, ed3) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      let ed3' = replace_tagless_expr_desc ed3 target replacement in
+      LetWithType (x, ed1', ed2', ed3')
+  | LetFun (fun_sig, ed) ->
+      let fun_sig' = replace_tagless_funsig fun_sig target replacement in
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      LetFun (fun_sig', ed')
+  | LetFunWithType (fun_sig, ed) ->
+      let fun_sig' = replace_tagless_typed_funsig fun_sig target replacement in
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      LetFunWithType (fun_sig', ed')
+  | LetRecFun (fun_sigs, ed) ->
+      let fun_sigs' =
+        List.map
+          (fun f_sig -> replace_tagless_funsig f_sig target replacement)
+          fun_sigs
+      in
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      LetRecFun (fun_sigs', ed')
+  | LetRecFunWithType (fun_sigs, ed) ->
+      let fun_sigs' =
+        List.map
+          (fun f_sig -> replace_tagless_typed_funsig f_sig target replacement)
+          fun_sigs
+      in
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      LetRecFunWithType (fun_sigs', ed')
+  | TypeArrowD ((x, ed1), ed2) ->
+      let ed1' = replace_tagless_expr_desc ed1 target replacement in
+      let ed2' = replace_tagless_expr_desc ed2 target replacement in
+      TypeArrowD ((x, ed1'), ed2')
+  | TypeRecurse (x, ed) ->
+      let ed' = replace_tagless_expr_desc ed target replacement in
+      TypeRecurse (x, ed')
+
+and replace_tagless_funsig (Funsig (f, params, ed) : 'a funsig)
+    (target : 'a expr_desc) (replacement : 'a expr_desc) : 'a funsig =
+  let ed' = replace_tagless_expr_desc ed target replacement in
+  Funsig (f, params, ed')
+
+and replace_tagless_typed_funsig (fun_sig : 'a typed_funsig)
+    (target : 'a expr_desc) (replacement : 'a expr_desc) : 'a typed_funsig =
+  match fun_sig with
+  | Typed_funsig (f, typed_params, (body, ret_type)) ->
+      let typed_params' =
+        List.map
+          (fun (x, t) -> (x, replace_tagless_expr_desc t target replacement))
+          typed_params
+      in
+      let body' = replace_tagless_expr_desc body target replacement in
+      let ret_type' = replace_tagless_expr_desc ret_type target replacement in
+      Typed_funsig (f, typed_params', (body', ret_type'))
+  | DTyped_funsig (f, (x, t), (body, ret_type)) ->
+      let body' = replace_tagless_expr_desc body target replacement in
+      let t' = replace_tagless_expr_desc t target replacement in
+      let ret_type' = replace_tagless_expr_desc ret_type target replacement in
+      DTyped_funsig (f, (x, t'), (body', ret_type'))
+  | PTyped_funsig (f, tvars, typed_params, (body, ret_type)) ->
+      let typed_params' =
+        List.map
+          (fun (x, t) -> (x, replace_tagless_expr_desc t target replacement))
+          typed_params
+      in
+      let body' = replace_tagless_expr_desc body target replacement in
+      let ret_type' = replace_tagless_expr_desc ret_type target replacement in
+      PTyped_funsig (f, tvars, typed_params', (body', ret_type'))
+  | PDTyped_funsig (f, tvars, (x, t), (body, ret_type)) ->
+      let body' = replace_tagless_expr_desc body target replacement in
+      let t' = replace_tagless_expr_desc t target replacement in
+      let ret_type' = replace_tagless_expr_desc ret_type target replacement in
+      PDTyped_funsig (f, tvars, (x, t'), (body', ret_type'))
+
+let rec get_poly_vars (t : 'a expr_desc) (acc : 'a expr_desc list) :
+    'a expr_desc list =
+  let e = t.body in
+  let ret_lst =
+    match e with
+    | Int _ | Bool _ | Input | TypeInt | TypeBool | TypeVar _ | TypeError _
+    | Var _ ->
+        acc
+    | TypeUntouched _ -> List.rev @@ (t :: acc)
+    | Function (_, ed) ->
+        let acc' = get_poly_vars ed acc in
+        acc'
+    | Appl (ed1, ed2)
+    | Plus (ed1, ed2)
+    | Minus (ed1, ed2)
+    | Times (ed1, ed2)
+    | Divide (ed1, ed2)
+    | Modulus (ed1, ed2)
+    | Equal (ed1, ed2)
+    | Neq (ed1, ed2)
+    | LessThan (ed1, ed2)
+    | Leq (ed1, ed2)
+    | GreaterThan (ed1, ed2)
+    | Geq (ed1, ed2)
+    | And (ed1, ed2)
+    | Or (ed1, ed2)
+    | ListCons (ed1, ed2)
+    | TypeArrow (ed1, ed2)
+    | TypeSet (ed1, ed2)
+    | TypeIntersect (ed1, ed2) ->
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        acc''
+    | Not ed
+    | RecordProj (ed, _)
+    | VariantExpr (_, ed)
+    | Assert ed
+    | Assume ed
+    | TypeList ed ->
+        let acc' = get_poly_vars ed acc in
+        acc'
+    | TypeVariant vs ->
+        let acc' =
+          List.fold_left
+            (fun tv_lst (_, t_ed) -> get_poly_vars t_ed tv_lst)
+            acc vs
+        in
+        acc'
+    | If (ed1, ed2, ed3) ->
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        let acc''' = get_poly_vars ed3 acc'' in
+        acc'''
+    | Record r | TypeRecord r ->
+        let acc' =
+          Ident_map.fold (fun _ ed acc -> get_poly_vars ed acc) r acc
+        in
+        acc'
+    | List eds ->
+        let acc' =
+          List.fold_left (fun acc ed -> get_poly_vars ed acc) acc eds
+        in
+        acc'
+    | Match (med, pat_ed_lst) ->
+        let acc' = get_poly_vars med acc in
+        let acc'' =
+          List.fold_left
+            (fun acc (_, ed) -> get_poly_vars ed acc)
+            acc' pat_ed_lst
+        in
+        acc''
+    | Let (_, ed1, ed2) ->
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        acc''
+    | LetWithType (_, ed1, ed2, ed3) ->
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        let acc''' = get_poly_vars ed3 acc'' in
+        acc'''
+    | LetFun (fun_sig, ed) ->
+        let acc' = get_poly_vars_funsig fun_sig acc in
+        let acc'' = get_poly_vars ed acc' in
+        acc''
+    | LetFunWithType (fun_sig, ed) ->
+        let acc' = get_poly_vars_typed_funsig fun_sig acc in
+        let acc'' = get_poly_vars ed acc' in
+        acc''
+    | LetRecFun (fun_sigs, ed) ->
+        let acc' =
+          List.fold_left
+            (fun acc f_sig -> get_poly_vars_funsig f_sig acc)
+            acc fun_sigs
+        in
+        let acc'' = get_poly_vars ed acc' in
+        acc''
+    | LetRecFunWithType (fun_sigs, ed) ->
+        let acc' =
+          List.fold_left
+            (fun acc f_sig -> get_poly_vars_typed_funsig f_sig acc)
+            acc fun_sigs
+        in
+        let acc'' = get_poly_vars ed acc' in
+        acc''
+    | TypeArrowD ((_, ed1), ed2) ->
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        acc''
+    | TypeRecurse (_, ed) ->
+        let acc' = get_poly_vars ed acc in
+        acc'
+  in
+  List.unique ~eq:tagless_equal_expr_desc ret_lst
+
+and get_poly_vars_funsig (fsig : 'a funsig) (tv_lst : 'a expr_desc list) :
+    'a expr_desc list =
+  match fsig with Funsig (_, _, fed) -> get_poly_vars fed tv_lst
+
+and get_poly_vars_typed_funsig (typed_fsig : 'a typed_funsig)
+    (tv_lst : 'a expr_desc list) : 'a expr_desc list =
+  match typed_fsig with
+  | Typed_funsig (_, typed_params, (ret_type, f_body)) ->
+      let acc' =
+        List.fold_left
+          (fun acc (_, t) -> get_poly_vars t acc)
+          tv_lst typed_params
+      in
+      let acc'' = get_poly_vars ret_type acc' in
+      let acc''' = get_poly_vars f_body acc'' in
+      acc'''
+  | DTyped_funsig (_, (_, pt), (ret_type, f_body)) ->
+      let acc' = get_poly_vars pt tv_lst in
+      let acc'' = get_poly_vars ret_type acc' in
+      let acc''' = get_poly_vars f_body acc'' in
+      acc'''
+  | PTyped_funsig (_, _tvars, typed_params, (ret_type, f_body)) ->
+      let acc' =
+        List.fold_left
+          (fun acc (_, t) -> get_poly_vars t acc)
+          tv_lst typed_params
+      in
+      let acc'' = get_poly_vars ret_type acc' in
+      let acc''' = get_poly_vars f_body acc'' in
+      acc'''
+  | PDTyped_funsig (_, _tvars, (_, pt), (ret_type, f_body)) ->
+      let acc' = get_poly_vars pt tv_lst in
+      let acc'' = get_poly_vars ret_type acc' in
+      let acc''' = get_poly_vars f_body acc'' in
+      acc'''
+
+(* Helper routines to transform external bluejay to internal bluejay *)
+
+let rec to_internal_expr_desc (e : Bluejay_ast.expr_desc) : syn_bluejay_edesc =
+  let tag' = e.tag in
+  let e' = to_internal_expr e.body in
+  { tag = tag'; body = e' }
+
+and to_internal_funsig (fun_sig : Bluejay_ast.funsig) : 'a funsig =
+  let (Bluejay_ast.Funsig (f, args, f_body)) = fun_sig in
+  let f_body' = to_internal_expr_desc f_body in
+  Funsig (f, args, f_body')
+
+and to_internal_typed_funsig (fun_sig : Bluejay_ast.typed_funsig) :
+    'a typed_funsig =
+  match fun_sig with
+  | Bluejay_ast.Typed_funsig (f, args_with_type, (f_body, ret_type)) ->
+      let args_with_type' =
+        List.map (fun (arg, t) -> (arg, to_internal_expr_desc t)) args_with_type
+      in
+      let f_body' = to_internal_expr_desc f_body in
+      let ret_type' = to_internal_expr_desc ret_type in
+      Typed_funsig (f, args_with_type', (f_body', ret_type'))
+  | Bluejay_ast.DTyped_funsig (f, (arg, t), (f_body, ret_type)) ->
+      let f_body' = to_internal_expr_desc f_body in
+      let ret_type' = to_internal_expr_desc ret_type in
+      DTyped_funsig (f, (arg, to_internal_expr_desc t), (f_body', ret_type'))
+  | Bluejay_ast.PTyped_funsig (f, tvars, args_with_type, (f_body, ret_type)) ->
+      let args_with_type' =
+        List.map (fun (arg, t) -> (arg, to_internal_expr_desc t)) args_with_type
+      in
+      let args_with_type'' =
+        List.fold_left
+          (fun acc (Ident tv as tvid) ->
+            List.map
+              (fun (arg, t) ->
+                ( arg,
+                  replace_tagless_expr_desc t
+                    (new_expr_desc @@ Var tvid)
+                    (new_expr_desc @@ TypeUntouched tv) ))
+              acc)
+          args_with_type' tvars
+      in
+      let f_body' = to_internal_expr_desc f_body in
+      let ret_type' = to_internal_expr_desc ret_type in
+      let ret_type'' =
+        List.fold_left
+          (fun acc (Ident tv as tvid) ->
+            (fun t ->
+              replace_tagless_expr_desc t
+                (new_expr_desc @@ Var tvid)
+                (new_expr_desc @@ TypeUntouched tv))
+              acc)
+          ret_type' tvars
+      in
+      PTyped_funsig (f, tvars, args_with_type'', (f_body', ret_type''))
+  | Bluejay_ast.PDTyped_funsig (f, tvars, (arg, t), (f_body, ret_type)) ->
+      let f_body' = to_internal_expr_desc f_body in
+      let ret_type' = to_internal_expr_desc ret_type in
+      let t' = to_internal_expr_desc t in
+      let t'' =
+        List.fold_left
+          (fun acc (Ident tv as tvid) ->
+            (fun t ->
+              replace_tagless_expr_desc t
+                (new_expr_desc @@ Var tvid)
+                (new_expr_desc @@ TypeUntouched tv))
+              acc)
+          t' tvars
+      in
+      let ret_type'' =
+        List.fold_left
+          (fun acc (Ident tv as tvid) ->
+            (fun t ->
+              replace_tagless_expr_desc t
+                (new_expr_desc @@ Var tvid)
+                (new_expr_desc @@ TypeUntouched tv))
+              acc)
+          ret_type' tvars
+      in
+      PDTyped_funsig (f, tvars, (arg, t''), (f_body', ret_type''))
+
+and to_internal_expr (e : Bluejay_ast.expr) : syn_type_bluejay =
+  match e with
+  | Int n -> Int n
+  | Bool b -> Bool b
+  | Var v -> Var v
+  | Function (args, f_edesc) -> Function (args, to_internal_expr_desc f_edesc)
+  | Input -> Input
+  | Appl (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      Appl (ed1', ed2')
+  | Let (x, ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      Let (x, ed1', ed2')
+  | LetRecFun (fs, ed) ->
+      let fs' = List.map to_internal_funsig fs in
+      let ed' = to_internal_expr_desc ed in
+      LetRecFun (fs', ed')
+  | LetFun (fun_sig, ed) ->
+      let fun_sig' = to_internal_funsig fun_sig in
+      let ed' = to_internal_expr_desc ed in
+      LetFun (fun_sig', ed')
+  | LetWithType (x, ed1, ed2, t) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      let t' = to_internal_expr_desc t in
+      LetWithType (x, ed1', ed2', t')
+  | LetRecFunWithType (fs, ed) ->
+      let fs' = List.map to_internal_typed_funsig fs in
+      let ed' = to_internal_expr_desc ed in
+      LetRecFunWithType (fs', ed')
+  | LetFunWithType (fun_sig, ed) ->
+      let fun_sig' = to_internal_typed_funsig fun_sig in
+      let ed' = to_internal_expr_desc ed in
+      LetFunWithType (fun_sig', ed')
+  | Plus (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      Plus (ed1', ed2')
+  | Minus (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      Minus (ed1', ed2')
+  | Times (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      Times (ed1', ed2')
+  | Divide (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      Divide (ed1', ed2')
+  | Modulus (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      Modulus (ed1', ed2')
+  | Equal (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      Equal (ed1', ed2')
+  | Neq (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      Neq (ed1', ed2')
+  | LessThan (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      LessThan (ed1', ed2')
+  | Leq (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      Leq (ed1', ed2')
+  | GreaterThan (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      GreaterThan (ed1', ed2')
+  | Geq (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      Geq (ed1', ed2')
+  | And (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      And (ed1', ed2')
+  | Or (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      Or (ed1', ed2')
+  | Not ed ->
+      let ed' = to_internal_expr_desc ed in
+      Not ed'
+  | If (ed1, ed2, ed3) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      let ed3' = to_internal_expr_desc ed3 in
+      If (ed1', ed2', ed3')
+  | Record r ->
+      let r' = Ident_map.map to_internal_expr_desc r in
+      Record r'
+  | RecordProj (ed, l) ->
+      let ed' = to_internal_expr_desc ed in
+      RecordProj (ed', l)
+  | Match (m_ed, pe_lst) ->
+      let m_ed' = to_internal_expr_desc m_ed in
+      let pe_lst' =
+        List.map
+          (fun (p, ed) ->
+            let ed' = to_internal_expr_desc ed in
+            (p, ed'))
+          pe_lst
+      in
+      Match (m_ed', pe_lst')
+  | VariantExpr (lbl, ed) ->
+      let ed' = to_internal_expr_desc ed in
+      VariantExpr (lbl, ed')
+  | List eds ->
+      let eds' = List.map to_internal_expr_desc eds in
+      List eds'
+  | ListCons (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      ListCons (ed1', ed2')
+  | TypeError x -> TypeError x
+  | Assert ed ->
+      let ed' = to_internal_expr_desc ed in
+      Assert ed'
+  | Assume ed ->
+      let ed' = to_internal_expr_desc ed in
+      Assume ed'
+  | TypeVar x -> TypeVar x
+  | TypeInt -> TypeInt
+  | TypeBool -> TypeBool
+  | TypeRecord r ->
+      let r' = Ident_map.map to_internal_expr_desc r in
+      TypeRecord r'
+  | TypeList ed ->
+      let ed' = to_internal_expr_desc ed in
+      TypeList ed'
+  | TypeArrow (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      TypeArrow (ed1', ed2')
+  | TypeArrowD ((x, ed1), ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      TypeArrowD ((x, ed1'), ed2')
+  | TypeSet (ed, p) ->
+      let ed' = to_internal_expr_desc ed in
+      let p' = to_internal_expr_desc p in
+      TypeSet (ed', p')
+  | TypeIntersect (ed1, ed2) ->
+      let ed1' = to_internal_expr_desc ed1 in
+      let ed2' = to_internal_expr_desc ed2 in
+      TypeIntersect (ed1', ed2')
+  | TypeRecurse (tv, ed) ->
+      let ed' = to_internal_expr_desc ed in
+      TypeRecurse (tv, ed')
+  | TypeUntouched s -> TypeUntouched s
+  | TypeVariant vs ->
+      let vs' = List.map (fun (l, ve) -> (l, to_internal_expr_desc ve)) vs in
+      TypeVariant vs'

@@ -1,0 +1,8 @@
+
+let rec foldr (f : int -> bool -> bool) (z : bool) (xs : List bool) : bool =
+  match xs with
+  | [] -> z
+  | xx :: xxs -> f (foldr f z xxs) xx # ERROR: should be `f xx (foldr f z xss)` and `xs` should be `int list`
+  end
+in
+foldr

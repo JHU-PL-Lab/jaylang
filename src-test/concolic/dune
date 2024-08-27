@@ -1,0 +1,14 @@
+
+(tests
+ (names test_concolic)
+ (modules test_concolic)
+ (libraries
+  core
+  core_unix.sys_unix
+  cmdliner
+  alcotest
+  alcotest-lwt
+  concolic
+  dj_common)
+ (preprocess
+  (pps ppx_jane lwt_ppx ppx_deriving.std ppx_expect)))

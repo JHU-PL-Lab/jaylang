@@ -1,0 +1,5 @@
+let f (type t1) (a : t1) (b : t1) : t1 = 
+  b
+in
+
+f ({: i : int :}) { i = 0 } { i = 3 + 5 }

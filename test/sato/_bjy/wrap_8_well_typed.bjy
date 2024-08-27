@@ -1,0 +1,2 @@
+let fst (type t1 t2) (x : t1) (y : t2) : t1 = x in
+fst (int) (bool) 5 true

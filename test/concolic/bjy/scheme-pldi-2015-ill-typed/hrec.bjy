@@ -1,0 +1,13 @@
+# error is fixed when `n` param for `main` is non-negative
+
+let rec f g x =
+  if x <= 0
+  then g x
+  else f (fun x -> f g x) (g x)
+in
+
+let main (n : int) : {. int | fun i -> i >= 0 } =
+  f (fun x -> x + 1) n # ERROR: could be negative when `n` is negative
+in
+
+main

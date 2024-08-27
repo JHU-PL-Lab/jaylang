@@ -1,7 +1,7 @@
 ((found_at_clause
-  "let rec map (mf : ('a -> 'b)) (l : ['a]) : ['b] = match l with | [] -> [] | hd :: tl -> hd :: map mf tl end in map")
+  "let rec map (type t1 t2 ) (mf : (t1 -> t2)) (l : [t1]) : [t2] = match l with | [] -> [] | hd :: tl -> hd :: map t1 t2 mf tl end in map")
  (number_of_errors 1)
  (error_list
   ((Type_error
-    ((t_var map) (t_expected_type "(('a -> 'b) -> (['a] -> ['b]))")
-     (t_actual_type "(('a -> 'b) -> (['a] -> ['a]))"))))))
+    ((t_var map) (t_expected_type "((t1 -> t2) -> ([t1] -> [t2]))")
+     (t_actual_type "((t1 -> t2) -> ([t1] -> [t1]))"))))))

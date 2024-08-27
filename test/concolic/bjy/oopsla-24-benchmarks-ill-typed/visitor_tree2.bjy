@@ -1,0 +1,75 @@
+
+let node = 
+  { t =
+    fun a_t ->
+      fun tree_t ->
+        {: v : a_t
+         , children : List tree_t :}
+  }
+in
+
+let leaf =
+  { t = 
+    fun a ->
+      a
+  }
+in
+
+let tree =
+  { t =
+    fun a ->
+      Mu tt. (``Node (node.t a tt) || ``Leaf (leaf.t a))
+  }
+in
+
+let visitor = 
+  { t =
+    fun a ->
+      fun result_type ->
+        {: visit_node : node.t a (tree.t a) # ERROR: is not a function
+         , visit_leaf : leaf.t a -> result_type :} 
+  }
+in
+
+let client a t result_type =
+  {: self : t
+   , accept : visitor.t a result_type -> result_type :}
+in
+
+let make_list f n = 
+  let rec loop i =
+    if i == 0
+    then []
+    else f n :: loop (i - 1)
+  in
+  loop n
+in
+
+# Makes big tree recursively with many children
+let rec make_tree (n : int) : tree.t (int) =
+  let ob =
+    fun self ->
+      if n == 0
+      then `Leaf 0
+      else
+        `Node
+        { v = n
+        , children = make_list make_tree (n - 1) }
+  in
+  ob ob
+in
+
+let int_bool_client (tr : tree.t (int)) : client (int) (tree.t (int)) (bool) =
+  { self = tr
+  , accept =
+    fun vis ->
+      match tr with
+      | `Leaf leaf -> vis.visit_leaf leaf 
+      | `Node node -> vis.visit_node node # above error is realized here
+      end
+  }
+in
+
+int_bool_client
+
+

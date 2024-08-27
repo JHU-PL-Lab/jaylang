@@ -1,0 +1,5 @@
+let trans (type a_ b_) (a : a_) (f : a_ -> b_) : b_ = 
+    f a
+in
+
+trans

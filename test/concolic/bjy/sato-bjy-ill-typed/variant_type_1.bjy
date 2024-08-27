@@ -1,0 +1,6 @@
+
+let (x : ``A int) =
+  `A true
+in
+
+x

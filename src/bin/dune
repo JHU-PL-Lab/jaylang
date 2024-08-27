@@ -69,7 +69,7 @@
 (executable
  (name cj)
  (modules cj)
- (libraries core fmt dj_common dbmc jayil jil_analysis landmarks)
+ (libraries core fmt dj_common concolic jayil jil_analysis landmarks)
  (preprocess
   (pps ppx_jane landmarks-ppx --auto))
  (promote

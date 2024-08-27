@@ -482,8 +482,8 @@ let jayil_to_jay_binop (jayil_binop : Ast.binary_operator) :
 
 let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
     (jayil_jay_maps : Jay_to_jayil_maps.t)
-    (interp_session : Dbmc.Interpreter.session)
-    (final_env : Dbmc.Interpreter.denv) (jayil_err : Jayil_error.t) :
+    (interp_session : From_dbmc.Interpreter.session)
+    (final_env : From_dbmc.Interpreter.denv) (jayil_err : Jayil_error.t) :
     On_error.t list =
   (* Helper functions *)
   let open Jay_ast in
@@ -598,7 +598,7 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                 | Some v -> (x, v))
           in
           let x, (dv1, stk) = loop jayil_vars in
-          let v = Dbmc.Interpreter.value_of_dvalue dv1 in
+          let v = From_dbmc.Interpreter.value_of_dvalue dv1 in
           let alias_graph = interp_session.alias_graph in
           let jayil_aliases_raw =
             Sato.Sato_tools.find_alias alias_graph (x, stk)
@@ -637,8 +637,8 @@ let jayil_to_bluejay_error_simple
     (jayil_inst_maps : Jayil_instrumentation_maps.t)
     (jayil_jay_maps : Jay_to_jayil_maps.t)
     (bluejay_jay_maps : Bluejay_to_jay_maps.t)
-    (interp_session : Dbmc.Interpreter.session)
-    (final_env : Dbmc.Interpreter.denv) (jayil_err : Jayil_error.t) :
+    (interp_session : From_dbmc.Interpreter.session)
+    (final_env : From_dbmc.Interpreter.denv) (jayil_err : Jayil_error.t) :
     Bluejay_error.t list =
   let open Bluejay in
   (* let () = failwith "in jayil_to_bluejay_error_simple" in *)
@@ -753,7 +753,7 @@ let jayil_to_bluejay_error_simple
 let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
     (jayil_jay_maps : Jay_to_jayil_maps.t)
     (bluejay_jay_maps : Bluejay_to_jay_maps.t)
-    (interp_session : Dbmc.Interpreter.session)
+    (interp_session : From_dbmc.Interpreter.session)
     (err_source : Bluejay_ast.expr_desc) (jayil_err : Jayil_error.t) :
     Bluejay_error.t list =
   (* Helper functions *)
@@ -861,9 +861,9 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let rec find_val
           (vdef_mapping :
             ( Id_with_stack.t,
-              Ast.clause_body * Dbmc.Interpreter.dvalue )
+              Ast.clause_body * From_dbmc.Interpreter.dvalue )
             Hashtbl.t) (xs : Id_with_stack.t list) :
-          Dbmc.Interpreter.dvalue * Id_with_stack.t =
+          From_dbmc.Interpreter.dvalue * Id_with_stack.t =
         match xs with
         | [] -> failwith "Should at least find one value!"
         | hd :: tl -> (
@@ -880,7 +880,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let err_val, (err_val_var, _err_val_stk) =
         find_val interp_session.val_def_map jayil_vars_with_stack
       in
-      let v = Dbmc.Interpreter.value_of_dvalue err_val in
+      let v = From_dbmc.Interpreter.value_of_dvalue err_val in
       (* NOTE: The case where a variable might take on different types for
          different instances might be problematic here. *)
       let check_aliases_for_type (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
@@ -962,11 +962,6 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
               let ed2' = type_resolution ed2 in
               let body' = TypeArrowD ((x, ed1'), ed2') in
               { tag; body = body' }
-          | TypeUnion (ed1, ed2) ->
-              let ed1' = type_resolution ed1 in
-              let ed2' = type_resolution ed2 in
-              let body' = TypeUnion (ed1', ed2') in
-              { tag; body = body' }
           | TypeIntersect (ed1, ed2) ->
               let ed1' = type_resolution ed1 in
               let ed2' = type_resolution ed2 in
@@ -1013,6 +1008,20 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                 let f_body' = type_resolution f_body in
                 let ret_type' = type_resolution ret_type in
                 DTyped_funsig (f, (arg, type_resolution t), (f_body', ret_type'))
+            | PTyped_funsig (f, tvars, args_with_type, (f_body, ret_type)) ->
+                let args_with_type' =
+                  List.map
+                    ~f:(fun (arg, t) -> (arg, type_resolution t))
+                    args_with_type
+                in
+                let f_body' = type_resolution f_body in
+                let ret_type' = type_resolution ret_type in
+                PTyped_funsig (f, tvars, args_with_type', (f_body', ret_type'))
+            | PDTyped_funsig (f, tvars, (arg, t), (f_body, ret_type)) ->
+                let f_body' = type_resolution f_body in
+                let ret_type' = type_resolution ret_type in
+                PDTyped_funsig
+                  (f, tvars, (arg, type_resolution t), (f_body', ret_type'))
           in
           match e with
           | Int _ | Bool _ | Var _ | Input -> ed
@@ -1199,6 +1208,38 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                        ( (x, Bluejay_ast_internal.to_internal_expr_desc t),
                          Bluejay_ast_internal.to_internal_expr_desc ret_type )
                 in
+                (fun_type, ret)
+            | PTyped_funsig (f, _tvars, typed_params, (_, ret_type)) ->
+                let ret =
+                  Var f |> Bluejay_ast_internal.new_expr_desc
+                  |> Bluejay_ast_internal.from_internal_expr_desc
+                in
+                let fun_type =
+                  let ts =
+                    List.map
+                      ~f:(fun (_, t) ->
+                        Bluejay_ast_internal.to_internal_expr_desc t)
+                      typed_params
+                  in
+                  List.fold_right
+                    ~f:(fun t accum ->
+                      Bluejay_ast_internal.new_expr_desc
+                      @@ Bluejay_ast_internal.TypeArrow (t, accum))
+                    ~init:(Bluejay_ast_internal.to_internal_expr_desc ret_type)
+                    ts
+                in
+                (fun_type, ret)
+            | PDTyped_funsig (f, _tvars, (x, t), (_, ret_type)) ->
+                let ret =
+                  Var f |> Bluejay_ast_internal.new_expr_desc
+                  |> Bluejay_ast_internal.from_internal_expr_desc
+                in
+                let fun_type =
+                  Bluejay_ast_internal.new_expr_desc
+                  @@ Bluejay_ast_internal.TypeArrowD
+                       ( (x, Bluejay_ast_internal.to_internal_expr_desc t),
+                         Bluejay_ast_internal.to_internal_expr_desc ret_type )
+                in
                 (fun_type, ret))
         | LetRecFunWithType (fsigs, _) -> (
             let precise_lookup =
@@ -1213,7 +1254,10 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                 List.filter
                   ~f:(fun fun_sig ->
                     match fun_sig with
-                    | Typed_funsig (f, _, _) | DTyped_funsig (f, _, _) ->
+                    | Typed_funsig (f, _, _)
+                    | DTyped_funsig (f, _, _)
+                    | PTyped_funsig (f, _, _, _)
+                    | PDTyped_funsig (f, _, _, _) ->
                         List.mem precise_lookup f ~equal:Ident.equal)
                   fsigs
               in
@@ -1243,6 +1287,38 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                 in
                 (fun_type, ret)
             | DTyped_funsig (f, (x, t), (_, ret_type)) ->
+                let ret =
+                  Var f |> Bluejay_ast_internal.new_expr_desc
+                  |> Bluejay_ast_internal.from_internal_expr_desc
+                in
+                let fun_type =
+                  Bluejay_ast_internal.new_expr_desc
+                  @@ Bluejay_ast_internal.TypeArrowD
+                       ( (x, Bluejay_ast_internal.to_internal_expr_desc t),
+                         Bluejay_ast_internal.to_internal_expr_desc ret_type )
+                in
+                (fun_type, ret)
+            | PTyped_funsig (f, _tvars, typed_params, (_, ret_type)) ->
+                let ret =
+                  Var f |> Bluejay_ast_internal.new_expr_desc
+                  |> Bluejay_ast_internal.from_internal_expr_desc
+                in
+                let fun_type =
+                  let ts =
+                    List.map
+                      ~f:(fun (_, t) ->
+                        Bluejay_ast_internal.to_internal_expr_desc t)
+                      typed_params
+                  in
+                  List.fold_right
+                    ~f:(fun t accum ->
+                      Bluejay_ast_internal.new_expr_desc
+                      @@ Bluejay_ast_internal.TypeArrow (t, accum))
+                    ~init:(Bluejay_ast_internal.to_internal_expr_desc ret_type)
+                    ts
+                in
+                (fun_type, ret)
+            | PDTyped_funsig (f, _tvars, (x, t), (_, ret_type)) ->
                 let ret =
                   Var f |> Bluejay_ast_internal.new_expr_desc
                   |> Bluejay_ast_internal.from_internal_expr_desc
