@@ -7,7 +7,6 @@ module Pop_kind =
     type t =
       | DFS
       | BFS
-      | Prioritize_uncovered
       | Uniform (* uniformly randomly sample from all of the targets *)
       | Random (* randomly choose one of the above pop kinds *)
 
@@ -15,8 +14,7 @@ module Pop_kind =
       match Random.int 3 with
       | 0 -> DFS
       | 1 -> BFS
-      | 2 -> Uniform
-      | _ -> Prioritize_uncovered (* NOTE: this is unreachable right now *)
+      | _ -> Uniform
   end
 
 module Q = Psq.Make (Target) (Int) (* functional priority search queue *)
@@ -159,20 +157,17 @@ module DFS_tower =
       List.map
         x
         ~f:(fun (dfs, i) -> DFS.remove dfs target, i)
-
   end
 
 type t =
   { dfs_tower : DFS_tower.t
   ; bfs : T.t
-  ; uniform : Q.t
-  ; hit : Q.t } (* prioritized by number of times the target has been hit *)
+  ; uniform : Q.t }
   
 let empty : t =
   { dfs_tower = DFS_tower.empty
   ; bfs = T.empty Back
-  ; uniform = Q.empty
-  ; hit = Q.empty }
+  ; uniform = Q.empty }
 
 let with_options : (t -> t) Options.Fun.t =
   Options.Fun.make
@@ -180,17 +175,15 @@ let with_options : (t -> t) Options.Fun.t =
     { x with dfs_tower = Options.Fun.appl DFS_tower.of_options r () }
 
 (* Deeper targets are at the front of [ls] *)
-let push_list ({ dfs_tower ; bfs ; hit ; uniform } : t) (ls : Target.t list) (hits : int list) : t =
+let push_list ({ dfs_tower ; bfs ; uniform } : t) (ls : Target.t list) (hits : int list) : t =
   { dfs_tower = DFS_tower.push_list dfs_tower (List.rev ls) (* reverse so that deeper targets have better priority *)
   ; bfs = T.push_list bfs ls
-  ; uniform = List.fold ls ~init:uniform ~f:(fun acc k -> Q.push k (Random.int Int.max_value) acc) (* give random priority *)
-  ; hit = hit (* List.fold2_exn ls hits ~init:hit ~f:(fun acc k p -> Q.push k p acc) *) }
+  ; uniform = List.fold ls ~init:uniform ~f:(fun acc k -> Q.push k (Random.int Int.max_value) acc) } (* give random priority *)
 
 let remove (x : t) (target : Target.t) : t =
   { bfs = T.remove x.bfs target
   ; dfs_tower = DFS_tower.remove x.dfs_tower target
-  ; uniform = Q.remove target x.uniform
-  ; hit = x.hit (* Q.remove target x.hit *) }
+  ; uniform = Q.remove target x.uniform }
 
 let rec pop ?(kind : Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
   match kind with
@@ -210,11 +203,4 @@ let rec pop ?(kind : Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
     | Some ((target, _), uniform) -> Some (target, remove { x with uniform } target)
     | None -> None
     end
-  | Prioritize_uncovered -> 
-    failwith "commented out for speed because currently is unused"
-    (* begin
-    match Q.pop x.hit with
-    | Some ((target, _), hit) -> Some (target, remove { x with hit } target)
-    | None -> None
-  end *)
   | Random -> pop ~kind:(Pop_kind.random ()) x

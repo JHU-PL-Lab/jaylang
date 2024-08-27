@@ -3,8 +3,7 @@ open Core
 module T =
   struct
     type t =
-      { quit_on_abort      : bool  [@default false]
-      ; global_timeout_sec : float [@default 90.0]
+      { global_timeout_sec : float [@default 90.0]
       ; solver_timeout_sec : float [@default 1.0]
       ; global_max_step    : int   [@default Int.(5 * 10**4)]
       ; max_tree_depth     : int   [@default 60]
@@ -19,8 +18,7 @@ let default : t = T.t_of_sexp @@ Sexp.of_string "()"
 module Refs =
   struct
     type t =
-      { quit_on_abort      : bool ref
-      ; global_timeout_sec : float ref
+      { global_timeout_sec : float ref
       ; solver_timeout_sec : float ref
       ; global_max_step    : int ref
       ; max_tree_depth     : int ref
@@ -28,8 +26,7 @@ module Refs =
       ; n_depth_increments : int ref }
 
     let create_default () : t =
-      { quit_on_abort      = ref default.quit_on_abort
-      ; global_timeout_sec = ref default.global_timeout_sec
+      { global_timeout_sec = ref default.global_timeout_sec
       ; solver_timeout_sec = ref default.solver_timeout_sec
       ; global_max_step    = ref default.global_max_step
       ; max_tree_depth     = ref default.max_tree_depth
@@ -37,8 +34,7 @@ module Refs =
       ; n_depth_increments = ref default.n_depth_increments }
 
     let without_refs (x : t) : T.t =
-      { quit_on_abort      = !(x.quit_on_abort)
-      ; global_timeout_sec = !(x.global_timeout_sec)
+      { global_timeout_sec = !(x.global_timeout_sec)
       ; solver_timeout_sec = !(x.solver_timeout_sec)
       ; global_max_step    = !(x.global_max_step)
       ; max_tree_depth     = !(x.max_tree_depth)
@@ -52,7 +48,6 @@ module Fun =
     type 'a t =
       ?global_timeout_sec    : float
       -> ?solver_timeout_sec : float
-      -> ?quit_on_abort      : bool
       -> ?global_max_step    : int
       -> ?max_tree_depth     : int
       -> ?random             : bool
@@ -63,7 +58,6 @@ module Fun =
       x
         ~global_timeout_sec:r.global_timeout_sec
         ~solver_timeout_sec:r.solver_timeout_sec
-        ~quit_on_abort:r.quit_on_abort
         ~global_max_step:r.global_max_step
         ~max_tree_depth:r.max_tree_depth
         ~random:r.random
@@ -73,7 +67,6 @@ module Fun =
       fun
       ?(global_timeout_sec : float = default.global_timeout_sec)
       ?(solver_timeout_sec : float = default.solver_timeout_sec)
-      ?(quit_on_abort      : bool  = default.quit_on_abort)
       ?(global_max_step    : int   = default.global_max_step)
       ?(max_tree_depth     : int   = default.max_tree_depth)
       ?(random             : bool  = default.random)
@@ -81,7 +74,6 @@ module Fun =
       ->
       { global_timeout_sec
       ; solver_timeout_sec
-      ; quit_on_abort
       ; global_max_step
       ; max_tree_depth
       ; random

@@ -106,21 +106,17 @@ module Symbolic = Symbolic_session
 type t =
   { tree         : Root.t (* pointer to the root of the entire tree of paths *)
   ; target_queue : Target_queue.t
-  ; branch_info  : Branch_info.t
   ; run_num      : int
   ; options      : Options.t
-  ; quit         : bool
-  ; has_pruned   : bool (* true iff some evaluation hit more nodes than are allowed to be kept or interpretation was stopped due to max step *)
+  ; status       : Cstatus.t
   ; last_sym     : Symbolic.t option }
 
 let empty : t =
   { tree         = Root.empty
   ; target_queue = Target_queue.empty
-  ; branch_info  = Branch_info.empty
   ; run_num      = 0
   ; options      = Options.default
-  ; quit         = false
-  ; has_pruned   = false
+  ; status       = Cstatus.In_progress
   ; last_sym     = None }
 
 let with_options : (t -> t) Options.Fun.t =
@@ -129,21 +125,22 @@ let with_options : (t -> t) Options.Fun.t =
     { x with options = r
     ; target_queue = Options.Fun.appl Target_queue.with_options r x.target_queue } 
 
-let of_expr (expr : Jayil.Ast.expr) : t =
-  { empty with branch_info = Branch_info.of_expr expr }
+(* let of_expr (expr : Jayil.Ast.expr) : t =
+  { empty with branch_info = Branch_info.of_expr expr } *)
 
 let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let sym = Symbolic.finish sym x.tree in
-  let branch_info  = Branch_info.merge x.branch_info @@ Symbolic.branch_info sym in
+  (* let branch_info  = Branch_info.merge x.branch_info @@ Symbolic.branch_info sym in *)
   let target_queue =
     let targets = Symbolic.targets_exn sym in
-    let hit_counts = List.map targets ~f:(fun target -> Branch_info.get_hit_count branch_info (Branch.Runtime.to_ast_branch target.branch)) in
-    Target_queue.push_list x.target_queue targets hit_counts
+    (* let hit_counts = List.map targets ~f:(fun target -> Branch_info.get_hit_count branch_info (Branch.Runtime.to_ast_branch target.branch)) in *)
+    Target_queue.push_list x.target_queue targets (*hit_counts*)
   in
+  let new_status =
+    
   { x with
     tree         = Symbolic.root_exn sym
-  ; has_pruned   = x.has_pruned || Symbolic.hit_max_depth sym || Symbolic.is_reach_max_step sym
-  ; branch_info
+  ; has_pruned   = Cstatus.update_for_pruned x.status (Symbolic.hit_max_depth sym || Symbolic.is_reach_max_step sym)
   ; target_queue
   ; quit         =
     x.quit
@@ -180,7 +177,6 @@ let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t *
     | _ -> Random
     (* Target_queue.Pop_kind.BFS *)
     (* Target_queue.Pop_kind.Uniform *)
-    (* Target_queue.Pop_kind.Prioritize_uncovered *) (* This appears bugged because tree gets exhausted when it shouldn't *)
   in
   let rec next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ] =
     if x.quit then done_ x else
@@ -227,9 +223,6 @@ let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t *
     `Done (x.branch_info, x.has_pruned)
     
   in next x
-
-let branch_info ({ branch_info ; _ } : t) : Branch_info.t =
-  branch_info
 
 let run_num ({ run_num ; _ } : t) : int =
   run_num
