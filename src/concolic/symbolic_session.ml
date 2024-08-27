@@ -50,7 +50,7 @@ module Node_stack =
         | Cons ({ status = Hit node ; _} as child, tl) -> (* branch was hit, and no failed assert or assume *)
           let acc = Children.set_node Children.empty child.branch { node with children = acc } in
           to_tree acc tl
-        | Cons ({ status = Failed_assume ; _} as child, tl) -> (* branch was hit, and failed assert of assume *)
+        | Cons ({ status = Failed_assume ; _} as child, tl) -> (* branch was hit, and failed assert or assume *)
           assert (Children.is_empty acc);
           let acc = Children.set_child Children.empty child in (* has no node in which to set children *)
           to_tree acc tl
@@ -112,7 +112,17 @@ module Node_stack =
         Root.merge tree
         @@ to_tree stack
       in
-      merged, get_targets stack merged
+      let targets = get_targets stack merged in
+      Format.printf "Aquired targets are: %s\n"
+        (List.to_string
+          ~f:(fun target ->
+              let open Target in
+              Concolic_key.to_string target.branch.branch_key
+            )
+          targets
+        )
+        ;
+      merged, targets
 
     (* pushes node reached by [branch] onto the stack *)
     let push (stack : t) (branch : Branch.Runtime.t) : t =

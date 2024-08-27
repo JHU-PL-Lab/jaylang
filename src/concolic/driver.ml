@@ -35,7 +35,7 @@ module Test_result =
       | Type_mismatch inputs -> Type_mismatch (Ident "placeholder branch name", inputs)
       | Exhausted { pruned = true } -> Exhausted_pruned_tree
       | Exhausted { pruned = false } -> Exhausted
-      | In_progress _ -> Timeout
+      | In_progress _ -> failwith "session status unfinished"
 
   end
 

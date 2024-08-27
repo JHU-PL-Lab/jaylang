@@ -42,7 +42,7 @@ and Children :
     (** [is_empty t] is true if and only if [t] is [empty]. *)
 
     val set_node : t -> Branch.Runtime.t -> Node.t -> t
-    (** [add t branch child] adds [child] as a node underneath the [branch] in [t]. *)
+    (** [set_node t branch child] adds [child] as a node underneath the [branch] in [t]. *)
 
     val merge : t -> t -> t
     (** [merge a b] merges all children in [a] and [b]. *)

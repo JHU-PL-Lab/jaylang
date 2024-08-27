@@ -200,9 +200,10 @@ let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
 (* $ OCAML_LANDMARKS=on ./_build/... *)
 let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] =
   let pop_kind =
-    match x.last_sym with
+    (* match x.last_sym with
     | Some s when Symbolic.Dead.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
-    | _ -> Random
+    | _ -> Random *)
+    Target_queue.Pop_kind.BFS
   in
   let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] =
     if Status.quit x.status then done_ x else
