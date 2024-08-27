@@ -112,17 +112,7 @@ module Node_stack =
         Root.merge tree
         @@ to_tree stack
       in
-      let targets = get_targets stack merged in
-      Format.printf "Aquired targets are: %s\n"
-        (List.to_string
-          ~f:(fun target ->
-              let open Target in
-              Concolic_key.to_string target.branch.branch_key
-            )
-          targets
-        )
-        ;
-      merged, targets
+      merged, get_targets stack merged
 
     (* pushes node reached by [branch] onto the stack *)
     let push (stack : t) (branch : Branch.Runtime.t) : t =
