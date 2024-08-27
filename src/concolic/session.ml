@@ -222,7 +222,6 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * 
     From_dbmc.Solver.set_timeout_sec Sudu.ctx (Some (Core.Time_float.Span.of_sec x.options.solver_timeout_sec));
     Log.Export.CLog.debug (fun m -> m "Solving for target %s\n" (Branch.Runtime.to_string target.branch));
     Log.Export.CLog.debug (fun m -> m "Solver is:\n%s\n" (Z3.Solver.to_string new_solver));
-    (* let[@landmarks] _ = check_solver' (Target.to_formulas target x.tree) in *)
     match check_solver new_solver with
     | Z3.Solver.UNSATISFIABLE ->
       let t1 = Caml_unix.gettimeofday () in
