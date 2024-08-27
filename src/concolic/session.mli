@@ -68,6 +68,18 @@ module Concrete :
 module Symbolic = Symbolic_session
 (** [Symbolic] is alias for [Symbolic_session]. *)
 
+module Status :
+  sig
+    type t =
+      | In_progress of { pruned : bool }
+      | Found_abort of (Jil_input.t list [@compare.ignore])
+      | Type_mismatch of (Jil_input.t list [@compare.ignore])
+      | Exhausted of { pruned : bool }
+      [@@deriving compare, sexp]
+
+    val to_string : t -> string
+  end
+
 type t
 (** [t] holds program info between interpretations and helps generate concrete and symbolic sessions
     for the next run. *)
@@ -78,19 +90,12 @@ val empty : t
 val with_options : (t -> t) Options.Fun.t
 (** [with_options t] is [t] that has all relevant info loaded in from the optional arguments. *)
 
-val of_expr : Jayil.Ast.expr -> t
-(** [of_expr expr] is [empty] that knows of all branches in the [expr]. *)
-
 val accum_symbolic : t -> Symbolic.t -> t
 (** [accum_symbolic t sym] finishes the sybolic session [sym] and accumulates results into [t]. *)
 
-val next : t -> [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ]
-(** [next t] is [`Done (branch_info, tree_has_been_pruned)] if the concolic evaluation is done,
-    or is [`Next (session, symbolic, concrete)] if the interpreter is to be run again with [symbolic]
-    and [concrete] sessions. *)
-
-val branch_info : t -> Branch_info.t
-(** [branch_info t] is the branch info in [t]. *)
+val next : t -> [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ]
+(** [next t] is [`Done status] if the concolic evaluation is done, or is [`Next (session, symbolic, concrete)]
+   if the interpreter is to be run again with [symbolic] and [concrete] sessions. *)
 
 val run_num : t -> int
 (** [run_num t] is the number of interpretations [t] has done. *)

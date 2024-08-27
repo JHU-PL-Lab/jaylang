@@ -12,7 +12,7 @@ let test_for_abort is_error_expected testname _args =
     @@ Dj_common.File_utils.read_source_full ~do_wrap:true ~do_instrument:true testname
   | _ -> failwith "unsupported test extension"
   end
-  |> Driver.test_expr ~quit_on_abort:true ~global_timeout_sec:30.0
+  |> Driver.test_expr ~global_timeout_sec:30.0
   |> begin function
     | Driver.Test_result.Timeout
     | Exhausted

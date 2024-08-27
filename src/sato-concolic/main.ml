@@ -43,9 +43,9 @@ let main_lwt ~(config : Global_config.t) program_full :
   in
   let res =
     match config.timeout with
-    | None -> Concolic.Driver.test_expr ~quit_on_abort:true ~random:false program
+    | None -> Concolic.Driver.test_expr ~random:false program
     | Some t ->
-        Concolic.Driver.test_expr ~quit_on_abort:true
+        Concolic.Driver.test_expr
           ~random:false
           ~global_timeout_sec:(Core_private.Span_float.to_sec t)
           program

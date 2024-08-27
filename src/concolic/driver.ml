@@ -29,6 +29,14 @@ module Test_result =
       (* For the following results, we want to keep the one with the least information to be conservative *)
       | Timeout, _ | _, Timeout -> Timeout
       | Exhausted_pruned_tree, Exhausted_pruned_tree -> Exhausted_pruned_tree
+
+    let of_session_status = function
+      | Session.Status.Found_abort inputs -> Found_abort ({ branch_ident = Ident "placeholder branch name" ; direction = True_direction }, inputs)
+      | Type_mismatch inputs -> Type_mismatch (Ident "placeholder branch name", inputs)
+      | Exhausted { pruned = true } -> Exhausted_pruned_tree
+      | Exhausted { pruned = false } -> Exhausted
+      | In_progress _ -> Timeout
+
   end
 
 (*
@@ -44,16 +52,9 @@ let[@landmark] lwt_test_one : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fu
       fun (e : Jayil.Ast.expr) ->
         let t0 = Caml_unix.gettimeofday () in
         Options.Fun.appl Evaluator.lwt_eval r e
-        >|= function res, has_pruned ->
+        >|= function res_status ->
           CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
-          Branch_info.find res ~f:(fun _ -> function Branch_info.Status.Found_abort _ | Type_mismatch _ -> true | _ -> false)
-          |> begin function
-            | Some (Branch.Or_global.Branch branch, Branch_info.Status.Found_abort inputs) -> Test_result.Found_abort (branch, List.rev inputs)
-            | Some (_, Branch_info.Status.Type_mismatch (id, inputs)) -> Test_result.Type_mismatch (id, List.rev inputs)
-            | None when not has_pruned -> Exhausted
-            | None -> Exhausted_pruned_tree
-            | _ -> failwith "impossible abort in global branch"
-            end
+          Test_result.of_session_status res_status
 
 (* runs [lwt_test_one] and catches lwt timeout *)
 let test_with_timeout : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =

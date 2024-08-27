@@ -1,5 +1,14 @@
 open Path_tree
 
+module Status :
+  sig
+    type t =
+      | Found_abort of (Jil_input.t list [@compare.ignore])
+      | Type_mismatch of (Jil_input.t list [@compare.ignore])
+      | Finished_interpretation of { pruned : bool }
+      [@@deriving compare, sexp]
+  end
+
 module Dead :
   sig
     type t
@@ -17,14 +26,11 @@ module Dead :
     val targets : t -> Target.t list
     (** [targets t] is the targets in the dead [t]. *)
 
-    val branch_info : t -> Branch_info.t
-    (** [branch_info t] is current branch info from [t]. *)
-
-    val hit_max_depth : t -> bool
-    (** [hit_max_depth t] is true iff [t] reached the max allowed tree depth. *)
+    val get_status : t -> Status.t
+    (** [get_status t] is the status of the (now finished) symbolic session. *)
 
     val is_reach_max_step : t -> bool
-    (** [is_reach_max_step t] is true iff [t] reached the allowed max step during interpretation. *)
+    (** [is_reach_max_step t] is true iff the interpretation of the dead [t] had hit the max step count. *)
   end
 
 type t
@@ -84,8 +90,8 @@ val fail_assume : t -> t
 val found_abort : t -> t
 (** [found_abort t] tells [t] that an abort was found in interpretation. *)
 
-val found_type_mismatch : t -> Jayil.Ast.Ident_new.t -> t
-(** [found_type_mismatch t id] tells [t] that there was a type mismatch at clause [id]. *)
+val found_type_mismatch : t -> t
+(** [found_type_mismatch t] tells [t] that there was a type mismatch in interpretation. *)
 
 val reach_max_step : t -> t
 (** [reach_max_step t] tells [t] that the max interpretation step was hit, and interpretation stopped. *)

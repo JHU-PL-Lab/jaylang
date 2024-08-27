@@ -103,12 +103,49 @@ module Concrete =
 
 module Symbolic = Symbolic_session
 
+module Status =
+  struct
+    type t =
+      | In_progress of { pruned : bool }
+      | Found_abort of (Jil_input.t list [@compare.ignore])
+      | Type_mismatch of (Jil_input.t list [@compare.ignore])
+      | Exhausted of { pruned : bool }
+      [@@deriving compare, sexp]
+
+    let prune (x : t) : t =
+      match x with
+      | In_progress _ -> In_progress { pruned = true }
+      | Exhausted _ -> Exhausted { pruned = true }
+      | _ -> x
+
+    let quit (x : t) : bool =
+      match x with
+      | Found_abort _
+      | Type_mismatch _
+      | Exhausted _ -> true
+      | In_progress _ -> false
+
+    let finish (x : t) : t =
+      match x with
+      | In_progress { pruned } -> Exhausted { pruned }
+      | _ -> x
+
+    let to_string (x : t) : string =
+      match x with
+      | Found_abort _ -> "Found abort in interpretation"
+      | Type_mismatch _ -> "Found type mismatch in interpretation"
+      | In_progress { pruned = true } -> "In progress after interpretation (has pruned so far)"
+      | In_progress _ -> "In progress after interpretation"
+      | Exhausted { pruned = true } -> "Exhausted pruned true"
+      | Exhausted _ -> "Exhausted full tree"
+  end
+
 type t =
   { tree         : Root.t (* pointer to the root of the entire tree of paths *)
   ; target_queue : Target_queue.t
   ; run_num      : int
   ; options      : Options.t
-  ; status       : Cstatus.t
+  ; status       : Status.t
   ; last_sym     : Symbolic.Dead.t option }
 
 let empty : t =
@@ -116,7 +153,7 @@ let empty : t =
   ; target_queue = Target_queue.empty
   ; run_num      = 0
   ; options      = Options.default
-  ; status       = Cstatus.In_progress
+  ; status       = Status.In_progress { pruned = false }
   ; last_sym     = None }
 
 let with_options : (t -> t) Options.Fun.t =
@@ -125,27 +162,19 @@ let with_options : (t -> t) Options.Fun.t =
     { x with options = r
     ; target_queue = Options.Fun.appl Target_queue.with_options r x.target_queue } 
 
-(* let of_expr (expr : Jayil.Ast.expr) : t =
-  { empty with branch_info = Branch_info.of_expr expr } *)
-
 let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let dead_sym = Symbolic.finish sym x.tree in
-  (* let branch_info  = Branch_info.merge x.branch_info @@ Symbolic.Dead.branch_info dead_sym in *)
-  let target_queue =
-    let targets = Symbolic.Dead.targets dead_sym in
-    (* let hit_counts = List.map targets ~f:(fun target -> Branch_info.get_hit_count branch_info (Branch.Runtime.to_ast_branch target.branch)) in *)
-    Target_queue.push_list x.target_queue targets (*hit_counts*)
-  in
   let new_status =
-    
+    match Symbolic.Dead.get_status dead_sym with
+    | Symbolic.Status.Found_abort inputs -> Status.Found_abort inputs
+    | Type_mismatch inputs -> Type_mismatch inputs
+    | Finished_interpretation { pruned = true } -> Status.prune x.status
+    | _ -> x.status
+  in
   { x with
     tree         = Symbolic.Dead.root dead_sym
-  ; has_pruned   = Cstatus.update_for_pruned x.status (Symbolic.Dead.hit_max_depth dead_sym || Symbolic.Dead.is_reach_max_step dead_sym)
-  ; target_queue
-  ; quit         =
-    x.quit
-    || x.options.quit_on_abort
-    && Option.is_some (Branch_info.find (Symbolic.Dead.branch_info dead_sym) ~f:(fun _ -> function Found_abort _ | Type_mismatch _ -> true | _ -> false))
+  ; target_queue = Target_queue.push_list x.target_queue @@ Symbolic.Dead.targets dead_sym
+  ; status       = new_status
   ; last_sym     = Some dead_sym }
 
 let [@landmarks] check_solver solver =
@@ -169,19 +198,14 @@ let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
   Options.Fun.appl Symbolic.with_options x.options sym
 
 (* $ OCAML_LANDMARKS=on ./_build/... *)
-(* `Done (branch_info, has_pruned) *)
-let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ] =
+let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] =
   let pop_kind =
     match x.last_sym with
     | Some s when Symbolic.Dead.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
     | _ -> Random
-    (* Target_queue.Pop_kind.BFS *)
-    (* Target_queue.Pop_kind.Uniform *)
   in
-  let rec next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ] =
-    if x.quit then done_ x else
-    (* It's never realistically relevant to quit when all branches are hit because at least one will have an abort *)
-    (* if Branch_tracker.Status_store.Without_payload.all_hit x.branches then `Done x.branches else *)
+  let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] =
+    if Status.quit x.status then done_ x else
     match Target_queue.pop ~kind:pop_kind x.target_queue with
     | Some (target, target_queue) -> 
       solve_for_target { x with target_queue } target
@@ -203,10 +227,11 @@ let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t *
     | Z3.Solver.UNSATISFIABLE ->
       let t1 = Caml_unix.gettimeofday () in
       Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0));
-      next { x with tree = Root.set_status x.tree target.branch Status.Unsatisfiable target.path }
+      Format.printf "Found unsat branch\n";
+      next { x with tree = Root.set_status x.tree target.branch Unsatisfiable target.path }
     | Z3.Solver.UNKNOWN ->
       Log.Export.CLog.info (fun m -> m "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n");
-      next { x with tree = Root.set_status x.tree target.branch Status.Unknown target.path }
+      next { x with tree = Root.set_status x.tree target.branch Unknown target.path }
     | Z3.Solver.SATISFIABLE ->
       Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.branch));
       `Next (
@@ -220,7 +245,7 @@ let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t *
 
   and done_ (x : t) =
     Log.Export.CLog.info (fun m -> m "Done.\n");
-    `Done (x.branch_info, x.has_pruned)
+    `Done (Status.finish x.status)
     
   in next x
 

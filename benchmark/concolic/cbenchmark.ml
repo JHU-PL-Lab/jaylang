@@ -69,7 +69,7 @@ module Report_row (* : Latex_table.ROW *) =
         in
         let t1 = Caml_unix.gettimeofday () in
         let test_result =
-          Concolic.Driver.test_expr source ~quit_on_abort:true ~global_timeout_sec:90.0
+          Concolic.Driver.test_expr source ~global_timeout_sec:90.0
         in
         let t2 = Caml_unix.gettimeofday () in
         let row =

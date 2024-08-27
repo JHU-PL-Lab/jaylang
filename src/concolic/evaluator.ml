@@ -260,7 +260,7 @@ and eval_clause
       let cond_bool =
         match cond_val with
         | Direct (Value_bool b) -> b 
-        | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session x)
+        | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
       let condition_key = make_key y condition_stk in
       let this_branch = Branch.Runtime.{ branch_key = force_key x_key ; condition_key = force_key condition_key ; direction = Branch.Direction.of_bool cond_bool } in
@@ -315,7 +315,7 @@ and eval_clause
         (* exit function: *)
         let ret_key = make_key ret_id ret_stk in
         ret_val, Session.Symbolic.add_alias symb_session x_key ret_key
-      | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session x)
+      | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       end
     | Match_body (vy, p) ->
       (* x = y ~ <pattern> ; *)
@@ -348,7 +348,7 @@ and eval_clause
       let bv =
         match v with
         | Value_bool b -> Value_bool (not b)
-        | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session x)
+        | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
       let retv = Direct bv in
       Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
@@ -373,7 +373,7 @@ and eval_clause
         | Binary_operator_and, Value_bool b1, Value_bool b2                 -> Value_bool (b1 && b2)
         | Binary_operator_or, Value_bool b1, Value_bool b2                  -> Value_bool (b1 || b2)
         | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> Value_bool (n1 <> n2)
-        | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session x)
+        | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
       let retv = Direct v in
       Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
@@ -404,7 +404,7 @@ and eval_clause
       let b =
         match v with
         | Value_bool b -> b
-        | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session x)
+        | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
       let Var (y, _) = cx in 
       let key = make_key y (Fetch.fetch_stk ~conc_session ~stk env cx) in
@@ -479,20 +479,17 @@ let try_eval_exp_default
 
   This eval spans multiple symbolic sessions, trying to hit the branches.
 *)
-let rec loop (e : expr) (prev_session : Session.t) : (Branch_info.t * bool) Lwt.t =
+let rec loop (e : expr) (prev_session : Session.t) : Session.Status.t Lwt.t =
   let open Lwt.Infix in
   let%lwt () = Lwt.pause () in
   Session.next prev_session
   |> begin function
-    | `Done (branch_info, has_pruned) ->
+    | `Done status ->
       CLog.app (fun m -> m "\n------------------------------\nFinishing concolic evaluation...\n\n");
       CLog.app (fun m -> m "Ran %d interpretations.\n" (Session.run_num prev_session));
-      CLog.app (fun m -> m "Tree was pruned: %b\n" has_pruned);
-      CLog.app (fun m -> m "%s" (Branch_info.to_string branch_info));
-      Lwt.return (branch_info, has_pruned)
+      CLog.app (fun m -> m "Session status: %s.\n" (Session.Status.to_string status));
+      Lwt.return status
     | `Next (session, symb_session, conc_session) ->
-      CLog.info (fun m -> m "Pre-run info:\n");
-      CLog.info (fun m -> m "%s" (Branch_info.to_string @@ Session.branch_info session));
       CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session));
       let t0 = Caml_unix.gettimeofday () in
       let resulting_symbolic = try_eval_exp_default ~conc_session ~symb_session e in
@@ -505,7 +502,7 @@ let rec loop (e : expr) (prev_session : Session.t) : (Branch_info.t * bool) Lwt.
 let seed =
   String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
 
-let lwt_eval : (Jayil.Ast.expr -> (Branch_info.t * bool) Lwt.t) Options.Fun.t =
+let lwt_eval : (Jayil.Ast.expr -> Session.Status.t Lwt.t) Options.Fun.t =
   let f =
     fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
@@ -515,9 +512,7 @@ let lwt_eval : (Jayil.Ast.expr -> (Branch_info.t * bool) Lwt.t) Options.Fun.t =
         Concolic_riddler.reset ();
         Lwt_unix.with_timeout r.global_timeout_sec
         @@ fun () ->
-          e
-          |> Session.of_expr
-          |> Options.Fun.appl Session.with_options r
-          |> loop e
+          loop e
+          @@ Options.Fun.appl Session.with_options r Session.empty
   in
   Options.Fun.make f

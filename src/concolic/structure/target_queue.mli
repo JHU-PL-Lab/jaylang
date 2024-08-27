@@ -3,7 +3,6 @@ module Pop_kind :
     type t =
       | DFS
       | BFS
-      | Prioritize_uncovered
       | Uniform
       | Random
   end
@@ -19,6 +18,6 @@ val push_list : t -> Target.t list -> t
 (** [push_list t ls] pushes all targets in [ls] onto [t], where deeper targets are at the front of [ls] *)
 
 val with_options : (t -> t) Options.Fun.t
-j
+
 val pop : ?kind:Pop_kind.t -> t -> (Target.t * t) option
 (** [pop t] is most prioritized target and new queue, or [None]. Default kind is [DFS] *)
