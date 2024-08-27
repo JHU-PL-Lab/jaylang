@@ -111,7 +111,7 @@ type t =
   ; options      : Options.t
   ; quit         : bool
   ; has_pruned   : bool (* true iff some evaluation hit more nodes than are allowed to be kept or interpretation was stopped due to max step *)
-  ; last_sym     : Symbolic.t option }
+  ; last_sym     : Symbolic.Dead.t option }
 
 let empty : t =
   { tree         = Root.empty
@@ -133,23 +133,23 @@ let of_expr (expr : Jayil.Ast.expr) : t =
   { empty with branch_info = Branch_info.of_expr expr }
 
 let accum_symbolic (x : t) (sym : Symbolic.t) : t =
-  let sym = Symbolic.finish sym x.tree in
-  let branch_info  = Branch_info.merge x.branch_info @@ Symbolic.branch_info sym in
+  let dead_sym = Symbolic.finish sym x.tree in
+  let branch_info  = Branch_info.merge x.branch_info @@ Symbolic.Dead.branch_info dead_sym in
   let target_queue =
-    let targets = Symbolic.targets_exn sym in
+    let targets = Symbolic.Dead.targets dead_sym in
     let hit_counts = List.map targets ~f:(fun target -> Branch_info.get_hit_count branch_info (Branch.Runtime.to_ast_branch target.branch)) in
     Target_queue.push_list x.target_queue targets hit_counts
   in
   { x with
-    tree         = Symbolic.root_exn sym
-  ; has_pruned   = x.has_pruned || Symbolic.hit_max_depth sym || Symbolic.is_reach_max_step sym
+    tree         = Symbolic.Dead.root dead_sym
+  ; has_pruned   = x.has_pruned || Symbolic.Dead.hit_max_depth dead_sym || Symbolic.Dead.is_reach_max_step dead_sym
   ; branch_info
   ; target_queue
   ; quit         =
     x.quit
     || x.options.quit_on_abort
-    && Option.is_some (Branch_info.find (Symbolic.branch_info sym) ~f:(fun _ -> function Found_abort _ | Type_mismatch _ -> true | _ -> false))
-  ; last_sym     = Some sym }
+    && Option.is_some (Branch_info.find (Symbolic.Dead.branch_info dead_sym) ~f:(fun _ -> function Found_abort _ | Type_mismatch _ -> true | _ -> false))
+  ; last_sym     = Some dead_sym }
 
 let [@landmarks] check_solver solver =
   Z3.Solver.check solver []
@@ -176,7 +176,7 @@ let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
 let[@landmarks] next (x : t) : [ `Done of (Branch_info.t * bool) | `Next of (t * Symbolic.t * Concrete.t) ] =
   let pop_kind =
     match x.last_sym with
-    | Some s when Symbolic.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
+    | Some s when Symbolic.Dead.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
     | _ -> Random
     (* Target_queue.Pop_kind.BFS *)
     (* Target_queue.Pop_kind.Uniform *)
