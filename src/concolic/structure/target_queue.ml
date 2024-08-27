@@ -11,7 +11,7 @@ module Pop_kind =
       | Random (* randomly choose one of the above pop kinds *)
 
     let random () =
-      match Random.int 2 with
+      match Random.int 3 with
       | 0 -> DFS
       | 1 -> BFS
       | _ -> Uniform

@@ -236,7 +236,7 @@ let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
   else { x with stack = Node_stack.push x.stack branch ; depth_tracker = Depth_tracker.incr_branch x.depth_tracker }
 
 let enter_fun (x : t) : t =
-  { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker }
+  { x with depth_tracker = Depth_tracker.incr_fun x.depth_tracker }
 
 let reach_max_step (x : t) : t =
   { x with depth_tracker = Depth_tracker.hit_max_step x.depth_tracker }
