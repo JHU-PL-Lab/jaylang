@@ -1,12 +1,12 @@
 Jay Lang
 =====
 
-(Update: July 5th, 2024)
+(Update: August 27th, 2024)
 
 This is the codebase for languages BlueJay, Jay and Jay Intermediate Language 
 (JayIL), as well as the language's semantic-type-guided type checker. This code 
 is developed by JHU Programming Languages Lab. It's a pipeline of functional 
-languages that fits for research at each layers.
+languages that fits for research at each layer.
 
 This monorepo contains all tools built upon these languages.
 
@@ -59,28 +59,20 @@ executable, `sato_concolic.exe`, can be used directly by running the command,
 `./sato_concolic.exe SOURCE_FILE`.
 
 ```
-make sctest
+make test-concolic
 ```
 This makes the full test suite for `sato_concolic.exe` (the type checker). The 
-tests are found in the folder, `test/sato`. (Note that only test folders without 
-`_` prefix are run in the testing process, and you can find out what errors are 
-expected in the `.expect.s` file for each corresponding test).
-
-Please note that some tests might appear to be failing. This is not a cause for
-concern, because these failures are results of multiple type errors being present
-in the code, and our artifact currently is not good at reporting all such errors. 
-Since the runs can be non-deterministic, sometimes the reported error is different
-from the one specified in the `.expect.s` file, and manual inspection of the code
-should verify that the error reported indeed is correct.
+tests are found in the folder, `test/concolic/bjy/`.
 
 ```
 make cbenchmark
 ```
-This makes the benchmark for `sato_concolic.exe`. The results can be found in 
-`benchmark/concolic/result/<specific_benchmark_run>/0table.txt`, and they correspond
-to the Bluejay entries seen in Table 1 in Section 5.5 of the paper.
+This makes the benchmark for `sato_concolic.exe`. The results are printed to stdout
+in a LaTeX table format as is seen in Table 2 in Section 6.6 of the paper.
 
-To run the benchmarks in Table 2, go to the file, `benchmark/concolic/cbenchmark.ml`, 
-and change the `config_path` to `ref "benchmark/concolic/config.s"`, then run 
-`make cbenchmark` again. The newly generated `0table.txt` in the `result` folder 
-will contain the corresponding results.
+To run the benchmarks in other tables, go to the file `benchmark/concolic/cbenchmark.ml`
+and change the directories run at the bottom of the file (several directories that might
+be run are currently commented out).
+
+All benchmarks are run in the test suite. Success of each run is not confirmed during
+benchmarking. Instead, use `make test-concolic` to see the results.
