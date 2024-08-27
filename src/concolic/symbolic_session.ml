@@ -164,7 +164,7 @@ module T =
       { stack          : Node_stack.t
       ; target         : Target.t option
       ; status         : [ `In_progress | `Found_abort | `Type_mismatch ]
-      ; inputs         : Jil_input.t list
+      ; rev_inputs     : Jil_input.t list
       ; depth_tracker  : Depth_tracker.t }
   end
 
@@ -174,7 +174,7 @@ let empty : t =
   { stack          = Node_stack.empty
   ; target         = None
   ; status         = `In_progress
-  ; inputs         = []
+  ; rev_inputs     = []
   ; depth_tracker  = Depth_tracker.empty Options.default.max_tree_depth }
 
 let with_options : (t -> t) Options.Fun.t =
@@ -188,23 +188,29 @@ let found_type_mismatch (s : t) : t =
   { s with status = `Type_mismatch }
 
 (* require that cx is true by adding as formula *)
-let found_assume (s : t) (cx : Concolic_key.Lazy.t) : t =
-  match s.stack with
-  | Last _ -> s (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
-  | Cons (hd, tl) ->
-    let new_hd = Child.map_node hd ~f:(fun node -> Node.add_formula node @@ Concolic_riddler.eqv (cx ()) (Jayil.Ast.Value_bool true)) in
-    { s with stack = Cons (new_hd, tl) }
+let found_assume (x : t) (cx : Concolic_key.Lazy.t) : t =
+  if x.depth_tracker.is_max_depth
+  then x
+  else
+    match x.stack with
+    | Last _ -> x (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
+    | Cons (hd, tl) ->
+      let new_hd = Child.map_node hd ~f:(fun node -> Node.add_formula node @@ Concolic_riddler.eqv (cx ()) (Jayil.Ast.Value_bool true)) in
+      { x with stack = Cons (new_hd, tl) }
 
-let fail_assume (s : t) : t =
-  match s.stack with
-  | Last _ -> s (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
-  | Cons (hd, tl) ->
-    let new_hd =
-      Child.{ status = Path_tree.Status.Failed_assume (* forget all formulas so that it is a possible target in future runs *)
-            ; constraints = Formula_set.add_multi hd.constraints @@ Child.to_formulas hd (* constrain to passing assume/assert *)
-            ; branch = hd.branch }
-    in
-    { s with stack = Cons (new_hd, tl) }
+let fail_assume (x : t) : t =
+  if x.depth_tracker.is_max_depth
+  then x
+  else
+    match x.stack with
+    | Last _ -> x (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
+    | Cons (hd, tl) ->
+      let new_hd =
+        Child.{ status = Path_tree.Status.Failed_assume (* forget all formulas so that it is a possible target in future runs *)
+              ; constraints = Formula_set.add_multi hd.constraints @@ Child.to_formulas hd (* constrain to passing assume/assert *)
+              ; branch = hd.branch }
+      in
+      { x with stack = Cons (new_hd, tl) }
 
 let get_key_depth (x : t) : int =
   Depth_tracker.get_key_depth x.depth_tracker
@@ -246,7 +252,7 @@ let add_input (x : t) (key : Concolic_key.Lazy.t) (v : Dvalue.t) : t =
     | Dvalue.Direct (Value_int n) -> n
     | _ -> failwith "non-int input" (* logically impossible *)
   in
-  { x with inputs = { clause_id = Concolic_key.x key ; input_value = n } :: x.inputs }
+  { x with rev_inputs = { clause_id = Concolic_key.x key ; input_value = n } :: x.rev_inputs }
   |> Fn.flip add_lazy_formula @@ fun () -> 
     let Ident s = Concolic_key.x key in
     Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n s);
@@ -295,8 +301,8 @@ module Dead =
       | `In_progress ->
           let dt = x.prev.depth_tracker in
           Finished_interpretation { pruned = dt.is_max_depth || dt.is_max_step }
-      | `Found_abort -> Found_abort x.prev.inputs
-      | `Type_mismatch -> Type_mismatch x.prev.inputs
+      | `Found_abort -> Found_abort (List.rev x.prev.rev_inputs)
+      | `Type_mismatch -> Type_mismatch (List.rev x.prev.rev_inputs)
 
     let is_reach_max_step (x : t) : bool =
       x.prev.depth_tracker.is_max_step
