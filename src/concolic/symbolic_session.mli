@@ -1,5 +1,32 @@
 open Path_tree
 
+module Dead :
+  sig
+    type t
+    (** [t] is a symbolic session that can no longer be used during interpretation. *)
+
+    (*
+      ---------
+      ACCESSORS   
+      ---------
+    *)
+
+    val root : t -> Root.t
+    (** [root t] is the root from the dead [t]. *)
+
+    val targets : t -> Target.t list
+    (** [targets t] is the targets in the dead [t]. *)
+
+    val branch_info : t -> Branch_info.t
+    (** [branch_info t] is current branch info from [t]. *)
+
+    val hit_max_depth : t -> bool
+    (** [hit_max_depth t] is true iff [t] reached the max allowed tree depth. *)
+
+    val is_reach_max_step : t -> bool
+    (** [is_reach_max_step t] is true iff [t] reached the allowed max step during interpretation. *)
+  end
+
 type t
 (** [t] tracks symbolic representations of the program during interpretation. *)
 
@@ -69,29 +96,9 @@ val reach_max_step : t -> t
   -----------
 *)
 
-val finish : t -> Root.t -> t
+val finish : t -> Root.t -> Dead.t
 (** [finish t root] creates a finished session from [t] that merges info with the given [root].
     The merged result can be gotten with [root_exn @@ finish t root]. *)
 
 val make : Root.t -> Target.t -> t
 (** [make root target] makes an empty t that knows the given [root] and [target]. *)
-
-(*
-  ---------
-  ACCESSORS   
-  ---------
-*)
-
-val root_exn : t -> Root.t
-(** [root_exn t] is the root from the finished [t] or exn. *)
-
-val targets_exn : t -> Target.t list
-(** [targets_exn t] is the targets in finished [t] or exn. *)
-
-val branch_info : t -> Branch_info.t
-(** [branch_info t] is current branch info from [t]. *)
-
-val hit_max_depth : t -> bool
-(** [hit_max_depth t] is true iff [t] reached the max allowed tree depth. *)
-
-val is_reach_max_step : t -> bool
