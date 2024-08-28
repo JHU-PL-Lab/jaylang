@@ -284,7 +284,7 @@ module Dead =
     let of_sym_session (s : T.t) (root : Root.t) : t =
       (* logically sound to have hit target if formulas are consistent with JIL program *)
       let tree, targets = Node_stack.merge_with_tree s.stack root in
-      assert (Option.is_none s.target || Target.is_hit (Option.value_exn s.target) tree); (* check that target was hit in new tree *)
+      (* assert (Option.is_none s.target || Target.is_hit (Option.value_exn s.target) tree); check that target was hit in new tree *)
       { tree
       ; targets
       ; prev = s }

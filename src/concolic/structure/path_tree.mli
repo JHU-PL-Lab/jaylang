@@ -102,6 +102,7 @@ and Status :
       | Failed_assume (* Node was hit but failed assume shortly after hitting. Node can be determined unsatisfiable after this due to not being able to satisfy the assume *)
       | Unknown (* for timeouts *)
       | Unsolved (* not yet tried *)
+      | Collapsed (* in case that both children can be collapsed, this node should never be targeted again *)
       [@@deriving compare]
     (** [t] is a node during a solve. It has been hit, determined unsatisfiable,
         is not known if hittable or unsatisfiable, or has not been solved or seen yet.

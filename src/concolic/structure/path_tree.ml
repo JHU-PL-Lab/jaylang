@@ -80,6 +80,7 @@ module type CHILD =
     val to_formulas : t -> Z3.Expr.expr list
     val map_node : t -> f:(node -> node) -> t
     val is_hit : t -> bool
+    val is_collapsible : t -> bool
   end
   
 module type STATUS =
@@ -91,6 +92,7 @@ module type STATUS =
       | Failed_assume
       | Unknown (* for timeouts *)
       | Unsolved (* not yet tried *)
+      | Collapsed (* in case that both children can be collapsed, this node should never be targeted again *)
       [@@deriving compare]
     (** [t] is a node during a solve. It has been hit, determined unsatisfiable,
         is not known if hittable or unsatisfiable, or has not been solved or seen yet.
@@ -208,13 +210,20 @@ and Children :
       match a, b with
       | No_children, x
       | x, No_children -> x
-      | Both a, Both b ->
+      | Both a, Both b -> begin
         if Concolic_key.compare a.branch_key b.branch_key <> 0
         then failwith "unequal branches in merging children";
         Both
         { true_side = Child.merge a.true_side b.true_side
         ; false_side = Child.merge a.false_side b.false_side
         ; branch_key = a.branch_key }
+        |> function
+          | Both { true_side ; false_side ; _ } when
+            Child.is_collapsible true_side
+            && Child.is_collapsible false_side -> No_children
+          | c -> c
+        end
+
 
     let get_child (x : t) (branch : Branch.Runtime.t) : Child.t option =
       match x, branch.direction with
@@ -296,6 +305,12 @@ and Child :
       | Hit _
       | Failed_assume -> true
       | _ -> false
+
+    let is_collapsible ({ status ; _ } : t) : bool =
+      match status with
+      | Collapsed -> true
+      | _ -> false
+
   end (* Child *)
 and Status :
   STATUS with
@@ -303,12 +318,26 @@ and Status :
   =
   struct
     type t =
-      | Hit of Node.t
+      | Hit of Node.t (* Hit and has uncollapsed children *)
       | Unsatisfiable
       | Failed_assume (* node was hit but has since failed an assume/assert *)
       | Unknown (* for timeouts *)
       | Unsolved (* not yet tried *)
+      | Collapsed (* in case that both children can be collapsed, this node should never be targeted again *)
       [@@deriving compare]
+
+    (* collapse a status if nothing can be gained from it *)
+    let collapse (x : t) : t =
+      match x with
+      | Unsatisfiable
+      | Collapsed -> Collapsed
+      | Failed_assume
+      | Unknown
+      | Unsolved -> x
+      | Hit node ->
+        if Children.is_empty node.children
+        then Collapsed
+        else x
 
     (*
       Merge by keeping the most info.
@@ -320,22 +349,26 @@ and Status :
       * After that is completely unsolved, which is no information at all
     *)
     let merge (a : t) (b : t) : t =
-      match a, b with
+      match collapse a, collapse b with
       | Hit n1, Hit n2 ->
         if not (Formula_set.equal n1.formulas n2.formulas)
         then failwith "formula sets not equal in merge of Status"; (* formula sets should only ever be equivalent after any visit to the same node *)
         Hit (Node.merge n1 n2)
+      | Collapsed, Unsatisfiable
+      | Unsatisfiable, Collapsed
+      | Collapsed, Collapsed -> Collapsed (* collapse down nodes if possible *)
       | Hit node, _ | _, Hit node -> Hit node
       | Unsatisfiable, _ | _, Unsatisfiable -> Unsatisfiable
       | Failed_assume, _ | _, Failed_assume -> Failed_assume 
       | Unknown, _ | _, Unknown -> Unknown
-      | Unsolved, _ -> Unsolved
+      | Unsolved, _ | _, Unsolved -> Unsolved
 
     let is_valid_target (x : t) : bool =
       match x with
       | Unsolved
       | Failed_assume -> true
       | _ -> false
+
   end (* Status *)
 
 (* This is just for better naming *)
