@@ -9,6 +9,9 @@ TEST_D = test/dbmc
 BENCH_D = benchmark/dbmc
 BENCH_C = benchmark/concolic
 
+docker-build:
+	docker build -t jaylang:latest .
+
 
 all: dbmc sato translator
 
