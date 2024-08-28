@@ -7,7 +7,7 @@ type t =
   | RecordClosure of record_value * denv
   | AbortClosure of denv
 
-and t_with_depth = t * int
+and t_with_depth = t * Fun_depth.t
 and denv = t_with_depth Ident_map.t (* environment *)
 
 let value_of_t = function

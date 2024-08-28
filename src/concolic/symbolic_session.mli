@@ -39,8 +39,8 @@ type t
 val empty : t
 (** [empty] is a default symbolic session. *)
 
-(* val get_key_depth : t -> int *)
-(** [get_key_depth t] is the depth of [t] used to make a concolic key. *)
+val get_fun_depth : t -> Fun_depth.t
+(** [get_fun_depth t] is the function depth of [t] used to make a concolic key. *)
 
 val with_options : (t -> t) Options.Fun.t
 (** [with_options t] is [t] configured with the optional arguments. *)
@@ -78,7 +78,7 @@ val add_match : t -> Concolic_key.Lazy.t -> Concolic_key.Lazy.t -> Jayil.Ast.pat
 val hit_branch : t -> Branch.Runtime.t -> t
 (** [hit_branch t branch] is [t] that knows [branch] has been hit during interpretation. *)
 
-(* val enter_fun : t -> t *)
+val enter_fun : t -> t
 (** [enter_fun t] is [t] that knows function depth has increased by 1. *)
 
 val found_assume : t -> Concolic_key.Lazy.t -> t

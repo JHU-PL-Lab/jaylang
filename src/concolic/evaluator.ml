@@ -22,13 +22,13 @@ module Fetch =
   struct
 
     let fetch_val_with_depth ~(conc_session : Session.Concrete.t) fun_depth env (Var (x, _)) :
-        Dvalue.t * int =
+        Dvalue.t * Fun_depth.t =
       Ident_map.find x env (* find the variable and stack in the environment *)
 
     let fetch_val ~(conc_session : Session.Concrete.t) fun_depth env x : Dvalue.t =
       fst (fetch_val_with_depth ~conc_session fun_depth env x) (* find variable and stack, then discard stack *)
 
-    let fetch_depth ~(conc_session : Session.Concrete.t) fun_depth env x : int =
+    let fetch_depth ~(conc_session : Session.Concrete.t) fun_depth env x : Fun_depth.t =
       snd (fetch_val_with_depth ~conc_session fun_depth env x) (* find variable and stack, then discard variable *)
 
     let fetch_val_to_direct ~(conc_session : Session.Concrete.t) fun_depth env vx : value =
@@ -79,12 +79,12 @@ let force_key = Concolic_key.Lazy.to_key
 let rec eval_exp
   ~(conc_session : Session.Concrete.t) (* Note: is mutable *)
   ~(symb_session : Session.Symbolic.t)
-  (fun_depth : int) 
+  (fun_depth : Fun_depth.t)
   (env : Dvalue.denv)
   (e : expr)
   : Dvalue.denv * Dvalue.t * Session.Symbolic.t
   =
-  ILog.app (fun m -> m "@[-> %d]\n" fun_depth);
+  ILog.app (fun m -> m "@[-> %d]\n" (Fun_depth.to_int fun_depth));
   let Expr clauses = e in
   let (denv, conc_session), vs =
     List.fold_map
@@ -99,7 +99,7 @@ let rec eval_exp
 and eval_clause
   ~(conc_session : Session.Concrete.t)
   ~(symb_session : Session.Symbolic.t)
-  (fun_depth : int)
+  (fun_depth : Fun_depth.t)
   (env : Dvalue.denv)
   (clause : clause)
   : Dvalue.denv * Dvalue.t * Session.Symbolic.t
@@ -147,10 +147,8 @@ and eval_clause
 
       (* enter/hit branch *)
       let symb_session = Session.Symbolic.hit_branch symb_session this_branch in
-      (* let d = Session.Symbolic.get_key_depth symb_session in *)
 
       let e = if cond_bool then e1 else e2 in
-      (* let fun_depth' = fun_depth + 1 in *)
 
       (* note that [conc_session] gets mutated when evaluating the branch *)
       let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session fun_depth env e in
@@ -169,9 +167,9 @@ and eval_clause
       (* x = f y ; *)
       match Fetch.fetch_val ~conc_session fun_depth env vf with
       | FunClosure (fid, Function_value (Var (param, _), body), fenv) ->
-        (* let symb_session = Session.Symbolic.enter_fun symb_session in *)
-        (* let d = Session.Symbolic.get_key_depth symb_session in *)
-        let fun_depth' = fun_depth + 1 in (* enter function by increasing function depth *)
+        (* Enter the function (internally increases the function depth) *)
+        let symb_session = Session.Symbolic.enter_fun symb_session in
+        let fun_depth' = Session.Symbolic.get_fun_depth symb_session in
 
         (* varg is the argument that fills in param *)
         let arg, arg_depth = Fetch.fetch_val_with_depth ~conc_session fun_depth env varg in
@@ -282,7 +280,7 @@ let eval_exp_default
   eval_exp
     ~conc_session 
     ~symb_session
-    0               (* interpretation starts at function depth 0 *)
+    Fun_depth.zero
     Ident_map.empty (* empty environment *)
     e
 

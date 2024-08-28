@@ -1,7 +1,7 @@
 open Core
 open Dj_common
 
-type t = Id.t * int -> int
+type t = Id.t * Fun_depth.t -> int
 
 let query_model model (x, fun_depth) : int option =
   let key = Concolic_key.generate x fun_depth in
