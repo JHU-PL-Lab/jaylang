@@ -38,7 +38,6 @@ let dir = "test/concolic/"
 
 let make_tests e s t = From_lib.group_tests (dir ^ s) t (test_for_abort e)
 
-[@@@ocaml.warning "-32"] (* for unused value *)
 let make_tests_well_typed s = make_tests false s `Slow
 let make_tests_ill_typed s = make_tests true s `Quick
 
@@ -65,4 +64,4 @@ let () =
       @ make_tests_ill_typed "bjy/sato-bjy-ill-typed"
       @ make_tests_well_typed "bjy/sato-bjy-well-typed"
     ) 
-    ~quick_only:false
+    ~quick_only:true

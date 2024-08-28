@@ -120,16 +120,13 @@ and eval_clause
     match cbody with
     | Value_body ((Value_function vf) as v) ->
       (* x = fun ... ; *)
-      let retv = FunClosure (x, vf, env) in
-      retv, Session.Symbolic.add_key_eq_val symb_session x_key v
+      FunClosure (x, vf, env), Session.Symbolic.add_key_eq_val symb_session x_key v
     | Value_body ((Value_record r) as v) ->
       (* x = { ... } ; *)
-      let retv = RecordClosure (r, env) in
-      retv, Session.Symbolic.add_key_eq_val symb_session x_key v
+      RecordClosure (r, env), Session.Symbolic.add_key_eq_val symb_session x_key v
     | Value_body v -> 
       (* x = <bool or int> ; *)
-      let retv = Direct v in
-      retv, Session.Symbolic.add_key_eq_val symb_session x_key v
+      Direct v, Session.Symbolic.add_key_eq_val symb_session x_key v
     | Var_body vx ->
       (* x = y ; *)
       let Var (y, _) = vx in
@@ -162,8 +159,7 @@ and eval_clause
 
       (* say the ret_key is equal to x now, then clear out branch *)
       let ret_key = make_key ret_id ret_stk in
-      let symb_session = Session.Symbolic.add_alias symb_session x_key ret_key in
-      ret_val, symb_session
+      ret_val, Session.Symbolic.add_alias symb_session x_key ret_key
     | Input_body ->
       (* x = input ; *)
       let n = conc_session.input_feeder (x, stk) in
@@ -199,10 +195,9 @@ and eval_clause
     | Match_body (vy, p) ->
       (* x = y ~ <pattern> ; *)
       let match_res = Value_bool (Fetch.check_pattern ~conc_session ~stk env vy p) in
-      let retv = Direct (match_res) in
       let Var (y, _) = vy in
       let match_key = make_key y stk in
-      retv, Session.Symbolic.add_match symb_session x_key match_key p
+      Direct match_res, Session.Symbolic.add_match symb_session x_key match_key p
     | Projection_body (v, label) -> begin
       match Fetch.fetch_val ~conc_session ~stk env v with
       | RecordClosure (Record_value r, denv) ->
@@ -227,10 +222,9 @@ and eval_clause
         | Value_bool b -> Value_bool (not b)
         | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
-      let retv = Direct bv in
       let (Var (y, _)) = vy in
       let y_key = make_key y y_stk in
-      retv, Session.Symbolic.add_not symb_session x_key y_key
+      Direct bv, Session.Symbolic.add_not symb_session x_key y_key
     | Binary_operation_body (vy, op, vz) ->
       (* x = y op z *)
       let v1 = Fetch.fetch_val_to_direct ~conc_session ~stk env vy
@@ -251,14 +245,13 @@ and eval_clause
         | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> Value_bool (n1 <> n2)
         | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
-      let retv = Direct v in
       let Var (y, _) = vy in
       let Var (z, _) = vz in
       let y_stk = Fetch.fetch_stk ~conc_session ~stk env vy in
       let z_stk = Fetch.fetch_stk ~conc_session ~stk env vz in
       let y_key = make_key y y_stk in
       let z_key = make_key z z_stk in
-      retv, Session.Symbolic.add_binop symb_session x_key op y_key z_key (* just adding keys, not any runtime values, so does not need to be implied by results of earlier branches *)
+      Direct v, Session.Symbolic.add_binop symb_session x_key op y_key z_key
     | Abort_body ->
       let ab_v = AbortClosure env in
       raise @@ Found_abort (ab_v, Session.Symbolic.found_abort symb_session) (* no need to "exit" or anything. Just say interpretation stops. *)
@@ -276,8 +269,7 @@ and eval_clause
       then
         raise @@ Found_failed_assume (Session.Symbolic.fail_assume symb_session) (* fail the assume that was just found *)
       else
-        let retv = Direct (Value_bool b) in
-        retv, symb_session (*Session.Symbolic.add_key_eq_val symb_session x_key (Value_bool v) *)
+        Direct (Value_bool b), symb_session
   in
   (Ident_map.add x (v, stk) env, v, symb_session)
 
