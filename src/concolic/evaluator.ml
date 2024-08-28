@@ -13,108 +13,6 @@ module CLog = Log.Export.CLog
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"
 
 (*
-  --------------------------------------
-  BEGIN DEBUG FUNCTIONS FROM INTERPRETER   
-  --------------------------------------
-
-  Unless labeled, I just keep these called "session", when really they're
-  a concrete session (see session.mli).
-*)
-
-module Debug =
-  struct
-    open From_dbmc
-
-    let debug_update_read_node session x stk =
-      let open Session.Concrete in
-      match (session.is_debug, session.mode) with
-      | true, Session.Concrete.Mode.With_full_target (_, target_stk) ->
-          let r_stk = Rstack.relativize target_stk stk in
-          let block = Cfg.(find_reachable_block x session.block_map) in
-          let key = Lookup_key.of3 x r_stk block in
-          (* This is commented out in the interpreter, where I got the code *)
-          (* Fmt.pr "@[Update Get to %a@]\n" Lookup_key.pp key; *)
-          Hashtbl.change session.term_detail_map key ~f:(function
-            | Some td -> Some { td with get_count = td.get_count + 1 }
-            | None -> failwith "not term_detail")
-      | _, _ -> ()
-
-    let debug_update_write_node session x stk =
-      let open Session.Concrete in
-      match (session.is_debug, session.mode) with
-      | true, Session.Concrete.Mode.With_full_target (_, target_stk) ->
-          let r_stk = Rstack.relativize target_stk stk in
-          let block = Cfg.(find_reachable_block x session.block_map) in
-          let key = Lookup_key.of3 x r_stk block in
-          (* This is commented out in the interpreter, where I got the code *)
-          (* Fmt.pr "@[Update Set to %a@]\n" Lookup_key.pp key; *)
-          Hashtbl.change session.term_detail_map key ~f:(function
-            | Some td -> Some { td with is_set = true }
-            | None -> failwith "not term_detail")
-      | _, _ -> ()
-
-    let debug_stack session x stk (v, _) =
-      let open Session.Concrete in
-      match (session.is_debug, session.mode) with
-      | true, Session.Concrete.Mode.With_full_target (_, target_stk) ->
-          let rstk = Rstack.relativize target_stk stk in
-          Fmt.pr "@[%a = %a\t\t R = %a@]\n" Id.pp x Dvalue.pp v Rstack.pp rstk
-      | _, _ -> ()
-
-    let raise_if_with_stack session x stk v =
-      let open Session.Concrete in
-      match session.mode with
-      | Session.Concrete.Mode.With_full_target (target_x, target_stk) when Ident.equal target_x x ->
-          if Concrete_stack.equal_flip target_stk stk
-          then raise (Found_target { x; stk; v })
-          else
-            Fmt.(
-              pr "found %a at stack %a, expect %a\n" pp_ident x Concrete_stack.pp
-                target_stk Concrete_stack.pp stk)
-      | Session.Concrete.Mode.With_target_x target_x when Ident.equal target_x x ->
-          raise (Found_target { x; stk; v })
-      | _ -> ()
-
-    let alert_lookup session x stk =
-      let open Session.Concrete in
-      match session.mode with
-      | Session.Concrete.Mode.With_full_target (_, target_stk) ->
-          let r_stk = Rstack.relativize target_stk stk in
-          let block = Cfg.(find_reachable_block x session.block_map) in
-          let key = Lookup_key.of3 x r_stk block in
-          Fmt.epr "@[Update Alert to %a\t%a@]\n" Lookup_key.pp key Concrete_stack.pp
-            stk ;
-          Hash_set.add session.lookup_alert key
-      | _ -> ()
-
-    let rec same_stack s1 s2 =
-      let open Session.Concrete in
-      match (s1, s2) with
-      | (cs1, fid1) :: ss1, (cs2, fid2) :: ss2 ->
-          Ident.equal cs1 cs2 && Ident.equal fid1 fid2 && same_stack ss1 ss2
-      | [], [] -> true
-      | _, _ -> false
-
-    let debug_clause ~conc_session x v stk =
-      let open Session.Concrete in
-      ILog.app (fun m -> m "@[%a = %a@]" Id.pp x Dvalue.pp v) ;
-
-      (match conc_session.debug_mode with
-      | Session.Concrete.Mode.Debug.Debug_clause clause_cb -> clause_cb x stk (Dvalue.value_of_t v)
-      | Session.Concrete.Mode.Debug.No_debug -> ()) ;
-
-      raise_if_with_stack conc_session x stk v ;
-      debug_stack conc_session x stk (v, stk) ;
-      ()
-  end
-
-(*
-  ------------------------------------
-  END DEBUG FUNCTIONS FROM INTERPRETER   
-  ------------------------------------
-*)
-
-(*
   ------------------------------
   BEGIN HELPERS TO READ FROM ENV   
   ------------------------------
@@ -125,9 +23,7 @@ module Fetch =
 
     let fetch_val_with_stk ~(conc_session : Session.Concrete.t) ~stk env (Var (x, _)) :
         Dvalue.t * Concrete_stack.t =
-      let res = Ident_map.find x env in (* find the variable and stack in the environment *)
-      Debug.debug_update_read_node conc_session x stk ; 
-      res
+      Ident_map.find x env (* find the variable and stack in the environment *)
 
     let fetch_val ~(conc_session : Session.Concrete.t) ~stk env x : Dvalue.t =
       fst (fetch_val_with_stk ~conc_session ~stk env x) (* find variable and stack, then discard stack *)
@@ -189,14 +85,6 @@ let rec eval_exp
   : Dvalue.denv * Dvalue.t * Session.Symbolic.t
   =
   ILog.app (fun m -> m "@[-> %a@]\n" Concrete_stack.pp stk);
-  (match conc_session.mode with
-  | With_full_target (_, target_stk) ->
-      let r_stk = From_dbmc.Rstack.relativize target_stk stk in
-      Hashtbl.change conc_session.rstk_picked r_stk ~f:(function
-        | Some true -> Some false
-        | Some false -> raise (Run_into_wrong_stack (Jayil.Ast_tools.first_id e, stk))
-        | None-> None)
-  | _ -> ());
   let Expr clauses = e in
   let (denv, conc_session), vs =
     List.fold_map
@@ -227,30 +115,25 @@ and eval_clause
       else ()
   end;
   
-  Debug.debug_update_write_node conc_session x stk;
   let x_key = make_key x stk in
   let (v, symb_session) : Dvalue.t * Session.Symbolic.t =
     match cbody with
     | Value_body ((Value_function vf) as v) ->
       (* x = fun ... ; *)
       let retv = FunClosure (x, vf, env) in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       retv, Session.Symbolic.add_key_eq_val symb_session x_key v
     | Value_body ((Value_record r) as v) ->
       (* x = { ... } ; *)
       let retv = RecordClosure (r, env) in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       retv, Session.Symbolic.add_key_eq_val symb_session x_key v
     | Value_body v -> 
       (* x = <bool or int> ; *)
       let retv = Direct v in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       retv, Session.Symbolic.add_key_eq_val symb_session x_key v
     | Var_body vx ->
       (* x = y ; *)
       let Var (y, _) = vx in
       let ret_val, ret_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env vx in
-      Session.Concrete.add_alias (x, stk) (y, ret_stk) conc_session;
       let y_key = make_key y ret_stk in 
       ret_val, Session.Symbolic.add_alias symb_session x_key y_key
     | Conditional_body (cx, e1, e2) -> 
@@ -280,13 +163,11 @@ and eval_clause
       (* say the ret_key is equal to x now, then clear out branch *)
       let ret_key = make_key ret_id ret_stk in
       let symb_session = Session.Symbolic.add_alias symb_session x_key ret_key in
-      Session.Concrete.add_alias (x, stk) (ret_id, ret_stk) conc_session;
       ret_val, symb_session
     | Input_body ->
       (* x = input ; *)
       let n = conc_session.input_feeder (x, stk) in
       let retv = Direct (Value_int n) in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       retv, Session.Symbolic.add_input symb_session x_key retv
     | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin 
       (* x = f y ; *)
@@ -299,7 +180,6 @@ and eval_clause
         let arg, arg_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env varg in
         let stk' = Concrete_stack.push (x, fid) stk |> Concrete_stack.set_d d in
         let env' = Ident_map.add param (arg, stk') fenv in
-        Session.Concrete.add_alias (param, stk) (x_arg, arg_stk) conc_session;
 
         (* enter function: say arg is same as param *)
         let key_param = make_key param stk' in
@@ -310,7 +190,6 @@ and eval_clause
         let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session stk' env' body in
         let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv body in
         let ret_stk = Fetch.fetch_stk ~conc_session ~stk:stk' ret_env last_v in
-        Session.Concrete.add_alias (x, stk) (ret_id, ret_stk) conc_session;
 
         (* exit function: *)
         let ret_key = make_key ret_id ret_stk in
@@ -321,7 +200,6 @@ and eval_clause
       (* x = y ~ <pattern> ; *)
       let match_res = Value_bool (Fetch.check_pattern ~conc_session ~stk env vy p) in
       let retv = Direct (match_res) in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       let Var (y, _) = vy in
       let match_key = make_key y stk in
       retv, Session.Symbolic.add_match symb_session x_key match_key p
@@ -331,7 +209,6 @@ and eval_clause
         let proj_ident = function Ident s -> s in
         let Var (proj_x, _) as proj_v = Ident_map.find label r in
         let retv, stk' = Fetch.fetch_val_with_stk ~conc_session ~stk denv proj_v in
-        Session.Concrete.add_alias (x, stk) (proj_x, stk') conc_session;
         let Var (v_ident, _) = v in
         let v_stk = Fetch.fetch_stk ~conc_session ~stk env v in
         let record_key = make_key v_ident v_stk in
@@ -351,7 +228,6 @@ and eval_clause
         | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
       let retv = Direct bv in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       let (Var (y, _)) = vy in
       let y_key = make_key y y_stk in
       retv, Session.Symbolic.add_not symb_session x_key y_key
@@ -376,7 +252,6 @@ and eval_clause
         | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
       let retv = Direct v in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
       let Var (y, _) = vy in
       let Var (z, _) = vz in
       let y_stk = Fetch.fetch_stk ~conc_session ~stk env vy in
@@ -384,21 +259,9 @@ and eval_clause
       let y_key = make_key y y_stk in
       let z_key = make_key z z_stk in
       retv, Session.Symbolic.add_binop symb_session x_key op y_key z_key (* just adding keys, not any runtime values, so does not need to be implied by results of earlier branches *)
-    | Abort_body -> begin
+    | Abort_body ->
       let ab_v = AbortClosure env in
-      Session.Concrete.add_val_def_mapping (x, stk) (cbody, ab_v) conc_session;
-      match conc_session.mode with
-      | Plain -> raise @@ Found_abort (ab_v, Session.Symbolic.found_abort symb_session) (* no need to "exit" or anything. Just say interpretation stops. *)
-      (* next two are for debug mode *)
-      | With_target_x target ->
-        if Id.equal target x
-        then raise @@ Found_target { x ; stk ; v = ab_v }
-        else raise @@ Found_abort (ab_v, symb_session)
-      | With_full_target (target, tar_stk) ->
-        if Id.equal target x && Concrete_stack.equal_flip tar_stk stk
-        then raise @@ Found_target { x ; stk ; v = ab_v }
-        else raise @@ Found_abort (ab_v, symb_session)
-      end
+      raise @@ Found_abort (ab_v, Session.Symbolic.found_abort symb_session) (* no need to "exit" or anything. Just say interpretation stops. *)
     | Assert_body cx | Assume_body cx ->
       let v = Fetch.fetch_val_to_direct ~conc_session ~stk env cx in 
       let b =
@@ -414,10 +277,8 @@ and eval_clause
         raise @@ Found_failed_assume (Session.Symbolic.fail_assume symb_session) (* fail the assume that was just found *)
       else
         let retv = Direct (Value_bool b) in
-        Session.Concrete.add_val_def_mapping (x, stk) (cbody, retv) conc_session;
         retv, symb_session (*Session.Symbolic.add_key_eq_val symb_session x_key (Value_bool v) *)
   in
-  Debug.debug_clause ~conc_session x v stk;
   (Ident_map.add x (v, stk) env, v, symb_session)
 
 let eval_exp_default
@@ -461,11 +322,9 @@ let try_eval_exp_default
       symb_session
   | Run_the_same_stack_twice (x, stk) -> (* bubbles exception *)
       Fmt.epr "Run into the same stack twice\n" ;
-      Debug.alert_lookup conc_session x stk ;
       raise (Run_the_same_stack_twice (x, stk))
   | Run_into_wrong_stack (x, stk) -> (* bubble exception *)
       Fmt.epr "Run into wrong stack\n" ;
-      Debug.alert_lookup conc_session x stk ;
       raise (Run_into_wrong_stack (x, stk))
 
 
