@@ -2,6 +2,14 @@ open Core
 open Dj_common
 open Concolic
 
+type 'arg test_one = string -> 'arg -> unit
+
+let group_tests root speed (test_one : 'arg test_one) =
+  Directory_utils.map_in_groups
+    ~f:(fun _ test_name test_path ->
+      Alcotest.test_case test_name speed @@ test_one test_path)
+    root
+
 let test_for_abort is_error_expected testname _args = 
   let _, extension = Filename.split_extension testname in
   begin
@@ -23,20 +31,9 @@ let test_for_abort is_error_expected testname _args =
   |> Bool.(=) is_error_expected
   |> Alcotest.(check bool) "bjy concolic" true
 
-(* Change Lib to allow Quick or Slow flag *)
-module From_lib =
-  struct
-    type 'arg test_one = string -> 'arg -> unit
-    let group_tests root speed (test_one : 'arg test_one) =
-      Directory_utils.map_in_groups
-        ~f:(fun _ test_name test_path ->
-          Alcotest.test_case test_name speed @@ test_one test_path)
-        root
-  end
-
 let dir = "test/concolic/"
 
-let make_tests e s t = From_lib.group_tests (dir ^ s) t (test_for_abort e)
+let make_tests e s t = group_tests (dir ^ s) t (test_for_abort e)
 
 let make_tests_well_typed s = make_tests false s `Slow
 let make_tests_ill_typed s = make_tests true s `Quick
@@ -64,4 +61,4 @@ let () =
       @ make_tests_ill_typed "bjy/sato-bjy-ill-typed"
       @ make_tests_well_typed "bjy/sato-bjy-well-typed"
     ) 
-    ~quick_only:true
+    ~quick_only:false
