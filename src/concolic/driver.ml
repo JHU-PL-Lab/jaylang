@@ -31,7 +31,7 @@ module Test_result =
       | Exhausted_pruned_tree, Exhausted_pruned_tree -> Exhausted_pruned_tree
 
     let of_session_status = function
-      | Session.Status.Found_abort inputs -> Found_abort ({ branch_ident = Ident "placeholder branch name" ; direction = True_direction }, inputs)
+      | Session.Status.Found_abort (branch, inputs) -> Found_abort (branch, inputs)
       | Type_mismatch inputs -> Type_mismatch (Ident "placeholder branch name", inputs)
       | Exhausted { pruned = true } -> Exhausted_pruned_tree
       | Exhausted { pruned = false } -> Exhausted

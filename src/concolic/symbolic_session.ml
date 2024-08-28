@@ -5,7 +5,7 @@ open Path_tree
 module Status =
   struct
     type t =
-      | Found_abort of (Jil_input.t list [@compare.ignore])
+      | Found_abort of (Branch.t * Jil_input.t list [@compare.ignore])
       | Type_mismatch of (Jil_input.t list [@compare.ignore])
       | Finished_interpretation of { pruned : bool }
       [@@deriving compare, sexp]
@@ -163,9 +163,10 @@ module T =
     type t =
       { stack          : Node_stack.t
       ; target         : Target.t option
-      ; status         : [ `In_progress | `Found_abort | `Type_mismatch ]
+      ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch ]
       ; rev_inputs     : Jil_input.t list
-      ; depth_tracker  : Depth_tracker.t }
+      ; depth_tracker  : Depth_tracker.t 
+      ; latest_branch  : Branch.t option }
   end
 
 include T
@@ -175,14 +176,15 @@ let empty : t =
   ; target         = None
   ; status         = `In_progress
   ; rev_inputs     = []
-  ; depth_tracker  = Depth_tracker.empty Options.default.max_tree_depth }
+  ; depth_tracker  = Depth_tracker.empty Options.default.max_tree_depth
+  ; latest_branch  = None }
 
 let with_options : (t -> t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) -> fun (x : t) -> { x with depth_tracker = Options.Fun.appl Depth_tracker.with_options r x.depth_tracker }
 
 let found_abort (s : t) : t =
-  { s with status = `Found_abort }
+  { s with status = `Found_abort (Option.value_exn s.latest_branch) } (* safe to get value b/c no aborts show up in global scope *)
 
 let found_type_mismatch (s : t) : t =
   { s with status = `Type_mismatch }
@@ -221,7 +223,10 @@ let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
   else { x with stack = Node_stack.add_formula x.stack @@ lazy_expr () }
 
 let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
-  let after_incr = { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker } in
+  let after_incr = 
+    { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker 
+    ; latest_branch = Option.return @@ Branch.Runtime.to_ast_branch branch }
+  in
   if after_incr.depth_tracker.is_max_depth
   then after_incr
   else { after_incr with stack = Node_stack.push after_incr.stack branch }
@@ -300,7 +305,7 @@ module Dead =
       | `In_progress ->
           let dt = x.prev.depth_tracker in
           Finished_interpretation { pruned = dt.is_max_depth || dt.is_max_step }
-      | `Found_abort -> Found_abort (List.rev x.prev.rev_inputs)
+      | `Found_abort branch -> Found_abort (branch, List.rev x.prev.rev_inputs)
       | `Type_mismatch -> Type_mismatch (List.rev x.prev.rev_inputs)
 
     let is_reach_max_step (x : t) : bool =

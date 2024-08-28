@@ -1,6 +1,5 @@
 open Core
 open Path_tree
-(* open Dbmc *)
 open Dj_common
 open Jayil.Ast
 
@@ -107,7 +106,7 @@ module Status =
   struct
     type t =
       | In_progress of { pruned : bool }
-      | Found_abort of (Jil_input.t list [@compare.ignore])
+      | Found_abort of (Branch.t * Jil_input.t list [@compare.ignore])
       | Type_mismatch of (Jil_input.t list [@compare.ignore])
       | Exhausted of { pruned : bool }
       [@@deriving compare, sexp]
@@ -166,7 +165,7 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let dead_sym = Symbolic.finish sym x.tree in
   let new_status =
     match Symbolic.Dead.get_status dead_sym with
-    | Symbolic.Status.Found_abort inputs -> Status.Found_abort inputs
+    | Symbolic.Status.Found_abort (branch, inputs) -> Status.Found_abort (branch, inputs)
     | Type_mismatch inputs -> Type_mismatch inputs
     | Finished_interpretation { pruned = true } -> Status.prune x.status
     | _ -> x.status

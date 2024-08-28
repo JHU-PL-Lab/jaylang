@@ -3,7 +3,7 @@ open Path_tree
 module Status :
   sig
     type t =
-      | Found_abort of (Jil_input.t list [@compare.ignore])
+      | Found_abort of (Branch.t * Jil_input.t list [@compare.ignore])
       | Type_mismatch of (Jil_input.t list [@compare.ignore])
       | Finished_interpretation of { pruned : bool }
       [@@deriving compare, sexp]
