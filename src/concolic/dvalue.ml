@@ -1,5 +1,4 @@
 open Jayil.Ast (* opens the value types you see here *)
-open Dj_common
 
 type t =
   | Direct of value (* record, function, int, or bool *)
@@ -19,10 +18,10 @@ let value_of_t = function
 let rec pp oc = function
   | Direct v -> Jayil.Pp.value oc v
   | FunClosure _ -> Format.fprintf oc "(fc)"
-  | RecordClosure (r, env) -> pp_record_c (r, env) oc
+  | RecordClosure (r, _) -> pp_record_c r oc
   | AbortClosure _ -> Format.fprintf oc "(abort)"
 
-and pp_record_c (Record_value r, env) oc =
-  let pp_entry oc (x, v) = Fmt.pf oc "%a = %a" Id.pp x Jayil.Pp.var_ v in
+and pp_record_c (Record_value r) oc =
+  let pp_entry oc (x, v) = Fmt.pf oc "%a = %a" Dj_common.Id.pp x Jayil.Pp.var_ v in
   (Fmt.braces (Fmt.iter_bindings ~sep:(Fmt.any ", ") Ident_map.iter pp_entry))
     oc r

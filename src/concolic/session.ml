@@ -1,7 +1,6 @@
 open Core
 open Path_tree
 open Dj_common
-open Jayil.Ast
 
 module Sudu = From_dbmc.Solver.SuduZ3
 
@@ -10,7 +9,6 @@ module Sudu = From_dbmc.Solver.SuduZ3
 *)
 module Concrete =
   struct
-    open From_dbmc
 
     type t =
       { (* mode *)

@@ -12,8 +12,6 @@
   logs
   logs.lwt
   logs.fmt
-  ocamlgraph
-  hashcons
   from_dbmc
   jayil
   jay_translate
@@ -21,11 +19,8 @@
   jayil_parser
   bluejay
   dj_common
-  ddpa_for_dj
-  jil_analysis
-  unroll
   sudu
-  psq) ; psq added for concolic queue of target branches
+  psq) ; psq added for queue of target branches
  (instrumentation
   (backend landmarks))
  (synopsis "dbmc is demand-driven bounded model checking")
@@ -39,7 +34,3 @@
    landmarks-ppx
    --auto)))
 
-(env
- (dev
-  (flags
-   (:standard -w -33 -w -26 -w -27))))

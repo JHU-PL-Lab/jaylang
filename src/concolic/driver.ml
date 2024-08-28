@@ -1,5 +1,4 @@
 open Core
-open Dj_common
 
 module CLog = Dj_common.Log.Export.CLog
 

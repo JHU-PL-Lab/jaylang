@@ -1,4 +1,3 @@
-open Core
 
 module T =
   struct
