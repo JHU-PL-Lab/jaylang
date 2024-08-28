@@ -1,13 +1,12 @@
 open Core
 open Dj_common
 
-type t = Input_feeder.t
+type t = Id.t * int -> int
 
-let query_model model (x, call_stack) : int option =
-  let key = Concolic_key.generate x call_stack in
+let query_model model (x, fun_depth) : int option =
+  let key = Concolic_key.generate x fun_depth in
   From_dbmc.Solver.SuduZ3.get_int_expr model (Concolic_riddler.key_to_var key)
-
-let default : Input_feeder.t =
+let default : t =
   fun _ -> Random.int 21 - 10 (* random int between -10 and 10 inclusive *)
 
 let from_model ?(history = ref []) model : t =

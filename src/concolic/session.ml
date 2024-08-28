@@ -14,7 +14,7 @@ module Concrete =
 
     type t =
       { (* mode *)
-        input_feeder    : Input_feeder.t
+        input_feeder    : Concolic_feeder.t
       ; step            : int ref
       ; max_step        : int option }
 
@@ -23,7 +23,7 @@ module Concrete =
       ; step            = ref 0
       ; max_step        = None }
 
-    let create (input_feeder : Input_feeder.t) (global_max_step : int) : t =
+    let create (input_feeder : Concolic_feeder.t) (global_max_step : int) : t =
       { (create_default ()) with 
         input_feeder
       ; max_step = Some global_max_step }

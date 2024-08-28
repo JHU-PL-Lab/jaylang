@@ -128,7 +128,6 @@ module Depth_tracker =
     type t =
       { cur_depth    : int (* branch depth *)
       ; max_depth    : int (* only for conditional branch depth *)
-      ; fun_depth    : int (* number of functions entered *)
       ; is_max_step  : bool
       ; is_max_depth : bool } 
       (** [t] helps track if we've reached the max tree depth and thus should stop creating formulas *)
@@ -137,8 +136,7 @@ module Depth_tracker =
       { cur_depth = 0
       ; max_depth 
       ; is_max_step = false
-      ; is_max_depth = false 
-      ; fun_depth = 0 }
+      ; is_max_depth = false }
 
     let with_options : (t -> t) Options.Fun.t =
       Options.Fun.make
@@ -146,12 +144,6 @@ module Depth_tracker =
 
     let incr_branch (x : t) : t =
       { x with cur_depth = x.cur_depth + 1 ; is_max_depth = x.max_depth <= x.cur_depth }
-
-    let incr_fun (x : t) : t =
-      { x with fun_depth = x.fun_depth + 1 }
-
-    let get_key_depth (x : t) : int =
-      x.fun_depth
 
     let hit_max_step (x : t) : t =
       { x with is_max_step = true }
@@ -214,8 +206,8 @@ let fail_assume (x : t) : t =
       in
       { x with stack = Cons (new_hd, tl) }
 
-let get_key_depth (x : t) : int =
-  Depth_tracker.get_key_depth x.depth_tracker
+(* let get_key_depth (x : t) : int =
+  Depth_tracker.get_key_depth x.depth_tracker *)
 
 let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
   if x.depth_tracker.is_max_depth
@@ -231,8 +223,8 @@ let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
   then after_incr
   else { after_incr with stack = Node_stack.push after_incr.stack branch }
 
-let enter_fun (x : t) : t =
-  { x with depth_tracker = Depth_tracker.incr_fun x.depth_tracker }
+(* let enter_fun (x : t) : t =
+  { x with depth_tracker = Depth_tracker.incr_fun x.depth_tracker } *)
 
 let reach_max_step (x : t) : t =
   { x with depth_tracker = Depth_tracker.hit_max_step x.depth_tracker }

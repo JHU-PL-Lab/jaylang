@@ -13,14 +13,14 @@ module Concrete :
     (* NOTE: this type is mutable *)
     type t =
       { (* mode *)
-        input_feeder    : Input_feeder.t
+        input_feeder    : Concolic_feeder.t
       ; step            : int ref
       ; max_step        : int option }
 
     val create_default : unit -> t
     (** [create_default ()] is an arbitrary session with no intentional input feeder and empty graphs. *)
 
-    val create : Input_feeder.t -> int -> t
+    val create : Concolic_feeder.t -> int -> t
     (** [create input_feeder global_max_step] *)
   end
 

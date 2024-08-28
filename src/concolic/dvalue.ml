@@ -7,8 +7,8 @@ type t =
   | RecordClosure of record_value * denv
   | AbortClosure of denv
 
-and t_with_stack = t * Dj_common.Concrete_stack.t
-and denv = t_with_stack Ident_map.t (* environment *)
+and t_with_depth = t * int
+and denv = t_with_depth Ident_map.t (* environment *)
 
 let value_of_t = function
   | Direct v -> v

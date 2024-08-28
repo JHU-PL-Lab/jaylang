@@ -21,28 +21,28 @@ let cond_fid b = if b then Ident "$tt" else Ident "$ff"
 module Fetch =
   struct
 
-    let fetch_val_with_stk ~(conc_session : Session.Concrete.t) ~stk env (Var (x, _)) :
-        Dvalue.t * Concrete_stack.t =
+    let fetch_val_with_depth ~(conc_session : Session.Concrete.t) fun_depth env (Var (x, _)) :
+        Dvalue.t * int =
       Ident_map.find x env (* find the variable and stack in the environment *)
 
-    let fetch_val ~(conc_session : Session.Concrete.t) ~stk env x : Dvalue.t =
-      fst (fetch_val_with_stk ~conc_session ~stk env x) (* find variable and stack, then discard stack *)
+    let fetch_val ~(conc_session : Session.Concrete.t) fun_depth env x : Dvalue.t =
+      fst (fetch_val_with_depth ~conc_session fun_depth env x) (* find variable and stack, then discard stack *)
 
-    let fetch_stk ~(conc_session : Session.Concrete.t) ~stk env x : Concrete_stack.t =
-      snd (fetch_val_with_stk ~conc_session ~stk env x) (* find variable and stack, then discard variable *)
+    let fetch_depth ~(conc_session : Session.Concrete.t) fun_depth env x : int =
+      snd (fetch_val_with_depth ~conc_session fun_depth env x) (* find variable and stack, then discard variable *)
 
-    let fetch_val_to_direct ~(conc_session : Session.Concrete.t) ~stk env vx : value =
-      match fetch_val ~conc_session ~stk env vx with
+    let fetch_val_to_direct ~(conc_session : Session.Concrete.t) fun_depth env vx : value =
+      match fetch_val ~conc_session fun_depth env vx with
       | Direct v -> v
       | _ -> failwith "eval to non direct value" (* TODO: add type mismatch here *)
 
-    let fetch_val_to_bool ~(conc_session : Session.Concrete.t) ~stk env vx : bool =
-      match fetch_val ~conc_session ~stk env vx with
+    let fetch_val_to_bool ~(conc_session : Session.Concrete.t) fun_depth env vx : bool =
+      match fetch_val ~conc_session fun_depth env vx with
       | Direct (Value_bool b) -> b
       | _ -> failwith "eval to non bool" (* TODO: add type mismatch here *)
 
-    let check_pattern ~(conc_session : Session.Concrete.t) ~stk env vx pattern : bool =
-      match (fetch_val ~conc_session ~stk env vx, pattern) with
+    let check_pattern ~(conc_session : Session.Concrete.t) fun_depth env vx pattern : bool =
+      match (fetch_val ~conc_session fun_depth env vx, pattern) with
       | Direct (Value_int _), Int_pattern -> true
       | Direct (Value_bool _), Bool_pattern -> true
       | Direct (Value_function _), _ -> failwith "fun must be a closure"
@@ -79,19 +79,19 @@ let force_key = Concolic_key.Lazy.to_key
 let rec eval_exp
   ~(conc_session : Session.Concrete.t) (* Note: is mutable *)
   ~(symb_session : Session.Symbolic.t)
-  (stk : Concrete_stack.t)
+  (fun_depth : int) 
   (env : Dvalue.denv)
   (e : expr)
   : Dvalue.denv * Dvalue.t * Session.Symbolic.t
   =
-  ILog.app (fun m -> m "@[-> %a@]\n" Concrete_stack.pp stk);
+  ILog.app (fun m -> m "@[-> %d]\n" fun_depth);
   let Expr clauses = e in
   let (denv, conc_session), vs =
     List.fold_map
       clauses
       ~init:(env, symb_session)
       ~f:(fun (env, pt) clause ->
-        let denv, v, pt = eval_clause ~conc_session ~symb_session:pt stk env clause
+        let denv, v, pt = eval_clause ~conc_session ~symb_session:pt fun_depth env clause
         in (denv, pt), v) 
   in
   (denv, List.last_exn vs, conc_session)
@@ -99,7 +99,7 @@ let rec eval_exp
 and eval_clause
   ~(conc_session : Session.Concrete.t)
   ~(symb_session : Session.Symbolic.t)
-  (stk : Concrete_stack.t)
+  (fun_depth : int)
   (env : Dvalue.denv)
   (clause : clause)
   : Dvalue.denv * Dvalue.t * Session.Symbolic.t
@@ -111,11 +111,11 @@ and eval_clause
   | Some max_step ->
       Int.incr conc_session.step;
       if !(conc_session.step) > max_step
-      then raise (Reach_max_step (x, stk, Session.Symbolic.reach_max_step symb_session))
+      then raise (Reach_max_step (x, Session.Symbolic.reach_max_step symb_session))
       else ()
   end;
   
-  let x_key = make_key x stk in
+  let x_key = make_key x fun_depth in
   let (v, symb_session) : Dvalue.t * Session.Symbolic.t =
     match cbody with
     | Value_body ((Value_function vf) as v) ->
@@ -130,62 +130,62 @@ and eval_clause
     | Var_body vx ->
       (* x = y ; *)
       let Var (y, _) = vx in
-      let ret_val, ret_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env vx in
-      let y_key = make_key y ret_stk in 
+      let ret_val, ret_depth = Fetch.fetch_val_with_depth ~conc_session fun_depth env vx in
+      let y_key = make_key y ret_depth in 
       ret_val, Session.Symbolic.add_alias symb_session x_key y_key
     | Conditional_body (cx, e1, e2) -> 
       (* x = if y then e1 else e2 ; *)
       let Var (y, _) = cx in
-      let cond_val, condition_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env cx in
+      let cond_val, condition_depth = Fetch.fetch_val_with_depth ~conc_session fun_depth env cx in
       let cond_bool =
         match cond_val with
         | Direct (Value_bool b) -> b 
         | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
-      let condition_key = make_key y condition_stk in
+      let condition_key = make_key y condition_depth in
       let this_branch = Branch.Runtime.{ branch_key = force_key x_key ; condition_key = force_key condition_key ; direction = Branch.Direction.of_bool cond_bool } in
 
       (* enter/hit branch *)
       let symb_session = Session.Symbolic.hit_branch symb_session this_branch in
-      let d = Session.Symbolic.get_key_depth symb_session in
+      (* let d = Session.Symbolic.get_key_depth symb_session in *)
 
       let e = if cond_bool then e1 else e2 in
-      let stk' = Concrete_stack.push (x, cond_fid cond_bool) stk |> Concrete_stack.set_d d in
+      (* let fun_depth' = fun_depth + 1 in *)
 
       (* note that [conc_session] gets mutated when evaluating the branch *)
-      let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session stk' env e in
+      let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session fun_depth env e in
       let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
-      let _, ret_stk = Fetch.fetch_val_with_stk ~conc_session ~stk:stk' ret_env last_v in
+      let _, ret_stk = Fetch.fetch_val_with_depth ~conc_session fun_depth ret_env last_v in
 
       (* say the ret_key is equal to x now, then clear out branch *)
       let ret_key = make_key ret_id ret_stk in
       ret_val, Session.Symbolic.add_alias symb_session x_key ret_key
     | Input_body ->
       (* x = input ; *)
-      let n = conc_session.input_feeder (x, stk) in
+      let n = conc_session.input_feeder (x, fun_depth) in
       let retv = Direct (Value_int n) in
       retv, Session.Symbolic.add_input symb_session x_key retv
     | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin 
       (* x = f y ; *)
-      match Fetch.fetch_val ~conc_session ~stk env vf with
+      match Fetch.fetch_val ~conc_session fun_depth env vf with
       | FunClosure (fid, Function_value (Var (param, _), body), fenv) ->
-        let symb_session = Session.Symbolic.enter_fun symb_session in
-        let d = Session.Symbolic.get_key_depth symb_session in
+        (* let symb_session = Session.Symbolic.enter_fun symb_session in *)
+        (* let d = Session.Symbolic.get_key_depth symb_session in *)
+        let fun_depth' = fun_depth + 1 in (* enter function by increasing function depth *)
 
         (* varg is the argument that fills in param *)
-        let arg, arg_stk = Fetch.fetch_val_with_stk ~conc_session ~stk env varg in
-        let stk' = Concrete_stack.push (x, fid) stk |> Concrete_stack.set_d d in
-        let env' = Ident_map.add param (arg, stk') fenv in
+        let arg, arg_depth = Fetch.fetch_val_with_depth ~conc_session fun_depth env varg in
+        let env' = Ident_map.add param (arg, fun_depth') fenv in
 
         (* enter function: say arg is same as param *)
-        let key_param = make_key param stk' in
-        let key_arg = make_key x_arg arg_stk in
+        let key_param = make_key param fun_depth' in
+        let key_arg = make_key x_arg arg_depth in
         let symb_session = Session.Symbolic.add_alias symb_session key_param key_arg in
 
         (* returned value of function *)
-        let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session stk' env' body in
+        let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session fun_depth' env' body in
         let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv body in
-        let ret_stk = Fetch.fetch_stk ~conc_session ~stk:stk' ret_env last_v in
+        let ret_stk = Fetch.fetch_depth ~conc_session fun_depth' ret_env last_v in
 
         (* exit function: *)
         let ret_key = make_key ret_id ret_stk in
@@ -194,20 +194,20 @@ and eval_clause
       end
     | Match_body (vy, p) ->
       (* x = y ~ <pattern> ; *)
-      let match_res = Value_bool (Fetch.check_pattern ~conc_session ~stk env vy p) in
+      let match_res = Value_bool (Fetch.check_pattern ~conc_session fun_depth env vy p) in
       let Var (y, _) = vy in
-      let match_key = make_key y stk in
+      let match_key = make_key y fun_depth in
       Direct match_res, Session.Symbolic.add_match symb_session x_key match_key p
     | Projection_body (v, label) -> begin
-      match Fetch.fetch_val ~conc_session ~stk env v with
+      match Fetch.fetch_val ~conc_session fun_depth env v with
       | RecordClosure (Record_value r, denv) ->
         let proj_ident = function Ident s -> s in
         let Var (proj_x, _) as proj_v = Ident_map.find label r in
-        let retv, stk' = Fetch.fetch_val_with_stk ~conc_session ~stk denv proj_v in
+        let retv, fun_depth' = Fetch.fetch_val_with_depth ~conc_session fun_depth denv proj_v in
         let Var (v_ident, _) = v in
-        let v_stk = Fetch.fetch_stk ~conc_session ~stk env v in
-        let record_key = make_key v_ident v_stk in
-        let proj_key = make_key proj_x stk' in
+        let v_depth = Fetch.fetch_depth ~conc_session fun_depth env v in
+        let record_key = make_key v_ident v_depth in
+        let proj_key = make_key proj_x fun_depth' in
         retv, Session.Symbolic.add_alias symb_session x_key proj_key
       | Direct (Value_record (Record_value _record)) ->
         failwith "project should also have a closure"
@@ -215,20 +215,20 @@ and eval_clause
       end
     | Not_body vy ->
       (* x = not y ; *)
-      let v = Fetch.fetch_val_to_direct ~conc_session ~stk env vy in 
-      let y_stk = Fetch.fetch_stk ~conc_session ~stk env vy in
+      let v = Fetch.fetch_val_to_direct ~conc_session fun_depth env vy in 
+      let y_depth = Fetch.fetch_depth ~conc_session fun_depth env vy in
       let bv =
         match v with
         | Value_bool b -> Value_bool (not b)
         | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
       let (Var (y, _)) = vy in
-      let y_key = make_key y y_stk in
+      let y_key = make_key y y_depth in
       Direct bv, Session.Symbolic.add_not symb_session x_key y_key
     | Binary_operation_body (vy, op, vz) ->
       (* x = y op z *)
-      let v1 = Fetch.fetch_val_to_direct ~conc_session ~stk env vy
-      and v2 = Fetch.fetch_val_to_direct ~conc_session ~stk env vz in
+      let v1 = Fetch.fetch_val_to_direct ~conc_session fun_depth env vy
+      and v2 = Fetch.fetch_val_to_direct ~conc_session fun_depth env vz in
       let v =
         match op, v1, v2 with
         | Binary_operator_plus, Value_int n1, Value_int n2                  -> Value_int  (n1 + n2)
@@ -247,23 +247,23 @@ and eval_clause
       in
       let Var (y, _) = vy in
       let Var (z, _) = vz in
-      let y_stk = Fetch.fetch_stk ~conc_session ~stk env vy in
-      let z_stk = Fetch.fetch_stk ~conc_session ~stk env vz in
-      let y_key = make_key y y_stk in
-      let z_key = make_key z z_stk in
+      let y_depth = Fetch.fetch_depth ~conc_session fun_depth env vy in
+      let z_depth = Fetch.fetch_depth ~conc_session fun_depth env vz in
+      let y_key = make_key y y_depth in
+      let z_key = make_key z z_depth in
       Direct v, Session.Symbolic.add_binop symb_session x_key op y_key z_key
     | Abort_body ->
       let ab_v = AbortClosure env in
       raise @@ Found_abort (ab_v, Session.Symbolic.found_abort symb_session) (* no need to "exit" or anything. Just say interpretation stops. *)
     | Assert_body cx | Assume_body cx ->
-      let v = Fetch.fetch_val_to_direct ~conc_session ~stk env cx in 
+      let v = Fetch.fetch_val_to_direct ~conc_session fun_depth env cx in 
       let b =
         match v with
         | Value_bool b -> b
         | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
       let Var (y, _) = cx in 
-      let key = make_key y (Fetch.fetch_stk ~conc_session ~stk env cx) in
+      let key = make_key y (Fetch.fetch_depth ~conc_session fun_depth env cx) in
       let symb_session = Session.Symbolic.found_assume symb_session key in
       if not b
       then
@@ -271,7 +271,7 @@ and eval_clause
       else
         Direct (Value_bool b), symb_session
   in
-  (Ident_map.add x (v, stk) env, v, symb_session)
+  (Ident_map.add x (v, fun_depth) env, v, symb_session)
 
 let eval_exp_default
   ~(conc_session : Session.Concrete.t)
@@ -282,7 +282,7 @@ let eval_exp_default
   eval_exp
     ~conc_session 
     ~symb_session
-    Concrete_stack.empty (* empty stack *)
+    0               (* interpretation starts at function depth 0 *)
     Ident_map.empty (* empty environment *)
     e
 
@@ -305,7 +305,7 @@ let try_eval_exp_default
   | Type_mismatch symb_session ->
       CLog.app (fun m -> m "Type mismatch in interpretation\n");
       symb_session
-  | Reach_max_step (_, _, symb_session) ->
+  | Reach_max_step (_, symb_session) ->
       CLog.app (fun m -> m "Reach max steps\n");
       symb_session
   | Found_failed_assume symb_session

@@ -10,7 +10,7 @@ module Make (T : sig type t end) =
     exception Found_failed_assume of T.t
     exception Found_failed_assert of T.t
     exception Terminate of Dvalue.t
-    exception Reach_max_step of Id.t * Concrete_stack.t * T.t
+    exception Reach_max_step of Id.t * T.t
     exception Run_the_same_stack_twice of Id.t * Concrete_stack.t
     exception Run_into_wrong_stack of Id.t * Concrete_stack.t
   end

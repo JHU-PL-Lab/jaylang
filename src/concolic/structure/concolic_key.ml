@@ -10,16 +10,14 @@ module T =
 
 include T
 
-let generate (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : t =
-  { x ; n = Dj_common.Concrete_stack.d stk }
+let generate (x : Jayil.Ast.ident) (fun_depth : int) : t =
+  { x ; n = fun_depth }
 
 let to_string ({ x ; n } : t) : string = 
   Format.sprintf "%s_$%s$" (Dj_common.Id.show x) (Int.to_string n)
 
 let x ({ x ; _ } : t) : Jayil.Ast.ident =
   x
-
-let d ({ n ; _ } : t) : int = n
 
 module Lazy =
   struct
@@ -28,6 +26,6 @@ module Lazy =
     let to_key (x : t) : T.t =
       x ()
 
-    let make (x : Jayil.Ast.ident) (stk : Dj_common.Concrete_stack.t) : t =
-      fun () -> generate x stk
+    let make (x : Jayil.Ast.ident) (fun_depth : int) : t =
+      fun () -> generate x fun_depth
   end
