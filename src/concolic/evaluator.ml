@@ -1,13 +1,11 @@
 open Core
 open Jayil.Ast
-(* open Dbmc *)
-open Dj_common (* exposes Concrete_stack *)
 open Dvalue (* just to expose constructors *)
 
 open Concolic_exceptions.Make (Session.Symbolic)
 
-module ILog = Log.Export.ILog
-module CLog = Log.Export.CLog
+module ILog = Dj_common.Log.Export.ILog
+module CLog = Dj_common.Log.Export.CLog
 
 (* Ident for conditional bool. *)
 let cond_fid b = if b then Ident "$tt" else Ident "$ff"
@@ -73,8 +71,7 @@ module Fetch =
   It is an evaluation within a single concolic session.
 *)
 
-let make_key = Concolic_key.Lazy.make
-let force_key = Concolic_key.Lazy.to_key
+let make_key = Concolic_key.generate
 
 let rec eval_exp
   ~(conc_session : Session.Concrete.t) (* Note: is mutable *)
@@ -143,7 +140,7 @@ and eval_clause
         | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
       let condition_key = make_key y condition_depth in
-      let this_branch = Branch.Runtime.{ branch_key = force_key x_key ; condition_key = force_key condition_key ; direction = Branch.Direction.of_bool cond_bool } in
+      let this_branch = Branch.Runtime.{ branch_key = x_key ; condition_key = condition_key ; direction = Branch.Direction.of_bool cond_bool } in
 
       (* enter/hit branch *)
       let symb_session = Session.Symbolic.hit_branch symb_session this_branch in

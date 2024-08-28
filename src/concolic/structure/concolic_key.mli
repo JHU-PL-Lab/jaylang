@@ -12,13 +12,3 @@ val generate : Jayil.Ast.ident -> Fun_depth.t -> t
 val to_string : t -> string
 
 val x : t -> Jayil.Ast.ident
-
-module Lazy :
-  sig
-    type t = unit -> T.t
-
-    val to_key : t -> T.t
-
-    val make : Jayil.Ast.ident -> Fun_depth.t -> t
-    (** see [generate] *)
-  end

@@ -187,14 +187,14 @@ let found_type_mismatch (s : t) : t =
   { s with status = `Type_mismatch }
 
 (* require that cx is true by adding as formula *)
-let found_assume (x : t) (cx : Concolic_key.Lazy.t) : t =
+let found_assume (x : t) (cx : Concolic_key.t) : t =
   if x.depth_tracker.is_max_depth
   then x
   else
     match x.stack with
     | Last _ -> x (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
     | Cons (hd, tl) ->
-      let new_hd = Child.map_node hd ~f:(fun node -> Node.add_formula node @@ Concolic_riddler.eqv (cx ()) (Jayil.Ast.Value_bool true)) in
+      let new_hd = Child.map_node hd ~f:(fun node -> Node.add_formula node @@ Concolic_riddler.eqv cx (Jayil.Ast.Value_bool true)) in
       { x with stack = Cons (new_hd, tl) }
 
 let fail_assume (x : t) : t =
@@ -231,9 +231,6 @@ let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
   then after_incr
   else { after_incr with stack = Node_stack.push after_incr.stack branch }
 
-(* let enter_fun (x : t) : t =
-  { x with depth_tracker = Depth_tracker.incr_fun x.depth_tracker } *)
-
 let reach_max_step (x : t) : t =
   { x with depth_tracker = Depth_tracker.hit_max_step x.depth_tracker }
 
@@ -242,17 +239,16 @@ let reach_max_step (x : t) : t =
   FORMULAS FOR BASIC JIL CLAUSES
   ------------------------------
 *)
-let add_key_eq_val (x : t) (key : Concolic_key.Lazy.t) (v : Jayil.Ast.value) : t =
-  add_lazy_formula x @@ fun () -> Concolic_riddler.eq_term_v (key ()) (Some v)
+let add_key_eq_val (x : t) (key : Concolic_key.t) (v : Jayil.Ast.value) : t =
+  add_lazy_formula x @@ fun () -> Concolic_riddler.eq_term_v key (Some v)
 
-let add_alias (x : t) (key1 : Concolic_key.Lazy.t) (key2 : Concolic_key.Lazy.t) : t =
-  add_lazy_formula x @@ fun () -> Concolic_riddler.eq (key1 ()) (key2 ())
+let add_alias (x : t) (key1 : Concolic_key.t) (key2 : Concolic_key.t) : t =
+  add_lazy_formula x @@ fun () -> Concolic_riddler.eq key1 key2
 
-let add_binop (x : t) (key : Concolic_key.Lazy.t) (op : Jayil.Ast.binary_operator) (left : Concolic_key.Lazy.t) (right : Concolic_key.Lazy.t) : t =
-  add_lazy_formula x @@ fun () -> Concolic_riddler.binop_without_picked (key ()) op (left ()) (right ())
+let add_binop (x : t) (key : Concolic_key.t) (op : Jayil.Ast.binary_operator) (left : Concolic_key.t) (right : Concolic_key.t) : t =
+  add_lazy_formula x @@ fun () -> Concolic_riddler.binop_without_picked key op left right
 
-let add_input (x : t) (key : Concolic_key.Lazy.t) (v : Dvalue.t) : t =
-  let key = key () in (* assume it's not that expensive to compute the key on inputs *)
+let add_input (x : t) (key : Concolic_key.t) (v : Dvalue.t) : t =
   let n =
     match v with
     | Dvalue.Direct (Value_int n) -> n
@@ -264,14 +260,14 @@ let add_input (x : t) (key : Concolic_key.Lazy.t) (v : Dvalue.t) : t =
     Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n s);
     Concolic_riddler.if_pattern key Jayil.Ast.Int_pattern
 
-let add_not (x : t) (key1 : Concolic_key.Lazy.t) (key2 : Concolic_key.Lazy.t) : t =
-  add_lazy_formula x @@ fun () -> Concolic_riddler.not_ (key1 ()) (key2 ())
+let add_not (x : t) (key1 : Concolic_key.t) (key2 : Concolic_key.t) : t =
+  add_lazy_formula x @@ fun () -> Concolic_riddler.not_ key1 key2
 
-let add_match (x : t) (k : Concolic_key.Lazy.t) (m : Concolic_key.Lazy.t) (pat : Jayil.Ast.pattern) : t =
+let add_match (x : t) (k : Concolic_key.t) (m : Concolic_key.t) (pat : Jayil.Ast.pattern) : t =
   add_lazy_formula x
   @@ fun () ->
-    let k_expr = Concolic_riddler.key_to_var (k ()) in
-    From_dbmc.Solver.SuduZ3.eq (From_dbmc.Solver.SuduZ3.project_bool k_expr) (Concolic_riddler.if_pattern (m ()) pat)
+    let k_expr = Concolic_riddler.key_to_var k in
+    From_dbmc.Solver.SuduZ3.eq (From_dbmc.Solver.SuduZ3.project_bool k_expr) (Concolic_riddler.if_pattern m pat)
 
 (*
   -----------------

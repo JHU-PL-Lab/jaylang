@@ -18,14 +18,3 @@ let to_string ({ x ; n } : t) : string =
 
 let x ({ x ; _ } : t) : Jayil.Ast.ident =
   x
-
-module Lazy =
-  struct
-    type t = unit -> T.t    
-
-    let to_key (x : t) : T.t =
-      x ()
-
-    let make (x : Jayil.Ast.ident) (fun_depth : Fun_depth.t) : t =
-      fun () -> generate x fun_depth
-  end
