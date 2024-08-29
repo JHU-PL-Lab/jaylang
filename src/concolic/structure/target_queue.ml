@@ -172,7 +172,7 @@ let empty : t =
 let with_options : (t, t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) -> fun (x : t) ->
-    { x with dfs_tower = Options.Fun.appl DFS_tower.of_options r () }
+    { x with dfs_tower = Options.Fun.run DFS_tower.of_options r () }
 
 (* Deeper targets are at the front of [ls] *)
 let push_list ({ dfs_tower ; bfs ; uniform } : t) (ls : Target.t list) : t =

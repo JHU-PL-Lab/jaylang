@@ -55,7 +55,7 @@ module Fun =
       -> 'a
       -> 'b
 
-    let appl (x : ('a, 'b) t) (r : T.t) : 'a -> 'b =
+    let run (x : ('a, 'b) t) (r : T.t) : 'a -> 'b =
       x
         ~global_timeout_sec:r.global_timeout_sec
         ~solver_timeout_sec:r.solver_timeout_sec
@@ -81,18 +81,37 @@ module Fun =
       ; n_depth_increments }
       |> f 
 
-    let map (x : ('a, 'b) t) (f : 'b -> 'c) : ('a, 'c) t =
-      let g = fun r -> fun a -> f (appl x r a)
-      in
-      make g
+    let return (f : 'a -> 'b) : ('a, 'b) t =
+      make (fun _ -> f)
 
-    let compose (x : ('a, 'b) t) (f : 'c -> 'a) : ('c, 'b) t =
-      let g = fun r -> fun c -> appl x r @@ f c
-      in
-      make g
+    (*
+      Note we can't do the normal bind of type `('a, 'r) t -> ('a -> ('b, 'r) t) -> ('b, 'r) t`.
+      To see why, forget the optional argument part. Just assume `('a, 'b) t = 'a -> 'b`.
+      Then such a bind would be
+        `val bind : ('a -> 'r) -> ('a -> 'b -> 'r) -> 'b -> 'r`
+      Then try to start by saying
+        let bind x f =
+          fun b ->
+            ...
+      And we need to make an 'r. However, this requires we have an 'a! We don't!
 
-    let (@.) = compose
+      So let's just call the following code `bind`, even if that's a bad name.
+    *)
+    let bind (x : ('a, 'b) t) (f : ('b, 'r) t) : ('a, 'r) t =
+      make
+      @@ fun r ->
+          fun a ->
+            let b = run x r a in
+            run f r b
 
-    let (||>) a b = b @. a
+    let map (x : ('a, 'b) t) (f : 'b -> 'r) : ('a, 'r) t =
+      bind x (return f)
+
+    let compose (f : 'a -> 'b) (x : ('b, 'r) t) : ('a, 'r) t =
+      bind (return f) x
+
+    let (>>=) x f = bind x f
+    let (>>|) x f = map x f
+    let (>=>) f g = compose f g
 
   end

@@ -86,7 +86,7 @@ let with_options : (t, t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) -> fun (x : t) ->
     { x with options = r
-    ; target_queue = Options.Fun.appl Target_queue.with_options r x.target_queue } 
+    ; target_queue = Options.Fun.run Target_queue.with_options r x.target_queue } 
 
 let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let dead_sym = Symbolic.finish sym x.tree in
@@ -121,7 +121,7 @@ let[@landmarks] check_solver' formulas =
   Z3.Solver.check new_solver formulas
 
 let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
-  Options.Fun.appl Symbolic.with_options x.options sym
+  Options.Fun.run Symbolic.with_options x.options sym
 
 (* $ OCAML_LANDMARKS=on ./_build/... *)
 let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] =

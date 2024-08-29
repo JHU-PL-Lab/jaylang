@@ -353,6 +353,6 @@ let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.t =
         Lwt_unix.with_timeout r.global_timeout_sec
         @@ fun () ->
           loop e
-          @@ Options.Fun.appl Session.with_options r Session.empty
+          @@ Options.Fun.run Session.with_options r Session.empty
   in
   Options.Fun.make f

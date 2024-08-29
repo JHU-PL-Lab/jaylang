@@ -178,7 +178,7 @@ let empty : t =
 
 let with_options : (t, t) Options.Fun.t =
   Options.Fun.make
-  @@ fun (r : Options.t) -> fun (x : t) -> { x with depth_tracker = Options.Fun.appl Depth_tracker.with_options r x.depth_tracker }
+  @@ fun (r : Options.t) -> fun (x : t) -> { x with depth_tracker = Options.Fun.run Depth_tracker.with_options r x.depth_tracker }
 
 let found_abort (s : t) : t =
   { s with status = `Found_abort (Option.value_exn s.latest_branch) } (* safe to get value b/c no aborts show up in global scope *)
