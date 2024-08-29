@@ -59,15 +59,6 @@ let[@landmark] lwt_test_one : (Jayil.Ast.expr, Test_result.t Lwt.t) Options.Fun.
 
 (* runs [lwt_test_one] and catches lwt timeout *)
 let test_with_timeout : (Jayil.Ast.expr, Test_result.t) Options.Fun.t =
-  (* let open Options.Fun in
-  lwt_test_one
-  >>= fun lwt_test_result ->
-    try
-      Lwt_main.run lwt_test_result
-    with
-    | Lwt_unix.Timeout ->
-      CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
-      Test_result.Timeout *)
   Options.Fun.make
   @@ fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
@@ -105,7 +96,7 @@ let test : (string, Test_result.t) Options.Fun.t =
   Options.Fun.make
   @@ fun r ->
       fun filename ->
-      match Core.Filename.split_extension filename with 
-      | _, Some "jil" -> Options.Fun.run test_jil r filename
-      | _, Some "bjy" -> Options.Fun.run test_bjy r filename
-      | _ -> failwith "expected jil or bjy file"
+          match Core.Filename.split_extension filename with 
+          | _, Some "jil" -> Options.Fun.run test_jil r filename
+          | _, Some "bjy" -> Options.Fun.run test_bjy r filename
+          | _ -> failwith "expected jil or bjy file"

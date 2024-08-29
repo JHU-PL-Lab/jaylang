@@ -110,6 +110,14 @@ module Fun =
     let compose (f : 'a -> 'b) (x : ('b, 'r) t) : ('a, 'r) t =
       bind (return f) x
 
+    let join (x : ('a, ('b, 'r) t) t) : ('a, 'r) t =
+      make
+      @@ fun r ->
+          fun a ->
+            let b_r = run x r a
+            in
+            run b_r r a
+
     let (>>=) x f = bind x f
     let (>>|) x f = map x f
     let (>=>) f g = compose f g
