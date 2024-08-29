@@ -45,16 +45,17 @@ module Refs =
 (* `Fun` for optional arguments on functions *)
 module Fun =
   struct
-    type 'a t =
+    type ('a, 'b) t =
       ?global_timeout_sec    : float
       -> ?solver_timeout_sec : float
       -> ?global_max_step    : int
       -> ?max_tree_depth     : int
       -> ?random             : bool
       -> ?n_depth_increments : int
-      -> 'a (* 'a = 'b -> 'c *) (* so maybe make this a ('a, 'b) t *)
+      -> 'a
+      -> 'b
 
-    let appl (x : 'a t) (r : T.t) : 'a =
+    let appl (x : ('a, 'b) t) (r : T.t) : 'a -> 'b =
       x
         ~global_timeout_sec:r.global_timeout_sec
         ~solver_timeout_sec:r.solver_timeout_sec
@@ -63,7 +64,7 @@ module Fun =
         ~random:r.random
         ~n_depth_increments:r.n_depth_increments
 
-    let make (f : T.t -> 'a) : 'a t =
+    let make (f : T.t -> 'a -> 'b) : ('a, 'b) t =
       fun
       ?(global_timeout_sec : float = default.global_timeout_sec)
       ?(solver_timeout_sec : float = default.solver_timeout_sec)
@@ -80,12 +81,12 @@ module Fun =
       ; n_depth_increments }
       |> f 
 
-    let map (x : ('a -> 'b) t) (f : 'b -> 'c) : ('a -> 'c) t =
+    let map (x : ('a, 'b) t) (f : 'b -> 'c) : ('a, 'c) t =
       let g = fun r -> fun a -> f (appl x r a)
       in
       make g
 
-    let compose (x : ('a -> 'b) t) (f : 'c -> 'a) : ('c -> 'b) t =
+    let compose (x : ('a, 'b) t) (f : 'c -> 'a) : ('c, 'b) t =
       let g = fun r -> fun c -> appl x r @@ f c
       in
       make g

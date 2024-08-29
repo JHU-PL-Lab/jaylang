@@ -82,7 +82,7 @@ let empty : t =
   ; status       = Status.In_progress { pruned = false }
   ; last_sym     = None }
 
-let with_options : (t -> t) Options.Fun.t =
+let with_options : (t, t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) -> fun (x : t) ->
     { x with options = r

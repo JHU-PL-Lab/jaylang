@@ -117,7 +117,7 @@ module DFS_tower =
 
     let empty = [] (* placeholder. No meaning here *)
 
-    let of_options : (unit -> t) Options.Fun.t =
+    let of_options : (unit, t) Options.Fun.t =
       Options.Fun.make
       @@ fun (r : Options.t) -> fun () ->
         List.init
@@ -169,7 +169,7 @@ let empty : t =
   ; bfs = T.empty Back
   ; uniform = Q.empty }
 
-let with_options : (t -> t) Options.Fun.t =
+let with_options : (t, t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) -> fun (x : t) ->
     { x with dfs_tower = Options.Fun.appl DFS_tower.of_options r () }

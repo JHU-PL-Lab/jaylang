@@ -342,7 +342,7 @@ let rec loop (e : expr) (prev_session : Session.t) : Session.Status.t Lwt.t =
 let seed =
   String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
 
-let lwt_eval : (Jayil.Ast.expr -> Session.Status.t Lwt.t) Options.Fun.t =
+let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.t =
   let f =
     fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->

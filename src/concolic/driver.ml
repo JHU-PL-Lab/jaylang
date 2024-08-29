@@ -44,7 +44,7 @@ module Test_result =
   ----------------------
 *)
 
-let[@landmark] lwt_test_one : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fun.t =
+let[@landmark] lwt_test_one : (Jayil.Ast.expr, Test_result.t Lwt.t) Options.Fun.t =
   let open Lwt.Infix in
   Options.Fun.make
   @@ fun (r : Options.t) ->
@@ -56,7 +56,7 @@ let[@landmark] lwt_test_one : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fu
           Test_result.of_session_status res_status
 
 (* runs [lwt_test_one] and catches lwt timeout *)
-let test_with_timeout : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
+let test_with_timeout : (Jayil.Ast.expr, Test_result.t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
@@ -68,7 +68,7 @@ let test_with_timeout : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
           CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
           Test_result.Timeout
 
-let[@landmark] test_expr : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
+let[@landmark] test_expr : (Jayil.Ast.expr, Test_result.t) Options.Fun.t =
   Options.Fun.map
     test_with_timeout
     (fun r -> Format.printf "\n%s\n" (Test_result.to_string r); r)
@@ -80,12 +80,12 @@ let[@landmark] test_expr : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
   -------------------
 *)
 
-let test_jil : (string -> Test_result.t) Options.Fun.t =
+let test_jil : (string, Test_result.t) Options.Fun.t =
   let open Options.Fun in
   test_expr
   @. Dj_common.File_utils.read_source
 
-let test_bjy : (string -> Test_result.t) Options.Fun.t =
+let test_bjy : (string, Test_result.t) Options.Fun.t =
   let open Options.Fun in
   test_expr
   @. (fun filename ->
@@ -93,7 +93,7 @@ let test_bjy : (string -> Test_result.t) Options.Fun.t =
     |> Dj_common.File_utils.read_source_full ~do_instrument:true ~do_wrap:true
     |> Dj_common.Convert.jil_ast_of_convert)
 
-let test : (string -> Test_result.t) Options.Fun.t =
+let test : (string, Test_result.t) Options.Fun.t =
   Options.Fun.make
   @@ fun r ->
       fun filename ->

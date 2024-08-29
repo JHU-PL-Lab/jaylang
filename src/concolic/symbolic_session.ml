@@ -140,7 +140,7 @@ module Depth_tracker =
       ; is_max_step  = false
       ; is_max_depth = false }
 
-    let with_options : (t -> t) Options.Fun.t =
+    let with_options : (t, t) Options.Fun.t =
       Options.Fun.make
       @@ fun (r : Options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth }
 
@@ -176,7 +176,7 @@ let empty : t =
   ; depth_tracker  = Depth_tracker.empty Options.default.max_tree_depth
   ; latest_branch  = None }
 
-let with_options : (t -> t) Options.Fun.t =
+let with_options : (t, t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) -> fun (x : t) -> { x with depth_tracker = Options.Fun.appl Depth_tracker.with_options r x.depth_tracker }
 
