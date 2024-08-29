@@ -9,7 +9,7 @@ module T =
 
 include T
 
-let generate (x : Jayil.Ast.ident) (fun_depth : Fun_depth.t) : t =
+let create (x : Jayil.Ast.ident) (fun_depth : Fun_depth.t) : t =
   { x ; n = fun_depth }
 
 let to_string ({ x ; n } : t) : string = 
@@ -17,3 +17,7 @@ let to_string ({ x ; n } : t) : string =
 
 let x ({ x ; _ } : t) : Jayil.Ast.ident =
   x
+
+let n ({ n ; _ } : t) : Fun_depth.t =
+  n
+

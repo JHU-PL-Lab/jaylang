@@ -19,24 +19,19 @@ let cond_fid b = if b then Ident "$tt" else Ident "$ff"
 module Fetch =
   struct
 
-    let fetch_val_with_depth env (Var (x, _)) : Dvalue.t * Fun_depth.t =
+    let fetch_val_with_key env (Var (x, _)) : Dvalue.t * Concolic_key.t =
       Ident_map.find x env (* find the variable and stack in the environment *)
 
     let fetch_val env x : Dvalue.t =
-      fst (fetch_val_with_depth env x) (* find variable and stack, then discard stack *)
+      fst (fetch_val_with_key env x) (* find variable and stack, then discard stack *)
 
-    let fetch_depth env x : Fun_depth.t =
-      snd (fetch_val_with_depth env x) (* find variable and stack, then discard variable *)
+    let fetch_key env x : Concolic_key.t =
+      snd (fetch_val_with_key env x) (* find variable and stack, then discard variable *)
 
     let fetch_val_to_direct env vx : value =
       match fetch_val env vx with
       | Direct v -> v
       | _ -> failwith "eval to non direct value" (* TODO: add type mismatch here *)
-
-    let fetch_val_to_bool env vx : bool =
-      match fetch_val env vx with
-      | Direct (Value_bool b) -> b
-      | _ -> failwith "eval to non bool" (* TODO: add type mismatch here *)
 
     let check_pattern env vx pattern : bool =
       match (fetch_val env vx, pattern) with
@@ -69,8 +64,6 @@ module Fetch =
   This section is basically an interpreter injected with concolic logic.
   It is an evaluation within a single concolic session.
 *)
-
-let make_key = Concolic_key.generate
 
 let rec eval_exp
   ~(conc_session : Session.Concrete.t) (* Note: is mutable *)
@@ -111,7 +104,7 @@ and eval_clause
       else ()
   end;
   
-  let x_key = make_key x fun_depth in
+  let x_key = Concolic_key.create x fun_depth in
   let (v, symb_session) : Dvalue.t * Session.Symbolic.t =
     match cbody with
     | Value_body ((Value_function vf) as v) ->
@@ -125,21 +118,17 @@ and eval_clause
       Direct v, Session.Symbolic.add_key_eq_val symb_session x_key v
     | Var_body vx ->
       (* x = y ; *)
-      let Var (y, _) = vx in
-      let ret_val, ret_depth = Fetch.fetch_val_with_depth env vx in
-      let y_key = make_key y ret_depth in 
-      ret_val, Session.Symbolic.add_alias symb_session x_key y_key
+      let ret_val, ret_key = Fetch.fetch_val_with_key env vx in
+      ret_val, Session.Symbolic.add_alias symb_session x_key ret_key
     | Conditional_body (cx, e1, e2) -> 
       (* x = if y then e1 else e2 ; *)
-      let Var (y, _) = cx in
-      let cond_val, condition_depth = Fetch.fetch_val_with_depth env cx in
+      let cond_val, condition_key = Fetch.fetch_val_with_key env cx in
       let cond_bool =
         match cond_val with
         | Direct (Value_bool b) -> b 
         | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
-      let condition_key = make_key y condition_depth in
-      let this_branch = Branch.Runtime.{ branch_key = x_key ; condition_key = condition_key ; direction = Branch.Direction.of_bool cond_bool } in
+      let this_branch = Branch.Runtime.{ branch_key = x_key ; condition_key ; direction = Branch.Direction.of_bool cond_bool } in
 
       (* enter/hit branch *)
       let symb_session = Session.Symbolic.hit_branch symb_session this_branch in
@@ -148,18 +137,15 @@ and eval_clause
 
       (* note that [conc_session] gets mutated when evaluating the branch *)
       let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session fun_depth env e in
-      let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
-      let _, ret_stk = Fetch.fetch_val_with_depth ret_env last_v in
+      let last_v = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
+      let _, ret_key = Fetch.fetch_val_with_key ret_env last_v in
 
-      (* say the ret_key is equal to x now, then clear out branch *)
-      let ret_key = make_key ret_id ret_stk in
       ret_val, Session.Symbolic.add_alias symb_session x_key ret_key
     | Input_body ->
       (* x = input ; *)
-      let n = conc_session.input_feeder (x, fun_depth) in
-      let retv = Direct (Value_int n) in
-      retv, Session.Symbolic.add_input symb_session x_key retv
-    | Appl_body (vf, (Var (x_arg, _) as varg)) -> begin 
+      let ret_val = Direct (Value_int (conc_session.input_feeder x_key)) in
+      ret_val, Session.Symbolic.add_input symb_session x_key ret_val
+    | Appl_body (vf, varg) -> begin 
       (* x = f y ; *)
       match Fetch.fetch_val env vf with
       | FunClosure (_, Function_value (Var (param, _), body), fenv) ->
@@ -168,53 +154,46 @@ and eval_clause
         let fun_depth' = Session.Symbolic.get_fun_depth symb_session in
 
         (* varg is the argument that fills in param *)
-        let arg, arg_depth = Fetch.fetch_val_with_depth env varg in
-        let env' = Ident_map.add param (arg, fun_depth') fenv in
+        let arg, arg_key = Fetch.fetch_val_with_key env varg in
+        let param_key = Concolic_key.create param fun_depth' in
+        let env' = Ident_map.add param (arg, param_key) fenv in
 
         (* enter function: say arg is same as param *)
-        let key_param = make_key param fun_depth' in
-        let key_arg = make_key x_arg arg_depth in
-        let symb_session = Session.Symbolic.add_alias symb_session key_param key_arg in
+        let symb_session = Session.Symbolic.add_alias symb_session param_key arg_key in
 
         (* returned value of function *)
         let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session fun_depth' env' body in
-        let (Var (ret_id, _) as last_v) = Jayil.Ast_tools.retv body in
-        let ret_stk = Fetch.fetch_depth ret_env last_v in
+        let last_v = Jayil.Ast_tools.retv body in
+        let ret_key = Fetch.fetch_key ret_env last_v in
 
         (* exit function: *)
-        let ret_key = make_key ret_id ret_stk in
         ret_val, Session.Symbolic.add_alias symb_session x_key ret_key
       | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       end
     | Match_body (vy, p) ->
       (* x = y ~ <pattern> ; *)
       let match_res = Value_bool (Fetch.check_pattern env vy p) in
-      let Var (y, _) = vy in
-      let match_key = make_key y fun_depth in
-      Direct match_res, Session.Symbolic.add_match symb_session x_key match_key p
+      let y_key = Fetch.fetch_key env vy in
+      Direct match_res, Session.Symbolic.add_match symb_session x_key y_key p
     | Projection_body (v, label) -> begin
       match Fetch.fetch_val env v with
       | RecordClosure (Record_value r, denv) ->
-        let Var (proj_x, _) as proj_v = Ident_map.find label r in
-        let retv, fun_depth' = Fetch.fetch_val_with_depth denv proj_v in
-        let proj_key = make_key proj_x fun_depth' in
-        retv, Session.Symbolic.add_alias symb_session x_key proj_key
+        let proj_var = Ident_map.find label r in
+        let ret_val, ret_key = Fetch.fetch_val_with_key denv proj_var in
+        ret_val, Session.Symbolic.add_alias symb_session x_key ret_key
       | Direct (Value_record (Record_value _record)) ->
         failwith "project should also have a closure"
       | _ -> failwith "project on a non record" (* TODO: type mismatch here *)
       end
     | Not_body vy ->
       (* x = not y ; *)
-      let v = Fetch.fetch_val_to_direct env vy in 
-      let y_depth = Fetch.fetch_depth env vy in
-      let bv =
-        match v with
-        | Value_bool b -> Value_bool (not b)
+      let y_val, y_key = Fetch.fetch_val_with_key env vy in
+      let ret_val =
+        match y_val with
+        | Direct (Value_bool b) -> Direct (Value_bool (not b))
         | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
-      let (Var (y, _)) = vy in
-      let y_key = make_key y y_depth in
-      Direct bv, Session.Symbolic.add_not symb_session x_key y_key
+      ret_val, Session.Symbolic.add_not symb_session x_key y_key
     | Binary_operation_body (vy, op, vz) ->
       (* x = y op z *)
       let v1 = Fetch.fetch_val_to_direct env vy
@@ -235,33 +214,25 @@ and eval_clause
         | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> Value_bool (n1 <> n2)
         | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
-      let Var (y, _) = vy in
-      let Var (z, _) = vz in
-      let y_depth = Fetch.fetch_depth env vy in
-      let z_depth = Fetch.fetch_depth env vz in
-      let y_key = make_key y y_depth in
-      let z_key = make_key z z_depth in
+      let y_key = Fetch.fetch_key env vy in
+      let z_key = Fetch.fetch_key env vz in
       Direct v, Session.Symbolic.add_binop symb_session x_key op y_key z_key
     | Abort_body ->
       let ab_v = AbortClosure env in
       raise @@ Found_abort (ab_v, Session.Symbolic.found_abort symb_session) (* no need to "exit" or anything. Just say interpretation stops. *)
     | Assert_body cx | Assume_body cx ->
-      let v = Fetch.fetch_val_to_direct env cx in 
+      let cond_val, cond_key = Fetch.fetch_val_with_key env cx in 
       let b =
-        match v with
-        | Value_bool b -> b
+        match cond_val with
+        | Direct (Value_bool b) -> b
         | _ -> raise @@ Type_mismatch (Session.Symbolic.found_type_mismatch symb_session)
       in
-      let Var (y, _) = cx in 
-      let key = make_key y (Fetch.fetch_depth env cx) in
-      let symb_session = Session.Symbolic.found_assume symb_session key in
+      let symb_session = Session.Symbolic.found_assume symb_session cond_key in
       if not b
-      then
-        raise @@ Found_failed_assume (Session.Symbolic.fail_assume symb_session) (* fail the assume that was just found *)
-      else
-        Direct (Value_bool b), symb_session
+      then raise @@ Found_failed_assume (Session.Symbolic.fail_assume symb_session) (* fail the assume that was just found *)
+      else cond_val, symb_session
   in
-  (Ident_map.add x (v, fun_depth) env, v, symb_session)
+  (Ident_map.add x (v, x_key) env, v, symb_session)
 
 let eval_exp_default
   ~(conc_session : Session.Concrete.t)
