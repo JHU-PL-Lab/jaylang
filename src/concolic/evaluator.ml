@@ -276,19 +276,8 @@ let eval_exp_default
     Ident_map.empty (* empty environment *)
     e
 
-(* Evaluate the expression and return resulting concolic session. Print and discard output. May bubble exception *)
-let try_eval_exp_default
-  ~(conc_session : Session.Concrete.t)
-  ~(symb_session : Session.Symbolic.t)
-  (e : expr)
-  : Session.Symbolic.t
-  =
-  try
-    (* might throw exception which is to be caught below *)
-    let _, v, symb_session = eval_exp_default ~conc_session ~symb_session e in
-    CLog.app (fun m -> m "Evaluated to: %a\n" Dvalue.pp v);
-    symb_session
-  with
+let continue_from_concolic_exception (e : exn) : Session.Symbolic.t =
+  try raise e with
   | Found_abort (_, symb_session) ->
       CLog.app (fun m -> m "Found abort in interpretation\n");
       symb_session
@@ -302,12 +291,21 @@ let try_eval_exp_default
   | Found_failed_assert symb_session ->
       CLog.app (fun m -> m "Found failed assume or assert\n");
       symb_session
-  | Run_the_same_stack_twice (x, stk) -> (* bubbles exception *)
-      Fmt.epr "Run into the same stack twice\n" ;
-      raise (Run_the_same_stack_twice (x, stk))
-  | Run_into_wrong_stack (x, stk) -> (* bubble exception *)
-      Fmt.epr "Run into wrong stack\n" ;
-      raise (Run_into_wrong_stack (x, stk))
+
+(* Evaluate the expression and return resulting concolic session. Print and discard output. May bubble exception *)
+let try_eval_exp_default
+  ~(conc_session : Session.Concrete.t)
+  ~(symb_session : Session.Symbolic.t)
+  (e : expr)
+  : Session.Symbolic.t
+  =
+  try
+    (* might throw exception which is to be caught below *)
+    let _, v, symb_session = eval_exp_default ~conc_session ~symb_session e in
+    CLog.app (fun m -> m "Evaluated to: %a\n" Dvalue.pp v);
+    symb_session
+  with
+  | e -> continue_from_concolic_exception e
 
 
 (*
