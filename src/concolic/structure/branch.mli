@@ -47,7 +47,7 @@ module Runtime :
     type t =
       { branch_key    : Concolic_key.t
       ; condition_key : Concolic_key.t
-      ; direction     : Direction.t } [@@deriving compare, sexp, hash]
+      ; direction     : Direction.t } [@@deriving compare, sexp]
     (** [t] is a branch in the AST during runtime, where its branch and condition both have a stack
         to identify them (hence they are a [Concolic_key.t]).
         The [branch_key] is the key of the clause to identify the node in the AST, and the [condition_key]

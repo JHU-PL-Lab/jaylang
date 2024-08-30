@@ -6,7 +6,7 @@ module Direction =
     type t =
       | True_direction
       | False_direction
-      [@@deriving equal, compare, sexp, hash]
+      [@@deriving equal, compare, sexp]
 
     let to_string = function
       | True_direction -> "true"
@@ -51,7 +51,7 @@ module Runtime =
       { branch_key    : Concolic_key.t
       ; condition_key : Concolic_key.t
       ; direction     : Direction.t }
-      [@@deriving compare, sexp, hash]
+      [@@deriving compare, sexp]
 
     let to_expr ({condition_key ; direction ; _ } : t) : Z3.Expr.expr =
       Concolic_riddler.eqv condition_key (Direction.to_value_bool direction)
