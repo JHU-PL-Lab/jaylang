@@ -15,8 +15,7 @@ module Record_logic =
         (* mutable type! *)
         type t =
           { tbl : (ident, int) Hashtbl.t (* maps ident to bit, where rightmost bit is 0 *)
-          ; mutable n : int (* is the greatest unused offset *)
-          }
+          ; mutable n : int } (* is the greatest unused offset *)
 
         let create () : t =
           { tbl = Hashtbl.create (module Ident_new) ; n = 0 }
@@ -58,6 +57,7 @@ module Record_logic =
 include Record_logic
 
 let ctx = SuduZ3.ctx
+let solver = Z3.Solver.mk_simple_solver ctx
 
 let set_timeout_sec sec =
   let time_s =
@@ -70,6 +70,13 @@ let key_to_var key =
   SuduZ3.var_i
   @@ Concolic_key.x key
 
+let solve formulas =
+  Z3.Solver.check solver formulas
+
+let get_model () =
+  Z3.Solver.get_model solver
+
+(* Note this doesn't actually clear the solver or context *)
 let reset () =
   clear_labels ()
 

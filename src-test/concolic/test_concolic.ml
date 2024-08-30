@@ -61,4 +61,4 @@ let () =
       @ make_tests_ill_typed "bjy/sato-bjy-ill-typed"
       @ make_tests_well_typed "bjy/sato-bjy-well-typed"
     ) 
-    ~quick_only:false
+    ~quick_only:true

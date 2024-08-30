@@ -105,23 +105,6 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   ; status       = new_status
   ; last_sym     = Some dead_sym }
 
-let [@landmarks] check_solver solver =
-  Z3.Solver.check solver []
-
-let [@landmarks] make_solver () =
-  Z3.Solver.mk_solver Concolic_riddler.SuduZ3.ctx None
-
-(* based on the landmarks, it's taking about as long to make the solver and load it as it is to solve *)
-(* This motivates a change to use the internal stack *)
-let [@landmarks] load_solver solver formulas =
-  Z3.Solver.add solver formulas;
-  solver
-
-(* This shows it might be faster to not load any formulas but just run 'check' *)
-let[@landmarks] check_solver' formulas =
-  let new_solver = Z3.Solver.mk_solver Concolic_riddler.SuduZ3.ctx None in
-  Z3.Solver.check new_solver formulas
-
 let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
   Options.Fun.run Symbolic.with_options x.options sym
 
@@ -146,11 +129,9 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * 
 
   and solve_for_target (x : t) (target : Target.t) =
     let t0 = Caml_unix.gettimeofday () in
-    let new_solver = load_solver (make_solver ()) (Target.to_formulas target x.tree) in
     Concolic_riddler.set_timeout_sec (Core.Time_float.Span.of_sec x.options.solver_timeout_sec);
     Log.Export.CLog.debug (fun m -> m "Solving for target %s\n" (Branch.Runtime.to_string target.branch));
-    Log.Export.CLog.debug (fun m -> m "Solver is:\n%s\n" (Z3.Solver.to_string new_solver));
-    match check_solver new_solver with
+    match Concolic_riddler.solve (Target.to_formulas target x.tree) with
     | Z3.Solver.UNSATISFIABLE ->
       let t1 = Caml_unix.gettimeofday () in
       Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0));
@@ -163,7 +144,7 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * 
       `Next (
         { x with run_num = x.run_num + 1 }
         , apply_options_symbolic x @@ Symbolic.make x.tree target
-        , Z3.Solver.get_model new_solver
+        , Concolic_riddler.get_model ()
           |> Core.Option.value_exn
           |> Concolic_feeder.from_model
           |> fun feeder -> Concrete.create feeder x.options.global_max_step
