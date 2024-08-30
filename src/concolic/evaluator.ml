@@ -20,13 +20,13 @@ module Fetch =
   struct
 
     let fetch_val_with_key env (Var (x, _)) : Dvalue.t * Concolic_key.t =
-      Ident_map.find x env (* find the variable and stack in the environment *)
+      Ident_map.find x env (* find the variable and key in the environment *)
 
     let fetch_val env x : Dvalue.t =
-      fst (fetch_val_with_key env x) (* find variable and stack, then discard stack *)
+      fst (fetch_val_with_key env x) (* find variable and key, then discard stack *)
 
     let fetch_key env x : Concolic_key.t =
-      snd (fetch_val_with_key env x) (* find variable and stack, then discard variable *)
+      snd (fetch_val_with_key env x) (* find variable and key, then discard variable *)
 
     let fetch_val_to_direct env vx : value =
       match fetch_val env vx with
@@ -39,10 +39,10 @@ module Fetch =
       | Direct (Value_bool _), Bool_pattern -> true
       | Direct (Value_function _), _ -> failwith "fun must be a closure"
       | Direct (Value_record _), _ -> failwith "record must be a closure"
-      | RecordClosure (Record_value record, _), Rec_pattern key_set ->
-          Ident_set.for_all (fun id -> Ident_map.mem id record) key_set
-      | RecordClosure (Record_value record, _), Strict_rec_pattern key_set ->
-          Ident_set.equal key_set (Ident_set.of_enum @@ Ident_map.keys record)
+      | RecordClosure (Record_value record, _), Rec_pattern label_set ->
+          Ident_set.for_all (fun id -> Ident_map.mem id record) label_set
+      | RecordClosure (Record_value record, _), Strict_rec_pattern label_set ->
+          Ident_set.equal label_set (Ident_set.of_enum @@ Ident_map.keys record)
       | FunClosure (_, _, _), Fun_pattern -> true
       | _, Any_pattern -> true
       | _, _ -> false
