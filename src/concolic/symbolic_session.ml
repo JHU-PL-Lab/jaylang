@@ -229,13 +229,13 @@ let reach_max_step (x : t) : t =
   ------------------------------
 *)
 let add_key_eq_val (x : t) (key : Concolic_key.t) (v : Jayil.Ast.value) : t =
-  add_lazy_formula x @@ fun () -> Concolic_riddler.eq_term_v key (Some v)
+  add_lazy_formula x @@ fun () -> Concolic_riddler.eqv key v
 
 let add_alias (x : t) (key1 : Concolic_key.t) (key2 : Concolic_key.t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.eq key1 key2
 
 let add_binop (x : t) (key : Concolic_key.t) (op : Jayil.Ast.binary_operator) (left : Concolic_key.t) (right : Concolic_key.t) : t =
-  add_lazy_formula x @@ fun () -> Concolic_riddler.binop_without_picked key op left right
+  add_lazy_formula x @@ fun () -> Concolic_riddler.binop key op left right
 
 let add_input (x : t) (key : Concolic_key.t) (v : Dvalue.t) : t =
   let n =

@@ -1,5 +1,4 @@
 open Core
-open Dj_common
 module SuduZ3 = From_dbmc.Solver.SuduZ3
 open SuduZ3
 open Jayil.Ast
@@ -53,23 +52,13 @@ module Record_logic =
 
 include Record_logic
 
-let ctx = From_dbmc.Solver.ctx
-let top_stack = SuduZ3.var_s "Topstack"
-
-let picked (key : Concolic_key.t) =
-  "P_" ^ Concolic_key.to_string key |> SuduZ3.mk_bool_s
-
-let picked_string (s : string) =
-  "P_" ^ s |> SuduZ3.mk_bool_s
-
+let ctx = SuduZ3.ctx
 
 let key_to_var key =
   SuduZ3.var_i
   @@ Concolic_key.x key
 
-let counter = ref 0
 let reset () =
-  counter := 0;
   clear_labels ()
 
 
@@ -111,7 +100,7 @@ let binop t op t1 t2 =
   fop e e1 e2
 
 (* let eq_bool key b = SuduZ3.eq (key_to_var key) (SuduZ3.bool_ b) *)
-let z_of_fid (Id.Ident fid) = SuduZ3.fun_ fid
+let z_of_fid (Ident fid) = SuduZ3.fun_ fid
 let is_bool key = ifBool (key_to_var key)
 
 let phi_of_value (key : Concolic_key.t) = function
@@ -124,24 +113,12 @@ let phi_of_value (key : Concolic_key.t) = function
     |> create_bv_from_labels
     |> SuduZ3.record_
 
-let phi_of_value_opt (key : Concolic_key.t) = function
-  | Some v -> phi_of_value key v
-  | None -> key_to_var key
-
 let eqv key v = SuduZ3.eq (key_to_var key) (phi_of_value key v)
 let eq key key' = SuduZ3.eq (key_to_var key) (key_to_var key')
-let eqz key v = SuduZ3.eq (key_to_var key) v
 
-(* Binop *)
-let binop_without_picked = binop (* patch to bring back old binop for concolic evaluator *)
-
-(* Rules *)
-(* Value rules for main and non-main *)
-(* Pattern *)
 
 let if_pattern term pat =
   let x = key_to_var term in
-  let open Jayil.Ast in
   match pat with
   | Fun_pattern -> ifFun x
   | Int_pattern -> ifInt x
@@ -165,17 +142,3 @@ let if_pattern term pat =
           (SuduZ3.project_record x)
       ]
   | Any_pattern -> true_
-
-let eq_fid term (Id.Ident fid) = SuduZ3.eq (key_to_var term) (SuduZ3.fun_ fid)
-
-let eq_term_v term v =
-  match v with
-  (* Ast.Value_body for function *)
-  | Some (Value_function _) -> eq_fid term @@ Concolic_key.id term
-  (* Ast.Value_body *)
-  | Some v -> eqv term v
-  (* Ast.Input_body *)
-  | None -> eq term term
-
-let enter_fun key_para key_arg = eq key_para key_arg
-let exit_fun key_in key_out = eq key_in key_out
