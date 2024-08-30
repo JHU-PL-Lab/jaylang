@@ -132,19 +132,19 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * 
     Concolic_riddler.set_timeout_sec (Core.Time_float.Span.of_sec x.options.solver_timeout_sec);
     Log.Export.CLog.debug (fun m -> m "Solving for target %s\n" (Branch.Runtime.to_string target.branch));
     match Concolic_riddler.solve (Target.to_formulas target x.tree) with
-    | Z3.Solver.UNSATISFIABLE ->
+    | _, Z3.Solver.UNSATISFIABLE ->
       let t1 = Caml_unix.gettimeofday () in
       Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0));
       next { x with tree = Root.set_status x.tree target.branch Unsatisfiable target.path }
-    | Z3.Solver.UNKNOWN ->
+    | _, Z3.Solver.UNKNOWN ->
       Log.Export.CLog.info (fun m -> m "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n");
       next { x with tree = Root.set_status x.tree target.branch Unknown target.path }
-    | Z3.Solver.SATISFIABLE ->
+    | model, Z3.Solver.SATISFIABLE ->
       Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.branch));
       `Next (
         { x with run_num = x.run_num + 1 }
         , apply_options_symbolic x @@ Symbolic.make x.tree target
-        , Concolic_riddler.get_model ()
+        , model
           |> Core.Option.value_exn
           |> Concolic_feeder.from_model
           |> fun feeder -> Concrete.create feeder x.options.global_max_step

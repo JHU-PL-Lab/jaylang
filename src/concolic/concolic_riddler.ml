@@ -57,7 +57,7 @@ module Record_logic =
 include Record_logic
 
 let ctx = SuduZ3.ctx
-let solver = Z3.Solver.mk_simple_solver ctx
+let solver = Z3.Solver.mk_solver ctx None
 
 let set_timeout_sec sec =
   let time_s =
@@ -71,12 +71,12 @@ let key_to_var key =
   @@ Concolic_key.x key
 
 let solve formulas =
-  Z3.Solver.check solver formulas
+  Z3.Solver.add solver formulas;
+  let res = Z3.Solver.check solver [] in
+  match res with
+  | Z3.Solver.SATISFIABLE -> let model = Z3.Solver.get_model solver in Z3.Solver.reset solver; model, res
+  | _ -> Z3.Solver.reset solver; None, res
 
-let get_model () =
-  Z3.Solver.get_model solver
-
-(* Note this doesn't actually clear the solver or context *)
 let reset () =
   clear_labels ()
 
