@@ -1,7 +1,12 @@
 open Core
-module SuduZ3 = From_dbmc.Solver.SuduZ3
-open SuduZ3
+(* module SuduZ3 = From_dbmc.Solver.SuduZ3 *)
+(* open SuduZ3 *)
 open Jayil.Ast
+
+module SuduZ3 = Sudu.Z3_api.Make (struct
+  let ctx = Z3.mk_context []
+end)
+open SuduZ3
 
 module Record_logic =
   struct
@@ -53,6 +58,13 @@ module Record_logic =
 include Record_logic
 
 let ctx = SuduZ3.ctx
+
+let set_timeout_sec sec =
+  let time_s =
+    sec |> Time_float.Span.to_sec |> Float.iround_up_exn |> fun t ->
+    t * 1000 |> string_of_int
+  in
+  Z3.Params.update_param_value ctx "timeout" time_s
 
 let key_to_var key =
   SuduZ3.var_i
@@ -142,3 +154,7 @@ let if_pattern term pat =
           (SuduZ3.project_record x)
       ]
   | Any_pattern -> true_
+
+let match_ key m pat =
+  let k_expr = key_to_var key in
+  SuduZ3.eq (SuduZ3.project_bool k_expr) (if_pattern m pat)

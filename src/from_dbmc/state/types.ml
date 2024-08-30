@@ -46,16 +46,9 @@ module State = struct
   type job_key = { lookup : Lookup_key.t; block_visits : int }
 
   type job_state = {
-    (* unroll : unroll_t; *)
     job_queue : (job_key, unit) Scheduler.t;
   }
 
-  type solve_state = {
-    mutable phis_staging : Z3.Expr.expr list;
-    mutable phis_added : Z3.Expr.expr list;
-    smt_lists : (Lookup_key.t, int) Hashtbl.t;
-    solver : Z3.Solver.solver;
-  }
 
   type search_state = {
     root_node : Search_graph.node_ref;
@@ -68,9 +61,6 @@ module State = struct
   type stat_state = {
     lookup_alert : Lookup_key.t Hash_set.t;
     rstk_picked : (Rstack.t, bool) Hashtbl.t;
-    (* rstk_stat_map : (Rstack.t, Rstk_stat.t) Hashtbl.t;
-    block_stat_map : (Cfg.block, Block_stat.t) Hashtbl.t;
-    mutable check_infos : Check_info.t list; *)
   }
 
   type t = {
@@ -78,7 +68,6 @@ module State = struct
     info : info;
     (* mutable *)
     job : job_state;
-    solve : solve_state;
     search : search_state;
     stat : stat_state;
   }

@@ -48,19 +48,6 @@ let create_job_state (config : Global_config.t) : job_state =
   | S_ddse unroll -> Unrolls.U_ddse.reset unroll) ;
   Scheduler.reset job_state.job_queue *)
 
-let create_solve_state () : solve_state =
-  {
-    phis_staging = [];
-    phis_added = [];
-    smt_lists = Hashtbl.create (module Lookup_key);
-    solver = Z3.Solver.mk_solver Solver.ctx None;
-  }
-
-let reset_solve_state solve_state =
-  solve_state.phis_staging <- [] ;
-  solve_state.phis_added <- [] ;
-  Hashtbl.clear solve_state.smt_lists ;
-  Z3.Solver.reset solve_state.solver
 
 let create_stat_state () : stat_state =
   {
@@ -96,33 +83,26 @@ let reset_search_state (info : info) (search_state : search_state) =
 
 let reset_mutable_state (config : Global_config.t) (info : info) (state : t) =
   (* reset_job_state state.job ; *)
-  reset_solve_state state.solve ;
   reset_search_state info state.search ;
   reset_stat_state state.stat
 
 let create (config : Global_config.t) program =
-  Solver.set_timeout_sec Solver.ctx config.timeout ;
   let info = compute_info config program in
   (* Global_state.lookup_alert state key_target state.root_node; *)
-  Riddler.reset () ;
+  (* Riddler.reset () ; *)
   {
     info;
     job = create_job_state config;
-    solve = create_solve_state ();
     search = create_search_state info.root_node_info;
     stat = create_stat_state ();
   }
 
-let clear_phis state =
-  state.solve.phis_added <- state.solve.phis_added @ state.solve.phis_staging ;
-  state.solve.phis_staging <- []
 
 let add_phi ?(is_external = false) (state : t) (lookup_detail : Lookup_detail.t)
     phi =
   if is_external
   then lookup_detail.phis_external <- phi :: lookup_detail.phis_external ;
-  lookup_detail.phis <- phi :: lookup_detail.phis ;
-  state.solve.phis_staging <- phi :: state.solve.phis_staging
+  lookup_detail.phis <- phi :: lookup_detail.phis
 
 let detail_alist (state : t) =
   let sorted_list_of_hashtbl table =
@@ -132,20 +112,13 @@ let detail_alist (state : t) =
   in
   sorted_list_of_hashtbl state.search.lookup_detail_map
 
-let create_counter state detail key =
-  Hashtbl.update state.solve.smt_lists key ~f:(function
-    | Some i -> i
-    | None ->
-        add_phi state detail (Riddler.list_head key) ;
-        0)
-
-let fetch_counter state key =
+(* let fetch_counter state key =
   let new_i =
     Hashtbl.update_and_return state.solve.smt_lists key ~f:(function
       | Some i -> i + 1
       | None -> failwith (Fmt.str "why not inited : %a" Lookup_key.pp key))
   in
-  new_i - 1
+  new_i - 1 *)
 
 let run_if_fresh state key job =
   match Hashtbl.find state.search.lookup_detail_map key with

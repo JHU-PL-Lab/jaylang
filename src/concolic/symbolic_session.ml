@@ -254,9 +254,7 @@ let add_not (x : t) (key1 : Concolic_key.t) (key2 : Concolic_key.t) : t =
 
 let add_match (x : t) (k : Concolic_key.t) (m : Concolic_key.t) (pat : Jayil.Ast.pattern) : t =
   add_lazy_formula x
-  @@ fun () ->
-    let k_expr = Concolic_riddler.key_to_var k in
-    From_dbmc.Solver.SuduZ3.eq (From_dbmc.Solver.SuduZ3.project_bool k_expr) (Concolic_riddler.if_pattern m pat)
+  @@ fun () -> Concolic_riddler.match_ k m pat
 
 (*
   -----------------
