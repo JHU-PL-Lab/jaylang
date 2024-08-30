@@ -396,7 +396,8 @@ module Make_with_key
     sig
       type t [@@deriving hash, equal, compare, sexp]
       val to_string : t -> string
-      val x : t -> Jayil.Ast.ident
+      val id : t -> Jayil.Ast.ident
+      val x : t -> int
     end) =
   struct
     type result_info = { model : Z3.Model.model; c_stk : Concrete_stack.t }
@@ -489,46 +490,14 @@ module Make_with_key
     let picked_string (s : string) =
       "P_" ^ s |> SuduZ3.mk_bool_s
 
-    module Key_map =
-      struct
-
-        type t =
-          { key_to_expr : (Lookup_key.t, Z3.Expr.expr) Hashtbl.t
-          ; mutable next_key_i : int }
-          (** [t] is a mutable type to track how lookup keys relate to unique integers *)
-
-        let create () : t =
-          { key_to_expr = Hashtbl.create (module Lookup_key)
-          ; next_key_i = 0 }
-
-        let clear (x : t) : unit =
-          Hashtbl.clear x.key_to_expr;
-          x.next_key_i <- 0
-
-        (* mutates [x] if the key is not found *)
-        let get_expr (x : t) (key : Lookup_key.t) : Z3.Expr.expr =
-          match Hashtbl.find x.key_to_expr key with
-          | Some expr -> expr
-          | None ->
-            let expr = SuduZ3.var_i (x.next_key_i) in (* make variable out of int *)
-            Hashtbl.set x.key_to_expr ~key ~data:expr;
-            x.next_key_i <- x.next_key_i + 1; (* mark key as used and update to next unused key *)
-            expr
-      end
-
-
-    let keys = Key_map.create ()
-
-    let clear_keys () =
-      Key_map.clear keys
 
     let key_to_var key =
-      Key_map.get_expr keys key
+      SuduZ3.var_i
+      @@ Lookup_key.x key
 
     let counter = ref 0
     let reset () =
       counter := 0;
-      clear_keys ();
       clear_labels ()
 
 
@@ -574,7 +543,7 @@ module Make_with_key
     let is_bool key = ifBool (key_to_var key)
 
     let phi_of_value (key : Lookup_key.t) = function
-      | Value_function _ -> z_of_fid @@ Lookup_key.x key
+      | Value_function _ -> z_of_fid @@ Lookup_key.id key
       | Value_int i -> SuduZ3.int_ i
       | Value_bool i -> SuduZ3.bool_ i
       | Value_record (Record_value m) ->
@@ -632,7 +601,7 @@ module Make_with_key
     let eq_term_v term v =
       match v with
       (* Ast.Value_body for function *)
-      | Some (Value_function _) -> eq_fid term @@ Lookup_key.x term
+      | Some (Value_function _) -> eq_fid term @@ Lookup_key.id term
       (* Ast.Value_body *)
       | Some v -> eqv term v
       (* Ast.Input_body *)

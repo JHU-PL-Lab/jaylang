@@ -43,7 +43,7 @@ module Fetch =
           Ident_set.for_all (fun id -> Ident_map.mem id record) label_set
       | RecordClosure (Record_value record, _), Strict_rec_pattern label_set ->
           Ident_set.equal label_set (Ident_set.of_enum @@ Ident_map.keys record)
-      | FunClosure (_, _, _), Fun_pattern -> true
+      | FunClosure _, Fun_pattern -> true
       | _, Any_pattern -> true
       | _, _ -> false
 
@@ -68,19 +68,17 @@ module Fetch =
 let rec eval_exp
   ~(conc_session : Session.Concrete.t) (* Note: is mutable *)
   ~(symb_session : Session.Symbolic.t)
-  (fun_depth : Fun_depth.t)
   (env : Dvalue.denv)
   (e : expr)
   : Dvalue.denv * Dvalue.t * Session.Symbolic.t
   =
-  ILog.app (fun m -> m "@[-> %d]\n" (Fun_depth.to_int fun_depth));
   let Expr clauses = e in
   let (denv, conc_session), vs =
     List.fold_map
       clauses
       ~init:(env, symb_session)
       ~f:(fun (env, pt) clause ->
-        let denv, v, pt = eval_clause ~conc_session ~symb_session:pt fun_depth env clause
+        let denv, v, pt = eval_clause ~conc_session ~symb_session:pt env clause
         in (denv, pt), v) 
   in
   (denv, List.last_exn vs, conc_session)
@@ -88,7 +86,6 @@ let rec eval_exp
 and eval_clause
   ~(conc_session : Session.Concrete.t)
   ~(symb_session : Session.Symbolic.t)
-  (fun_depth : Fun_depth.t)
   (env : Dvalue.denv)
   (clause : clause)
   : Dvalue.denv * Dvalue.t * Session.Symbolic.t
@@ -98,13 +95,13 @@ and eval_clause
   match conc_session.max_step with 
   | None -> ()
   | Some max_step ->
-      Int.incr conc_session.step;
-      if !(conc_session.step) > max_step
+      Session.Concrete.incr_step conc_session;
+      if conc_session.step > max_step
       then raise (Reach_max_step (x, Session.Symbolic.reach_max_step symb_session))
       else ()
   end;
   
-  let x_key = Concolic_key.create x fun_depth in
+  let x_key = Concolic_key.create x conc_session.step in
   let (v, symb_session) : Dvalue.t * Session.Symbolic.t =
     match cbody with
     | Value_body ((Value_function vf) as v) ->
@@ -136,7 +133,7 @@ and eval_clause
       let e = if cond_bool then e1 else e2 in
 
       (* note that [conc_session] gets mutated when evaluating the branch *)
-      let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session fun_depth env e in
+      let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session env e in
       let last_v = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
       let _, ret_key = Fetch.fetch_val_with_key ret_env last_v in
 
@@ -149,20 +146,19 @@ and eval_clause
       (* x = f y ; *)
       match Fetch.fetch_val env vf with
       | FunClosure (_, Function_value (Var (param, _), body), fenv) ->
-        (* Enter the function (internally increases the function depth) *)
-        let symb_session = Session.Symbolic.enter_fun symb_session in
-        let fun_depth' = Session.Symbolic.get_fun_depth symb_session in
+        (* increment step count so that the key for the parameter gets an identifier different than the clause *)
+        Session.Concrete.incr_step conc_session;
 
         (* varg is the argument that fills in param *)
         let arg, arg_key = Fetch.fetch_val_with_key env varg in
-        let param_key = Concolic_key.create param fun_depth' in
+        let param_key = Concolic_key.create param conc_session.step in
         let env' = Ident_map.add param (arg, param_key) fenv in
 
         (* enter function: say arg is same as param *)
         let symb_session = Session.Symbolic.add_alias symb_session param_key arg_key in
 
         (* returned value of function *)
-        let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session fun_depth' env' body in
+        let ret_env, ret_val, symb_session = eval_exp ~conc_session ~symb_session env' body in
         let last_v = Jayil.Ast_tools.retv body in
         let ret_key = Fetch.fetch_key ret_env last_v in
 
@@ -243,7 +239,6 @@ let eval_exp_default
   eval_exp
     ~conc_session 
     ~symb_session
-    Fun_depth.zero
     Ident_map.empty (* empty environment *)
     e
 

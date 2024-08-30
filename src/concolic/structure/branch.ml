@@ -57,7 +57,7 @@ module Runtime =
       Concolic_riddler.eqv condition_key (Direction.to_value_bool direction)
 
     let to_ast_branch ({ branch_key ; direction ; _ } : t) : T.t =
-      T.{ branch_ident = Concolic_key.x branch_key ; direction }
+      T.{ branch_ident = Concolic_key.id branch_key ; direction }
 
     let to_string ({ branch_key ; condition_key ; direction } : t) : string =
       Concolic_key.to_string branch_key
@@ -67,7 +67,7 @@ module Runtime =
       ^ Direction.to_string direction
 
     let to_string_short ({ branch_key ; direction ; _ } : t) : string =
-      let Jayil.Ast.Ident s = Concolic_key.x branch_key in
+      let Jayil.Ast.Ident s = Concolic_key.id branch_key in
       s ^ " = " ^ Direction.to_string direction
 
     let other_direction (x : t) : t =

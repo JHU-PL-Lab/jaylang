@@ -1,4 +1,3 @@
-open Core
 
 (**
   The concrete session tracks everything needed by the interpreter to evaluate the expression.
@@ -9,9 +8,8 @@ module Concrete :
   sig
     (* NOTE: this type is mutable *)
     type t =
-      { (* mode *)
-        input_feeder    : Concolic_feeder.t
-      ; step            : int ref
+      { input_feeder    : Concolic_feeder.t
+      ; mutable step    : int
       ; max_step        : int option }
 
     val create_default : unit -> t
@@ -19,6 +17,9 @@ module Concrete :
 
     val create : Concolic_feeder.t -> int -> t
     (** [create input_feeder global_max_step] *)
+
+    val incr_step : t -> unit
+    (** [incr_step t] has the side effect of incrementing the [step] field of the mutable session [t]. *)
   end
 
 module Symbolic = Symbolic_session

@@ -127,7 +127,6 @@ module Depth_tracker =
   struct
     type t =
       { cur_depth    : int (* branch depth *)
-      ; fun_depth    : Fun_depth.t
       ; max_depth    : int (* only for conditional branch depth *)
       ; is_max_step  : bool
       ; is_max_depth : bool } 
@@ -136,16 +135,12 @@ module Depth_tracker =
     let empty (max_depth : int) : t =
       { cur_depth    = 0
       ; max_depth 
-      ; fun_depth    = Fun_depth.zero
       ; is_max_step  = false
       ; is_max_depth = false }
 
     let with_options : (t, t) Options.Fun.t =
       Options.Fun.make
       @@ fun (r : Options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth }
-
-    let incr_fun_depth (x : t) : t =
-      { x with fun_depth = Fun_depth.incr x.fun_depth }
 
     let incr_branch (x : t) : t =
       { x with cur_depth = x.cur_depth + 1 ; is_max_depth = x.max_depth <= x.cur_depth }
@@ -211,16 +206,10 @@ let fail_assume (x : t) : t =
       in
       { x with stack = Cons (new_hd, tl) }
 
-let get_fun_depth (x : t) : Fun_depth.t =
-  x.depth_tracker.fun_depth
-
 let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
   if x.depth_tracker.is_max_depth
   then x
   else { x with stack = Node_stack.add_formula x.stack @@ lazy_expr () }
-
-let enter_fun (x : t) : t =
-  { x with depth_tracker = Depth_tracker.incr_fun_depth x.depth_tracker }
 
 let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
   let after_incr = 
@@ -254,9 +243,9 @@ let add_input (x : t) (key : Concolic_key.t) (v : Dvalue.t) : t =
     | Dvalue.Direct (Value_int n) -> n
     | _ -> failwith "non-int input" (* logically impossible *)
   in
-  { x with rev_inputs = { clause_id = Concolic_key.x key ; input_value = n } :: x.rev_inputs }
+  { x with rev_inputs = { clause_id = Concolic_key.id key ; input_value = n } :: x.rev_inputs }
   |> Fn.flip add_lazy_formula @@ fun () -> 
-    let Ident s = Concolic_key.x key in
+    let Ident s = Concolic_key.id key in
     Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n s);
     Concolic_riddler.if_pattern key Jayil.Ast.Int_pattern
 

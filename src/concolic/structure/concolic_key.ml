@@ -1,5 +1,5 @@
 
-module T =
+(* module T =
   struct
     type t =
       { x : Jayil.Ast.Ident_new.t
@@ -20,4 +20,23 @@ let x ({ x ; _ } : t) : Jayil.Ast.ident =
 
 let n ({ n ; _ } : t) : Fun_depth.t =
   n
+*)
 
+open Core
+
+type t =
+  { id : Jayil.Ast.Ident_new.t
+  ; x  : int }
+  [@@deriving hash, compare, equal, sexp]
+
+let create (id : Jayil.Ast.Ident_new.t) (x : int) : t =
+  { id ; x }
+
+let to_string ({ id = Ident s ; x } : t) : string =
+  Format.sprintf "%s_$%d" s x
+
+let id ({ id ; _ } : t) : Jayil.Ast.Ident_new.t =
+  id
+
+let x ({ x ; _ } : t) : int =
+  x

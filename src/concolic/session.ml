@@ -11,20 +11,22 @@ module Concrete =
   struct
 
     type t =
-      { (* mode *)
-        input_feeder    : Concolic_feeder.t
-      ; step            : int ref
+      { input_feeder    : Concolic_feeder.t
+      ; mutable step    : int
       ; max_step        : int option }
 
     let create_default () =
       { input_feeder    = Fn.const 42
-      ; step            = ref 0
+      ; step            = 0
       ; max_step        = None }
 
     let create (input_feeder : Concolic_feeder.t) (global_max_step : int) : t =
       { (create_default ()) with 
         input_feeder
       ; max_step = Some global_max_step }
+
+    let incr_step (x : t) : unit =
+      x.step <- x.step + 1
   end
 
 module Symbolic = Symbolic_session
