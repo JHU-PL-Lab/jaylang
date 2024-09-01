@@ -10,7 +10,7 @@ module Concrete :
     type t =
       { input_feeder    : Concolic_feeder.t
       ; mutable step    : int
-      ; max_step        : int option }
+      ; max_step        : int }
 
     val create_default : unit -> t
     (** [create_default ()] is an arbitrary session with no intentional input feeder and empty graphs. *)

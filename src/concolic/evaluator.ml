@@ -91,15 +91,9 @@ and eval_clause
   : Dvalue.denv * Dvalue.t * Session.Symbolic.t
   =
   let Clause (Var (x, _), cbody) = clause in
-  begin
-  match conc_session.max_step with 
-  | None -> ()
-  | Some max_step ->
-      Session.Concrete.incr_step conc_session;
-      if conc_session.step > max_step
-      then raise (Reach_max_step (x, Session.Symbolic.reach_max_step symb_session))
-      else ()
-  end;
+  Session.Concrete.incr_step conc_session;
+  if conc_session.step > conc_session.max_step
+  then raise (Reach_max_step (x, Session.Symbolic.reach_max_step symb_session));
   
   let x_key = Concolic_key.create x conc_session.step in
   let (v, symb_session) : Dvalue.t * Session.Symbolic.t =

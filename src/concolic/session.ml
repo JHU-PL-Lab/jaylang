@@ -13,17 +13,17 @@ module Concrete =
     type t =
       { input_feeder    : Concolic_feeder.t
       ; mutable step    : int
-      ; max_step        : int option }
+      ; max_step        : int }
 
     let create_default () =
-      { input_feeder    = Fn.const 42
+      { input_feeder    = Fn.const 0
       ; step            = 0
-      ; max_step        = None }
+      ; max_step        = Options.default.global_max_step }
 
     let create (input_feeder : Concolic_feeder.t) (global_max_step : int) : t =
       { (create_default ()) with 
         input_feeder
-      ; max_step = Some global_max_step }
+      ; max_step = global_max_step }
 
     let incr_step (x : t) : unit =
       x.step <- x.step + 1
