@@ -1,7 +1,22 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.13393058.svg)](https://doi.org/10.5281/zenodo.13393058)
+
 Jay Lang
 =====
 
-(Update: August 27th, 2024)
+Please cite this software as:
+
+```bibtex
+@software{Artifact24Zenodo,
+  author       = {Kelvin Qian and Brandon Stride and Scott Smith and Shiwei Weng and Ke Wu},
+  doi          = {10.5281/zenodo.13388361},
+  organization = {Zenodo},
+  month        = aug,
+  title        = {Software Artifact for Semantic-Type-Guided Bug Finding},
+  url          = {https://doi.org/10.5281/zenodo.13388361},
+  version      = {1.0.0},
+  year         = {2024}
+}
+```
 
 This is the codebase for languages BlueJay, Jay and Jay Intermediate Language 
 (JayIL), as well as the language's semantic-type-guided type checker. This code 
