@@ -9,6 +9,10 @@ open Jayil.Ast (* opens the value types you see here *)
 
   It is only so very slightly faster than the concolic interpreter on easy programs, and it can't
   find the errors on hard programs.
+
+  We can spawn up a bunch of these with parametrized input feeders. So we try several with small
+  inputs like (-2, 2), (-10, 10), and so on. And several with nearly unbounded inputs. However,
+  I have implemented such a thing yet.
 *)
 
 module Exns =
