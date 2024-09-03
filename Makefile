@@ -34,6 +34,9 @@ translator:
 cj:
 	dune build src/bin/cj.exe
 
+fuzzer:
+	dune build src/bin/fuzzer.exe
+
 jil:
 	dune build src/bin/jil.exe
 

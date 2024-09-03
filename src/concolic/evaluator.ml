@@ -73,15 +73,15 @@ let rec eval_exp
   : Dvalue.denv * Dvalue.t * Session.Symbolic.t
   =
   let Expr clauses = e in
-  let (denv, conc_session), vs =
+  let (denv, symb_session), vs =
     List.fold_map
       clauses
       ~init:(env, symb_session)
-      ~f:(fun (env, pt) clause ->
-        let denv, v, pt = eval_clause ~conc_session ~symb_session:pt env clause
-        in (denv, pt), v) 
+      ~f:(fun (env, symb_session) clause ->
+        let denv, v, symb_session = eval_clause ~conc_session ~symb_session env clause
+        in (denv, symb_session), v) 
   in
-  (denv, List.last_exn vs, conc_session)
+  (denv, List.last_exn vs, symb_session)
 
 and eval_clause
   ~(conc_session : Session.Concrete.t)

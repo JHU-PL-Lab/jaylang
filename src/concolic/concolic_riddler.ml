@@ -60,11 +60,10 @@ let ctx = SuduZ3.ctx
 let solver = Z3.Solver.mk_solver ctx None
 
 let set_timeout_sec sec =
-  let time_s =
-    sec |> Time_float.Span.to_sec |> Float.iround_up_exn |> fun t ->
-    t * 1000 |> string_of_int
+  let time_sec =
+    1000 * (Float.iround_up_exn @@ Time_float.Span.to_sec sec)
   in
-  Z3.Params.update_param_value ctx "timeout" time_s
+  Z3.Params.update_param_value ctx "timeout" (Int.to_string time_sec)
 
 let key_to_var key =
   SuduZ3.var_i

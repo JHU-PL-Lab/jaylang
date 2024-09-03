@@ -77,6 +77,14 @@
   (into "../..")))
 
 (executable
+ (name fuzzer)
+ (modules fuzzer)
+ (libraries core dj_common fuzz)
+ (promote
+  (until-clean)
+  (into "../..")))
+
+(executable
  (name jay)
  (modules jay)
  (libraries core logs dj_common dbmc jay)
