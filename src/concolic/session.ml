@@ -2,8 +2,6 @@ open Core
 open Path_tree
 open Dj_common
 
-(* module Sudu = From_dbmc.Solver.SuduZ3 *)
-
 (*
   Mutable record that tracks a run through the evaluation. aka "interpreter session"
 *)
