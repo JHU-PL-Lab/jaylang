@@ -2,6 +2,15 @@
 open Core
 open Jayil.Ast (* opens the value types you see here *)
 
+(*
+  The thing is, this fuzzer sucks because it doesn't try small values. We should do a few runs
+  with a bunch of zeros and ones as inputs because those are likely good to get through
+  recursive functions.
+
+  It is only so very slightly faster than the concolic interpreter on easy programs, and it can't
+  find the errors on hard programs.
+*)
+
 module Exns =
   struct
     exception Reach_max_step
