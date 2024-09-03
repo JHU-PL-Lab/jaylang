@@ -7,7 +7,7 @@ license: "Apache-2.0"
 homepage: "https://github.com/JHU-PL-Lab/jaylang"
 bug-reports: "https://github.com/JHU-PL-Lab/jaylang/issues"
 depends: [
-  "dune" {>= "3.0"}
+  "dune" {>= "3.16"}
   "core"
   "core_unix"
   "lwt"
