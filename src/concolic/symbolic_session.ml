@@ -207,7 +207,14 @@ let fail_assume (x : t) : t =
       { x with stack = Cons (new_hd, tl) }
 
 let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
-  if x.depth_tracker.is_max_depth
+  if
+    x.depth_tracker.is_max_depth
+    || begin
+      match x.target with
+      | Some target -> x.depth_tracker.cur_depth < target.path_n
+      | None -> false
+    end
+    (* don't we don't add formula if we haven't yet reached the target because the formulas already exist in the path tree *)
   then x
   else { x with stack = Node_stack.add_formula x.stack @@ lazy_expr () }
 
