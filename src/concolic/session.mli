@@ -50,7 +50,7 @@ val with_options : (t, t) Options.Fun.t
 val accum_symbolic : t -> Symbolic.t -> t
 (** [accum_symbolic t sym] finishes the sybolic session [sym] and accumulates results into [t]. *)
 
-val next : t -> [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ]
+val next : t -> [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] Lwt.t
 (** [next t] is [`Done status] if the concolic evaluation is done, or is [`Next (session, symbolic, concrete)]
    if the interpreter is to be run again with [symbolic] and [concrete] sessions. *)
 

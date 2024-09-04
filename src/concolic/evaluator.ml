@@ -267,7 +267,6 @@ let try_eval_exp_default
   with
   | e -> continue_from_concolic_exception e
 
-
 (*
   -------------------
   BEGIN CONCOLIC EVAL   
@@ -279,23 +278,24 @@ let try_eval_exp_default
   This eval spans multiple symbolic sessions, trying to hit the branches.
 *)
 let rec loop (e : expr) (prev_session : Session.t) : Session.Status.t Lwt.t =
+  let open Lwt.Infix in
   let%lwt () = Lwt.pause () in
   Session.next prev_session
-  |> begin function
-    | `Done status ->
-      CLog.app (fun m -> m "\n------------------------------\nFinishing concolic evaluation...\n\n");
-      CLog.app (fun m -> m "Ran %d interpretations.\n" (Session.run_num prev_session));
-      CLog.app (fun m -> m "Session status: %s.\n" (Session.Status.to_string status));
-      Lwt.return status
-    | `Next (session, symb_session, conc_session) ->
-      CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session));
-      let t0 = Caml_unix.gettimeofday () in
-      let resulting_symbolic = try_eval_exp_default ~conc_session ~symb_session e in
-      let t1 = Caml_unix.gettimeofday () in
-      CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0));
-      loop e
-      @@ Session.accum_symbolic session resulting_symbolic
-    end
+  >>= begin function
+      | `Done status ->
+        CLog.app (fun m -> m "\n------------------------------\nFinishing concolic evaluation...\n\n");
+        CLog.app (fun m -> m "Ran %d interpretations.\n" (Session.run_num prev_session));
+        CLog.app (fun m -> m "Session status: %s.\n" (Session.Status.to_string status));
+        Lwt.return status
+      | `Next (session, symb_session, conc_session) ->
+        CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session));
+        let t0 = Caml_unix.gettimeofday () in
+        let resulting_symbolic = try_eval_exp_default ~conc_session ~symb_session e in
+        let t1 = Caml_unix.gettimeofday () in
+        CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0));
+        loop e
+        @@ Session.accum_symbolic session resulting_symbolic
+      end
 
 let seed =
   String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
