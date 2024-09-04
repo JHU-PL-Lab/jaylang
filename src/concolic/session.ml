@@ -58,12 +58,12 @@ module Status =
 
     let to_string (x : t) : string =
       match x with
-      | Found_abort _ -> "Found abort in interpretation"
-      | Type_mismatch _ -> "Found type mismatch in interpretation"
+      | Found_abort _                 -> "Found abort in interpretation"
+      | Type_mismatch _               -> "Found type mismatch in interpretation"
       | In_progress { pruned = true } -> "In progress after interpretation (has pruned so far)"
-      | In_progress _ -> "In progress after interpretation"
-      | Exhausted { pruned = true } -> "Exhausted pruned true"
-      | Exhausted _ -> "Exhausted full tree"
+      | In_progress _                 -> "In progress after interpretation"
+      | Exhausted { pruned = true }   -> "Exhausted pruned true"
+      | Exhausted _                   -> "Exhausted full tree"
   end
 
 type t =
