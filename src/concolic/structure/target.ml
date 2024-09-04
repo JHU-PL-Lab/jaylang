@@ -3,14 +3,20 @@ open Path_tree
 
 type t =
   { branch : Branch.Runtime.t
+  ; path_n : int [@compare.ignore] (* this is the lenght of the path, just so we don't recompute *)
   ; path   : Path.t } (* The path just helps the solver find the node in the tree in order to gather formulas *)
   [@@deriving compare]  
   (* We do need to compare path because the branch key doesn't include exited branches, but the path does, so path is necessary to describe target completely *)
 
-let create (branch : Branch.Runtime.t) (path : Path.t) : t =
-  { branch ; path }
+let compare (a : t) (b : t) : int =
+  match Int.compare a.path_n b.path_n with
+  | 0 -> compare a b (* call the derivied compare *)
+  | x -> x
 
-let is_hit ({ branch = target_branch ; path } : t) (root : Root.t) : bool =
+let create (branch : Branch.Runtime.t) (path : Path.t) : t =
+  { branch ; path ; path_n = List.length path.forward_path }
+
+let is_hit ({ branch = target_branch ; path ; _ } : t) (root : Root.t) : bool =
   (* acc already contains all formulas pertaining to `node` *)
   let rec trace_path node = function
     | next_branch :: tl -> (*begin*)
@@ -23,7 +29,7 @@ let is_hit ({ branch = target_branch ; path } : t) (root : Root.t) : bool =
   in
   trace_path root path.forward_path
 
-let[@landmarks] to_formulas ({ branch = target_branch ; path } : t) (root : Root.t) : Z3.Expr.expr list =
+let[@landmarks] to_formulas ({ branch = target_branch ; path ; _ } : t) (root : Root.t) : Z3.Expr.expr list =
   let rec trace_path acc node = function
     | next_branch :: tl ->
       let next_child = Node.get_child_exn node next_branch in

@@ -322,8 +322,9 @@ and Status :
     let merge (a : t) (b : t) : t =
       match a, b with
       | Hit n1, Hit n2 ->
-        if not (Formula_set.equal n1.formulas n2.formulas)
-        then failwith "formula sets not equal in merge of Status"; (* formula sets should only ever be equivalent after any visit to the same node *)
+        (* We now optimize this away, but this assert always did pass before the optimization *)
+        (* if not (Formula_set.equal n1.formulas n2.formulas)
+        then failwith "formula sets not equal in merge of Status"; *) (* formula sets should only ever be equivalent after any visit to the same node *)
         Hit (Node.merge n1 n2)
       | Hit node, _ | _, Hit node -> Hit node
       | Unsatisfiable, _ | _, Unsatisfiable -> Unsatisfiable
