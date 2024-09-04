@@ -4,7 +4,7 @@
  (modules cbenchmark)
  (package jay)
  (public_name jay.cbenchmark3_test_generation)
- (libraries cloc_lib ttag latex_tbl latex_format dj_common concolic shexp.process core core_unix.sys_unix)
+ (libraries cloc_lib ttag latex_tbl latex_format dj_common concolic core core_unix.sys_unix)
  (preprocess
   (pps ppx_jane)))
 

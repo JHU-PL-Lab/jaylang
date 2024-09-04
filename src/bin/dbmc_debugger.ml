@@ -6,7 +6,7 @@ open Dj_common
    | Interpreter                                                     |
    +-----------------------------------------------------------------+ *)
 
-type state = { n : int; paused : bool }
+type state = { n : int; paused : bool } [@@ocaml.warning "-69"] (* turn off warning for unused `pause` field *)
 
 (* A simple model of an interpreter. It maintains some state, and exposes a function
  *   eval : state -> input -> (new_state, output) *)

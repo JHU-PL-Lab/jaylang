@@ -8,4 +8,4 @@ open Ddpa;;
 
 open Toploop_ddpa_wrapper_types;;
 
-module Make : functor (A : Ddpa_analysis.Analysis_sig) -> DDPA_wrapper;;
+module Make : functor (_ : Ddpa_analysis.Analysis_sig) -> DDPA_wrapper;;
