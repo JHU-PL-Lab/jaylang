@@ -150,7 +150,7 @@ module Result_table =
 
 let run dirs =
   dirs
-  |> Result_table.of_dirs 10
+  |> Result_table.of_dirs 2
   |> Latex_tbl.show
   |> Format.printf "%s\n"
 
