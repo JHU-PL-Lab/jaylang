@@ -107,22 +107,25 @@ let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
   Options.Fun.run Symbolic.with_options x.options sym
 
 (* $ OCAML_LANDMARKS=on ./_build/... *)
-let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] =
+let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] Lwt.t =
   let pop_kind =
     match x.last_sym with
     | Some s when Symbolic.Dead.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
     | _ -> Random
   in
-  let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] =
+  let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] Lwt.t =
+    let%lwt () = Lwt.pause () in
     if Status.quit x.status then done_ x else
     match Target_queue.pop ~kind:pop_kind x.target_queue with
     | Some (target, target_queue) -> 
       solve_for_target { x with target_queue } target
     | None when x.run_num = 0 ->
-      `Next (
-        { x with run_num = 1 }
-        , apply_options_symbolic x Symbolic.empty
-        , Concrete.create Concolic_feeder.default x.options.global_max_step)
+      Lwt.return
+      @@ `Next (
+          { x with run_num = 1 }
+          , apply_options_symbolic x Symbolic.empty
+          , Concrete.create Concolic_feeder.default x.options.global_max_step
+        )
     | None -> done_ x (* no targets left, so done *)
 
   and solve_for_target (x : t) (target : Target.t) =
@@ -139,18 +142,19 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * 
       next { x with tree = Root.set_status x.tree target.branch Unknown target.path }
     | model, Z3.Solver.SATISFIABLE ->
       Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.branch));
-      `Next (
-        { x with run_num = x.run_num + 1 }
-        , apply_options_symbolic x @@ Symbolic.make x.tree target
-        , model
-          |> Core.Option.value_exn
-          |> Concolic_feeder.from_model
-          |> fun feeder -> Concrete.create feeder x.options.global_max_step
-      )
+      Lwt.return
+      @@ `Next (
+            { x with run_num = x.run_num + 1 }
+            , apply_options_symbolic x @@ Symbolic.make x.tree target
+            , model
+              |> Core.Option.value_exn
+              |> Concolic_feeder.from_model
+              |> fun feeder -> Concrete.create feeder x.options.global_max_step
+          )
 
   and done_ (x : t) =
     Log.Export.CLog.info (fun m -> m "Done.\n");
-    `Done (Status.finish x.status)
+    Lwt.return @@ `Done (Status.finish x.status)
     
   in next x
 
