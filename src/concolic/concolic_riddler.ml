@@ -59,11 +59,12 @@ include Record_logic
 let ctx = SuduZ3.ctx
 let solver = Z3.Solver.mk_solver ctx None
 
-let set_timeout_sec sec =
-  let time_sec =
-    1000 * (Float.iround_up_exn @@ Time_float.Span.to_sec sec)
-  in
-  Z3.Params.update_param_value ctx "timeout" (Int.to_string time_sec)
+let set_timeout time =
+  time
+  |> Time_float.Span.to_ms
+  |> Float.iround_up_exn
+  |> Int.to_string
+  |> Z3.Params.update_param_value ctx "timeout"
 
 let key_to_var key =
   SuduZ3.var_i
@@ -117,7 +118,6 @@ let binop t op t1 t2 =
   in
   fop e e1 e2
 
-(* let eq_bool key b = SuduZ3.eq (key_to_var key) (SuduZ3.bool_ b) *)
 let z_of_fid (Ident fid) = SuduZ3.fun_ fid
 let is_bool key = ifBool (key_to_var key)
 
