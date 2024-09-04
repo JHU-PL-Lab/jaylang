@@ -130,7 +130,7 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * 
 
   and solve_for_target (x : t) (target : Target.t) =
     let t0 = Caml_unix.gettimeofday () in
-    Concolic_riddler.set_timeout_sec (Core.Time_float.Span.of_sec x.options.solver_timeout_sec);
+    Concolic_riddler.set_timeout (Core.Time_float.Span.of_sec x.options.solver_timeout_sec);
     Log.Export.CLog.debug (fun m -> m "Solving for target %s\n" (Branch.Runtime.to_string target.branch));
     match Concolic_riddler.solve (Target.to_formulas target x.tree) with
     | _, Z3.Solver.UNSATISFIABLE ->
