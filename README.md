@@ -71,7 +71,7 @@ After that, you can install the develop tools
 opam user-setup install
 opam install utop ocaml-lsp-server ocamlformat
 opam pin add monadlib https://github.com/besport/monadlib/archive/076858f1a9ce700b89f6e0a9651b9dd32c71fc29.zip
-opam install core core_unix psq hashcons ocamlgraph z3 fmt ppx_deriving yojson ppx_deriving_yojson lwt_ppx landmarks-ppx jhupllib monadlib pds-reachability alcotest-lwt
+opam install core core_unix psq hashcons ocamlgraph z3 fmt ppx_deriving yojson ppx_deriving_yojson lwt_ppx landmarks-ppx jhupllib pds-reachability alcotest-lwt
 ```
 
 Now you should be able to run the project.
