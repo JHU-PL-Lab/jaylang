@@ -11,7 +11,6 @@ let compute_info (config : Global_config.t) program : info =
     | K_ddpa k -> Ddpa_for_dj.Cfg_of_ddpa.block_map_of_expr program k target
     | K_cfa k -> Jil_analysis.Main.block_map_of_expr k program
   in
-  (* Cfg.dump_block_map block_map ; *)
   let block0, reachable = Cfg.find_block_with_reachable target block_map in
   let key_target = Lookup_key.start target block0 in
   let root_node_info = Search_graph.root_node block0 target in
@@ -35,35 +34,18 @@ let job_key_compare (jk1 : job_key) (jk2 : job_key) =
 
 let create_job_state (config : Global_config.t) : job_state =
   {
-    (* unroll =
-      (match config.engine with
-      | Global_config.E_dbmc -> S_dbmc (Unrolls.U_dbmc.create ())
-      | Global_config.E_ddse -> S_ddse (Unrolls.U_ddse.create ())); *)
     job_queue = Scheduler.create ~cmp:job_key_compare ();
   }
-
-(* let reset_job_state job_state =
-  (match job_state.unroll with
-  | S_dbmc unroll -> Unrolls.U_dbmc.reset unroll
-  | S_ddse unroll -> Unrolls.U_ddse.reset unroll) ;
-  Scheduler.reset job_state.job_queue *)
-
 
 let create_stat_state () : stat_state =
   {
     lookup_alert = Hash_set.create (module Lookup_key);
     rstk_picked = Hashtbl.create (module Rstack)
-    (* rstk_stat_map = Hashtbl.create (module Rstack);
-    block_stat_map = Hashtbl.create (module Cfg.Block);
-    check_infos = []; *)
   }
 
 let reset_stat_state (stat_state : stat_state) =
   Hash_set.clear stat_state.lookup_alert ;
   Hashtbl.clear stat_state.rstk_picked 
-  (* Hashtbl.clear stat_state.rstk_stat_map ;
-  Hashtbl.clear stat_state.block_stat_map ;
-  stat_state.check_infos <- [] *)
 
 let create_search_state (root_node : Search_graph.node) : search_state =
   {
@@ -88,8 +70,6 @@ let reset_mutable_state (config : Global_config.t) (info : info) (state : t) =
 
 let create (config : Global_config.t) program =
   let info = compute_info config program in
-  (* Global_state.lookup_alert state key_target state.root_node; *)
-  (* Riddler.reset () ; *)
   {
     info;
     job = create_job_state config;
@@ -112,14 +92,6 @@ let detail_alist (state : t) =
   in
   sorted_list_of_hashtbl state.search.lookup_detail_map
 
-(* let fetch_counter state key =
-  let new_i =
-    Hashtbl.update_and_return state.solve.smt_lists key ~f:(function
-      | Some i -> i + 1
-      | None -> failwith (Fmt.str "why not inited : %a" Lookup_key.pp key))
-  in
-  new_i - 1 *)
-
 let run_if_fresh state key job =
   match Hashtbl.find state.search.lookup_detail_map key with
   | Some _ -> ()
@@ -130,7 +102,6 @@ let run_if_fresh state key job =
         job ())
 
 let add_detail_if_fresh state target key =
-  (* TODO: this is obvious buggy. This function should have a `job` to run  *)
   match Hashtbl.find state.search.lookup_detail_map key with
   | Some _ -> ()
   | None ->
