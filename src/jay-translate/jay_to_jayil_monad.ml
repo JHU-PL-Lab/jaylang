@@ -1,3 +1,4 @@
+open Monadlib
 open Batteries
 open Jayil
 open Jay
@@ -5,7 +6,7 @@ open Jay_ast
 open Translation_context
 
 module TranslationMonad : sig
-  include Monad.Monad
+  include Monad.S
 
   val run : translation_context -> 'a m -> 'a
   (** Run the monad to completion *)
@@ -173,8 +174,8 @@ let ident_map_map_m (fn : 'a -> 'b TranslationMonad.m)
   |> Enum.map (fun (k, v) ->
          let%bind v' = fn v in
          return (k, v'))
-  |> List.of_enum |> sequence |> lift1 List.enum
-  |> lift1 Jay_ast.Ident_map.of_enum
+  |> List.of_enum |> sequence |> map List.enum
+  |> map Jay_ast.Ident_map.of_enum
 
 (* *** Generalized monadic transformations for expressions with reader and
    writer support. *** *)
@@ -222,7 +223,7 @@ let rec m_env_out_transform_expr
     | Jay_ast.LetRecFun (funsigs, e1) ->
         let%bind e1', out1 = recurse env e1 in
         let%bind funsigs', outs =
-          lift1 List.split @@ sequence @@ List.map transform_funsig funsigs
+          map List.split @@ sequence @@ List.map transform_funsig funsigs
         in
         let out = List.fold_left combiner out1 outs in
         return
@@ -325,7 +326,7 @@ let rec m_env_out_transform_expr
           |> Enum.map (fun (k, v) ->
                  let%bind v', out' = recurse env v in
                  return ((k, v'), out'))
-          |> List.of_enum |> sequence |> lift1 List.enum |> lift1 Enum.uncombine
+          |> List.of_enum |> sequence |> map List.enum |> map Enum.uncombine
         in
         let r' = Jay_ast.Ident_map.of_enum mappings in
         let out = Enum.fold combiner default outs in
@@ -337,7 +338,7 @@ let rec m_env_out_transform_expr
         let%bind e0', out0 = recurse env e0 in
         (* let () = failwith @@ Jay_ast.show_expr_desc e0' in *)
         let%bind branches', outs =
-          lift1 List.split @@ sequence
+          map List.split @@ sequence
           @@ List.map
                (fun (pat, expr) ->
                  let%bind expr', out' = recurse env expr in
@@ -351,7 +352,7 @@ let rec m_env_out_transform_expr
         return @@ ({ tag = og_tag; body = Jay_ast.VariantExpr (l, e') }, out)
     | Jay_ast.List es ->
         let%bind es', outs =
-          lift1 List.split @@ sequence @@ List.map (fun e -> recurse env e) es
+          map List.split @@ sequence @@ List.map (fun e -> recurse env e) es
         in
         let out = List.fold_left combiner default outs in
         return @@ ({ tag = og_tag; body = Jay_ast.List es' }, out)
