@@ -3,52 +3,21 @@ open Jayil.Ast
 open Dvalue (* just to expose constructors *)
 open Cstate (* state monad *)
 
-module ILog = Dj_common.Log.Export.ILog
 module CLog = Dj_common.Log.Export.CLog
 
-(* Ident for conditional bool. *)
-let cond_fid b = if b then Ident "$tt" else Ident "$ff"
-
-(*
-  ------------------------------
-  BEGIN HELPERS TO READ FROM ENV   
-  ------------------------------
-*)
-
-module Fetch =
-  struct
-
-    let fetch_val_with_key env (Var (x, _)) : Dvalue.t * Concolic_key.t =
-      Ident_map.find x env (* find the variable and key in the environment *)
-
-    let fetch_val env x : Dvalue.t =
-      fst (fetch_val_with_key env x) (* find variable and key, then discard key *)
-
-    let fetch_key env x : Concolic_key.t =
-      snd (fetch_val_with_key env x) (* find variable and key, then discard variable *)
-
-    let check_pattern env vx pattern : bool =
-      match (fetch_val env vx, pattern) with
-      | Direct (Value_int _), Int_pattern -> true
-      | Direct (Value_bool _), Bool_pattern -> true
-      | Direct (Value_function _), _ -> failwith "fun must be a closure"
-      | Direct (Value_record _), _ -> failwith "record must be a closure"
-      | RecordClosure (Record_value record, _), Rec_pattern label_set ->
-          Ident_set.for_all (fun id -> Ident_map.mem id record) label_set
-      | RecordClosure (Record_value record, _), Strict_rec_pattern label_set ->
-          Ident_set.equal label_set (Ident_set.of_enum @@ Ident_map.keys record)
-      | FunClosure _, Fun_pattern -> true
-      | _, Any_pattern -> true
-      | _, _ -> false
-
-  end
-
-(*
-  ----------------------------
-  END HELPERS TO READ FROM ENV   
-  ----------------------------
-*)
-
+let check_pattern (env : Denv.t) (vx : var) (p : pattern) : bool =
+  match (Denv.fetch_val env vx, p) with
+  | Direct (Value_int _), Int_pattern -> true
+  | Direct (Value_bool _), Bool_pattern -> true
+  | Direct (Value_function _), _ -> failwith "fun must be a closure"
+  | Direct (Value_record _), _ -> failwith "record must be a closure"
+  | RecordClosure (Record_value record, _), Rec_pattern label_set ->
+      Ident_set.for_all (fun id -> Ident_map.mem id record) label_set
+  | RecordClosure (Record_value record, _), Strict_rec_pattern label_set ->
+      Ident_set.equal label_set (Ident_set.of_enum @@ Ident_map.keys record)
+  | FunClosure _, Fun_pattern -> true
+  | _, Any_pattern -> true
+  | _, _ -> false
 
 (*
   ----------
@@ -60,12 +29,12 @@ module Fetch =
 *)
 
 
-let eval_exp_default
+let eval_exp
   ~(conc_session : Session.Concrete.t) (* Note: is mutable. Doesn't get passed through *)
   (e : expr)
   : Dvalue.t m
   =
-  let rec eval_exp (env : Dvalue.denv) (Expr clauses : expr) : (Dvalue.denv * Dvalue.t) m =
+  let rec eval_exp (env : Denv.t) (Expr clauses : expr) : (Denv.t * Dvalue.t) m =
     List.fold
       clauses
       ~init:(return (env, Direct (Value_int 00))) (* safe to use default value because empty clause list is parse error *)
@@ -73,7 +42,7 @@ let eval_exp_default
         let%bind (env, _) = acc_m in
         eval_clause env clause)
 
-  and eval_clause (env : Dvalue.denv) (Clause (Var (x, _), cbody) : clause) : (Dvalue.denv * Dvalue.t) m =
+  and eval_clause (env : Denv.t) (Clause (Var (x, _), cbody) : clause) : (Denv.t * Dvalue.t) m =
     Session.Concrete.incr_step conc_session; (* mutates the session that is in scope *)
     let%bind () =
       if Session.Concrete.is_max_step conc_session
@@ -86,7 +55,7 @@ let eval_exp_default
       match cbody with
       | Value_body ((Value_function vf) as v) ->
         (* x = fun ... ; *)
-        let%bind _ = modify @@ Session.Symbolic.add_key_eq_val x_key v in
+        let%bind () = modify @@ Session.Symbolic.add_key_eq_val x_key v in
         return @@ FunClosure (x, vf, env)
       | Value_body ((Value_record r) as v) ->
         (* x = { ... } ; *)
@@ -98,12 +67,12 @@ let eval_exp_default
         return @@ Direct v
       | Var_body vx ->
         (* x = y ; *)
-        let ret_val, ret_key = Fetch.fetch_val_with_key env vx in
+        let ret_val, ret_key = Denv.fetch env vx in
         let%bind () = modify @@ Session.Symbolic.add_alias x_key ret_key in
         return ret_val
       | Conditional_body (cx, e1, e2) -> 
         (* x = if y then e1 else e2 ; *)
-        let cond_val, condition_key = Fetch.fetch_val_with_key env cx in
+        let cond_val, condition_key = Denv.fetch env cx in
         let%bind cond_bool =
           match cond_val with
           | Direct (Value_bool b) -> return b 
@@ -119,7 +88,7 @@ let eval_exp_default
         (* note that [conc_session] gets mutated when evaluating the branch *)
         let%bind ret_env, ret_val = eval_exp env e in
         let last_v = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
-        let ret_key = Fetch.fetch_key ret_env last_v in
+        let ret_key = Denv.fetch_key ret_env last_v in
 
         let%bind () = modify @@ Session.Symbolic.add_alias x_key ret_key in
         return ret_val
@@ -130,15 +99,15 @@ let eval_exp_default
         return ret_val
       | Appl_body (vf, varg) -> begin 
         (* x = f y ; *)
-        match Fetch.fetch_val env vf with
+        match Denv.fetch_val env vf with
         | FunClosure (_, Function_value (Var (param, _), body), fenv) ->
           (* increment step count so that the key for the parameter gets an identifier different than the clause *)
           Session.Concrete.incr_step conc_session;
 
           (* varg is the argument that fills in param *)
-          let arg, arg_key = Fetch.fetch_val_with_key env varg in
+          let arg, arg_key = Denv.fetch env varg in
           let param_key = Concolic_key.create param conc_session.step in
-          let env' = Ident_map.add param (arg, param_key) fenv in
+          let env' = Denv.add fenv param arg param_key in
 
           (* enter function: say arg is same as param *)
           let%bind () = modify @@ Session.Symbolic.add_alias param_key arg_key in
@@ -146,7 +115,7 @@ let eval_exp_default
           (* returned value of function *)
           let%bind (ret_env, ret_val) = eval_exp env' body in
           let last_v = Jayil.Ast_tools.retv body in
-          let ret_key = Fetch.fetch_key ret_env last_v in
+          let ret_key = Denv.fetch_key ret_env last_v in
 
           (* exit function: *)
           let%bind () = modify @@ Session.Symbolic.add_alias x_key ret_key in
@@ -155,15 +124,15 @@ let eval_exp_default
         end
       | Match_body (vy, p) ->
         (* x = y ~ <pattern> ; *)
-        let match_res = Value_bool (Fetch.check_pattern env vy p) in
-        let y_key = Fetch.fetch_key env vy in
+        let match_res = Value_bool (check_pattern env vy p) in
+        let y_key = Denv.fetch_key env vy in
         let%bind () = modify @@ Session.Symbolic.add_match x_key y_key p in
         return @@ Direct match_res
       | Projection_body (v, label) -> begin
-        match Fetch.fetch_val env v with
+        match Denv.fetch_val env v with
         | RecordClosure (Record_value r, denv) ->
           let proj_var = Ident_map.find label r in
-          let ret_val, ret_key = Fetch.fetch_val_with_key denv proj_var in
+          let ret_val, ret_key = Denv.fetch denv proj_var in
           let%bind () = modify @@ Session.Symbolic.add_alias x_key ret_key in
           return ret_val
         | Direct (Value_record (Record_value _record)) ->
@@ -172,7 +141,7 @@ let eval_exp_default
         end
       | Not_body vy ->
         (* x = not y ; *)
-        let y_val, y_key = Fetch.fetch_val_with_key env vy in
+        let y_val, y_key = Denv.fetch env vy in
         let%bind ret_val =
           match y_val with
           | Direct (Value_bool b) -> return @@ Direct (Value_bool (not b))
@@ -182,8 +151,8 @@ let eval_exp_default
         return ret_val
       | Binary_operation_body (vy, op, vz) ->
         (* x = y op z *)
-        let y, y_key = Fetch.fetch_val_with_key env vy in
-        let z, z_key = Fetch.fetch_val_with_key env vz in
+        let y, y_key = Denv.fetch env vy in
+        let z, z_key = Denv.fetch env vz in
         let%bind v =
           let%bind v1, v2 = 
             match y, z with
@@ -209,7 +178,7 @@ let eval_exp_default
         return @@ Direct v
       | Abort_body -> found_abort
       | Assert_body cx | Assume_body cx ->
-        let cond_val, cond_key = Fetch.fetch_val_with_key env cx in 
+        let cond_val, cond_key = Denv.fetch env cx in 
         let%bind b =
           match cond_val with
           | Direct (Value_bool b) -> return b
@@ -221,10 +190,10 @@ let eval_exp_default
         else return cond_val
     in
     let%bind v = v_m in
-    return (Ident_map.add x (v, x_key) env, v)
+    return (Denv.add env x v x_key, v)
   in
 
-  let%bind (_, v) = eval_exp Ident_map.empty e in (* eval with empty environment *)
+  let%bind (_, v) = eval_exp Denv.empty e in
   let%bind s = show (return v) Dvalue.pp in
   CLog.app (fun m -> m "Evaluated to: %s\n" s);
   return v
@@ -253,7 +222,7 @@ let rec loop (e : expr) (prev_session : Session.t) : Session.Status.t Lwt.t =
       | `Next (session, symb_session, conc_session) ->
         CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session));
         let t0 = Caml_unix.gettimeofday () in
-        let resulting_symbolic, _ = run (eval_exp_default ~conc_session e) symb_session in
+        let resulting_symbolic, _ = run (eval_exp ~conc_session e) symb_session in
         let t1 = Caml_unix.gettimeofday () in
         CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0));
         loop e
@@ -269,7 +238,7 @@ let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.t =
       fun (e : Jayil.Ast.expr) ->
         if not r.random then Random.init seed;
         CLog.app (fun m -> m "\nStarting concolic execution...\n");
-        (* Repeatedly evaluate program *)
+        (* Repeatedly evaluate program: *)
         Concolic_riddler.reset ();
         Lwt_unix.with_timeout r.global_timeout_sec
         @@ fun () ->

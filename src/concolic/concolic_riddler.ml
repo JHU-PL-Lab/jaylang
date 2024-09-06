@@ -1,6 +1,4 @@
 open Core
-(* module SuduZ3 = From_dbmc.Solver.SuduZ3 *)
-(* open SuduZ3 *)
 open Jayil.Ast
 
 module SuduZ3 = Sudu.Z3_api.Make (struct
@@ -89,7 +87,7 @@ let false_ = box_bool false
 let bool_ = SuduZ3.bool_
 let and_ = SuduZ3.and_
 
-(* AST primitive (no picked) *)
+(* AST primitive *)
 
 let not_ t t1 =
   let e = key_to_var t in

@@ -22,13 +22,14 @@ type 'a m = Session.Symbolic.t -> Session.Symbolic.t * 'a Cresult.t
 
 let bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
   fun s ->
-    match x s with
-    | ss, Ok a -> f a ss
-    (* must match on all remaining cases to keep 'a and 'b different *)
-    | ss, Found_abort -> ss, Found_abort
-    | ss, Type_mismatch -> ss, Type_mismatch
-    | ss, Found_failed_assume -> ss, Found_failed_assume
-    | ss, Reach_max_step -> ss, Reach_max_step
+    let ss, r = x s in
+    match r with
+    | Ok a -> f a ss
+    (* must match on all remaining cases to keep 'a and 'b different. Type checking complains if we capture and reuse *)
+    | Found_abort -> ss, Found_abort
+    | Type_mismatch -> ss, Type_mismatch
+    | Found_failed_assume -> ss, Found_failed_assume
+    | Reach_max_step -> ss, Reach_max_step
 
 let return (a : 'a) : 'a m =
   fun s -> s, Ok a
@@ -36,10 +37,6 @@ let return (a : 'a) : 'a m =
 let read : Session.Symbolic.t m =
   fun s ->
     s, Ok s
-
-let write (s : Session.Symbolic.t) : unit m =
-  fun _ ->
-    s, Ok ()
   
 let modify (f : Session.Symbolic.t -> Session.Symbolic.t) : unit m =
   fun s ->
