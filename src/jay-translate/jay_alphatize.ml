@@ -434,7 +434,7 @@ let alphatize (e : Jay_ast.expr_desc) : Jay_ast.expr_desc m =
                    let%bind expr', seen' = walk expr seen in
                    return ((lbl, expr') :: acc, seen'))
                  ([], seen_declared)
-            |> lift1 (fun (acc, seen) ->
+            |> map (fun (acc, seen) ->
                    (Ident_map.of_enum @@ List.enum acc, seen))
           in
           return (Record mapping', seen_declared')
@@ -484,4 +484,4 @@ let alphatize (e : Jay_ast.expr_desc) : Jay_ast.expr_desc m =
     let expr_desc' = { tag = expr_desc.tag; body = expr' } in
     return (expr_desc', seen_declared')
   in
-  lift1 fst @@ walk e Ident_set.empty
+  map fst @@ walk e Ident_set.empty

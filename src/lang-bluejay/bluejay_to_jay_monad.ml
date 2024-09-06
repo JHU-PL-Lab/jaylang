@@ -1,3 +1,4 @@
+open Monadlib
 open Batteries
 open Bluejay_ast_internal
 
@@ -16,7 +17,7 @@ let new_translation_context ?(suffix = "_b_") () : translation_context =
   }
 
 module BluejayTranslationMonad : sig
-  include Monad.Monad
+  include Monad.S
 
   val run : translation_context -> 'a m -> 'a
   (** Run the monad to completion *)
@@ -174,4 +175,4 @@ let ident_map_map_m (fn : 'a -> 'b BluejayTranslationMonad.m)
   |> Enum.map (fun (k, v) ->
          let%bind v' = fn v in
          return (k, v'))
-  |> List.of_enum |> sequence |> lift1 List.enum |> lift1 Ident_map.of_enum
+  |> List.of_enum |> sequence |> map List.enum |> map Ident_map.of_enum
