@@ -240,22 +240,6 @@ let eval_exp_default
     ~conc_session 
     Ident_map.empty (* empty environment *)
     e
-(* 
-let continue_from_concolic_exception (e : exn) : Session.Symbolic.t =
-  try raise e with
-  | Found_abort (_, symb_session) ->
-      CLog.app (fun m -> m "Found abort in interpretation\n");
-      symb_session
-  | Type_mismatch symb_session ->
-      CLog.app (fun m -> m "Type mismatch in interpretation\n");
-      symb_session
-  | Reach_max_step (_, symb_session) ->
-      CLog.app (fun m -> m "Reach max steps\n");
-      symb_session
-  | Found_failed_assume symb_session
-  | Found_failed_assert symb_session ->
-      CLog.app (fun m -> m "Found failed assume or assert\n");
-      symb_session *)
 
 (* Evaluate the expression and return resulting concolic session. Print and discard output. May bubble exception *)
 let try_eval_exp_default
@@ -264,7 +248,8 @@ let try_eval_exp_default
   : unit m
   =
   let%bind (_, v) = eval_exp_default ~conc_session e in
-  CLog.app (fun m -> m "Evaluated to: %a\n" Dvalue.pp v);
+  let%bind s = show (return v) Dvalue.pp in
+  CLog.app (fun m -> m "Evaluated to: %s\n" s);
   return ()
 
 (*

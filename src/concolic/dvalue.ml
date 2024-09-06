@@ -15,13 +15,13 @@ let value_of_t = function
   | RecordClosure (r, _env) -> Value_record r
   | AbortClosure _ -> Value_bool false
 
-let rec pp oc = function
-  | Direct v -> Jayil.Pp.value oc v
-  | FunClosure _ -> Format.fprintf oc "(fc)"
-  | RecordClosure (r, _) -> pp_record_c r oc
-  | AbortClosure _ -> Format.fprintf oc "(abort)"
+let rec pp = function
+  | Direct v -> Jayil.Pp.show_value v
+  | FunClosure _ -> Format.sprintf "(fc)"
+  | RecordClosure (r, _) -> pp_record_c r
+  | AbortClosure _ -> Format.sprintf "(abort)"
 
-and pp_record_c (Record_value r) oc =
-  let pp_entry oc (x, v) = Fmt.pf oc "%a = %a" Dj_common.Id.pp x Jayil.Pp.var_ v in
-  (Fmt.braces (Fmt.iter_bindings ~sep:(Fmt.any ", ") Ident_map.iter pp_entry))
-    oc r
+and pp_record_c (Record_value r) =
+  let pp_entry (x, v) = Format.sprintf "%s = %s" (Dj_common.Id.show x) (Jayil.Pp.show_var v) in
+  let s = Ident_map.to_list r |> List.map pp_entry |> String.concat ", " in
+  Format.sprintf "@[{%s}@]" s

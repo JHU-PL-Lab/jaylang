@@ -7,9 +7,17 @@ module Cresult =
       | Type_mismatch
       | Found_failed_assume
       | Reach_max_step
+
+    let pp (x : 'a t) (pp : 'a -> string) : string =
+      match x with
+      | Ok a -> pp a
+      | Found_abort -> "Found abort in interpretation"
+      | Type_mismatch -> "Type mismatch in interpretation"
+      | Reach_max_step -> "Reach max steps during interpretation"
+      | Found_failed_assume -> "Found failed assume or assert"
   end
 
-(* TODO: hide this type *)
+(* I probably want to hide this type *)
 type 'a m = Session.Symbolic.t -> Session.Symbolic.t * 'a Cresult.t
 
 let bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
@@ -39,6 +47,12 @@ let modify (f : Session.Symbolic.t -> Session.Symbolic.t) : unit m =
 
 let run (x : 'a m) (s : Session.Symbolic.t) : Session.Symbolic.t * 'a Cresult.t =
   x s
+
+(* This is a little dangerous because it sends all to Ok, but I use it safely *)
+let show (x : 'a m) (pp : 'a -> string) : string m =
+  fun s ->
+    match x s with
+    | ss, res -> ss, Ok (Cresult.pp res pp)
 
 let reach_max_step =
   fun s -> s, Cresult.Reach_max_step
