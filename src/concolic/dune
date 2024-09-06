@@ -19,6 +19,7 @@
   jayil_parser
   bluejay
   dj_common
+  monadlib
   sudu
   psq) ; psq added for queue of target branches
  (instrumentation
@@ -27,7 +28,9 @@
  (inline_tests)
  (preprocess
   (pps
-   ppx_jane
+   ppx_sexp_conv
+   ppx_compare
+   ocaml-monadic
    ppx_deriving.show
    lwt_ppx
    ; for profiling

@@ -182,7 +182,7 @@ let found_type_mismatch (s : t) : t =
   { s with status = `Type_mismatch }
 
 (* require that cx is true by adding as formula *)
-let found_assume (x : t) (cx : Concolic_key.t) : t =
+let found_assume (cx : Concolic_key.t) (x : t) : t =
   if x.depth_tracker.is_max_depth
   then x
   else
@@ -218,7 +218,7 @@ let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
   then x
   else { x with stack = Node_stack.add_formula x.stack @@ lazy_expr () }
 
-let hit_branch (x : t) (branch : Branch.Runtime.t) : t =
+let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
   let after_incr = 
     { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker 
     ; latest_branch = Option.return @@ Branch.Runtime.to_ast_branch branch }
@@ -235,16 +235,16 @@ let reach_max_step (x : t) : t =
   FORMULAS FOR BASIC JIL CLAUSES
   ------------------------------
 *)
-let add_key_eq_val (x : t) (key : Concolic_key.t) (v : Jayil.Ast.value) : t =
+let add_key_eq_val (key : Concolic_key.t) (v : Jayil.Ast.value) (x : t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.eqv key v
 
-let add_alias (x : t) (key1 : Concolic_key.t) (key2 : Concolic_key.t) : t =
+let add_alias (key1 : Concolic_key.t) (key2 : Concolic_key.t) (x : t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.eq key1 key2
 
-let add_binop (x : t) (key : Concolic_key.t) (op : Jayil.Ast.binary_operator) (left : Concolic_key.t) (right : Concolic_key.t) : t =
+let add_binop (key : Concolic_key.t) (op : Jayil.Ast.binary_operator) (left : Concolic_key.t) (right : Concolic_key.t) (x : t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.binop key op left right
 
-let add_input (x : t) (key : Concolic_key.t) (v : Dvalue.t) : t =
+let add_input (key : Concolic_key.t) (v : Dvalue.t) (x : t) : t =
   let n =
     match v with
     | Dvalue.Direct (Value_int n) -> n
@@ -256,10 +256,10 @@ let add_input (x : t) (key : Concolic_key.t) (v : Dvalue.t) : t =
     Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n s);
     Concolic_riddler.if_pattern key Jayil.Ast.Int_pattern
 
-let add_not (x : t) (key1 : Concolic_key.t) (key2 : Concolic_key.t) : t =
+let add_not (key1 : Concolic_key.t) (key2 : Concolic_key.t) (x : t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.not_ key1 key2
 
-let add_match (x : t) (k : Concolic_key.t) (m : Concolic_key.t) (pat : Jayil.Ast.pattern) : t =
+let add_match (k : Concolic_key.t) (m : Concolic_key.t) (pat : Jayil.Ast.pattern) (x : t) : t =
   add_lazy_formula x
   @@ fun () -> Concolic_riddler.match_ k m pat
 

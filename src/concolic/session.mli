@@ -20,6 +20,9 @@ module Concrete :
 
     val incr_step : t -> unit
     (** [incr_step t] has the side effect of incrementing the [step] field of the mutable session [t]. *)
+
+    val is_max_step : t -> bool
+    (** [is_max_step t] is true if and only if the current step in [t] is at least the max step. *)
   end
 
 module Symbolic = Symbolic_session

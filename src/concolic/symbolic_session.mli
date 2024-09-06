@@ -48,23 +48,23 @@ val with_options : (t, t) Options.Fun.t
   -----------
 *)
 
-val add_key_eq_val : t -> Concolic_key.t -> Jayil.Ast.value -> t
-(** [add_key_eq_val t k v] adds the formula that [k] has value [v] in [t]. *)
+val add_key_eq_val : Concolic_key.t -> Jayil.Ast.value -> t -> t
+(** [add_key_eq_val k v t] adds the formula that [k] has value [v] in [t]. *)
 
-val add_alias : t -> Concolic_key.t -> Concolic_key.t -> t
-(** [add_alias t k k'] adds the formula that [k] and [k'] hold the same value in [t]. *)
+val add_alias : Concolic_key.t -> Concolic_key.t -> t -> t
+(** [add_alias k k' t] adds the formula that [k] and [k'] hold the same value in [t]. *)
 
-val add_binop : t -> Concolic_key.t -> Jayil.Ast.binary_operator -> Concolic_key.t -> Concolic_key.t -> t
-(** [add_binop t x op left right] adds the formula that [x = left op right] in [t]. *)
+val add_binop : Concolic_key.t -> Jayil.Ast.binary_operator -> Concolic_key.t -> Concolic_key.t -> t -> t
+(** [add_binop x op left right t] adds the formula that [x = left op right] in [t]. *)
 
-val add_input : t -> Concolic_key.t -> Dvalue.t -> t
-(** [add_input t x v] is [t] that knows input [x = v] was given. *)
+val add_input : Concolic_key.t -> Dvalue.t -> t -> t
+(** [add_input x v t] is [t] that knows input [x = v] was given. *)
 
-val add_not : t -> Concolic_key.t -> Concolic_key.t -> t
-(** [add_not t x y] adds [x = not y] to [t]. *)
+val add_not : Concolic_key.t -> Concolic_key.t -> t -> t
+(** [add_not x y t] adds [x = not y] to [t]. *)
 
-val add_match : t -> Concolic_key.t -> Concolic_key.t -> Jayil.Ast.pattern -> t
-(** [add_match t x y pat] adds [x = y ~ pat] to [t]. *)
+val add_match : Concolic_key.t -> Concolic_key.t -> Jayil.Ast.pattern -> t -> t
+(** [add_match x y pat t] adds [x = y ~ pat] to [t]. *)
 
 (*
   -----------------
@@ -72,11 +72,11 @@ val add_match : t -> Concolic_key.t -> Concolic_key.t -> Jayil.Ast.pattern -> t
   -----------------
 *)
 
-val hit_branch : t -> Branch.Runtime.t -> t
-(** [hit_branch t branch] is [t] that knows [branch] has been hit during interpretation. *)
+val hit_branch : Branch.Runtime.t -> t -> t
+(** [hit_branch branch t] is [t] that knows [branch] has been hit during interpretation. *)
 
-val found_assume : t -> Concolic_key.t -> t
-(** [found_assume t key] tells [t] that [key] is assumed to be true. *)
+val found_assume : Concolic_key.t -> t -> t
+(** [found_assume key t] tells [t] that [key] is assumed to be true. *)
 
 val fail_assume : t -> t
 (** [fail_assume t] tells [t] that a recent assume/assert was false when it needs to be true. *)

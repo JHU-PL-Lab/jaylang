@@ -25,6 +25,9 @@ module Concrete =
 
     let incr_step (x : t) : unit =
       x.step <- x.step + 1
+
+    let is_max_step (x : t) : bool =
+      x.step >= x.max_step
   end
 
 module Symbolic = Symbolic_session
