@@ -27,11 +27,6 @@ module Fetch =
     let fetch_key env x : Concolic_key.t =
       snd (fetch_val_with_key env x) (* find variable and key, then discard variable *)
 
-    let fetch_val_to_direct env vx : value =
-      match fetch_val env vx with
-      | Direct v -> v
-      | _ -> failwith "eval to non direct value" (* TODO: add type mismatch here *)
-
     let check_pattern env vx pattern : bool =
       match (fetch_val env vx, pattern) with
       | Direct (Value_int _), Int_pattern -> true
@@ -128,7 +123,7 @@ and eval_clause
       (* note that [conc_session] gets mutated when evaluating the branch *)
       let%bind ret_env, ret_val = eval_exp ~conc_session env e in
       let last_v = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
-      let _, ret_key = Fetch.fetch_val_with_key ret_env last_v in
+      let ret_key = Fetch.fetch_key ret_env last_v in
 
       let%bind () = modify @@ Session.Symbolic.add_alias x_key ret_key in
       return ret_val
@@ -177,7 +172,7 @@ and eval_clause
         return ret_val
       | Direct (Value_record (Record_value _record)) ->
         failwith "project should also have a closure"
-      | _ -> failwith "project on a non record" (* TODO: type mismatch here *)
+      | _ -> let%bind () = modify Session.Symbolic.found_type_mismatch in type_mismatch
       end
     | Not_body vy ->
       (* x = not y ; *)
@@ -191,9 +186,14 @@ and eval_clause
       return ret_val
     | Binary_operation_body (vy, op, vz) ->
       (* x = y op z *)
-      let v1 = Fetch.fetch_val_to_direct env vy
-      and v2 = Fetch.fetch_val_to_direct env vz in
+      let y, y_key = Fetch.fetch_val_with_key env vy in
+      let z, z_key = Fetch.fetch_val_with_key env vz in
       let%bind v =
+        let%bind v1, v2 = 
+          match y, z with
+          | Direct v1, Direct v2 -> return (v1, v2)
+          | _ -> let%bind () = modify Session.Symbolic.found_type_mismatch in type_mismatch
+        in
         match op, v1, v2 with
         | Binary_operator_plus, Value_int n1, Value_int n2                  -> return @@ Value_int  (n1 + n2)
         | Binary_operator_minus, Value_int n1, Value_int n2                 -> return @@ Value_int  (n1 - n2)
@@ -209,8 +209,6 @@ and eval_clause
         | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> return @@ Value_bool (n1 <> n2)
         | _ -> let%bind () = modify Session.Symbolic.reach_max_step in reach_max_step
       in
-      let y_key = Fetch.fetch_key env vy in
-      let z_key = Fetch.fetch_key env vz in
       let%bind () = modify @@ Session.Symbolic.add_binop x_key op y_key z_key in
       return @@ Direct v
     | Abort_body ->
