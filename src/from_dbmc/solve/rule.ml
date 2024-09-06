@@ -236,22 +236,3 @@ let show_rule : t -> string = function
 
 let sexp_of_t r = r |> show_rule |> Sexp.of_string
 let pp_rule = Fmt.of_to_string show_rule
-
-(* module type Rule_sig = sig
-     type payload
-     type result
-
-     val discovery_main : t -> payload -> result
-     val discovery_nonmain : t -> payload -> result
-     val value_discard : t -> payload -> result
-     val alias : t -> payload -> result
-     val to_first : t -> payload -> result
-     val binop : t -> payload -> result
-     val cond_top : t -> payload -> result
-     val cond_btm : t -> payload -> result
-     val fun_enter_local : t -> payload -> result
-     val fun_enter_nonlocal : t -> payload -> result
-     val record_start : t -> payload -> result
-     val record_end : t -> payload -> result
-     val mismatch : t -> payload -> result
-   end *)

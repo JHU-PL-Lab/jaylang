@@ -8,11 +8,12 @@ module T =
       ; global_max_step    : int   [@default Int.(5 * 10**4)]
       ; max_tree_depth     : int   [@default 60]
       ; random             : bool  [@default false]
-      ; n_depth_increments : int   [@default 6] }
+      ; n_depth_increments : int   [@default 3] }
       [@@deriving sexp]
   end
 
 include T
+
 let default : t = T.t_of_sexp @@ Sexp.of_string "()"
 
 module Refs =

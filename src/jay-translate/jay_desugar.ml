@@ -113,7 +113,7 @@ let encode_pattern (pattern : pattern) : pattern m =
   match pattern with
   (* Encode list patterns *)
   | EmptyLstPat ->
-      (* The empty list is encoded as {~empty = {}}
+      (*mThe empty list is encoded as {~empty = {}}
          The corresponding pattern is {~empty = None} *)
       let%bind lbl_empty = lbl_empty_m in
       let%bind () =

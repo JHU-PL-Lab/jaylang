@@ -33,25 +33,6 @@ module T = struct
   }
 
   and edge = { pred : t ref; succ : t ref }
-  (* and gate =
-     | Open
-     | Mismatch
-     | Done of Concrete_stack.t
-     (* | Discard of t ref
-        | Alias of t ref
-        | To_first of t ref *)
-     | One of t ref
-     (* | Binop of t ref * t ref
-        | Cond_choice of t ref * t ref
-        | Project of t ref * t ref
-     *)
-     | And of t ref * t ref
-     (* | Condsite of t ref * t ref list
-        | Callsite of t ref * t ref list *)
-     | One_and_orlist of t ref * t ref list
-     (* | Para_local of (t ref * t ref) list
-        | Para_nonlocal of (t ref * t ref) list *)
-     | Orlist_of_pair of (t ref * t ref) list *)
   [@@deriving sexp_of, compare, equal]
 end
 
@@ -96,7 +77,3 @@ let traverse_node ?(stop = fun _ -> false) ~at_node ~init ~acc_f _node = ()
 
 let fold_tree ?(stop = fun _ -> false) ~init ~init_path ~sum ~sum_path _node =
   init
-
-(* let init_node key_map key node =
-   Hashtbl.add_exn key_map ~key ~data:node ;
-   node *)
