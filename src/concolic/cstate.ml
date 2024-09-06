@@ -55,13 +55,17 @@ let show (x : 'a m) (pp : 'a -> string) : string m =
     | ss, res -> ss, Ok (Cresult.pp res pp)
 
 let reach_max_step =
+  let%bind () = modify Session.Symbolic.reach_max_step in
   fun s -> s, Cresult.Reach_max_step
 
 let found_abort =
+  let%bind () = modify Session.Symbolic.found_abort in
   fun s -> s, Cresult.Found_abort
 
 let failed_assume =
+  let%bind () = modify Session.Symbolic.fail_assume in
   fun s -> s, Cresult.Found_failed_assume
 
 let type_mismatch =
+  let%bind () = modify Session.Symbolic.found_type_mismatch in
   fun s -> s, Cresult.Type_mismatch

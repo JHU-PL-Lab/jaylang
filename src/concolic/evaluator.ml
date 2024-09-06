@@ -1,7 +1,7 @@
 open Core
 open Jayil.Ast
 open Dvalue (* just to expose constructors *)
-open Cstate
+open Cstate (* state monad *)
 
 module ILog = Dj_common.Log.Export.ILog
 module CLog = Dj_common.Log.Export.CLog
@@ -81,7 +81,7 @@ and eval_clause
   Session.Concrete.incr_step conc_session;
   let%bind () =
     if Session.Concrete.is_max_step conc_session
-    then let%bind () = modify Session.Symbolic.reach_max_step in reach_max_step
+    then reach_max_step
     else return ()
   in
   
@@ -111,7 +111,7 @@ and eval_clause
       let%bind cond_bool =
         match cond_val with
         | Direct (Value_bool b) -> return b 
-        | _ -> let%bind () = modify Session.Symbolic.found_type_mismatch in type_mismatch
+        | _ -> type_mismatch
       in
       let this_branch = Branch.Runtime.{ branch_key = x_key ; condition_key ; direction = Branch.Direction.of_bool cond_bool } in
 
@@ -155,7 +155,7 @@ and eval_clause
         (* exit function: *)
         let%bind () = modify @@ Session.Symbolic.add_alias x_key ret_key in
         return ret_val
-      | _ -> let%bind () = modify Session.Symbolic.found_type_mismatch in type_mismatch
+      | _ -> type_mismatch
       end
     | Match_body (vy, p) ->
       (* x = y ~ <pattern> ; *)
@@ -172,7 +172,7 @@ and eval_clause
         return ret_val
       | Direct (Value_record (Record_value _record)) ->
         failwith "project should also have a closure"
-      | _ -> let%bind () = modify Session.Symbolic.found_type_mismatch in type_mismatch
+      | _ -> type_mismatch
       end
     | Not_body vy ->
       (* x = not y ; *)
@@ -180,7 +180,7 @@ and eval_clause
       let%bind ret_val =
         match y_val with
         | Direct (Value_bool b) -> return @@ Direct (Value_bool (not b))
-        | _ -> let%bind () = modify Session.Symbolic.found_type_mismatch in type_mismatch
+        | _ -> type_mismatch
       in
       let%bind () = modify @@ Session.Symbolic.add_not x_key y_key in
       return ret_val
@@ -192,7 +192,7 @@ and eval_clause
         let%bind v1, v2 = 
           match y, z with
           | Direct v1, Direct v2 -> return (v1, v2)
-          | _ -> let%bind () = modify Session.Symbolic.found_type_mismatch in type_mismatch
+          | _ -> type_mismatch
         in
         match op, v1, v2 with
         | Binary_operator_plus, Value_int n1, Value_int n2                  -> return @@ Value_int  (n1 + n2)
@@ -207,23 +207,21 @@ and eval_clause
         | Binary_operator_and, Value_bool b1, Value_bool b2                 -> return @@ Value_bool (b1 && b2)
         | Binary_operator_or, Value_bool b1, Value_bool b2                  -> return @@ Value_bool (b1 || b2)
         | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> return @@ Value_bool (n1 <> n2)
-        | _ -> let%bind () = modify Session.Symbolic.reach_max_step in reach_max_step
+        | _ -> reach_max_step
       in
       let%bind () = modify @@ Session.Symbolic.add_binop x_key op y_key z_key in
       return @@ Direct v
-    | Abort_body ->
-      let%bind () = modify Session.Symbolic.found_abort in
-      found_abort
+    | Abort_body -> found_abort
     | Assert_body cx | Assume_body cx ->
       let cond_val, cond_key = Fetch.fetch_val_with_key env cx in 
       let%bind b =
         match cond_val with
         | Direct (Value_bool b) -> return b
-        | _ -> let%bind () = modify Session.Symbolic.found_type_mismatch in type_mismatch
+        | _ -> type_mismatch
       in
       let%bind () = modify @@ Session.Symbolic.found_assume cond_key in
       if not b
-      then let%bind () = modify Session.Symbolic.fail_assume in failed_assume (* fail the assume that was just found *)
+      then failed_assume
       else return cond_val
   in
   let%bind v = v_m in
