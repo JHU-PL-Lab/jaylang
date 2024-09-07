@@ -31,7 +31,7 @@ let () =
         expr
         Int.(10 ** 4)
     then
-      Format.printf "Found failure"
+      Format.printf "Found failure\n"
     else
-      Format.printf "No failure found"
+      Format.printf "No failure found\n"
   end
