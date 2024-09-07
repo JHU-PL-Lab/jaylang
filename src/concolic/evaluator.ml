@@ -191,7 +191,7 @@ let eval_exp
         | Binary_operator_and, Value_bool b1, Value_bool b2                 -> return @@ Value_bool (b1 && b2)
         | Binary_operator_or, Value_bool b1, Value_bool b2                  -> return @@ Value_bool (b1 || b2)
         | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> return @@ Value_bool (n1 <> n2)
-        | _ -> reach_max_step
+        | _ -> type_mismatch
       in
       let%bind () = modify @@ Session.Symbolic.add_binop x_key op y_key z_key in
       next @@ Direct v
