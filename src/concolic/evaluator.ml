@@ -26,6 +26,14 @@ let check_pattern (env : Denv.t) (vx : var) (p : pattern) : bool =
 
   This section is basically an interpreter injected with concolic logic.
   It is a single evaluation of the program, and it accumulates symbolic formulas.
+
+  I just want to note that this appears tail recursive, but actually because of the
+  state monad, it is not. That's rather disappointing. Perhaps I should care more
+  about tail recursion than the state monad, and I should remove the state monad.
+  It really doesn't do that much: it just prevents so much overwriting and manual
+  passing of the symbolic session.
+
+  I'm about to branch off and remove the state monad; I'll just handle it manually.
 *)
 
 type c = (Denv.t * Dvalue.t) m -> (Denv.t * Dvalue.t) m
