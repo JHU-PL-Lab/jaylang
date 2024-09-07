@@ -24,7 +24,7 @@ let () =
       @@ Dj_common.File_utils.read_source_full src_file ~do_wrap:true ~do_instrument:true
     in
     if
-      Fuzz.Interp.test
+      Fuzz.Interp.test_for_failure
         expr
         Int.(10 ** 4)
     then

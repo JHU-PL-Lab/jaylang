@@ -246,7 +246,7 @@ let eval_exp_default
   in
   ()
 
-let rec test (e : expr) (n_runs : int) : bool =
+let rec test_for_failure (e : expr) (n_runs : int) : bool =
   if n_runs <= 0
   then false
   else
@@ -259,4 +259,4 @@ let rec test (e : expr) (n_runs : int) : bool =
     | Exns.Found_abort
     | Exns.Type_mismatch -> true
     | Exns.Failed_assume
-    | Exns.Reach_max_step -> test e (n_runs - 1)
+    | Exns.Reach_max_step -> test_for_failure e (n_runs - 1)
