@@ -33,7 +33,7 @@ type c = (Denv.t * Dvalue.t) m -> (Denv.t * Dvalue.t) m
 let eval_exp
   ~(conc_session : Session.Concrete.t) (* Note: is mutable. Doesn't get passed through *)
   (e : expr)
-  : Dvalue.t m
+  : (Denv.t * Dvalue.t) m
   =
   let rec eval_exp (env : Denv.t) (Expr clauses : expr) (cont : c) : (Denv.t * Dvalue.t) m =
     match clauses with
@@ -201,11 +201,12 @@ let eval_exp
       else next cond_val
   in
 
-  let%bind (_, v) = eval_exp Denv.empty e (fun a -> a) in
-  let%bind s = show (return v) Dvalue.pp in
-  CLog.app (fun m -> m "Evaluated to: %s\n" s);
-  return v
-
+  eval_exp Denv.empty e (fun res ->
+    let%bind (_, v) = res in
+    let%bind s = show (return v) Dvalue.pp in
+    CLog.app (fun m -> m "Evaluated to: %s\n" s);
+    res
+  )
 
 (*
   -------------------
