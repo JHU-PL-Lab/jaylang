@@ -146,7 +146,7 @@ let rec eval_exp
     eval_clause ~session env clause continue
   | clause :: nonempty_tl ->
     eval_clause ~session env clause (fun (res_env, _) ->
-      eval_exp ~session res_env (Expr nonempty_tl) (fun a -> a)
+      eval_exp ~session res_env (Expr nonempty_tl) continue
     )
 
 and eval_clause
