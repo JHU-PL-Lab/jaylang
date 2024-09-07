@@ -70,6 +70,8 @@ open Cresult
   I used to have a nice state monad here, but because of the ppx expansion, we 
   lost tail recursion, so now I just manually pass it through and case on the
   result a *lot*. It's ugly, but it's fast.
+
+  But just a note: there's a bug somewhere here ...
 *)
 
 type s = (Denv.t * Dvalue.t) Cresult.t
