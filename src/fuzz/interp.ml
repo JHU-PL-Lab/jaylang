@@ -136,17 +136,18 @@ module Session =
 let rec eval_exp
   ~(session : Session.t) (* Note: is mutable *)
   (env : Denv.t)
-  (e : expr)
-  continue
+  (Expr clauses : expr)
+  (continue : Denv.t * Dvalue.t -> Denv.t * Dvalue.t)
   : (Denv.t * Dvalue.t)
   =
-  let Expr clauses = e in
-  assert (Fn.non List.is_empty clauses);
-  continue
-  @@ List.fold
-      clauses
-      ~init:(env, Dvalue.Direct (Value_int 00)) (* safe to use arbitrary value because of assert above *)
-      ~f:(fun (env, _) clause -> eval_clause ~session env clause (fun a -> a))
+  match clauses with
+  | [] -> failwith "empty clause list" (* empty clause list is parse error, so this is safe *)
+  | clause :: [] ->
+    eval_clause ~session env clause continue
+  | clause :: nonempty_tl ->
+    eval_clause ~session env clause (fun (res_env, _) ->
+      eval_exp ~session res_env (Expr nonempty_tl) (fun a -> a)
+    )
 
 and eval_clause
   ~(session : Session.t)
