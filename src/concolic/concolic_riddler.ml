@@ -109,8 +109,7 @@ let binop t op t1 t2 =
     | Binary_operator_less_than -> fn_lt
     | Binary_operator_less_than_or_equal_to -> fn_le
     | Binary_operator_equal_to -> fn_eq
-    (* TODO: This might be buggy. Check later *)
-    | Binary_operator_not_equal_to -> fn_neq
+    | Binary_operator_not_equal_to -> fn_neq (* TODO: This might be buggy. Check later *)
     | Binary_operator_and -> fn_and
     | Binary_operator_or -> fn_or
   in
