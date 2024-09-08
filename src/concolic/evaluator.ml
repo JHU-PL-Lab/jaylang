@@ -81,17 +81,31 @@ let eval_exp
   =
   let max_step = Session.Symbolic.get_max_step symb_session in
 
-  let rec eval_exp ~(symb_session : Session.Symbolic.t) (step : int) (env : Denv.t) (Expr clauses : expr) (cont : c) : Cresult.t =
+  let rec eval_exp
+    ~(symb_session : Session.Symbolic.t)
+    ~(step : int)
+    (env : Denv.t)
+    (Expr clauses : expr)
+    (cont : c)
+    : Cresult.t
+    =
     match clauses with
     | [] -> failwith "empty clause list" (* safe because empty clause list is a parse error *)
-    | clause :: [] -> eval_clause ~symb_session step env clause cont
+    | clause :: [] -> eval_clause ~symb_session ~step env clause cont
     | clause :: nonempty_tl ->
-      eval_clause ~symb_session step env clause (function
-        | Ok { denv ; symb_session ; step ; _ } -> eval_exp ~symb_session step denv (Expr nonempty_tl) cont
+      eval_clause ~symb_session ~step env clause (function
+        | Ok { denv ; symb_session ; step ; _ } -> eval_exp ~symb_session ~step denv (Expr nonempty_tl) cont
         | res -> res
       )
 
-  and eval_clause ~(symb_session : Session.Symbolic.t) (step : int) (env : Denv.t) (Clause (Var (x, _), cbody) : clause) (cont : c) : Cresult.t =
+  and eval_clause
+    ~(symb_session : Session.Symbolic.t)
+    ~(step : int)
+    (env : Denv.t)
+    (Clause (Var (x, _), cbody) : clause)
+    (cont : c)
+    : Cresult.t
+    =
     let step = step + 1 in
 
     if step >= max_step
@@ -125,8 +139,7 @@ let eval_exp
           | Direct (Value_bool b) ->
             let this_branch = Branch.Runtime.{ branch_key = x_key ; condition_key ; direction = Branch.Direction.of_bool b } in
             let e = if b then e1 else e2 in
-            (* note that [conc_session] gets mutated when evaluating the branch *)
-            eval_exp ~symb_session:(Session.Symbolic.hit_branch this_branch symb_session) step env e (function
+            eval_exp ~symb_session:(Session.Symbolic.hit_branch this_branch symb_session) ~step env e (function
             | Ok { denv = ret_env ; dval = ret_val ; symb_session ; step } ->
               let last_v = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
               let ret_key = Denv.fetch_key ret_env last_v in
@@ -152,7 +165,7 @@ let eval_exp
           let env' = Denv.add fenv param arg param_key in
 
           (* returned value of function *)
-          eval_exp ~symb_session:(Session.Symbolic.add_alias param_key arg_key symb_session) step env' body (function
+          eval_exp ~symb_session:(Session.Symbolic.add_alias param_key arg_key symb_session) ~step env' body (function
           | Ok { denv = ret_env ; dval = ret_val ; step ; symb_session } ->
             let last_v = Jayil.Ast_tools.retv body in
             let ret_key = Denv.fetch_key ret_env last_v in
@@ -227,7 +240,7 @@ let eval_exp
   in
 
   get_session
-  @@ eval_exp ~symb_session 0 Denv.empty e (fun res ->
+  @@ eval_exp ~symb_session ~step:0 Denv.empty e (fun res ->
       let s = Cresult.pp res in
       CLog.app (fun m -> m "Evaluated to: %s\n" s);
       res
