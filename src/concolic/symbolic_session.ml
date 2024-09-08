@@ -132,9 +132,9 @@ module Depth_tracker =
       ; is_max_depth : bool } 
       (** [t] helps track if we've reached the max tree depth and thus should stop creating formulas *)
 
-    let empty (max_depth : int) : t =
+    let empty : t =
       { cur_depth    = 0
-      ; max_depth 
+      ; max_depth    = Options.default.max_tree_depth
       ; is_max_step  = false
       ; is_max_depth = false }
 
@@ -182,7 +182,7 @@ let empty : t =
   ; consts         = Session_consts.default
   ; status         = `In_progress
   ; rev_inputs     = []
-  ; depth_tracker  = Depth_tracker.empty Options.default.max_tree_depth
+  ; depth_tracker  = Depth_tracker.empty
   ; latest_branch  = None }
 
 let with_options : (t, t) Options.Fun.t =
