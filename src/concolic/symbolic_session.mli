@@ -42,6 +42,12 @@ val empty : t
 val with_options : (t, t) Options.Fun.t
 (** [with_options t] is [t] configured with the optional arguments. *)
 
+val get_max_step : t -> int
+(** [get_max_step t] is the number of steps [t] expects interpretations to max out at. *)
+
+val get_feeder : t -> Concolic_feeder.t
+(** [get_feeder t] is the feeder for an interpretation alongside [t]. *)
+
 (*
   -----------
   EXPRESSIONS
@@ -100,5 +106,5 @@ val finish : t -> Root.t -> Dead.t
 (** [finish t root] creates a finished session from [t] that merges info with the given [root].
     The merged result can be gotten with [root_exn @@ finish t root]. *)
 
-val make : Root.t -> Target.t -> t
-(** [make root target] makes an empty t that knows the given [root] and [target]. *)
+val make : Root.t -> Target.t -> Concolic_feeder.t -> t
+(** [make root target feeder] makes an empty t that knows the given [root] and [target] and [feeder]. *)

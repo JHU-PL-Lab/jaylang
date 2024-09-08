@@ -21,7 +21,7 @@ let check_pattern (env : Denv.t) (vx : var) (p : pattern) : bool =
 module Cresult =
   struct
     type t =
-      | Ok of { denv : Denv.t ; dval : Dvalue.t ; symb_session : Session.Symbolic.t }
+      | Ok of { denv : Denv.t ; dval : Dvalue.t ; step : int ; symb_session : Session.Symbolic.t }
       | Found_abort of Session.Symbolic.t
       | Type_mismatch of Session.Symbolic.t
       | Found_failed_assume of Session.Symbolic.t
@@ -35,7 +35,7 @@ module Cresult =
       | Reach_max_step _ -> "Reach max steps during interpretation"
       | Found_failed_assume _ -> "Found failed assume or assert"
 
-    let return denv dval symb_session = Ok { denv ; dval ; symb_session }
+    let return denv dval symb_session step = Ok { denv ; dval ; step ; symb_session }
 
     let get_session = function
     | Ok { symb_session = s ; _ } 
@@ -75,31 +75,32 @@ open Cresult
 type c = Cresult.t -> Cresult.t
 
 let eval_exp
-  ~(conc_session : Session.Concrete.t) (* Note: is mutable. Doesn't get passed through *)
   ~(symb_session : Session.Symbolic.t)
   (e : expr)
   : Session.Symbolic.t
   =
-  let rec eval_exp ~(symb_session : Session.Symbolic.t) (env : Denv.t) (Expr clauses : expr) (cont : c) : Cresult.t =
+  let max_step = Session.Symbolic.get_max_step symb_session in
+
+  let rec eval_exp ~(symb_session : Session.Symbolic.t) (step : int) (env : Denv.t) (Expr clauses : expr) (cont : c) : Cresult.t =
     match clauses with
     | [] -> failwith "empty clause list" (* safe because empty clause list is a parse error *)
-    | clause :: [] -> eval_clause ~symb_session env clause cont
+    | clause :: [] -> eval_clause ~symb_session step env clause cont
     | clause :: nonempty_tl ->
-      eval_clause ~symb_session env clause (function
-        | Ok { denv ; symb_session ; _ } -> eval_exp ~symb_session denv (Expr nonempty_tl) cont
+      eval_clause ~symb_session step env clause (function
+        | Ok { denv ; symb_session ; step ; _ } -> eval_exp ~symb_session step denv (Expr nonempty_tl) cont
         | res -> res
       )
 
-  and eval_clause ~(symb_session : Session.Symbolic.t) (env : Denv.t) (Clause (Var (x, _), cbody) : clause) (cont : c) : Cresult.t =
-    Session.Concrete.incr_step conc_session; (* mutates the session that is in scope *)
+  and eval_clause ~(symb_session : Session.Symbolic.t) (step : int) (env : Denv.t) (Clause (Var (x, _), cbody) : clause) (cont : c) : Cresult.t =
+    let step = step + 1 in
 
-    if Session.Concrete.is_max_step conc_session
+    if step >= max_step
     then reach_max_step symb_session
     else
-      let x_key = Concolic_key.create x conc_session.step in
+      let x_key = Concolic_key.create x step in
 
-      let next v s =
-        cont @@ return (Denv.add env x v x_key) v s
+      let next ?(step : int = step) v s =
+        cont @@ return (Denv.add env x v x_key) v s step
       in
       
       match cbody with
@@ -125,39 +126,39 @@ let eval_exp
             let this_branch = Branch.Runtime.{ branch_key = x_key ; condition_key ; direction = Branch.Direction.of_bool b } in
             let e = if b then e1 else e2 in
             (* note that [conc_session] gets mutated when evaluating the branch *)
-            eval_exp ~symb_session:(Session.Symbolic.hit_branch this_branch symb_session) env e (function
-            | Ok { denv = ret_env ; dval = ret_val ; symb_session } ->
+            eval_exp ~symb_session:(Session.Symbolic.hit_branch this_branch symb_session) step env e (function
+            | Ok { denv = ret_env ; dval = ret_val ; symb_session ; step } ->
               let last_v = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
               let ret_key = Denv.fetch_key ret_env last_v in
-              next ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+              next ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
             | res -> res
             )
           | _ -> type_mismatch symb_session
         end
       | Input_body ->
         (* x = input ; *)
-        let ret_val = Direct (Value_int (conc_session.input_feeder x_key)) in
+        let ret_val = Direct (Value_int (Session.Symbolic.get_feeder symb_session x_key)) in
         next ret_val @@ Session.Symbolic.add_input x_key ret_val symb_session
       | Appl_body (vf, varg) -> begin 
         (* x = f y ; *)
         match Denv.fetch_val env vf with
         | FunClosure (_, Function_value (Var (param, _), body), fenv) ->
           (* increment step count so that the key for the parameter gets an identifier different than the clause *)
-          Session.Concrete.incr_step conc_session;
+          let step = step + 1 in
 
           (* varg is the argument that fills in param *)
           let arg, arg_key = Denv.fetch env varg in
-          let param_key = Concolic_key.create param conc_session.step in
+          let param_key = Concolic_key.create param step in
           let env' = Denv.add fenv param arg param_key in
 
           (* returned value of function *)
-          eval_exp ~symb_session:(Session.Symbolic.add_alias param_key arg_key symb_session) env' body (function
-          | Ok { denv = ret_env ; dval = ret_val ; symb_session } ->
+          eval_exp ~symb_session:(Session.Symbolic.add_alias param_key arg_key symb_session) step env' body (function
+          | Ok { denv = ret_env ; dval = ret_val ; step ; symb_session } ->
             let last_v = Jayil.Ast_tools.retv body in
             let ret_key = Denv.fetch_key ret_env last_v in
 
             (* exit function: *)
-            next ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+            next ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
           | res -> res
           )
         | _ -> type_mismatch symb_session
@@ -226,7 +227,7 @@ let eval_exp
   in
 
   get_session
-  @@ eval_exp ~symb_session Denv.empty e (fun res ->
+  @@ eval_exp ~symb_session 0 Denv.empty e (fun res ->
       let s = Cresult.pp res in
       CLog.app (fun m -> m "Evaluated to: %s\n" s);
       res
@@ -252,10 +253,10 @@ let rec loop (e : expr) (prev_session : Session.t) : Session.Status.t Lwt.t =
         CLog.app (fun m -> m "Ran %d interpretations.\n" (Session.run_num prev_session));
         CLog.app (fun m -> m "Session status: %s.\n" (Session.Status.to_string status));
         Lwt.return status
-      | `Next (session, symb_session, conc_session) ->
+      | `Next (session, symb_session) ->
         CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session));
         let t0 = Caml_unix.gettimeofday () in
-        let resulting_symbolic = eval_exp ~conc_session ~symb_session e in
+        let resulting_symbolic = eval_exp ~symb_session e in
         let t1 = Caml_unix.gettimeofday () in
         CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0));
         loop e

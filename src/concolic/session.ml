@@ -2,34 +2,6 @@ open Core
 open Path_tree
 open Dj_common
 
-(*
-  Mutable record that tracks a run through the evaluation. aka "interpreter session"
-*)
-module Concrete =
-  struct
-
-    type t =
-      { input_feeder    : Concolic_feeder.t
-      ; mutable step    : int
-      ; max_step        : int }
-
-    let create_default () =
-      { input_feeder    = Fn.const 0
-      ; step            = 0
-      ; max_step        = Options.default.global_max_step }
-
-    let create (input_feeder : Concolic_feeder.t) (global_max_step : int) : t =
-      { (create_default ()) with 
-        input_feeder
-      ; max_step = global_max_step }
-
-    let incr_step (x : t) : unit =
-      x.step <- x.step + 1
-
-    let is_max_step (x : t) : bool =
-      x.step >= x.max_step
-  end
-
 module Symbolic = Symbolic_session
 
 module Status =
@@ -110,13 +82,13 @@ let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
   Options.Fun.run Symbolic.with_options x.options sym
 
 (* $ OCAML_LANDMARKS=on ./_build/... *)
-let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] Lwt.t =
+let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
   let pop_kind =
     match x.last_sym with
     | Some s when Symbolic.Dead.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
     | _ -> Random
   in
-  let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] Lwt.t =
+  let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
     let%lwt () = Lwt.pause () in
     if Status.quit x.status then done_ x else
     match Target_queue.pop ~kind:pop_kind x.target_queue with
@@ -127,7 +99,6 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * 
       @@ `Next (
           { x with run_num = 1 }
           , apply_options_symbolic x Symbolic.empty
-          , Concrete.create Concolic_feeder.default x.options.global_max_step
         )
     | None -> done_ x (* no targets left, so done *)
 
@@ -148,11 +119,11 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * 
       Lwt.return
       @@ `Next (
             { x with run_num = x.run_num + 1 }
-            , apply_options_symbolic x @@ Symbolic.make x.tree target
             , model
               |> Core.Option.value_exn
               |> Concolic_feeder.from_model
-              |> fun feeder -> Concrete.create feeder x.options.global_max_step
+              |> Symbolic.make x.tree target
+              |> apply_options_symbolic x
           )
 
   and done_ (x : t) =

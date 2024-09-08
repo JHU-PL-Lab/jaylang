@@ -128,6 +128,7 @@ module Depth_tracker =
     type t =
       { cur_depth    : int (* branch depth *)
       ; max_depth    : int (* only for conditional branch depth *)
+      ; max_step     : int
       ; is_max_step  : bool
       ; is_max_depth : bool } 
       (** [t] helps track if we've reached the max tree depth and thus should stop creating formulas *)
@@ -135,12 +136,13 @@ module Depth_tracker =
     let empty (max_depth : int) : t =
       { cur_depth    = 0
       ; max_depth 
+      ; max_step     = Options.default.global_max_step
       ; is_max_step  = false
       ; is_max_depth = false }
 
     let with_options : (t, t) Options.Fun.t =
       Options.Fun.make
-      @@ fun (r : Options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth }
+      @@ fun (r : Options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth ; max_step = r.global_max_step }
 
     let incr_branch (x : t) : t =
       { x with cur_depth = x.cur_depth + 1 ; is_max_depth = x.max_depth <= x.cur_depth }
@@ -155,6 +157,7 @@ module T =
     type t =
       { stack          : Node_stack.t
       ; target         : Target.t option
+      ; input_feeder   : Concolic_feeder.t
       ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch ]
       ; rev_inputs     : Jil_input.t list
       ; depth_tracker  : Depth_tracker.t 
@@ -166,6 +169,7 @@ include T
 let empty : t =
   { stack          = Node_stack.empty
   ; target         = None
+  ; input_feeder   = Concolic_feeder.default
   ; status         = `In_progress
   ; rev_inputs     = []
   ; depth_tracker  = Depth_tracker.empty Options.default.max_tree_depth
@@ -174,6 +178,12 @@ let empty : t =
 let with_options : (t, t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) -> fun (x : t) -> { x with depth_tracker = Options.Fun.run Depth_tracker.with_options r x.depth_tracker }
+
+let get_max_step ({ depth_tracker = { max_step ; _ } ; _ } : t) : int =
+  max_step
+
+let get_feeder ({ input_feeder ; _ } : t) : Concolic_feeder.t =
+  input_feeder
 
 let found_abort (s : t) : t =
   { s with status = `Found_abort (Option.value_exn s.latest_branch) } (* safe to get value b/c no aborts show up in global scope *)
@@ -306,5 +316,5 @@ module Dead =
 let[@landmarks] finish (x : t) (tree : Root.t) : Dead.t =
   Dead.of_sym_session x tree
 
-let make (root : Root.t) (target : Target.t) : t =
-  { empty with stack = Node_stack.of_root root ; target = Some target }
+let make (root : Root.t) (target : Target.t) (input_feeder : Concolic_feeder.t): t =
+  { empty with stack = Node_stack.of_root root ; target = Some target ; input_feeder }
