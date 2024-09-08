@@ -20,25 +20,25 @@ let check_pattern (env : Denv.t) (vx : var) (p : pattern) : bool =
 
 module Cresult =
   struct
-    type 'a t =
-      | Ok of ('a * Session.Symbolic.t)
+    type t =
+      | Ok of { denv : Denv.t ; dval : Dvalue.t ; symb_session : Session.Symbolic.t }
       | Found_abort of Session.Symbolic.t
       | Type_mismatch of Session.Symbolic.t
       | Found_failed_assume of Session.Symbolic.t
       | Reach_max_step of Session.Symbolic.t
 
-    let pp (x : 'a t) (pp : 'a -> string) : string =
+    let pp (x : t) : string =
       match x with
-      | Ok (a, _) -> pp a
+      | Ok r -> Dvalue.pp r.dval
       | Found_abort _ -> "Found abort in interpretation"
       | Type_mismatch _ -> "Type mismatch in interpretation"
       | Reach_max_step _ -> "Reach max steps during interpretation"
       | Found_failed_assume _ -> "Found failed assume or assert"
 
-    let return a s = Ok (a, s)
+    let return denv dval symb_session = Ok { denv ; dval ; symb_session }
 
     let get_session = function
-    | Ok (_, s)
+    | Ok { symb_session = s ; _ } 
     | Found_abort s
     | Type_mismatch s
     | Found_failed_assume s
@@ -72,9 +72,7 @@ open Cresult
   result a *lot*. It's ugly, but it's faster than with the nice state monad.
 *)
 
-type s = (Denv.t * Dvalue.t) Cresult.t
-
-type c = s -> s
+type c = Cresult.t -> Cresult.t
 
 let eval_exp
   ~(conc_session : Session.Concrete.t) (* Note: is mutable. Doesn't get passed through *)
@@ -82,17 +80,17 @@ let eval_exp
   (e : expr)
   : Session.Symbolic.t
   =
-  let rec eval_exp ~(symb_session : Session.Symbolic.t) (env : Denv.t) (Expr clauses : expr) (cont : c) : s =
+  let rec eval_exp ~(symb_session : Session.Symbolic.t) (env : Denv.t) (Expr clauses : expr) (cont : c) : Cresult.t =
     match clauses with
     | [] -> failwith "empty clause list" (* safe because empty clause list is a parse error *)
     | clause :: [] -> eval_clause ~symb_session env clause cont
     | clause :: nonempty_tl ->
       eval_clause ~symb_session env clause (function
-        | Ok ((res_env, _), symb_session) -> eval_exp ~symb_session res_env (Expr nonempty_tl) cont
+        | Ok { denv ; symb_session ; _ } -> eval_exp ~symb_session denv (Expr nonempty_tl) cont
         | res -> res
       )
 
-  and eval_clause ~(symb_session : Session.Symbolic.t) (env : Denv.t) (Clause (Var (x, _), cbody) : clause) (cont : c) : s =
+  and eval_clause ~(symb_session : Session.Symbolic.t) (env : Denv.t) (Clause (Var (x, _), cbody) : clause) (cont : c) : Cresult.t =
     Session.Concrete.incr_step conc_session; (* mutates the session that is in scope *)
 
     if Session.Concrete.is_max_step conc_session
@@ -101,7 +99,7 @@ let eval_exp
       let x_key = Concolic_key.create x conc_session.step in
 
       let next v s =
-        cont @@ return (Denv.add env x v x_key, v) s
+        cont @@ return (Denv.add env x v x_key) v s
       in
       
       match cbody with
@@ -128,7 +126,7 @@ let eval_exp
             let e = if b then e1 else e2 in
             (* note that [conc_session] gets mutated when evaluating the branch *)
             eval_exp ~symb_session:(Session.Symbolic.hit_branch this_branch symb_session) env e (function
-            | Ok ((ret_env, ret_val), symb_session) ->
+            | Ok { denv = ret_env ; dval = ret_val ; symb_session } ->
               let last_v = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
               let ret_key = Denv.fetch_key ret_env last_v in
               next ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
@@ -154,7 +152,7 @@ let eval_exp
 
           (* returned value of function *)
           eval_exp ~symb_session:(Session.Symbolic.add_alias param_key arg_key symb_session) env' body (function
-          | Ok ((ret_env, ret_val), symb_session) ->
+          | Ok { denv = ret_env ; dval = ret_val ; symb_session } ->
             let last_v = Jayil.Ast_tools.retv body in
             let ret_key = Denv.fetch_key ret_env last_v in
 
@@ -229,7 +227,7 @@ let eval_exp
 
   get_session
   @@ eval_exp ~symb_session Denv.empty e (fun res ->
-      let s = Cresult.pp res (fun (_, dv) -> Dvalue.pp dv) in
+      let s = Cresult.pp res in
       CLog.app (fun m -> m "Evaluated to: %s\n" s);
       res
     )
