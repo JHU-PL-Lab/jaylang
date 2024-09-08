@@ -45,16 +45,16 @@ module Cresult =
     | Reach_max_step s -> s
 
     let reach_max_step =
-      fun s -> Reach_max_step s
+      fun s -> Reach_max_step (Session.Symbolic.reach_max_step s)
 
     let found_abort =
-      fun s -> Found_abort s
+      fun s -> Found_abort (Session.Symbolic.found_abort s)
 
     let failed_assume =
-      fun s -> Found_failed_assume s
+      fun s -> Found_failed_assume (Session.Symbolic.fail_assume s)
 
     let type_mismatch =
-      fun s -> Type_mismatch s
+      fun s -> Type_mismatch (Session.Symbolic.found_type_mismatch s)
   end
 
 open Cresult
@@ -69,9 +69,7 @@ open Cresult
 
   I used to have a nice state monad here, but because of the ppx expansion, we 
   lost tail recursion, so now I just manually pass it through and case on the
-  result a *lot*. It's ugly, but it's fast.
-
-  But just a note: there's a bug somewhere here ...
+  result a *lot*. It's ugly, but it's faster than with the nice state monad.
 *)
 
 type s = (Denv.t * Dvalue.t) Cresult.t
