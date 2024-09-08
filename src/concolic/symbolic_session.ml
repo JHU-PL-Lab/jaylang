@@ -128,7 +128,6 @@ module Depth_tracker =
     type t =
       { cur_depth    : int (* branch depth *)
       ; max_depth    : int (* only for conditional branch depth *)
-      ; max_step     : int
       ; is_max_step  : bool
       ; is_max_depth : bool } 
       (** [t] helps track if we've reached the max tree depth and thus should stop creating formulas *)
@@ -136,13 +135,12 @@ module Depth_tracker =
     let empty (max_depth : int) : t =
       { cur_depth    = 0
       ; max_depth 
-      ; max_step     = Options.default.global_max_step
       ; is_max_step  = false
       ; is_max_depth = false }
 
     let with_options : (t, t) Options.Fun.t =
       Options.Fun.make
-      @@ fun (r : Options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth ; max_step = r.global_max_step }
+      @@ fun (r : Options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth }
 
     let incr_branch (x : t) : t =
       { x with cur_depth = x.cur_depth + 1 ; is_max_depth = x.max_depth <= x.cur_depth }
@@ -151,13 +149,26 @@ module Depth_tracker =
       { x with is_max_step = true }
   end
 
+(* These don't change during the session, so keep them in one record to avoid so much copying *)
+module Session_consts =
+  struct
+    type t =
+      { target       : Target.t option
+      ; input_feeder : Concolic_feeder.t
+      ; max_step     : int } 
+
+    let default : t =
+      { target       = None
+      ; input_feeder = Concolic_feeder.default
+      ; max_step     = Options.default.global_max_step }
+  end
+
 
 module T =
   struct
     type t =
       { stack          : Node_stack.t
-      ; target         : Target.t option
-      ; input_feeder   : Concolic_feeder.t
+      ; consts         : Session_consts.t
       ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch ]
       ; rev_inputs     : Jil_input.t list
       ; depth_tracker  : Depth_tracker.t 
@@ -168,8 +179,7 @@ include T
 
 let empty : t =
   { stack          = Node_stack.empty
-  ; target         = None
-  ; input_feeder   = Concolic_feeder.default
+  ; consts         = Session_consts.default
   ; status         = `In_progress
   ; rev_inputs     = []
   ; depth_tracker  = Depth_tracker.empty Options.default.max_tree_depth
@@ -177,12 +187,14 @@ let empty : t =
 
 let with_options : (t, t) Options.Fun.t =
   Options.Fun.make
-  @@ fun (r : Options.t) -> fun (x : t) -> { x with depth_tracker = Options.Fun.run Depth_tracker.with_options r x.depth_tracker }
+  @@ fun (r : Options.t) -> fun (x : t) ->
+    { x with depth_tracker = Options.Fun.run Depth_tracker.with_options r x.depth_tracker
+    ; consts = { x.consts with max_step = r.global_max_step } }
 
-let get_max_step ({ depth_tracker = { max_step ; _ } ; _ } : t) : int =
+let get_max_step ({ consts = { max_step ; _ } ; _ } : t) : int =
   max_step
 
-let get_feeder ({ input_feeder ; _ } : t) : Concolic_feeder.t =
+let get_feeder ({ consts = { input_feeder ; _ } ; _ } : t) : Concolic_feeder.t =
   input_feeder
 
 let found_abort (s : t) : t =
@@ -220,7 +232,7 @@ let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
   if
     x.depth_tracker.is_max_depth
     || begin
-      match x.target with
+      match x.consts.target with
       | Some target -> x.depth_tracker.cur_depth < target.path_n
       | None -> false
     end
@@ -289,7 +301,7 @@ module Dead =
     let of_sym_session (s : T.t) (root : Root.t) : t =
       (* logically sound to have hit target if formulas are consistent with JIL program *)
       let tree, targets = Node_stack.merge_with_tree s.stack root in
-      assert (Option.is_none s.target || Target.is_hit (Option.value_exn s.target) tree); (* check that target was hit in new tree *)
+      assert (Option.is_none s.consts.target || Target.is_hit (Option.value_exn s.consts.target) tree); (* check that target was hit in new tree *)
       { tree
       ; targets
       ; prev = s }
@@ -317,4 +329,4 @@ let[@landmarks] finish (x : t) (tree : Root.t) : Dead.t =
   Dead.of_sym_session x tree
 
 let make (root : Root.t) (target : Target.t) (input_feeder : Concolic_feeder.t): t =
-  { empty with stack = Node_stack.of_root root ; target = Some target ; input_feeder }
+  { empty with stack = Node_stack.of_root root ; consts = { empty.consts with target = Some target ; input_feeder } }
