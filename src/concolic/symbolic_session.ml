@@ -241,7 +241,9 @@ let found_assume (cx : Concolic_key.t) (x : t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.eqv cx (Jayil.Ast.Value_bool true)
 
 let fail_assume (x : t) : t =
-  { x with status = `Failed_assume }
+  if x.depth_tracker.is_max_depth
+  then x
+  else { x with status = `Failed_assume }
 
 let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
   let after_incr = 

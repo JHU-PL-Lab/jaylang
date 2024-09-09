@@ -55,6 +55,7 @@ module type CHILD =
       | Unsatisfiable
       | Solver_timeout
 
+    val show : t -> unit
     val node_exn : t -> node
     val make_hit_node : node -> t
     val make_failed_assume_child : Branch.Runtime.t -> Formula_set.t -> t
@@ -83,12 +84,13 @@ module rec Node :
       @@ Children.child_exn x.children dir
 
     let formulas_of_target (tree : t) (target : Target.t) : Z3.Expr.expr list =
+      Format.printf "%d\n" (List.length target.path.forward_path);
       let rec trace_path acc node = function
         | last_dir :: [] -> begin
           match Children.child_exn node.children last_dir with
           | Target_acquired { constraints } -> Formula_set.to_list constraints @ acc
           | Waiting_to_pass_assume { assumed_formulas } -> Formula_set.to_list assumed_formulas @ acc
-          | _ -> failwith "target not at end of path"
+          | child -> Child.show child; Format.printf "%d\n" (List.length target.path.forward_path); failwith "target not at end of path"
         end
         | next_dir :: tl ->
           let next_node = child_node_exn node next_dir in
@@ -119,13 +121,13 @@ module rec Node :
       let full_path = Path.concat initial_path @@ Formulated_stem.to_path stem in
       match stem with
       | Cons { branch ; formulas ; tail } when failed_assume ->
-        (* maybe don't want full path here. Also need to return targets *)
         let path_to_assume = Path.drop_last_exn full_path in
         let children, t1, t2 = Children.make_failed_assume branch formulas path_to_assume in
         make_node path_to_assume children [ t1 ; t2 ] tail
       | Cons _ ->
         make_node full_path Pruned [] stem
       | Root { root_formulas } ->
+        Format.printf "stem is just root\n";
         { formulas = root_formulas ; children = Pruned }, []
 
     (*
@@ -141,6 +143,9 @@ module rec Node :
           | last_dir :: [] ->
             (* would step onto target node *)
             (* TODO: assert is target or assume *)
+            let this_child = Children.child_exn parent.children last_dir in
+            Format.printf "showing child where adding stem\n";
+            Child.show this_child;
             let new_node, targets = node_of_stem target.path stem failed_assume in
             finish ({ parent with children = Children.update parent.children last_dir @@ Child.make_hit_node new_node }, targets)
           | next_dir :: tl ->
@@ -160,7 +165,7 @@ module rec Node :
         | last_dir :: [] -> finish { parent with children = Children.update parent.children last_dir Child.Unsatisfiable }
         | next_dir :: tl ->
           loop tl (child_node_exn parent next_dir) (fun node ->
-            finish { parent with children = Children.update tree.children next_dir @@ Child.make_hit_node node }
+            finish { parent with children = Children.update parent.children next_dir @@ Child.make_hit_node node }
           )
       in
       loop target.path.forward_path tree (fun a -> a)
@@ -230,6 +235,18 @@ and Child :
       | Waiting_to_pass_assume of { assumed_formulas : Formula_set.t }
       | Unsatisfiable
       | Solver_timeout
+
+    let show (x : t) : unit =
+      Format.printf "%s\n" begin
+        match x with
+        | Hit _ -> "hit"
+        | Target_acquired _ -> "target"
+        | Waiting_to_pass_assume _ -> "assume"
+        | Unsatisfiable -> "unsat"
+        | Solver_timeout -> "timeout"
+
+      end
+
 
     let node_exn (x : t) : Node.t =
       match x with
