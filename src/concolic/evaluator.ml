@@ -280,7 +280,7 @@ let seed =
   String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
 
 let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.t =
-  Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug };
+  (* Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug }; *)
   let f =
     fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
