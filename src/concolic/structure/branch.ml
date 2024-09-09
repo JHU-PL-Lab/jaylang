@@ -29,18 +29,6 @@ module T =
       { branch_ident : Ast.Ident_new.t
       ; direction    : Direction.t }
       [@@deriving sexp, compare]
-
-    let to_string { branch_ident = Ast.Ident s ; direction } : string =
-      s ^ ":" ^ Direction.to_string direction
-
-    let of_ident_and_bool (branch_ident : Ast.ident) (dir : bool) : t =
-      { branch_ident ; direction = Direction.of_bool dir }
-    
-    let other_direction { branch_ident ; direction } : t =
-      { branch_ident ; direction = Direction.other_direction direction }
-
-    let (^-) (Ast.Ident a) b = Ast.Ident (a ^ "-" ^ b)
-
   end
 
 include T
@@ -66,26 +54,6 @@ module Runtime =
       ^ " = "
       ^ Direction.to_string direction
 
-    let to_string_short ({ branch_key ; direction ; _ } : t) : string =
-      let Jayil.Ast.Ident s = Concolic_key.id branch_key in
-      s ^ " = " ^ Direction.to_string direction
-
     let other_direction (x : t) : t =
       { x with direction = Direction.other_direction x.direction }
-
-    let print_target_option (x : t option) : unit =
-      let target_branch_str = 
-        match x with 
-        | None -> "None"
-        | Some target -> to_string target
-      in 
-      Format.printf "\nTarget branch: %s\n" target_branch_str
-  end
-
-module Or_global =
-  struct
-    type t =
-      | Global
-      | Branch of T.t
-      [@@deriving compare, sexp]
   end

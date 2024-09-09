@@ -1,5 +1,5 @@
 open Core
-open Path_tree
+(* open Path_tree *)
 open Dj_common
 
 module Symbolic = Symbolic_session
@@ -42,7 +42,7 @@ module Status =
   end
 
 type t =
-  { tree         : Root.t (* pointer to the root of the entire tree of paths *)
+  { tree         : Path_tree.t (* pointer to the root of the entire tree of paths *)
   ; target_queue : Target_queue.t
   ; run_num      : int
   ; options      : Options.t
@@ -50,7 +50,7 @@ type t =
   ; last_sym     : Symbolic.Dead.t option }
 
 let empty : t =
-  { tree         = Root.empty
+  { tree         = Path_tree.empty
   ; target_queue = Target_queue.empty
   ; run_num      = 0
   ; options      = Options.default
@@ -105,15 +105,15 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ]
   and solve_for_target (x : t) (target : Target.t) =
     let t0 = Caml_unix.gettimeofday () in
     Concolic_riddler.set_timeout (Core.Time_float.Span.of_sec x.options.solver_timeout_sec);
-    Log.Export.CLog.debug (fun m -> m "Solving for target %s\n" (Branch.Runtime.to_string target.branch));
-    match Concolic_riddler.solve (Target.to_formulas target x.tree) with
+    match Concolic_riddler.solve (Path_tree.formulas_of_target x.tree target) with
     | _, Z3.Solver.UNSATISFIABLE ->
       let t1 = Caml_unix.gettimeofday () in
       Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0));
-      next { x with tree = Root.set_status x.tree target.branch Unsatisfiable target.path }
+      next { x with tree = Path_tree.set_unsat_target x.tree target }
     | _, Z3.Solver.UNKNOWN ->
       Log.Export.CLog.info (fun m -> m "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n");
-      next { x with tree = Root.set_status x.tree target.branch Unknown target.path }
+      failwith "unhandled solver timeout"
+      (* next { x with tree = Path_tre.set_unsat_target x.tree target } *)
     | model, Z3.Solver.SATISFIABLE ->
       Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.Runtime.to_string target.branch));
       Lwt.return
@@ -122,7 +122,7 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ]
             , model
               |> Core.Option.value_exn
               |> Concolic_feeder.from_model
-              |> Symbolic.make x.tree target
+              |> Symbolic.make target
               |> apply_options_symbolic x
           )
 

@@ -15,7 +15,7 @@ type t
 val empty : t
 
 val push_list : t -> Target.t list -> t
-(** [push_list t ls] pushes all targets in [ls] onto [t], where deeper targets are at the front of [ls] *)
+(** [push_list t ls] pushes all targets in [ls] onto [t], where deeper targets are at the back of [ls] *)
 
 val with_options : (t, t) Options.Fun.t
 
