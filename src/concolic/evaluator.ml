@@ -4,9 +4,6 @@ open Dvalue (* just to expose constructors *)
 
 module CLog = Dj_common.Log.Export.CLog
 
-(* TODO: delete soon*)
-let _ = Path_tree_new.Node.empty
-
 let check_pattern (env : Denv.t) (vx : var) (p : pattern) : bool =
   match (Denv.fetch_val env vx, p) with
   | Direct (Value_int _), Int_pattern -> true
@@ -283,7 +280,7 @@ let seed =
   String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
 
 let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.t =
-  Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug };
+  (* Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug }; *)
   let f =
     fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->

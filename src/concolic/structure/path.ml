@@ -1,4 +1,6 @@
-(* A path is a sequence of nodes in a tree. The only thing that really matters is the branches taken *)
+(*
+  A path is a sequence of nodes in a tree. The only thing that really matters is the direction of branches taken.
+*)
 
 open Core
 

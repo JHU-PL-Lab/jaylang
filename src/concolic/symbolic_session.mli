@@ -19,7 +19,7 @@ module Dead :
       ---------
     *)
 
-    val root : t -> Path_tree_new.Node.t
+    val root : t -> Path_tree.t
     (** [root t] is the root from the dead [t]. *)
 
     val targets : t -> Target.t list
@@ -101,7 +101,7 @@ val reach_max_step : t -> t
   -----------
 *)
 
-val finish : t -> Path_tree_new.Node.t -> Dead.t
+val finish : t -> Path_tree.t -> Dead.t
 (** [finish t root] creates a finished session from [t] that merges info with the given [root].
     The merged result can be gotten with [root_exn @@ finish t root]. *)
 

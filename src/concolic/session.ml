@@ -42,7 +42,7 @@ module Status =
   end
 
 type t =
-  { tree         : Path_tree_new.Node.t (* pointer to the root of the entire tree of paths *)
+  { tree         : Path_tree.t (* pointer to the root of the entire tree of paths *)
   ; target_queue : Target_queue.t
   ; run_num      : int
   ; options      : Options.t
@@ -50,7 +50,7 @@ type t =
   ; last_sym     : Symbolic.Dead.t option }
 
 let empty : t =
-  { tree         = Path_tree_new.Node.empty
+  { tree         = Path_tree.empty
   ; target_queue = Target_queue.empty
   ; run_num      = 0
   ; options      = Options.default
@@ -105,18 +105,17 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ]
   and solve_for_target (x : t) (target : Target.t) =
     let t0 = Caml_unix.gettimeofday () in
     Concolic_riddler.set_timeout (Core.Time_float.Span.of_sec x.options.solver_timeout_sec);
-    match Concolic_riddler.solve (Path_tree_new.Node.formulas_of_target x.tree target) with
+    match Concolic_riddler.solve (Path_tree.formulas_of_target x.tree target) with
     | _, Z3.Solver.UNSATISFIABLE ->
       let t1 = Caml_unix.gettimeofday () in
       Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0));
-      next { x with tree = Path_tree_new.Node.set_unsat_target x.tree target }
+      next { x with tree = Path_tree.set_unsat_target x.tree target }
     | _, Z3.Solver.UNKNOWN ->
       Log.Export.CLog.info (fun m -> m "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n");
       failwith "unhandled solver timeout"
-      (* next { x with tree = Path_tree_new.Node.set_unsat_target x.tree target } *)
+      (* next { x with tree = Path_tre.set_unsat_target x.tree target } *)
     | model, Z3.Solver.SATISFIABLE ->
-      (* Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.Runtime.to_string target.branch)); *)
-      (* Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.Runtime.to_string target.branch)); *)
+      Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.Runtime.to_string target.branch));
       Lwt.return
       @@ `Next (
             { x with run_num = x.run_num + 1 }
