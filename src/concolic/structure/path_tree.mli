@@ -44,9 +44,6 @@ and Children :
     val set_node : t -> Branch.Runtime.t -> Node.t -> t
     (** [set_node t branch child] adds [child] as a node underneath the [branch] in [t]. *)
 
-    val merge : t -> t -> t
-    (** [merge a b] merges all children in [a] and [b]. *)
-
     val get_child : t -> Branch.Runtime.t -> Child.t option
     (** [get_child t branch] is the child in [t] by taking the [branch]. *)
 
@@ -72,10 +69,6 @@ and Child :
     (** [create_both node branch] makes a child by taking the [branch] to reach the given [node]. 
         Also returns the other side as unsolved. **Note** [node] is the child, not the parent. *)
 
-    val merge : t -> t -> t
-    (** [merge a b] keeps the most information from status (throwing exception if the formulas in
-        the nodes are different), has all constraints from each, and asserts that the branch is the same. *)
-
     val is_valid_target : t -> bool
     (** [is_valid_target t] is [Status.is_valid_target t.status] *)
 
@@ -97,6 +90,7 @@ and Child :
 and Status :
   sig
     type t =
+      | Collapsed
       | Hit of Node.t
       | Unsatisfiable
       | Failed_assume (* Node was hit but failed assume shortly after hitting. Node can be determined unsatisfiable after this due to not being able to satisfy the assume *)
@@ -107,9 +101,6 @@ and Status :
         is not known if hittable or unsatisfiable, or has not been solved or seen yet.
         Unsatisfiable or Unknown nodes are status of the node before they've ever been
         hit during interpretation, so there is no existing node as a payload. *)
-      
-    val merge : t -> t -> t
-    (** [merge a b] keeps the most information from [a] or [b] and merges the nodes if both are [Hit]. *)
 
     val is_valid_target : t -> bool
     (** [is_valid_target t] is true if and only if [t] should be targeted in a concolic run. *)

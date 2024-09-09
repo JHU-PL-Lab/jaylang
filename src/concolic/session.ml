@@ -100,7 +100,8 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ]
           { x with run_num = 1 }
           , apply_options_symbolic x Symbolic.empty
         )
-    | None -> done_ x (* no targets left, so done *)
+    | None -> assert (Path_tree.Children.is_empty x.tree.children); done_ x (* no targets left, so done *)
+    (* ^ if we have no targets left, then we should have exhausted (and therefore collapsed) the entire tree *)
 
   and solve_for_target (x : t) (target : Target.t) =
     let t0 = Caml_unix.gettimeofday () in

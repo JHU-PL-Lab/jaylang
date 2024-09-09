@@ -4,6 +4,9 @@ open Dvalue (* just to expose constructors *)
 
 module CLog = Dj_common.Log.Export.CLog
 
+(* TODO: delete soon*)
+let _ = Path_tree_new.Node.empty
+
 let check_pattern (env : Denv.t) (vx : var) (p : pattern) : bool =
   match (Denv.fetch_val env vx, p) with
   | Direct (Value_int _), Int_pattern -> true
