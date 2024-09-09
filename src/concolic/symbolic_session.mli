@@ -1,4 +1,3 @@
-open Path_tree
 
 module Status :
   sig
@@ -20,7 +19,7 @@ module Dead :
       ---------
     *)
 
-    val root : t -> Root.t
+    val root : t -> Path_tree_new.Node.t
     (** [root t] is the root from the dead [t]. *)
 
     val targets : t -> Target.t list
@@ -102,9 +101,9 @@ val reach_max_step : t -> t
   -----------
 *)
 
-val finish : t -> Root.t -> Dead.t
+val finish : t -> Path_tree_new.Node.t -> Dead.t
 (** [finish t root] creates a finished session from [t] that merges info with the given [root].
     The merged result can be gotten with [root_exn @@ finish t root]. *)
 
-val make : Root.t -> Target.t -> Concolic_feeder.t -> t
-(** [make root target feeder] makes an empty t that knows the given [root] and [target] and [feeder]. *)
+val make : Target.t -> Concolic_feeder.t -> t
+(** [make target feeder] makes an empty t that knows the given [target] and [feeder]. *)

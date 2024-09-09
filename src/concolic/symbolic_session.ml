@@ -1,6 +1,5 @@
 
 open Core
-open Path_tree
 
 module Status =
   struct
@@ -18,7 +17,7 @@ module Status =
 
 
 (* Node_stack is a stack of nodes that describes a path through the tree. This will be used by the symbolic session. *)
-module Node_stack =
+(* module Node_stack =
   struct
     type t =
       | Last of Root.t
@@ -121,7 +120,7 @@ module Node_stack =
     (* adds formula to top node of the stack *)
     let add_formula (stack : t) (expr : Z3.Expr.expr) : t =
       map_hd stack ~f:(fun node -> Node.add_formula node expr)
-  end (* Node_stack *)
+  end Node_stack *)
 
 module Depth_tracker =
   struct
@@ -167,9 +166,9 @@ module Session_consts =
 module T =
   struct
     type t =
-      { stack          : Node_stack.t
+      { stem           : Formulated_stem.t
       ; consts         : Session_consts.t
-      ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch ]
+      ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch | `Failed_assume ]
       ; rev_inputs     : Jil_input.t list
       ; depth_tracker  : Depth_tracker.t 
       ; latest_branch  : Branch.t option }
@@ -178,7 +177,7 @@ module T =
 include T
 
 let empty : t =
-  { stack          = Node_stack.empty
+  { stem           = Formulated_stem.empty
   ; consts         = Session_consts.default
   ; status         = `In_progress
   ; rev_inputs     = []
@@ -203,18 +202,14 @@ let found_abort (s : t) : t =
 let found_type_mismatch (s : t) : t =
   { s with status = `Type_mismatch }
 
-(* require that cx is true by adding as formula *)
-let found_assume (cx : Concolic_key.t) (x : t) : t =
-  if x.depth_tracker.is_max_depth
-  then x
-  else
-    match x.stack with
+
+    (* match x.stack with
     | Last _ -> x (* `assume` found in global scope. We assume this is a test case that can't happen in real world translations to JIL *)
     | Cons (hd, tl) ->
       let new_hd = Child.map_node hd ~f:(fun node -> Node.add_formula node @@ Concolic_riddler.eqv cx (Jayil.Ast.Value_bool true)) in
-      { x with stack = Cons (new_hd, tl) }
+      { x with stack = Cons (new_hd, tl) } *)
 
-let fail_assume (x : t) : t =
+(* let fail_assume (x : t) : t =
   if x.depth_tracker.is_max_depth
   then x
   else
@@ -226,28 +221,36 @@ let fail_assume (x : t) : t =
               ; constraints = Formula_set.add_multi hd.constraints @@ Child.to_formulas hd (* constrain to passing assume/assert *)
               ; branch = hd.branch }
       in
-      { x with stack = Cons (new_hd, tl) }
+      { x with stack = Cons (new_hd, tl) } *)
+
+let has_reached_target (x : t) : bool = 
+  match x.consts.target with
+  | Some target -> x.depth_tracker.cur_depth >= target.path_n
+  | None -> true
 
 let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
   if
     x.depth_tracker.is_max_depth
-    || begin
-      match x.consts.target with
-      | Some target -> x.depth_tracker.cur_depth < target.path_n
-      | None -> false
-    end
-    (* don't we don't add formula if we haven't yet reached the target because the formulas already exist in the path tree *)
+    || Fn.non has_reached_target x
+    (* we don't add formula if we haven't yet reached the target because the formulas already exist in the path tree *)
   then x
-  else { x with stack = Node_stack.add_formula x.stack @@ lazy_expr () }
+  else { x with stem = Formulated_stem.push_formula x.stem @@ lazy_expr () }
+
+(* require that cx is true by adding as formula *)
+let found_assume (cx : Concolic_key.t) (x : t) : t =
+  add_lazy_formula x @@ fun () -> Concolic_riddler.eqv cx (Jayil.Ast.Value_bool true)
+
+let fail_assume (x : t) : t =
+  { x with status = `Failed_assume }
 
 let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
   let after_incr = 
     { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker 
     ; latest_branch = Option.return @@ Branch.Runtime.to_ast_branch branch }
   in
-  if after_incr.depth_tracker.is_max_depth
+  if after_incr.depth_tracker.is_max_depth || Fn.non has_reached_target x
   then after_incr
-  else { after_incr with stack = Node_stack.push after_incr.stack branch }
+  else { after_incr with stem = Formulated_stem.push_branch after_incr.stem branch }
 
 let reach_max_step (x : t) : t =
   { x with depth_tracker = Depth_tracker.hit_max_step x.depth_tracker }
@@ -294,19 +297,26 @@ let add_match (k : Concolic_key.t) (m : Concolic_key.t) (pat : Jayil.Ast.pattern
 module Dead =
   struct
     type t =
-      { tree          : Root.t
-      ; targets       : Target.t list
-      ; prev          : T.t }
+      { tree    : Path_tree_new.Node.t
+      ; targets : Target.t list
+      ; prev    : T.t }
 
-    let of_sym_session (s : T.t) (root : Root.t) : t =
+    let of_sym_session (s : T.t) (tree : Path_tree_new.Node.t) : t =
       (* logically sound to have hit target if formulas are consistent with JIL program *)
-      let tree, targets = Node_stack.merge_with_tree s.stack root in
+      (* TODO: don't pass in dummy target in place of none*)
+      let tree, targets =
+        Path_tree_new.Node.add_stem
+          tree 
+          (Option.value s.consts.target ~default:({ path = Path.empty ; path_n = 0 }))
+          s.stem
+          (match s.status with `Failed_assume -> true | _ -> false)
+      in
       (* assert (Option.is_none s.consts.target || Target.is_hit (Option.value_exn s.consts.target) tree); check that target was hit in new tree *)
       { tree
       ; targets
       ; prev = s }
 
-    let root (x : t) : Root.t =
+    let root (x : t) : Path_tree_new.Node.t =
       x.tree
 
     let targets (x : t) : Target.t list =
@@ -314,7 +324,7 @@ module Dead =
 
     let get_status (x : t) : Status.t =
       match x.prev.status with
-      | `In_progress ->
+      | `In_progress | `Failed_assume ->
           let dt = x.prev.depth_tracker in
           Finished_interpretation { pruned = dt.is_max_depth || dt.is_max_step }
       | `Found_abort branch -> Found_abort (branch, List.rev x.prev.rev_inputs)
@@ -325,8 +335,8 @@ module Dead =
   end
 
 (* Note that other side of all new targets are all the new hits *)
-let[@landmarks] finish (x : t) (tree : Root.t) : Dead.t =
+let[@landmarks] finish (x : t) (tree : Path_tree_new.Node.t) : Dead.t =
   Dead.of_sym_session x tree
 
-let make (root : Root.t) (target : Target.t) (input_feeder : Concolic_feeder.t): t =
-  { empty with stack = Node_stack.of_root root ; consts = { empty.consts with target = Some target ; input_feeder } }
+let make (target : Target.t) (input_feeder : Concolic_feeder.t): t =
+  { empty with consts = { empty.consts with target = Some target ; input_feeder } }

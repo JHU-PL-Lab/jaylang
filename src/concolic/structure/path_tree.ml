@@ -1,4 +1,4 @@
-open Core
+(* open Core *)
 
 (*
   Currently I have a type error here as I work this out.
@@ -68,7 +68,7 @@ open Core
   recursive modules.
 *)
 
-module type NODE =
+(* module type NODE =
   sig
     type children
     type child
@@ -434,4 +434,4 @@ and Status :
   end (* Status *)
 
 (* This is just for better naming *)
-module Root = Node
+module Root = Node *)

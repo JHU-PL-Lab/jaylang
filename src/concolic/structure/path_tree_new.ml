@@ -1,22 +1,6 @@
 
 open Core
 
-module Formulated_stem =
-  struct
-    type t =
-      | Root of { root_formulas : Formula_set.t }
-      | Cons of { branch : Branch.Runtime.t ; formulas : Formula_set.t ; tail : t }
-
-    let to_path (x : t) : Path.t =
-      let rec loop acc = function
-        | Root _ -> acc
-        | Cons { branch = { direction ; _ } ; tail ; _ } -> loop (direction :: acc) tail
-      in
-      Path.return
-      @@ loop [] x
-
-  end
-
 module type NODE =
   sig
     type children
@@ -24,6 +8,8 @@ module type NODE =
     type t =
       { formulas : Formula_set.t
       ; children : children }
+
+    val empty : t
 
     val formulas_of_target : t -> Target.t -> Z3.Expr.expr list
 
@@ -46,6 +32,8 @@ module type CHILDREN =
     type t =
       | Pruned (* to signify end of tree in any way. We prune at max depth and when both children are collapsed *)
       | Both of { true_side : child ; false_side : child }
+
+    val is_empty : t -> bool
 
     val child_exn : t -> Branch.Direction.t -> child
 
@@ -82,6 +70,14 @@ module rec Node :
       { formulas : Formula_set.t
       ; children : Children.t }
 
+    let empty : t =
+      { formulas = Formula_set.empty
+      ; children = Children.Pruned }
+
+    let is_empty (x : t) : bool =
+      Formula_set.equal x.formulas Formula_set.empty
+      && Children.is_empty x.children
+
     let child_node_exn (x : t) (dir : Branch.Direction.t) : t =
       Child.node_exn
       @@ Children.child_exn x.children dir
@@ -91,6 +87,7 @@ module rec Node :
         | last_dir :: [] -> begin
           match Children.child_exn node.children last_dir with
           | Target_acquired { constraints } -> Formula_set.to_list constraints @ acc
+          | Waiting_to_pass_assume { assumed_formulas } -> Formula_set.to_list assumed_formulas @ acc
           | _ -> failwith "target not at end of path"
         end
         | next_dir :: tl ->
@@ -135,16 +132,23 @@ module rec Node :
       For now, non-tail-recursively add the stem.
     *)
     let add_stem (tree : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) : t * Target.t list =
-      let rec loop path parent finish =
-        match path with
-        | [] -> (* currently at target node *)
-          node_of_stem target.path stem failed_assume
-        | next_dir :: tl ->
-          loop tl (child_node_exn parent next_dir) (fun (child_node, targets) ->
-            finish ({ parent with children = Children.update parent.children next_dir @@ Child.make_hit_node child_node }, targets)
-          )
-      in
-      loop target.path.forward_path tree (fun a -> a)
+      if is_empty tree
+      then node_of_stem Path.empty stem failed_assume
+      else
+        let rec loop path parent finish =
+          match path with
+          | [] -> failwith "setting target with no path"
+          | last_dir :: [] ->
+            (* would step onto target node *)
+            (* TODO: assert is target or assume *)
+            let new_node, targets = node_of_stem target.path stem failed_assume in
+            finish ({ parent with children = Children.update parent.children last_dir @@ Child.make_hit_node new_node }, targets)
+          | next_dir :: tl ->
+            loop tl (child_node_exn parent next_dir) (fun (child_node, targets) ->
+              finish ({ parent with children = Children.update parent.children next_dir @@ Child.make_hit_node child_node }, targets)
+            )
+        in
+        loop target.path.forward_path tree (fun a -> a)
 
     (*
       No pruning yet. Just update tree and leave it hanging out there in memory
@@ -153,7 +157,7 @@ module rec Node :
       let rec loop path parent finish =
         match path with
         | [] -> failwith "setting target with no path"
-        | last_dir :: [] -> finish { parent with children = Children.update tree.children last_dir Child.Unsatisfiable }
+        | last_dir :: [] -> finish { parent with children = Children.update parent.children last_dir Child.Unsatisfiable }
         | next_dir :: tl ->
           loop tl (child_node_exn parent next_dir) (fun node ->
             finish { parent with children = Children.update tree.children next_dir @@ Child.make_hit_node node }
@@ -171,6 +175,11 @@ and Children :
     type t =
       | Pruned (* to signify end of tree in any way. We prune at max depth and when both children are collapsed *)
       | Both of { true_side : Child.t ; false_side : Child.t }
+
+    let is_empty (x : t) : bool =
+      match x with
+      | Pruned -> true
+      | Both _ -> false
 
     let child_exn (x : t) (dir : Branch.Direction.t) : Child.t =
       match x with
@@ -233,6 +242,7 @@ and Child :
     let make_failed_assume_child (branch : Branch.Runtime.t) (assumed_formulas : Formula_set.t) : t =
       Waiting_to_pass_assume
       { assumed_formulas = Formula_set.union assumed_formulas (Formula_set.singleton @@ Branch.Runtime.to_expr branch) }
+      (* TODO: might not need to add the extra formula *)
 
     let make_target_child (branch : Branch.Runtime.t) : t =
       Target_acquired { constraints = Formula_set.singleton @@ Branch.Runtime.to_expr branch }

@@ -1,5 +1,5 @@
 open Core
-open Path_tree
+(* open Path_tree *)
 
 type t =
   { path_n : int [@compare.ignore] (* this is the lenght of the path, just so we don't recompute *)
