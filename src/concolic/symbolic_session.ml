@@ -174,14 +174,11 @@ module Dead =
       ; prev    : T.t }
 
     let of_sym_session (s : T.t) (tree : Path_tree.t) : t =
-      (* logically sound to have hit target if formulas are consistent with JIL program *)
-      (* TODO: don't pass in dummy target in place of none*)
+      let failed_assume = match s.status with `Failed_assume -> true | _ -> false in
       let tree, targets =
-        Path_tree.add_stem
-          tree 
-          (Option.value s.consts.target ~default:Target.dudd)
-          s.stem
-          (match s.status with `Failed_assume -> true | _ -> false)
+        match s.consts.target with
+        | None -> Path_tree.of_stem s.stem failed_assume
+        | Some target -> Path_tree.add_stem tree target s.stem failed_assume
       in
       { tree
       ; targets

@@ -14,10 +14,3 @@ let compare (a : t) (b : t) : int =
 
 let create (branch : Branch.Runtime.t) (path : Path.t) : t =
   { path ; path_n = List.length path.forward_path ; branch }
-
-(* TODO: get rid of this *)
-let dudd : t =
-  let dudd_key = Concolic_key.create (Jayil.Ast.Ident "") 0 in
-  { branch = { branch_key = dudd_key ; condition_key = dudd_key ; direction = True_direction }
-  ; path = Path.empty
-  ; path_n = 0 }

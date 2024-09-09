@@ -13,6 +13,8 @@ module type NODE =
 
     val formulas_of_target : t -> Target.t -> Z3.Expr.expr list
 
+    val of_stem : Formulated_stem.t -> bool -> t * Target.t list
+
     val add_stem : t -> Target.t -> Formulated_stem.t -> bool -> t * Target.t list
     (** [add_stem t old_target stem failed_assume] adds the [stem] to the path tree [t] beginning from the
         [old_target], which was hit at the root of the stem. The interpretation that generated the [stem]
@@ -126,6 +128,9 @@ module rec Node :
         make_node full_path Pruned [] stem
       | Root { root_formulas } ->
         { formulas = root_formulas ; children = Pruned }, []
+
+    let of_stem (stem : Formulated_stem.t) (failed_assume : bool) : t * Target.t list =
+      node_of_stem Path.empty stem failed_assume
 
     let add_stem (tree : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) : t * Target.t list =
       if is_empty tree
