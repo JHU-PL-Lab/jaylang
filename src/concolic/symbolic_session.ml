@@ -272,11 +272,9 @@ let add_input (key : Concolic_key.t) (v : Dvalue.t) (x : t) : t =
     | Dvalue.Direct (Value_int n) -> n
     | _ -> failwith "non-int input" (* logically impossible *)
   in
+  Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n (let Ident s = Concolic_key.id key in s));
   { x with rev_inputs = { clause_id = Concolic_key.id key ; input_value = n } :: x.rev_inputs }
-  |> Fn.flip add_lazy_formula @@ fun () -> 
-    let Ident s = Concolic_key.id key in
-    Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n s);
-    Concolic_riddler.if_pattern key Jayil.Ast.Int_pattern
+  |> Fn.flip add_lazy_formula @@ fun () -> Concolic_riddler.if_pattern key Jayil.Ast.Int_pattern
 
 let add_not (key1 : Concolic_key.t) (key2 : Concolic_key.t) (x : t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.not_ key1 key2
