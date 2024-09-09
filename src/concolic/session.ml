@@ -115,7 +115,8 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ]
       failwith "unhandled solver timeout"
       (* next { x with tree = Path_tree_new.Node.set_unsat_target x.tree target } *)
     | model, Z3.Solver.SATISFIABLE ->
-      (* Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.branch)); *)
+      (* Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.Runtime.to_string target.branch)); *)
+      (* Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.Runtime.to_string target.branch)); *)
       Lwt.return
       @@ `Next (
             { x with run_num = x.run_num + 1 }

@@ -176,8 +176,8 @@ let with_options : (t, t) Options.Fun.t =
 
 (* Deeper targets are at the front of [ls] *)
 let push_list ({ dfs_tower ; bfs ; uniform } : t) (ls : Target.t list) : t =
-  { dfs_tower = DFS_tower.push_list dfs_tower (List.rev ls) (* reverse so that deeper targets have better priority *)
-  ; bfs = T.push_list bfs ls
+  { dfs_tower = DFS_tower.push_list dfs_tower ls
+  ; bfs = T.push_list bfs (List.rev ls) (* reverse so that earlier targets have better priority *)
   ; uniform = List.fold ls ~init:uniform ~f:(fun acc k -> Q.push k (Random.int Int.max_value) acc) } (* give random priority *)
 
 let remove (x : t) (target : Target.t) : t =

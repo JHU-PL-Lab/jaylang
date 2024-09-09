@@ -58,7 +58,7 @@ module type CHILD =
     (* val show : t -> unit *)
     val node_exn : t -> node
     val make_hit_node : node -> t
-    val make_failed_assume_child : Branch.Runtime.t -> Formula_set.t -> t
+    val make_failed_assume_child : Formula_set.t -> t
     val make_target_child : Branch.Runtime.t -> t
   end
 
@@ -84,7 +84,7 @@ module rec Node :
       @@ Children.child_exn x.children dir
 
     let formulas_of_target (tree : t) (target : Target.t) : Z3.Expr.expr list =
-      Format.printf "%d\n" (List.length target.path.forward_path);
+      (* Format.printf "%d\n" (List.length target.path.forward_path); *)
       let rec trace_path acc parent = function
         | last_dir :: [] -> begin
           match Children.child_exn parent.children last_dir with
@@ -197,10 +197,12 @@ and Children :
         | False_direction -> Both { r with false_side = child }
 
     let make_failed_assume (branch : Branch.Runtime.t) (assumed_formulas : Formula_set.t) (path : Path.t) : t * Target.t * Target.t =
-      let failed_assume_child = Child.make_failed_assume_child branch assumed_formulas in
+      let failed_assume_child = Child.make_failed_assume_child assumed_formulas in
       let failed_assume_target = Target.create @@ Path.append path branch.direction in
+
       let other_child = Child.make_target_child @@ Branch.Runtime.other_direction branch in
       let other_target = Target.create @@ Path.append path @@ Branch.Direction.other_direction branch.direction in
+
       let children =
         match branch.direction with
         | True_direction  -> Both { true_side = failed_assume_child ; false_side = other_child }
@@ -250,10 +252,8 @@ and Child :
     let make_hit_node (node : Node.t) : t =
       Hit node
 
-    let make_failed_assume_child (branch : Branch.Runtime.t) (assumed_formulas : Formula_set.t) : t =
-      Waiting_to_pass_assume
-      { assumed_formulas = Formula_set.union assumed_formulas (Formula_set.singleton @@ Branch.Runtime.to_expr branch) }
-      (* TODO: might not need to add the extra formula *)
+    let make_failed_assume_child (assumed_formulas : Formula_set.t) : t =
+      Waiting_to_pass_assume { assumed_formulas } 
 
     let make_target_child (branch : Branch.Runtime.t) : t =
       Target_acquired { constraints = Formula_set.singleton @@ Branch.Runtime.to_expr branch }
