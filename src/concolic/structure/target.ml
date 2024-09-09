@@ -9,7 +9,7 @@ type t =
 
 let compare (a : t) (b : t) : int =
   match Int.compare a.path_n b.path_n with
-  | 0 -> compare a b (* call the derivied compare *)
+  | 0 -> compare a b (* call the derived compare *)
   | x -> x
 
 let create (path : Path.t) : t =

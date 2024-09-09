@@ -55,7 +55,7 @@ module type CHILD =
       | Unsatisfiable
       | Solver_timeout
 
-    val show : t -> unit
+    (* val show : t -> unit *)
     val node_exn : t -> node
     val make_hit_node : node -> t
     val make_failed_assume_child : Branch.Runtime.t -> Formula_set.t -> t
@@ -85,18 +85,18 @@ module rec Node :
 
     let formulas_of_target (tree : t) (target : Target.t) : Z3.Expr.expr list =
       Format.printf "%d\n" (List.length target.path.forward_path);
-      let rec trace_path acc node = function
+      let rec trace_path acc parent = function
         | last_dir :: [] -> begin
-          match Children.child_exn node.children last_dir with
-          | Target_acquired { constraints } -> Formula_set.to_list constraints @ acc
-          | Waiting_to_pass_assume { assumed_formulas } -> Formula_set.to_list assumed_formulas @ acc
-          | child -> Child.show child; Format.printf "%d\n" (List.length target.path.forward_path); failwith "target not at end of path"
+          match Children.child_exn parent.children last_dir with
+          | Target_acquired { constraints }
+          | Waiting_to_pass_assume { assumed_formulas = constraints } ->
+            Formula_set.to_list constraints @ Formula_set.to_list parent.formulas @ acc
+          | _ -> failwith "target not at end of path"
         end
         | next_dir :: tl ->
-          let next_node = child_node_exn node next_dir in
           trace_path
-            (Formula_set.to_list next_node.formulas @ acc)
-            next_node
+            (Formula_set.to_list parent.formulas @ acc)
+            (child_node_exn parent next_dir)
             tl
         | [] -> failwith "no path given for target"
       in
@@ -127,7 +127,6 @@ module rec Node :
       | Cons _ ->
         make_node full_path Pruned [] stem
       | Root { root_formulas } ->
-        Format.printf "stem is just root\n";
         { formulas = root_formulas ; children = Pruned }, []
 
     (*
@@ -140,12 +139,7 @@ module rec Node :
         let rec loop path parent finish =
           match path with
           | [] -> failwith "setting target with no path"
-          | last_dir :: [] ->
-            (* would step onto target node *)
-            (* TODO: assert is target or assume *)
-            let this_child = Children.child_exn parent.children last_dir in
-            Format.printf "showing child where adding stem\n";
-            Child.show this_child;
+          | last_dir :: [] -> (* would step onto target node if we followed last_dir *)
             let new_node, targets = node_of_stem target.path stem failed_assume in
             finish ({ parent with children = Children.update parent.children last_dir @@ Child.make_hit_node new_node }, targets)
           | next_dir :: tl ->
@@ -236,7 +230,7 @@ and Child :
       | Unsatisfiable
       | Solver_timeout
 
-    let show (x : t) : unit =
+    (* let show (x : t) : unit =
       Format.printf "%s\n" begin
         match x with
         | Hit _ -> "hit"
@@ -245,7 +239,7 @@ and Child :
         | Unsatisfiable -> "unsat"
         | Solver_timeout -> "timeout"
 
-      end
+      end *)
 
 
     let node_exn (x : t) : Node.t =
