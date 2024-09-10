@@ -200,15 +200,13 @@ let eval_exp
             next (Direct (Value_bool (not b))) @@ Session.Symbolic.add_not x_key y_key symb_session
           | _ -> type_mismatch symb_session
         end
-      | Binary_operation_body (vy, op, vz) ->
+      | Binary_operation_body (vy, op, vz) -> begin
         (* x = y op z *)
         let y, y_key = Denv.fetch env vy in
         let z, z_key = Denv.fetch env vz in
-        begin
-          match y, z with
-          | Direct v1, Direct v2 ->
-            let symb_session = Session.Symbolic.add_binop x_key op y_key z_key symb_session in
-            begin
+        match y, z with
+        | Direct v1, Direct v2 ->
+          begin
             match op, v1, v2 with
             | Binary_operator_plus, Value_int n1, Value_int n2                  -> next (Direct (Value_int  (n1 + n2)))
             | Binary_operator_minus, Value_int n1, Value_int n2                 -> next (Direct (Value_int  (n1 - n2)))
@@ -223,10 +221,9 @@ let eval_exp
             | Binary_operator_or, Value_bool b1, Value_bool b2                  -> next (Direct (Value_bool (b1 || b2)))
             | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> next (Direct (Value_bool (n1 <> n2)))
             | _ -> type_mismatch
-            end
-            symb_session
+          end @@ Session.Symbolic.add_binop x_key op y_key z_key symb_session
         | _ -> type_mismatch symb_session
-        end
+      end
       | Abort_body -> found_abort symb_session
       | Assert_body cx | Assume_body cx ->
         let cond_val, cond_key = Denv.fetch env cx in 
