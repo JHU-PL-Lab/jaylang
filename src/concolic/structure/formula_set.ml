@@ -17,13 +17,5 @@ type t = S.t [@@deriving compare]
 let empty = S.empty
 let singleton = S.singleton
 let add = Set.add
-let add_multi (s : t) = List.fold ~init:s ~f:add
-let union = Set.union
 let to_list = Set.to_list
 let equal = Set.equal
-
-let and_ (fset : t) : Z3_expr.t =
-  match Set.to_list fset with
-  | [] -> Concolic_riddler.true_
-  | exp :: [] -> exp
-  | exps -> Concolic_riddler.and_ exps

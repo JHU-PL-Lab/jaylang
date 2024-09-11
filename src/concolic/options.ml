@@ -85,19 +85,6 @@ module Fun =
     let return (f : 'a -> 'b) : ('a, 'b) t =
       make (fun _ -> f)
 
-    (*
-      Note we can't do the normal bind of type `('a, 'r) t -> ('a -> ('b, 'r) t) -> ('b, 'r) t`.
-      To see why, forget the optional argument part. Just assume `('a, 'b) t = 'a -> 'b`.
-      Then such a bind would be
-        `val bind : ('a -> 'r) -> ('a -> 'b -> 'r) -> 'b -> 'r`
-      Then try to start by saying
-        let bind x f =
-          fun b ->
-            ...
-      And we need to make an 'r. However, this requires we have an 'a! We don't!
-
-      So let's just call the following code `bind`, even if that's a bad name.
-    *)
     let bind (x : ('a, 'b) t) (f : ('b, 'r) t) : ('a, 'r) t =
       make
       @@ fun r ->
@@ -111,6 +98,7 @@ module Fun =
     let compose (f : 'a -> 'b) (x : ('b, 'r) t) : ('a, 'r) t =
       bind (return f) x
 
+    [@@ocaml.warning "-32"] (* unused value *)
     let join (x : ('a, ('b, 'r) t) t) : ('a, 'r) t =
       make
       @@ fun r ->

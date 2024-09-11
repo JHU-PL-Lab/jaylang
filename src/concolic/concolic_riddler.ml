@@ -4,6 +4,7 @@ open Jayil.Ast
 module SuduZ3 = Sudu.Z3_api.Make (struct
   let ctx = Z3.mk_context []
 end)
+
 open SuduZ3
 
 module Record_logic =
@@ -78,14 +79,13 @@ let solve formulas =
 let reset () =
   clear_labels ()
 
+let get_int_expr model key =
+  SuduZ3.get_int_expr model
+  @@ key_to_var key
 
 (* Solver primitives *)
 
-let ( @=> ) = SuduZ3.( @=> )
 let true_ = box_bool true
-let false_ = box_bool false
-let bool_ = SuduZ3.bool_
-let and_ = SuduZ3.and_
 
 (* AST primitive *)
 
