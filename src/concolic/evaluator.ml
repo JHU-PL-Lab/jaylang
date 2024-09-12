@@ -108,9 +108,11 @@ open Cstate
   This section is basically an interpreter injected with concolic logic.
   It is a single evaluation of the program, and it accumulates symbolic formulas.
 
-  I used to have a nice state monad here, but because of the ppx expansion, we 
-  lost tail recursion, so now I just manually pass it through and case on the
-  result a *lot*. It's ugly, but it's faster than with the nice state monad.
+  This version has a state monad, which I think makes it easy to read and track
+  where changes to the step count and session are happening. And while it is stack
+  safe with the tail calls, it is slow when run for many steps. It is much more
+  efficient to handle the steps and session manually, so that is what is on the
+  main branch.
 *)
 
 type s = Crecord.t m
