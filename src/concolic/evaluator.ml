@@ -72,7 +72,7 @@ open Cresult
   result a *lot*. It's ugly, but it's faster than with the nice state monad.
 *)
 
-type c = Cresult.t -> Cresult.t
+type k = Cresult.t -> Cresult.t
 
 let eval_exp
   ~(symb_session : Session.Symbolic.t)
@@ -86,7 +86,7 @@ let eval_exp
     ~(step : int)
     (env : Denv.t)
     (Expr clauses : expr)
-    (cont : c)
+    (cont : k)
     : Cresult.t
     =
     match clauses with
@@ -103,7 +103,7 @@ let eval_exp
     ~(step : int)
     (env : Denv.t)
     (Clause (Var (x, _), cbody) : clause)
-    (cont : c)
+    (cont : k)
     : Cresult.t
     =
     let step = step + 1 in
