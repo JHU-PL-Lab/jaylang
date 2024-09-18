@@ -35,7 +35,7 @@ module Cresult =
       | Reach_max_step _ -> "Reach max steps during interpretation"
       | Found_failed_assume _ -> "Found failed assume or assert"
 
-    let return denv dval symb_session step = Ok { denv ; dval ; step ; symb_session }
+    let make denv dval symb_session step = Ok { denv ; dval ; step ; symb_session }
 
     let get_session = function
     | Ok { symb_session = s ; _ } 
@@ -57,6 +57,8 @@ module Cresult =
       fun s -> Type_mismatch (Session.Symbolic.found_type_mismatch s)
   end
 
+
+open Monadlib.Continuation.Make (struct include Cresult type r = Cresult.t end)
 open Cresult
 
 (*
@@ -72,8 +74,6 @@ open Cresult
   result a *lot*. It's ugly, but it's faster than with the nice state monad.
 *)
 
-type k = Cresult.t -> Cresult.t
-
 let eval_exp
   ~(symb_session : Session.Symbolic.t)
   (e : expr)
@@ -86,35 +86,33 @@ let eval_exp
     ~(step : int)
     (env : Denv.t)
     (Expr clauses : expr)
-    (cont : k)
-    : Cresult.t
+    : Cresult.t m
     =
     match clauses with
     | [] -> failwith "empty clause list" (* safe because empty clause list is a parse error *)
-    | clause :: [] -> eval_clause ~symb_session ~step env clause cont
+    | clause :: [] -> eval_clause ~symb_session ~step env clause
     | clause :: nonempty_tl ->
-      eval_clause ~symb_session ~step env clause (function
-        | Ok { denv ; symb_session ; step ; _ } -> eval_exp ~symb_session ~step denv (Expr nonempty_tl) cont
-        | res -> res
-      )
+      let%bind res = eval_clause ~symb_session ~step env clause in
+      let zero () = return res in
+      let%orzero Ok { denv ; symb_session ; step ; _ } = res in
+      eval_exp ~symb_session ~step denv (Expr nonempty_tl)
 
   and eval_clause
     ~(symb_session : Session.Symbolic.t)
     ~(step : int)
     (env : Denv.t)
     (Clause (Var (x, _), cbody) : clause)
-    (cont : k)
-    : Cresult.t
+    : Cresult.t m
     =
     let step = step + 1 in
 
     if step >= max_step
-    then reach_max_step symb_session
+    then return @@ reach_max_step symb_session
     else
       let x_key = Concolic_key.create x step in
 
       let next ?(step : int = step) v s =
-        cont @@ return (Denv.add env x v x_key) v s step
+        return @@ make (Denv.add env x v x_key) v s step
       in
       
       match cbody with
@@ -139,14 +137,13 @@ let eval_exp
           | Direct (Value_bool b) ->
             let this_branch = Branch.Runtime.{ branch_key = x_key ; condition_key ; direction = Branch.Direction.of_bool b } in
             let e = if b then e1 else e2 in
-            eval_exp ~symb_session:(Session.Symbolic.hit_branch this_branch symb_session) ~step env e (function
-            | Ok { denv = ret_env ; dval = ret_val ; symb_session ; step } ->
-              let last_v = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
-              let ret_key = Denv.fetch_key ret_env last_v in
-              next ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
-            | res -> res
-            )
-          | _ -> type_mismatch symb_session
+            let%bind res = eval_exp ~symb_session:(Session.Symbolic.hit_branch this_branch symb_session) ~step env e in
+            let zero () = return res in
+            let%orzero Ok { denv = ret_env ; dval = ret_val ; symb_session ; step } = res in
+            let last_v = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
+            let ret_key = Denv.fetch_key ret_env last_v in
+            next ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+          | _ -> return @@ type_mismatch symb_session
         end
       | Input_body ->
         (* x = input ; *)
@@ -165,16 +162,15 @@ let eval_exp
           let env' = Denv.add fenv param arg param_key in
 
           (* returned value of function *)
-          eval_exp ~symb_session:(Session.Symbolic.add_alias param_key arg_key symb_session) ~step env' body (function
-          | Ok { denv = ret_env ; dval = ret_val ; step ; symb_session } ->
-            let last_v = Jayil.Ast_tools.retv body in
-            let ret_key = Denv.fetch_key ret_env last_v in
+          let%bind res = eval_exp ~symb_session:(Session.Symbolic.add_alias param_key arg_key symb_session) ~step env' body in
+          let zero () = return res in
+          let%orzero Ok { denv = ret_env ; dval = ret_val ; step ; symb_session } = res in
+          let last_v = Jayil.Ast_tools.retv body in
+          let ret_key = Denv.fetch_key ret_env last_v in
 
-            (* exit function: *)
-            next ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
-          | res -> res
-          )
-        | _ -> type_mismatch symb_session
+          (* exit function: *)
+          next ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+        | _ -> return @@ type_mismatch symb_session
         end
       | Match_body (vy, p) ->
         (* x = y ~ <pattern> ; *)
@@ -189,7 +185,7 @@ let eval_exp
           next ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
         | Direct (Value_record (Record_value _record)) ->
           failwith "project should also have a closure"
-        | _ -> type_mismatch symb_session
+        | _ -> return @@ type_mismatch symb_session
         end
       | Not_body vy ->
         (* x = not y ; *)
@@ -198,7 +194,7 @@ let eval_exp
           match y_val with
           | Direct (Value_bool b) ->
             next (Direct (Value_bool (not b))) @@ Session.Symbolic.add_not x_key y_key symb_session
-          | _ -> type_mismatch symb_session
+          | _ -> return @@ type_mismatch symb_session
         end
       | Binary_operation_body (vy, op, vz) -> begin
         (* x = y op z *)
@@ -220,20 +216,20 @@ let eval_exp
             | Binary_operator_and, Value_bool b1, Value_bool b2                 -> next (Direct (Value_bool (b1 && b2)))
             | Binary_operator_or, Value_bool b1, Value_bool b2                  -> next (Direct (Value_bool (b1 || b2)))
             | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> next (Direct (Value_bool (n1 <> n2)))
-            | _ -> type_mismatch
+            | _ -> fun s -> return @@ type_mismatch s
           end @@ Session.Symbolic.add_binop x_key op y_key z_key symb_session
-        | _ -> type_mismatch symb_session
+        | _ -> return @@ type_mismatch symb_session
       end
-      | Abort_body -> found_abort symb_session
+      | Abort_body -> return @@ found_abort symb_session
       | Assert_body cx | Assume_body cx ->
         let cond_val, cond_key = Denv.fetch env cx in 
         match cond_val with
         | Direct (Value_bool b) ->
           let symb_session = Session.Symbolic.found_assume cond_key symb_session in
           if not b
-          then failed_assume symb_session
+          then return @@ failed_assume symb_session
           else next cond_val symb_session
-        | _ -> type_mismatch symb_session
+        | _ -> return @@ type_mismatch symb_session
   in
 
   get_session
@@ -287,7 +283,7 @@ let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.t =
         Concolic_riddler.reset ();
         Lwt_unix.with_timeout r.global_timeout_sec
         @@ fun () ->
-          Tuple2.uncurry (loop e)
-          @@ Options.Fun.run Session.of_options r ()
+          let s, ss = Options.Fun.run Session.of_options r () in
+          loop e s ss
   in
   Options.Fun.make f
