@@ -115,14 +115,14 @@ module DFS_tower =
       * Instead could approximate (with room for incorrectness in a stupidly massive case) by just partitioning the integer space
     *)
 
-    let empty = [] (* placeholder. No meaning here *)
-
     let of_options : (unit, t) Options.Fun.t =
       Options.Fun.make
       @@ fun (r : Options.t) -> fun () ->
         List.init
           r.n_depth_increments
           ~f:(fun i -> DFS.empty, (i + 1) * r.max_tree_depth / r.n_depth_increments)
+
+    let empty = Options.Fun.run of_options Options.default ()
 
     let push_one (x : t) (target : Target.t) : t =
       let d = List.length target.path.forward_path in
@@ -169,10 +169,10 @@ let empty : t =
   ; bfs = T.empty Back
   ; uniform = Q.empty }
 
-let with_options : (t, t) Options.Fun.t =
+let of_options : (unit, t) Options.Fun.t =
   Options.Fun.make
-  @@ fun (r : Options.t) -> fun (x : t) ->
-    { x with dfs_tower = Options.Fun.run DFS_tower.of_options r () }
+  @@ fun (r : Options.t) -> fun (() : unit) ->
+    { empty with dfs_tower = Options.Fun.run DFS_tower.of_options r () }
 
 (* Deeper targets are at the front of [ls] *)
 let push_list ({ dfs_tower ; bfs ; uniform } : t) (ls : Target.t list) : t =

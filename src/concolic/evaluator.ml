@@ -253,25 +253,24 @@ let eval_exp
 
   This eval spans multiple symbolic sessions, trying to hit the branches.
 *)
-let rec loop (e : expr) (prev_session : Session.t) : Session.Status.t Lwt.t =
+let rec loop (e : expr) (session : Session.t) (symb_session : Session.Symbolic.t) : Session.Status.t Lwt.t =
   let open Lwt.Infix in
   let%lwt () = Lwt.pause () in
-  Session.next prev_session
+  CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session));
+  let t0 = Caml_unix.gettimeofday () in
+  let resulting_symbolic = eval_exp ~symb_session e in
+  let t1 = Caml_unix.gettimeofday () in
+  CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0));
+  Session.next
+  @@ Session.accum_symbolic session resulting_symbolic
   >>= begin function
-      | `Done status ->
+    | `Done status ->
         CLog.app (fun m -> m "\n------------------------------\nFinishing concolic evaluation...\n\n");
-        CLog.app (fun m -> m "Ran %d interpretations.\n" (Session.run_num prev_session));
+        CLog.app (fun m -> m "Ran %d interpretations.\n" (Session.run_num session));
         CLog.app (fun m -> m "Session status: %s.\n" (Session.Status.to_string status));
         Lwt.return status
-      | `Next (session, symb_session) ->
-        CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session));
-        let t0 = Caml_unix.gettimeofday () in
-        let resulting_symbolic = eval_exp ~symb_session e in
-        let t1 = Caml_unix.gettimeofday () in
-        CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0));
-        loop e
-        @@ Session.accum_symbolic session resulting_symbolic
-      end
+    | `Next (session, symb_session) -> loop e session symb_session
+    end
 
 let seed =
   String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
@@ -281,13 +280,14 @@ let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.t =
   let f =
     fun (r : Options.t) ->
       fun (e : Jayil.Ast.expr) ->
+        Concolic_riddler.set_timeout (Core.Time_float.Span.of_sec r.solver_timeout_sec);
         if not r.random then Random.init seed;
         CLog.app (fun m -> m "\nStarting concolic execution...\n");
         (* Repeatedly evaluate program: *)
         Concolic_riddler.reset ();
         Lwt_unix.with_timeout r.global_timeout_sec
         @@ fun () ->
-          loop e
-          @@ Options.Fun.run Session.with_options r Session.empty
+          Tuple2.uncurry (loop e)
+          @@ Options.Fun.run Session.of_options r ()
   in
   Options.Fun.make f

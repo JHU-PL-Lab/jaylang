@@ -170,25 +170,22 @@ module Dead =
   struct
     type t =
       { tree    : Path_tree.t
-      ; targets : Target.t list
       ; prev    : T.t }
 
-    let of_sym_session (s : T.t) (tree : Path_tree.t) : t =
-      let failed_assume = match s.status with `Failed_assume -> true | _ -> false in
-      let tree, targets =
-        match s.consts.target with
-        | None -> Path_tree.of_stem s.stem failed_assume
-        | Some target -> Path_tree.add_stem tree target s.stem failed_assume
-      in
-      { tree
-      ; targets
-      ; prev = s }
+    let of_sym_session : (T.t, Path_tree.t -> t) Options.Fun.t =
+      Options.Fun.make
+      @@ fun (r : Options.t) -> fun (s : T.t) -> fun (tree : Path_tree.t) ->
+          let failed_assume = match s.status with `Failed_assume -> true | _ -> false in
+          let tree =
+            match s.consts.target with
+            | None -> Options.Fun.run Path_tree.of_stem r s.stem failed_assume
+            | Some target -> Path_tree.add_stem tree target s.stem failed_assume
+          in
+          { tree
+          ; prev = s }
 
     let root (x : t) : Path_tree.t =
       x.tree
-
-    let targets (x : t) : Target.t list =
-      x.targets
 
     let get_status (x : t) : Status.t =
       match x.prev.status with
@@ -203,8 +200,8 @@ module Dead =
   end
 
 (* Note that other side of all new targets are all the new hits *)
-let[@landmarks] finish (x : t) (tree : Path_tree.t) : Dead.t =
-  Dead.of_sym_session x tree
+let[@landmarks] finish : (t, Path_tree.t -> Dead.t) Options.Fun.t =
+  Dead.of_sym_session
 
 let make (target : Target.t) (input_feeder : Concolic_feeder.t): t =
   { empty with consts = { empty.consts with target = Some target ; input_feeder }

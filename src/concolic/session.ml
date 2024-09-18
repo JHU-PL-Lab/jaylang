@@ -43,25 +43,23 @@ module Status =
 
 type t =
   { tree         : Path_tree.t (* pointer to the root of the entire tree of paths *)
-  ; target_queue : Target_queue.t
   ; run_num      : int
   ; options      : Options.t
   ; status       : Status.t
   ; last_sym     : Symbolic.Dead.t option }
 
 let empty : t =
-  { tree         = Path_tree.empty
-  ; target_queue = Target_queue.empty
-  ; run_num      = 0
+  { tree         = Options.Fun.run Path_tree.of_options Options.default ()
+  ; run_num      = 1
   ; options      = Options.default
   ; status       = Status.In_progress { pruned = false }
   ; last_sym     = None }
 
-let with_options : (t, t) Options.Fun.t =
+let of_options : (unit, t * Symbolic.t) Options.Fun.t =
   Options.Fun.make
-  @@ fun (r : Options.t) -> fun (x : t) ->
-    { x with options = r
-    ; target_queue = Options.Fun.run Target_queue.with_options r x.target_queue } 
+  @@ fun (r : Options.t) -> fun (() : unit) ->
+    { empty with options = r ; tree = Options.Fun.run Path_tree.of_options r () }
+    , Options.Fun.run Symbolic.with_options r Symbolic.empty
 
 let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let dead_sym = Symbolic.finish sym x.tree in
@@ -74,12 +72,8 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   in
   { x with
     tree         = Symbolic.Dead.root dead_sym
-  ; target_queue = Target_queue.push_list x.target_queue @@ Symbolic.Dead.targets dead_sym
   ; status       = new_status
   ; last_sym     = Some dead_sym }
-
-let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
-  Options.Fun.run Symbolic.with_options x.options sym
 
 (* $ OCAML_LANDMARKS=on ./_build/... *)
 let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
@@ -91,39 +85,29 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ]
   let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
     let%lwt () = Lwt.pause () in
     if Status.quit x.status then done_ x else
-    match Target_queue.pop ~kind:pop_kind x.target_queue with
-    | Some (target, target_queue) -> 
-      solve_for_target { x with target_queue } target
-    | None when x.run_num = 0 ->
-      Lwt.return
-      @@ `Next (
-          { x with run_num = 1 }
-          , apply_options_symbolic x Symbolic.empty
-        )
+    match Path_tree.pop_target ~kind:pop_kind x.tree with
+    | Some (target, tree) -> solve_for_target { x with tree } target
     | None -> done_ x (* no targets left, so done *)
 
   and solve_for_target (x : t) (target : Target.t) =
     let t0 = Caml_unix.gettimeofday () in
-    Concolic_riddler.set_timeout (Core.Time_float.Span.of_sec x.options.solver_timeout_sec);
     match Concolic_riddler.solve (Path_tree.formulas_of_target x.tree target) with
-    | _, Z3.Solver.UNSATISFIABLE ->
+    | Unsat ->
       let t1 = Caml_unix.gettimeofday () in
       Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0));
       next { x with tree = Path_tree.set_unsat_target x.tree target }
-    | _, Z3.Solver.UNKNOWN ->
+    | Unknown ->
       Log.Export.CLog.info (fun m -> m "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n");
       failwith "unhandled solver timeout"
-      (* next { x with tree = Path_tre.set_unsat_target x.tree target } *)
-    | model, Z3.Solver.SATISFIABLE ->
+    | Sat model ->
       Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.Runtime.to_string target.branch));
       Lwt.return
       @@ `Next (
             { x with run_num = x.run_num + 1 }
             , model
-              |> Core.Option.value_exn
               |> Concolic_feeder.from_model
               |> Symbolic.make target
-              |> apply_options_symbolic x
+              |> Options.Fun.run Symbolic.with_options x.options
           )
 
   and done_ (x : t) =

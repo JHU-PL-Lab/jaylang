@@ -22,9 +22,6 @@ module Dead :
     val root : t -> Path_tree.t
     (** [root t] is the root from the dead [t]. *)
 
-    val targets : t -> Target.t list
-    (** [targets t] is the targets in the dead [t]. *)
-
     val get_status : t -> Status.t
     (** [get_status t] is the status of the (now finished) symbolic session. *)
 
@@ -101,7 +98,7 @@ val reach_max_step : t -> t
   -----------
 *)
 
-val finish : t -> Path_tree.t -> Dead.t
+val finish : (t, Path_tree.t -> Dead.t) Options.Fun.t
 (** [finish t root] creates a finished session from [t] that merges info with the given [root].
     The merged result can be gotten with [root_exn @@ finish t root]. *)
 

@@ -6,15 +6,22 @@
 
 open Core
 
+module Solve_status :
+  sig
+    type t =
+      | Sat of Z3.Model.model
+      | Unknown
+      | Unsat
+  end
+
 val set_timeout : Time_float.Span.t -> unit
 (** [set_timeout time] sets the timeout for a single solve. *)
 
-val solve : Z3.Expr.expr list -> Z3.Model.model option * Z3.Solver.status
-(** [solve exprs] tries to get a statisfying model for the given expressions [exprs] and returns
-    such optional model and the resulting sovler status. *)
+val solve : Z3.Expr.expr list -> Solve_status.t
+(** [solve exprs] tries to get a statisfying model for the given expressions [exprs] and returns the status. *)
 
 val reset : unit -> unit
-(** [reset ()] clears known record labels from the state. Use this between runs or programs to free space. *)
+(** [reset ()] clears known record labels from the state. Call this before running a new program to free space. *)
 
 val get_int_expr : Z3.Model.model -> Concolic_key.t -> int option
 (** [get_int_expr model key] gets the integer that should be input for the clause identified by [key]

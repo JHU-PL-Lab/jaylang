@@ -250,4 +250,40 @@ and Child :
 
   end
 
-include Node (* this satisfies the mli *)
+type t =
+  { root         : Node.t
+  ; target_queue : Target_queue.t }
+
+let empty : t =
+  { root         = Node.empty
+  ; target_queue = Target_queue.empty }
+
+let of_options : (unit, t) Options.Fun.t =
+  Options.Fun.make
+  @@ fun (r : Options.t) -> fun (() : unit) ->
+    { empty with target_queue = Options.Fun.run Target_queue.of_options r () }
+
+let formulas_of_target (x : t) (target : Target.t) : Z3.Expr.expr list =
+  Node.formulas_of_target x.root target
+
+let enqueue (x : t) (targets : Target.t list) : t =
+  { x with target_queue = Target_queue.push_list x.target_queue targets }
+
+let enqueue_result (x : t) (g : unit -> Node.t * Target.t list) : t =
+  let root, targets = g () in
+  enqueue { x with root } targets
+
+let of_stem : (Formulated_stem.t, bool -> t) Options.Fun.t =
+  Options.Fun.make
+  @@ fun (r : Options.t) -> fun (stem : Formulated_stem.t) -> fun (failed_assume : bool) ->
+    enqueue_result (Options.Fun.run of_options r ()) (fun _ -> Node.of_stem stem failed_assume)
+
+let add_stem (x : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) : t =
+  enqueue_result x (fun _ -> Node.add_stem x.root target stem failed_assume)
+
+let set_unsat_target (x : t) (target : Target.t) : t =
+  { x with root = Node.set_unsat_target x.root target }
+
+let pop_target ?(kind : Target_queue.Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
+  Option.map ~f:(fun (target, new_queue) -> target, { x with target_queue = new_queue })
+  @@ Target_queue.pop ~kind x.target_queue

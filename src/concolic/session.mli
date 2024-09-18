@@ -18,11 +18,12 @@ type t
 (** [t] holds program info between interpretations and helps generate the symbolic session
     for the next run. *)
 
-val empty : t
+(* val empty : t *)
 (** [empty] is a default empty session *)
 
-val with_options : (t, t) Options.Fun.t
-(** [with_options t] is [t] that has all relevant info loaded in from the optional arguments. *)
+val of_options : (unit, t * Symbolic.t) Options.Fun.t
+(** [of_options ()] is an empty session that has all relevant info loaded in from the optional arguments,
+    along with a symbolic session for the first interpreter run. *)
 
 val accum_symbolic : t -> Symbolic.t -> t
 (** [accum_symbolic t sym] finishes the sybolic session [sym] and accumulates results into [t]. *)

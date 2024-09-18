@@ -1,6 +1,14 @@
 open Core
 open Jayil.Ast
 
+module Solve_status =
+  struct
+    type t =
+      | Sat of Z3.Model.model
+      | Unknown
+      | Unsat
+  end
+
 module SuduZ3 = Sudu.Z3_api.Make (struct
   let ctx = Z3.mk_context []
 end)
@@ -73,8 +81,11 @@ let solve formulas =
   Z3.Solver.add solver formulas;
   let res = Z3.Solver.check solver [] in
   match res with
-  | Z3.Solver.SATISFIABLE -> let model = Z3.Solver.get_model solver in Z3.Solver.reset solver; model, res
-  | _ -> Z3.Solver.reset solver; None, res
+  | Z3.Solver.SATISFIABLE ->
+    let model = Z3.Solver.get_model solver in
+    Z3.Solver.reset solver;
+    Solve_status.Sat (Option.value_exn model)
+  | _ -> Z3.Solver.reset solver; Unsat
 
 let reset () =
   clear_labels ()
