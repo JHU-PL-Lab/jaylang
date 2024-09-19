@@ -55,7 +55,6 @@ module Session_consts =
       ; max_step     = Options.default.global_max_step }
   end
 
-
 module T =
   struct
     type t =

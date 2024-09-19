@@ -4,6 +4,7 @@ module Pop_kind :
       | DFS
       | BFS
       | Uniform
+      | By_ast_branch (* prioritizes the targets whose AST branches have been hit the least *)
       | Random
   end
 
@@ -14,6 +15,9 @@ type t
 (* val make : Pop_kind.t list -> t *)
 
 val of_options : (unit, t) Options.Fun.t
+
+val hit_branches : t -> Branch.t list -> t
+(** necessary to call this to keep the By_ast_branch heuristic up to date *)
 
 val push_list : t -> Target.t list -> t
 (** [push_list t ls] pushes all targets in [ls] onto [t], where deeper targets are at the back of [ls]. *)
