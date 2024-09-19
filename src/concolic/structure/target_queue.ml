@@ -46,9 +46,9 @@ module R =
 (*
   This implementation of BFS is somewhat dishonest. It is bread-first in that shallower targets
   are popped first, but more recently pushed targets of the same depth are popped first, which is
-  not typical.
+  not typical. It is concise but not fully in depth-first spirit, so I leave it commented for now.
 *)
-module BFS =
+(* module BFS =
   struct
     type t = Bfs of Q.t
 
@@ -69,10 +69,9 @@ module BFS =
     let remove (Bfs q : t) (target : Target.t) : t =
       return
       @@ Q.remove target q
-  end
+  end *)
 
-
-(* module BFS =
+module BFS =
   struct
     type t =
       { m : int (* worst priority in the queue. *)
@@ -97,7 +96,7 @@ module BFS =
 
     let remove ({ q ; _ } as x: t) (target : Target.t) : t =
       { x with q = Q.remove target q }
-  end *)
+  end
 
 module DFS =
   struct
