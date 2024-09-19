@@ -8,6 +8,7 @@ module Pop_kind =
       | DFS
       | BFS
       | Uniform (* uniformly randomly sample from all of the targets *)
+      (* | By_ast_branch prioritizes the targets whose AST branches have been hit the least *)
       | Random (* randomly choose one of the above pop kinds *)
 
     let random () =
@@ -17,183 +18,169 @@ module Pop_kind =
       | _ -> Uniform
   end
 
+(*
+  Note that in a psq, the same priority can exist for multiple keys (e.g. two different targets
+  can both have priority 0), and the one that was pushed most recently is popped first.
+*)
 module Q = Psq.Make (Target) (Int) (* functional priority search queue *)
 
-module Priority =
+module R =
   struct
-    type t = Front | Back 
+    type t = Q.t
+
+    let empty : t = Q.empty
+
+    let push_one (q : t) (target : Target.t) : t =
+      Q.push target (Random.int Int.max_value) q
+
+    let push_list (q : t) (ls : Target.t list) : t =
+      List.fold ls ~init:q ~f:push_one
+
+    let remove (q : t) (target : Target.t) : t =
+      Q.remove target q
+
+    let pop (q : t) : (Target.t * t) option =
+      Option.map (Q.pop q) ~f:(function (target, _), q -> target, q)
   end
 
-module T =
+(*
+  This implementation of BFS is somewhat dishonest. It is bread-first in that shallower targets
+  are popped first, but more recently pushed targets of the same depth are popped first, which is
+  not typical.
+*)
+module BFS =
+  struct
+    type t = Bfs of Q.t
+
+    let return q = Bfs q
+
+    let empty : t = return Q.empty
+
+    let push_one (Bfs q : t) (target : Target.t) : t =
+      return
+      @@ Q.push target target.path_n q
+
+    let push_list (x : t) (ls : Target.t list) : t =
+      List.fold ls ~init:x ~f:push_one
+
+    let pop (Bfs q : t) : (Target.t * t) option =
+      Option.map (Q.pop q) ~f:(function (target, _), q -> target, return q)
+
+    let remove (Bfs q : t) (target : Target.t) : t =
+      return
+      @@ Q.remove target q
+  end
+
+
+(* module BFS =
   struct
     type t =
-      { m    : int (* maximum (i.e. least prioritized) priority in the queue. *)
-      ; q    : Q.t
-      ; prio : Priority.t }
-      (* Note: we will not update m if the item associated with m is pushed to the front because
-          we only want some priority that is guaranteed to be the worst, and m still is in that case. *)
+      { m : int (* worst priority in the queue. *)
+      ; q : Q.t }
 
     (* default priority for only element in queue *)
     let default_prio = 0
 
-    let empty (prio : Priority.t): t = 
-      { m = default_prio + 1 (* note that max priority is actually the *least prioritized* item. Lower prio is better. *)
-      ; q = Q.empty
-      ; prio }
+    let empty : t =
+      { m = default_prio (* note that max priority is actually the *least prioritized* item. Lower prio is popped first. *)
+      ; q = Q.empty }
 
-    let push_one ({ q ; m ; prio } as x : t) (target : Target.t) : t =
-      match prio with
-      | Front -> begin
-        match Q.min q with (* O(1) access of most prioritized *) 
-        | None -> { x with q = Q.push target default_prio q } (* queue was empty *)
-        | Some (_, best_prio) -> { x with q = Q.push target (best_prio - 1) q }  (* push target with best priority *)
-      end
-      | Back -> begin
-        (* use `push` so that if it is already in the queue, it is not moved to the back. To move to the back, use `add`. *)
-        { x with q = Q.push target m q ; m = m + 1 }
-      end
+    let push_one ({ q ; m } : t) (target : Target.t) : t =
+      (* use `push` so that if it is already in the queue, it is not moved to the back. To move to the back, use `add`. *)
+      { q = Q.push target m q ; m = m + 1 }
+
+    let push_list (x : t) (ls : Target.t list) : t =
+      List.fold ls ~init:x ~f:push_one
+
+    let pop ({ q ; _ } as x : t) : (Target.t * t) option =
+      Option.map (Q.pop q) ~f:(function (target, _), q -> target, { x with q })
+
+    let remove ({ q ; _ } as x: t) (target : Target.t) : t =
+      { x with q = Q.remove target q }
+  end *)
+
+module DFS =
+  struct
+    type t =
+      { q      : Q.t (* will use negative target depth as priority in order to prefer deeper targets *)
+      ; stride : int }
+
+    let of_options : (unit, t) Options.Fun.t =
+      Options.Fun.make
+      @@ fun (r : Options.t) -> fun (() : unit) ->
+        { q = Q.empty
+        ; stride = r.max_tree_depth / r.n_depth_increments }
+
+    let empty : t = Options.Fun.run of_options Options.default ()
 
     (*
-      Notes:    
-      * If priority is Front, then the first targets in ls get worse priority
-      * If priority is Back, then the first targets in ls get better priority
+      We push targets such that higher number of strides is worse priority, but within
+      the same stride count, the higher path_n is better priority.
     *)
+    let push_one ({ q ; stride } as x : t) (target : Target.t) : t =
+      let n_strides = target.path_n / stride + 1 in
+      { x with q = Q.push target (n_strides * stride - target.path_n mod stride) q }
+
     let push_list (x : t) (ls : Target.t list) : t =
-      List.fold
-        ls
-        ~init:x
-        ~f:push_one
+      List.fold  ls ~init:x ~f:push_one
 
     let pop ({ q ; _ } as x : t) : (Target.t * t) option =
       match Q.pop q with
       | None -> None
       | Some ((target, _), q) -> Some (target, { x with q })
 
+    let is_empty ({ q ; _ } : t) : bool =
+      Q.is_empty q
+
     let remove ({ q ; _ } as x : t) (target : Target.t) : t =
       { x with q = Q.remove target q }
   end
 
-module DFS =
-  struct
-    type t = Dfs of Q.t
+(*
+  I want to have a heap that allows me to get the minimum-hit branch of those with targets.
+  Then pop a target with that AST branch.
+  I also need to remember how many times every branch has been hit so that it has the correct
+  count when it is put in the heap.
 
-    let default_prio = 0
-
-    let empty = Dfs Q.empty
-
-    let return q = Dfs q
-
-    let push_one (Dfs q : t) (target : Target.t) : t =
-      match Q.min q with
-      | None -> return @@ Q.push target default_prio q (* queue was empty *)
-      | Some (_, best_prio) -> return @@ Q.push target (best_prio - 1) q (* push with better, lower prio *)
-
-    let push_list (x : t) (ls : Target.t list) : t =
-      List.fold  
-        ls
-        ~init:x
-        ~f:push_one
-
-    let pop (Dfs q : t) : (Target.t * t) option =
-      match Q.pop q with
-      | None -> None
-      | Some ((target, _), q) -> Some (target, return q)
-
-    let is_empty (Dfs q : t) : bool =
-      Q.is_empty q
-
-    let remove (Dfs q : t) (target : Target.t) : t =
-      return @@ Q.remove target q
-  end
-
-module DFS_tower =
-  struct
-    type t = (DFS.t * int) list
-    (*
-      * Think about how we don't need to use the list, but instead we can use priority to partition the targets 
-      * Only issue is we would do this with some "large base" number, but the theoritical limit for number of targets is just too big
-      * Instead could approximate (with room for incorrectness in a stupidly massive case) by just partitioning the integer space
-    *)
-
-    let of_options : (unit, t) Options.Fun.t =
-      Options.Fun.make
-      @@ fun (r : Options.t) -> fun () ->
-        List.init
-          r.n_depth_increments
-          ~f:(fun i -> DFS.empty, (i + 1) * r.max_tree_depth / r.n_depth_increments)
-
-    let empty = Options.Fun.run of_options Options.default ()
-
-    let push_one (x : t) (target : Target.t) : t =
-      let d = List.length target.path.forward_path in
-      let rec loop = function
-      | [] -> []
-      | (dfs, n) :: tl when d <= n -> (DFS.push_one dfs target, n) :: tl
-      | hd :: tl -> hd :: loop tl
-      in
-      loop x
-
-    let push_list (x : t) (ls : Target.t list) : t =
-      List.fold  
-        ls
-        ~init:x
-        ~f:push_one
-
-    let pop (x : t) : (Target.t * t) option =
-      let rec loop = function
-      | [] -> None
-      | (dfs, n) as hd :: tl ->
-        match DFS.pop dfs with
-        | Some (target, dfs) -> Some (target, (dfs, n) :: tl)
-        | None -> begin
-          match loop tl with
-          | None -> None
-          | Some (target, tl) -> Some (target, hd :: tl)
-        end
-      in
-      loop x
-
-    let remove (x : t) (target : Target.t) : t =
-      List.map
-        x
-        ~f:(fun (dfs, i) -> DFS.remove dfs target, i)
-  end
+  I think this warrants a refactor where I can create a target queue that has such a heuristic.
+  I want to be able to use multiple heuristics, so I should join the target queues.
+*)
 
 type t =
-  { dfs_tower : DFS_tower.t
-  ; bfs : T.t
-  ; uniform : Q.t }
+  { dfs     : DFS.t
+  ; bfs     : BFS.t
+  ; uniform : R.t }
   
 let empty : t =
-  { dfs_tower = DFS_tower.empty
-  ; bfs = T.empty Back
-  ; uniform = Q.empty }
+  { dfs = DFS.empty
+  ; bfs = BFS.empty
+  ; uniform = R.empty }
 
 let of_options : (unit, t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) -> fun (() : unit) ->
-    { empty with dfs_tower = Options.Fun.run DFS_tower.of_options r () }
+    { empty with dfs = Options.Fun.run DFS.of_options r () }
 
-(* Deeper targets are at the front of [ls] *)
-let push_list ({ dfs_tower ; bfs ; uniform } : t) (ls : Target.t list) : t =
-  { dfs_tower = DFS_tower.push_list dfs_tower ls
-  ; bfs = T.push_list bfs (List.rev ls) (* reverse so that earlier targets have better priority *)
-  ; uniform = List.fold ls ~init:uniform ~f:(fun acc k -> Q.push k (Random.int Int.max_value) acc) } (* give random priority *)
+(* Deeper targets are at the back of [ls] *)
+let push_list ({ dfs ; bfs ; uniform } : t) (ls : Target.t list) : t =
+  { dfs = DFS.push_list dfs ls
+  ; bfs = BFS.push_list bfs (List.rev ls) (* reverse so that deeper targets have worse priority *)
+  ; uniform = R.push_list uniform ls } (* give random priority *)
 
 let remove (x : t) (target : Target.t) : t =
-  { bfs = T.remove x.bfs target
-  ; dfs_tower = DFS_tower.remove x.dfs_tower target
-  ; uniform = Q.remove target x.uniform }
+  { bfs = BFS.remove x.bfs target
+  ; dfs = DFS.remove x.dfs target
+  ; uniform = R.remove x.uniform target }
 
 let rec pop ?(kind : Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
   match kind with
   | DFS -> begin
-    match DFS_tower.pop x.dfs_tower with
-    | Some (target, dfs_tower) -> Some (target, remove { x with dfs_tower } target)
+    match DFS.pop x.dfs with
+    | Some (target, dfs) -> Some (target, remove { x with dfs } target)
     | None -> None
   end
   | BFS -> begin
-    match T.pop x.bfs with
+    match BFS.pop x.bfs with
     | Some (target, bfs) -> Some (target, remove { x with bfs } target)
     | None -> None
   end

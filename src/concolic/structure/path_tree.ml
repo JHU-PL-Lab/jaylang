@@ -254,14 +254,14 @@ type t =
   { root         : Node.t
   ; target_queue : Target_queue.t }
 
-let empty : t =
+(* let empty : t =
   { root         = Node.empty
-  ; target_queue = Target_queue.empty }
+  ; target_queue = Target_queue.empty } *)
 
 let of_options : (unit, t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) -> fun (() : unit) ->
-    { empty with target_queue = Options.Fun.run Target_queue.of_options r () }
+    { root = Node.empty ; target_queue = Options.Fun.run Target_queue.of_options r () }
 
 let formulas_of_target (x : t) (target : Target.t) : Z3.Expr.expr list =
   Node.formulas_of_target x.root target
