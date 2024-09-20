@@ -1,5 +1,5 @@
 open Core
-(* open Path_tree *)
+open Options.Fun.Infix
 open Dj_common
 
 module Symbolic = Symbolic_session
@@ -51,17 +51,19 @@ type t =
   ; last_sym     : Symbolic.Dead.t option }
 
 let empty : t =
-  { tree         = Options.Fun.run Path_tree.of_options Options.default ()
+  { tree         = Options.Fun.appl Path_tree.of_options Options.default ()
   ; run_num      = 1
   ; options      = Options.default
   ; status       = Status.In_progress { pruned = false }
   ; last_sym     = None }
 
-let of_options : (unit, t * Symbolic.t) Options.Fun.t =
-  Options.Fun.make
-  @@ fun (r : Options.t) -> fun (() : unit) ->
-    { empty with options = r ; tree = Options.Fun.run Path_tree.of_options r () }
-    , Options.Fun.run Symbolic.with_options r Symbolic.empty
+let of_options : (unit, t * Symbolic.t) Options.Fun.p =
+  let symbolic_of_unit = (fun () -> Symbolic.empty) <<<^ Symbolic.with_options in
+  let t_of_unit =
+    (fun (r, tree) -> { empty with options = r ; tree })
+    ^>>> Options.Fun.prod_snd Options.Fun.unit Path_tree.of_options
+  in
+  Options.Fun.prod_snd t_of_unit symbolic_of_unit
 
 let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let dead_sym = Symbolic.finish sym x.tree in
@@ -80,10 +82,10 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
 (* $ OCAML_LANDMARKS=on ./_build/... *)
 let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
   let pop_kind =
-    (* match x.last_sym with
+    match x.last_sym with
     | Some s when Symbolic.Dead.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
-    | _ -> Random *)
-    Target_queue.Pop_kind.By_ast_branch
+    | _ -> Random
+    (* Target_queue.Pop_kind.By_ast_branch *)
   in
   let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
     let%lwt () = Lwt.pause () in
@@ -110,7 +112,7 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ]
             , model
               |> Concolic_feeder.from_model
               |> Symbolic.make target
-              |> Options.Fun.run Symbolic.with_options x.options
+              |> Options.Fun.appl Symbolic.with_options x.options
           )
 
   and done_ (x : t) =

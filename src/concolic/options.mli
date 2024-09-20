@@ -35,7 +35,7 @@ module Refs :
 (* `Fun` for optional arguments on functions *)
 module Fun :
   sig
-    type ('a, 'b) t =
+    type ('a, 'b) p =
       ?global_timeout_sec    : float
       -> ?solver_timeout_sec : float
       -> ?global_max_step    : int
@@ -44,41 +44,37 @@ module Fun :
       -> ?n_depth_increments : int
       -> 'a
       -> 'b
+    (** [p] is a profunctor *)
 
-    val run : ('a, 'b) t -> T.t -> 'a -> 'b
+    val appl : ('a, 'b) p -> T.t -> 'a -> 'b
     (** [run x r] applies the values from [r] to the arguments of [x] *)
 
-    val make : (T.t -> 'a -> 'b) -> ('a, 'b) t
+    val make : (T.t -> 'a -> 'b) -> ('a, 'b) p
     (** [make f] accepts optional arguments and applies them in the default record to [f]. *)
 
-    (*
-      Note we can't do the normal bind of type `('a, 'r) t -> ('a -> ('b, 'r) t) -> ('b, 'r) t`.
-      To see why, forget the optional argument part. Just assume `('a, 'b) t = 'a -> 'b`.
-      Then such a bind would be
-        `val bind : ('a -> 'r) -> ('a -> 'b -> 'r) -> 'b -> 'r`
-      Then try to start by saying
-        let bind x f =
-          fun b ->
-            ...
-      And we need to make an 'r. However, this requires we have an 'a! We don't!
+    val step : ('a, 'b -> 'c) p -> 'a -> ('b, 'c) p
 
-      So let's just call the following behavior `bind`, even if that's a bad name.
-    *)
-    val bind : ('a, 'b) t -> ('b, 'r) t -> ('a, 'r) t
-    (** [bind x f] is a function that runs [x] and then runs [f] on that result. *)
+    val prod_snd : ('a, 'b) p -> ('a, 'c) p -> ('a, 'b * 'c) p
 
-    val map : ('a, 'b) t -> ('b -> 'r) -> ('a, 'r) t
-    (** [map x f] is a function that runs [x] and then maps the result with [f]. *)
+    val unit : (unit, T.t) p
 
-    val compose : ('a -> 'b) -> ('b, 'r) t -> ('a, 'r) t
-    (** [compose f x] first applies [f] without any optional arguments and then runs [x] on that result. *)
+    val dimap : ('b -> 'a) -> ('c -> 'd) -> ('a, 'c) p -> ('b, 'd) p
 
-    val (>>=) : ('a, 'b) t -> ('b, 'r) t -> ('a, 'r) t
-    (** [(>>=)] is infix [bind]. *)
+    val contramap_fst : ('a -> 'b) -> ('b, 'c) p -> ('a, 'c) p
+        
+    val (<<<^) : ('a -> 'b) -> ('b, 'c) p -> ('a, 'c) p
+    (** [<<<^] is infix [contramap_fst] *)
 
-    val (>>|) : ('a, 'b) t -> ('b -> 'r) -> ('a, 'r) t
-    (** [(>>|)] is infix [map]. *)
+    val map_snd : ('b -> 'c) -> ('a, 'b) p -> ('a, 'c) p
 
-    val (>=>) : ('a -> 'b) -> ('b, 'r) t -> ('a, 'r) t
-    (** [(>=>)] is infix [compose]. *)
+    val (^>>>) : ('b -> 'c) -> ('a, 'b) p -> ('a, 'c) p
+    (** [^>>>] is infix [map_snd] *)
+
+    val map_snd_given_fst : ('a -> 'b -> 'c) -> ('a, 'b) p -> ('a, 'c) p
+
+    module Infix :
+      sig
+        val (<<<^) : ('a -> 'b) -> ('b, 'c) p -> ('a, 'c) p
+        val (^>>>) : ('b -> 'c) -> ('a, 'b) p -> ('a, 'c) p
+      end
   end

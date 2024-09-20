@@ -1,5 +1,6 @@
 
 open Core
+open Options.Fun.Infix
 
 module type NODE =
   sig
@@ -247,21 +248,15 @@ and Child :
 
     let make_target_child (branch : Branch.Runtime.t) : t =
       Target_acquired { constraints = Formula_set.singleton @@ Branch.Runtime.to_expr branch }
-
   end
 
 type t =
   { root         : Node.t
   ; target_queue : Target_queue.t }
 
-(* let empty : t =
-  { root         = Node.empty
-  ; target_queue = Target_queue.empty } *)
-
-let of_options : (unit, t) Options.Fun.t =
-  Options.Fun.make
-  @@ fun (r : Options.t) -> fun (() : unit) ->
-    { root = Node.empty ; target_queue = Options.Fun.run Target_queue.of_options r () }
+let of_options : (unit, t) Options.Fun.p =
+  (fun target_queue -> { root = Node.empty ; target_queue })
+  ^>>> Target_queue.of_options
 
 let formulas_of_target (x : t) (target : Target.t) : Z3.Expr.expr list =
   Node.formulas_of_target x.root target
@@ -273,12 +268,14 @@ let enqueue_result (x : t) (g : unit -> Node.t * Target.t list) : t =
   let root, targets = g () in
   enqueue { x with root } targets
 
-let of_stem : (Formulated_stem.t, bool -> Branch.t list -> t) Options.Fun.t =
-  Options.Fun.make
-  @@ fun (r : Options.t) -> fun (stem : Formulated_stem.t) -> fun (failed_assume : bool) -> fun (hit_branches : Branch.t list) ->
-    let x = Options.Fun.run of_options r () in
-    let x = { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches } in
-    enqueue_result x (fun _ -> Node.of_stem stem failed_assume)
+let of_stem : (Formulated_stem.t, bool -> Branch.t list -> t) Options.Fun.p =
+  Options.Fun.step
+    ((fun x -> fun (stem : Formulated_stem.t) (failed_assume : bool) (hit_branches : Branch.t list)->
+      enqueue_result
+        { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches }
+        (fun _ -> Node.of_stem stem failed_assume))
+    ^>>> of_options)
+    ()
 
 let add_stem (x : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) (hit_branches : Branch.t list) : t =
   let x = { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches } in (* TODO: fix this ugly quick patch, and above in of_stem *)

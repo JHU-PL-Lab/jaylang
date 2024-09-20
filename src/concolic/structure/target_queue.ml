@@ -1,6 +1,8 @@
 open Core
 
-[@@@ocaml.warning "-37"]
+(* [@@@ocaml.warning "-37"] *)
+
+open Options.Fun.Infix
 
 module Pop_kind =
   struct
@@ -104,13 +106,11 @@ module DFS =
       { q      : Q.t (* will use negative target depth as priority in order to prefer deeper targets *)
       ; stride : int }
 
-    let of_options : (unit, t) Options.Fun.t =
-      Options.Fun.make
-      @@ fun (r : Options.t) -> fun (() : unit) ->
-        { q = Q.empty
-        ; stride = r.max_tree_depth / r.n_depth_increments }
+    let of_options : (unit, t) Options.Fun.p =
+      (fun (r : Options.t) -> { q = Q.empty ; stride = r.max_tree_depth / r.n_depth_increments })
+      ^>>> Options.Fun.unit
 
-    let empty : t = Options.Fun.run of_options Options.default ()
+    let empty : t = Options.Fun.appl of_options Options.default ()
 
     (*
       We push targets such that higher number of strides is worse priority, but within
@@ -161,10 +161,9 @@ module By_ast_branch =
       ; branch_hist = BQ.empty
       ; branch_map  = M.empty }
 
-    let of_options : (unit , t) Options.Fun.t =
-      Options.Fun.make
-      @@ fun (r : Options.t) -> fun (() : unit) ->
-        { empty with options = r }
+    let of_options : (unit, t) Options.Fun.p =
+      (fun r -> { empty with options = r })
+      ^>>> Options.Fun.unit
 
     let hit_branches ({ branch_hist ; _ } as x : t) (ls : Branch.t list) : t =
       { x with branch_hist =
@@ -209,7 +208,7 @@ module By_ast_branch =
     let push_one (r : Options.t) (branch_map : DFS.t M.t) (target : Target.t) : DFS.t M.t =
       Map.update branch_map (Branch.Runtime.to_ast_branch target.branch) ~f:(function
         | Some q -> DFS.push_one q target
-        | None -> DFS.push_one (Options.Fun.run DFS.of_options r ()) target
+        | None -> DFS.push_one (Options.Fun.appl DFS.of_options r ()) target
       ) 
 
     let push_list (x : t) (ls : Target.t list) : t =
@@ -233,10 +232,10 @@ let empty : t =
   ; uniform = R.empty
   ; by_branch = By_ast_branch.empty }
 
-let of_options : (unit, t) Options.Fun.t =
-  Options.Fun.make
-  @@ fun (r : Options.t) -> fun (() : unit) ->
-    { empty with dfs = Options.Fun.run DFS.of_options r () ; by_branch = Options.Fun.run By_ast_branch.of_options r () }
+let of_options : (unit, t) Options.Fun.p =
+  let open Options.Fun in
+  (fun (dfs, by_branch) -> { empty with dfs ; by_branch })
+  ^>>> prod_snd DFS.of_options By_ast_branch.of_options
 
 (* Deeper targets are at the back of [ls] *)
 let push_list ({ dfs ; bfs ; uniform ; by_branch } : t) (ls : Target.t list) : t =

@@ -275,7 +275,7 @@ let rec loop (e : expr) (session : Session.t) (symb_session : Session.Symbolic.t
 let seed =
   String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
 
-let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.t =
+let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.p =
   (* Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug }; *)
   let f =
     fun (r : Options.t) ->
@@ -288,6 +288,6 @@ let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.t =
         Lwt_unix.with_timeout r.global_timeout_sec
         @@ fun () ->
           Tuple2.uncurry (loop e)
-          @@ Options.Fun.run Session.of_options r ()
+          @@ Options.Fun.appl Session.of_options r ()
   in
   Options.Fun.make f

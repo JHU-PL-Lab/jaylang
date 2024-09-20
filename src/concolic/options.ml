@@ -46,7 +46,8 @@ module Refs =
 (* `Fun` for optional arguments on functions *)
 module Fun =
   struct
-    type ('a, 'b) t =
+    (* p is a profunctor *)
+    type ('a, 'b) p =
       ?global_timeout_sec    : float
       -> ?solver_timeout_sec : float
       -> ?global_max_step    : int
@@ -56,7 +57,7 @@ module Fun =
       -> 'a
       -> 'b
 
-    let run (x : ('a, 'b) t) (r : T.t) : 'a -> 'b =
+    let appl (x : ('a, 'b) p) (r : T.t) : 'a -> 'b =
       x
         ~global_timeout_sec:r.global_timeout_sec
         ~solver_timeout_sec:r.solver_timeout_sec
@@ -65,7 +66,7 @@ module Fun =
         ~random:r.random
         ~n_depth_increments:r.n_depth_increments
 
-    let make (f : T.t -> 'a -> 'b) : ('a, 'b) t =
+    let make (f : T.t -> 'a -> 'b) : ('a, 'b) p =
       fun
       ?(global_timeout_sec : float = default.global_timeout_sec)
       ?(solver_timeout_sec : float = default.solver_timeout_sec)
@@ -82,33 +83,46 @@ module Fun =
       ; n_depth_increments }
       |> f 
 
-    let return (f : 'a -> 'b) : ('a, 'b) t =
-      make (fun _ -> f)
+    let unit : (unit, T.t) p =
+      make @@ fun r -> fun () -> r
 
-    let bind (x : ('a, 'b) t) (f : ('b, 'r) t) : ('a, 'r) t =
-      make
-      @@ fun r ->
-          fun a ->
-            let b = run x r a in
-            run f r b
+    let step : type a b c. (a, b -> c) p -> a -> (b, c) p =
+      fun a_bc_p a ->
+        make
+        @@ fun r -> fun b ->
+            appl a_bc_p r a b
 
-    let map (x : ('a, 'b) t) (f : 'b -> 'r) : ('a, 'r) t =
-      bind x (return f)
+    let prod_snd : type a b c. (a, b) p -> (a, c) p -> (a, b * c) p =
+      fun ab_p ac_p ->
+        make
+        @@ fun r -> fun a ->
+          (appl ab_p r a, appl ac_p r a)
 
-    let compose (f : 'a -> 'b) (x : ('b, 'r) t) : ('a, 'r) t =
-      bind (return f) x
+    let dimap : type a b c d. (b -> a) -> (c -> d) -> (a, c) p -> (b, d) p =
+      fun ba cd ac_p ->
+        make
+        @@ fun r -> fun b ->
+            cd @@ appl ac_p r @@ ba b
 
-    [@@ocaml.warning "-32"] (* unused value *)
-    let join (x : ('a, ('b, 'r) t) t) : ('a, 'r) t =
-      make
-      @@ fun r ->
-          fun a ->
-            let b_r = run x r a
-            in
-            run b_r r a
+    let contramap_fst : type a b c. (a -> b) -> (b, c) p -> (a, c) p =
+      fun ab bc_p ->
+        dimap ab Fn.id bc_p
 
-    let (>>=) x f = bind x f
-    let (>>|) x f = map x f
-    let (>=>) f g = compose f g
+    let map_snd : type a b c. (b -> c) -> (a, b) p -> (a, c) p =
+      fun bc ab_p ->
+        dimap Fn.id bc ab_p
 
+    let map_snd_given_fst : type a b c. (a -> b -> c) -> (a, b) p -> (a, c) p =
+      fun abc ab_p ->
+        make
+        @@ fun r -> fun a ->
+            abc a @@ appl ab_p r a
+
+    module Infix =
+      struct
+        let (<<<^) = contramap_fst
+        let (^>>>) = map_snd
+      end
+
+    include Infix
   end
