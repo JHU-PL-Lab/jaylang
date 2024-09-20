@@ -63,7 +63,7 @@ module T =
       ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch | `Failed_assume ]
       ; rev_inputs     : Jil_input.t list
       ; depth_tracker  : Depth_tracker.t 
-      ; latest_branch  : Branch.t option }
+      ; hit_branches   : Branch.t list }
   end
 
 include T
@@ -74,7 +74,7 @@ let empty : t =
   ; status         = `In_progress
   ; rev_inputs     = []
   ; depth_tracker  = Depth_tracker.empty
-  ; latest_branch  = None }
+  ; hit_branches   = [] }
 
 let with_options : (t, t) Options.Fun.t =
   Options.Fun.make
@@ -89,7 +89,7 @@ let get_feeder ({ consts = { input_feeder ; _ } ; _ } : t) : Concolic_feeder.t =
   input_feeder
 
 let found_abort (s : t) : t =
-  { s with status = `Found_abort (Option.value_exn s.latest_branch) } (* safe to get value b/c no aborts show up in global scope *)
+  { s with status = `Found_abort (List.hd_exn s.hit_branches) } (* safe to get value b/c no aborts show up in global scope *)
 
 let found_type_mismatch (s : t) : t =
   { s with status = `Type_mismatch }
@@ -119,7 +119,7 @@ let fail_assume (x : t) : t =
 let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
   let after_incr = 
     { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker 
-    ; latest_branch = Option.return @@ Branch.Runtime.to_ast_branch branch }
+    ; hit_branches = Branch.Runtime.to_ast_branch branch :: x.hit_branches }
   in
   if after_incr.depth_tracker.is_max_depth || Fn.non has_reached_target x
   then after_incr
@@ -177,8 +177,8 @@ module Dead =
           let failed_assume = match s.status with `Failed_assume -> true | _ -> false in
           let tree =
             match s.consts.target with
-            | None -> Options.Fun.run Path_tree.of_stem r s.stem failed_assume
-            | Some target -> Path_tree.add_stem tree target s.stem failed_assume
+            | None -> Options.Fun.run Path_tree.of_stem r s.stem failed_assume s.hit_branches
+            | Some target -> Path_tree.add_stem tree target s.stem failed_assume s.hit_branches
           in
           { tree
           ; prev = s }

@@ -152,12 +152,19 @@ module By_ast_branch =
     module M = Map.Make (Branch)
 
     type t =
-      { branch_hist : BQ.t
-      ; branch_map  : Q.t M.t }
+      { options     : Options.t
+      ; branch_hist : BQ.t
+      ; branch_map  : DFS.t M.t }
 
     let empty : t =
-      { branch_hist = BQ.empty
+      { options     = Options.default
+      ; branch_hist = BQ.empty
       ; branch_map  = M.empty }
+
+    let of_options : (unit , t) Options.Fun.t =
+      Options.Fun.make
+      @@ fun (r : Options.t) -> fun (() : unit) ->
+        { empty with options = r }
 
     let hit_branches ({ branch_hist ; _ } as x : t) (ls : Branch.t list) : t =
       { x with branch_hist =
@@ -169,38 +176,49 @@ module By_ast_branch =
         )
       }
 
+    (*
+      TODO: maintain a second hist that has all the counts, and also a hist that has branches
+        with nonempty queues. Then remember to delete from that hist whenever popping from 
+        a singleton queue or removing the only target under that branch. This removes all of these
+        inefficiencies
+    *)
     let pop (x : t) : (Target.t * t) option =
       let open Option.Let_syntax in
       let rec pop branch_hist =
         BQ.pop branch_hist
         >>= fun ((branch, _), remaining_hist) -> begin (* Some branch has been hit a fewest number of times *)
           Map.find x.branch_map branch
-          >>= Q.pop (* check if the least-hit branch has a target queue *)
-          >>| (fun ((target, _), new_q) -> target, Map.set x.branch_map ~key:branch ~data:new_q) (* pop the best target and set the new queue (without that target) to be in the branch map *)
+          >>= DFS.pop (* check if the least-hit branch has a target queue *)
+          >>| (fun (target, new_q) -> target, Map.set x.branch_map ~key:branch ~data:new_q) (* pop the best target and set the new queue (without that target) to be in the branch map *)
           |> function
             | None -> pop remaining_hist (* couldn't find a target for this branch, so try again with all of the other branches *)
             | y -> y (* found a target, so return *)
         end
-    in
-    pop x.branch_hist
-    >>| fun (target, branch_map) -> target, { x with branch_map }
+      in
+      pop x.branch_hist
+      >>| fun (target, branch_map) -> target, { x with branch_map }
 
     let remove ({ branch_map ; _ } as x : t) (target : Target.t) : t =
       { x with branch_map =
           Map.change branch_map (Branch.Runtime.to_ast_branch target.branch) ~f:(function
-            | Some q -> Some (Q.remove target q)
+            | Some q -> Some (DFS.remove q target)
             | None -> None
           )
       }
 
-    let push_one (branch_map : Q.t M.t) (target : Target.t) : Q.t M.t =
+    let push_one (r : Options.t) (branch_map : DFS.t M.t) (target : Target.t) : DFS.t M.t =
       Map.update branch_map (Branch.Runtime.to_ast_branch target.branch) ~f:(function
-        | Some q -> Q.push target (-1 * target.path_n) q (* push branch approximately like BFS *)
-        | None -> Q.push target (-1 * target.path_n) Q.empty
+        | Some q -> DFS.push_one q target
+        | None -> DFS.push_one (Options.Fun.run DFS.of_options r ()) target
       ) 
 
     let push_list (x : t) (ls : Target.t list) : t =
-      { x with branch_map = List.fold ls ~init:x.branch_map ~f:push_one }
+      { x with branch_map = List.fold ls ~init:x.branch_map ~f:(push_one x.options)
+      ; branch_hist = (* need to make it known that these branches exist if they have never been hit *)
+        ls
+        |> List.map ~f:Target.(fun target -> Branch.Runtime.to_ast_branch target.branch)
+        |> List.fold ~init:x.branch_hist ~f:(fun acc branch -> BQ.update branch (function None -> Some 0 | n -> n) acc)
+      }
   end
 
 type t =
@@ -218,7 +236,7 @@ let empty : t =
 let of_options : (unit, t) Options.Fun.t =
   Options.Fun.make
   @@ fun (r : Options.t) -> fun (() : unit) ->
-    { empty with dfs = Options.Fun.run DFS.of_options r () }
+    { empty with dfs = Options.Fun.run DFS.of_options r () ; by_branch = Options.Fun.run By_ast_branch.of_options r () }
 
 (* Deeper targets are at the back of [ls] *)
 let push_list ({ dfs ; bfs ; uniform ; by_branch } : t) (ls : Target.t list) : t =

@@ -273,12 +273,15 @@ let enqueue_result (x : t) (g : unit -> Node.t * Target.t list) : t =
   let root, targets = g () in
   enqueue { x with root } targets
 
-let of_stem : (Formulated_stem.t, bool -> t) Options.Fun.t =
+let of_stem : (Formulated_stem.t, bool -> Branch.t list -> t) Options.Fun.t =
   Options.Fun.make
-  @@ fun (r : Options.t) -> fun (stem : Formulated_stem.t) -> fun (failed_assume : bool) ->
-    enqueue_result (Options.Fun.run of_options r ()) (fun _ -> Node.of_stem stem failed_assume)
+  @@ fun (r : Options.t) -> fun (stem : Formulated_stem.t) -> fun (failed_assume : bool) -> fun (hit_branches : Branch.t list) ->
+    let x = Options.Fun.run of_options r () in
+    let x = { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches } in
+    enqueue_result x (fun _ -> Node.of_stem stem failed_assume)
 
-let add_stem (x : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) : t =
+let add_stem (x : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) (hit_branches : Branch.t list) : t =
+  let x = { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches } in (* TODO: fix this ugly quick patch, and above in of_stem *)
   enqueue_result x (fun _ -> Node.add_stem x.root target stem failed_assume)
 
 let set_unsat_target (x : t) (target : Target.t) : t =

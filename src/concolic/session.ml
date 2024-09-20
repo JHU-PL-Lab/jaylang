@@ -41,6 +41,8 @@ module Status =
       | Exhausted _                   -> "Exhausted full tree"
   end
 
+[@@@ocaml.warning "-69"] (* ignore warning about last_sym not used *)
+
 type t =
   { tree         : Path_tree.t (* pointer to the root of the entire tree of paths *)
   ; run_num      : int
@@ -78,9 +80,10 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
 (* $ OCAML_LANDMARKS=on ./_build/... *)
 let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
   let pop_kind =
-    match x.last_sym with
+    (* match x.last_sym with
     | Some s when Symbolic.Dead.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
-    | _ -> Random
+    | _ -> Random *)
+    Target_queue.Pop_kind.By_ast_branch
   in
   let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
     let%lwt () = Lwt.pause () in
