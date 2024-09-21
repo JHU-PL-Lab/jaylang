@@ -1,7 +1,4 @@
 open Core
-
-(* [@@@ocaml.warning "-37"] *)
-
 open Options.Fun.Infix
 
 module Pop_kind =
@@ -235,7 +232,7 @@ let empty : t =
 let of_options : (unit, t) Options.Fun.p =
   let open Options.Fun in
   (fun (dfs, by_branch) -> { empty with dfs ; by_branch })
-  ^>>> prod_snd DFS.of_options By_ast_branch.of_options
+  ^>>> fanout DFS.of_options By_ast_branch.of_options
 
 (* Deeper targets are at the back of [ls] *)
 let push_list ({ dfs ; bfs ; uniform ; by_branch } : t) (ls : Target.t list) : t =

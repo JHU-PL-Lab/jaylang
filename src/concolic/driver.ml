@@ -47,28 +47,22 @@ module Test_result =
 *)
 
 let[@landmark] lwt_test_one : (Jayil.Ast.expr, Test_result.t Lwt.t) Options.Fun.p =
-  let open Lwt.Infix in
-  Options.Fun.make
-  @@ fun (r : Options.t) ->
-      fun (e : Jayil.Ast.expr) ->
-        let t0 = Caml_unix.gettimeofday () in
-        Options.Fun.appl Evaluator.lwt_eval r e
-        >|= function res_status ->
-          CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
-          Test_result.of_session_status res_status
+  let open Lwt.Syntax in
+  (fun res_status_lwt ->
+    let t0 = Caml_unix.gettimeofday () in
+    let+ res_status = res_status_lwt in
+    CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
+    Test_result.of_session_status res_status
+  ) ^>>> Evaluator.lwt_eval
 
 (* runs [lwt_test_one] and catches lwt timeout *)
 let test_with_timeout : (Jayil.Ast.expr, Test_result.t) Options.Fun.p =
-  Options.Fun.make
-  @@ fun (r : Options.t) ->
-      fun (e : Jayil.Ast.expr) ->
-        try
-          Lwt_main.run
-          @@ Options.Fun.appl lwt_test_one r e
-        with
-        | Lwt_unix.Timeout ->
-          CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
-          Test_result.Timeout
+  (fun tr r -> 
+    try Lwt_main.run tr with
+    | Lwt_unix.Timeout ->
+      CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
+      Test_result.Timeout
+  ) ^^>>> lwt_test_one
 
 let[@landmark] test_expr : (Jayil.Ast.expr, Test_result.t) Options.Fun.p =
   (fun res -> Format.printf "\n%s\n" (Test_result.to_string res); res)
@@ -88,8 +82,8 @@ let test_bjy : (string, Test_result.t) Options.Fun.p =
   (fun filename ->
     filename
     |> Dj_common.File_utils.read_source_full ~do_instrument:true ~do_wrap:true
-    |> Dj_common.Convert.jil_ast_of_convert)
-  <<<^ test_expr
+    |> Dj_common.Convert.jil_ast_of_convert
+  ) <<<^ test_expr
 
 let test : (string, Test_result.t) Options.Fun.p =
   Options.Fun.make

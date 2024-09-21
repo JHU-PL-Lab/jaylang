@@ -184,6 +184,7 @@ module Dead =
             in
             { tree ; prev = s })
         ((fun (s : T.t) -> s.stem) <<<^ Path_tree.of_stem)
+    
 
     let root (x : t) : Path_tree.t =
       x.tree

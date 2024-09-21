@@ -1,5 +1,4 @@
 open Core
-open Options.Fun.Infix
 open Dj_common
 
 module Symbolic = Symbolic_session
@@ -58,12 +57,13 @@ let empty : t =
   ; last_sym     = None }
 
 let of_options : (unit, t * Symbolic.t) Options.Fun.p =
+  let open Options.Fun in
   let symbolic_of_unit = (fun () -> Symbolic.empty) <<<^ Symbolic.with_options in
   let t_of_unit =
     (fun (r, tree) -> { empty with options = r ; tree })
-    ^>>> Options.Fun.prod_snd Options.Fun.unit Path_tree.of_options
+    ^>>> fanout unit Path_tree.of_options
   in
-  Options.Fun.prod_snd t_of_unit symbolic_of_unit
+  fanout t_of_unit symbolic_of_unit
 
 let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let dead_sym = Symbolic.finish sym x.tree in
@@ -75,9 +75,9 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
     | _ -> x.status
   in
   { x with
-    tree         = Symbolic.Dead.root dead_sym
-  ; status       = new_status
-  ; last_sym     = Some dead_sym }
+    tree     = Symbolic.Dead.root dead_sym
+  ; status   = new_status
+  ; last_sym = Some dead_sym }
 
 (* $ OCAML_LANDMARKS=on ./_build/... *)
 let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =

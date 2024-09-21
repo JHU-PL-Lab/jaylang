@@ -1,6 +1,7 @@
 open Core
 open Jayil.Ast
 open Dvalue (* just to expose constructors *)
+open Options.Fun.Infix
 
 module CLog = Dj_common.Log.Export.CLog
 
@@ -277,17 +278,12 @@ let seed =
 
 let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.p =
   (* Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug }; *)
-  let f =
-    fun (r : Options.t) ->
-      fun (e : Jayil.Ast.expr) ->
-        Concolic_riddler.set_timeout (Core.Time_float.Span.of_sec r.solver_timeout_sec);
-        if not r.random then Random.init seed;
-        CLog.app (fun m -> m "\nStarting concolic execution...\n");
-        (* Repeatedly evaluate program: *)
-        Concolic_riddler.reset ();
-        Lwt_unix.with_timeout r.global_timeout_sec
-        @@ fun () ->
-          Tuple2.uncurry (loop e)
-          @@ Options.Fun.appl Session.of_options r ()
-  in
-  Options.Fun.make f
+  Options.Fun.thaw
+  @@ (fun (session, symb_session) r -> fun e ->
+      Concolic_riddler.set_timeout (Core.Time_float.Span.of_sec r.solver_timeout_sec);
+      if not r.random then Random.init seed;
+      CLog.app (fun m -> m "\nStarting concolic execution...\n");
+      Concolic_riddler.reset ();
+      Lwt_unix.with_timeout r.global_timeout_sec
+      @@ fun () -> loop e session symb_session (* repeatedly evaluate program *)
+  ) ^^>>> Session.of_options

@@ -269,13 +269,12 @@ let enqueue_result (x : t) (g : unit -> Node.t * Target.t list) : t =
   enqueue { x with root } targets
 
 let of_stem : (Formulated_stem.t, bool -> Branch.t list -> t) Options.Fun.p =
-  Options.Fun.step
-    ((fun x -> fun (stem : Formulated_stem.t) (failed_assume : bool) (hit_branches : Branch.t list)->
-      enqueue_result
-        { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches }
-        (fun _ -> Node.of_stem stem failed_assume))
-    ^>>> of_options)
-    ()
+  Options.Fun.thaw
+  @@ (fun x -> fun (stem : Formulated_stem.t) (failed_assume : bool) (hit_branches : Branch.t list)->
+    enqueue_result
+      { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches }
+      (fun _ -> Node.of_stem stem failed_assume))
+  ^>>> of_options
 
 let add_stem (x : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) (hit_branches : Branch.t list) : t =
   let x = { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches } in (* TODO: fix this ugly quick patch, and above in of_stem *)

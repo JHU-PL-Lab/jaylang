@@ -86,13 +86,31 @@ module Fun =
     let unit : (unit, T.t) p =
       make @@ fun r -> fun () -> r
 
-    let step : type a b c. (a, b -> c) p -> a -> (b, c) p =
-      fun a_bc_p a ->
+    (* let compose : type a b c. (a, b) p -> (b, c) p -> (a, c) p =
+      fun ab_p bc_p ->
         make
-        @@ fun r -> fun b ->
-            appl a_bc_p r a b
+        @@ fun r -> fun a ->
+            appl bc_p r @@ appl ab_p r a *)
 
-    let prod_snd : type a b c. (a, b) p -> (a, c) p -> (a, b * c) p =
+    let uncurry : type a b c. (a, b -> c) p -> (a * b, c) p =
+      fun abc_p ->
+        make
+        @@ fun r -> fun (a, b) ->
+          appl abc_p r a b
+
+    let curry : type a b c. (a * b, c) p -> (a, b -> c) p =
+      fun ab_c_p ->
+        make
+        @@ fun r -> fun a -> fun b ->
+          appl ab_c_p r (a, b)
+
+    let split : type a b c d. (a, b) p -> (c, d) p -> (a * c, b * d) p =
+      fun ab_p cd_p ->
+        make
+        @@ fun r -> fun (a, c) ->
+          (appl ab_p r a, appl cd_p r c)
+
+    let fanout : type a b c. (a, b) p -> (a, c) p -> (a, b * c) p =
       fun ab_p ac_p ->
         make
         @@ fun r -> fun a ->
@@ -112,6 +130,12 @@ module Fun =
       fun bc ab_p ->
         dimap Fn.id bc ab_p
 
+    let map_sndt : type a b c. (b -> t -> c) -> (a, b) p -> (a, c) p =
+      fun btc ab_p ->
+        make
+        @@ fun r -> fun a ->
+            btc (appl ab_p r a) r
+
     let map_snd_given_fst : type a b c. (a -> b -> c) -> (a, b) p -> (a, c) p =
       fun abc ab_p ->
         make
@@ -122,7 +146,14 @@ module Fun =
       struct
         let (<<<^) = contramap_fst
         let (^>>>) = map_snd
+        let (^^>>>) = map_sndt
+        (* let (>>>) = compose *)
       end
 
     include Infix
+
+    let thaw : type a b. (unit, a -> b) p -> (a, b) p =
+      fun x ->
+        (fun a -> (), a)
+        <<<^ uncurry x
   end
