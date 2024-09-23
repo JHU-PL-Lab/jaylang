@@ -54,8 +54,6 @@ module Fun :
     
     val arr : ('b -> 'c) -> ('b, 'c) a
 
-    val id : ('b, 'b) a
-
     val first : ('b, 'c) a -> ('b * 'd, 'c * 'd) a
 
     module Infix :

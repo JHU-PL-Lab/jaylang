@@ -50,7 +50,7 @@ module Fun =
     module type ARROW =
       sig
         type ('b, 'c) a
-        val id : ('b, 'b) a
+        (* val id : ('b, 'b) a *)
         val arr : ('b -> 'c) -> ('b, 'c) a
         val first : ('b, 'c) a -> ('b * 'd, 'c * 'd) a
         val (>>>) : ('b, 'c) a -> ('c, 'd) a -> ('b, 'd) a
@@ -99,19 +99,6 @@ module Fun =
         let arr : 'b 'c. ('b -> 'c) -> ('b, 'c) a =
           fun b_c ->
             make @@ fun _ -> b_c
-
-        (* type checker is stupid and won't let me use `make`. Turn off warning for unusedvariable for this function. *)
-        let[@ocaml.warning "-27"] id : 'b. ('b, 'b) a =
-          fun 
-            ?(global_timeout_sec : float = default.global_timeout_sec)
-            ?(solver_timeout_sec : float = default.solver_timeout_sec)
-            ?(global_max_step    : int   = default.global_max_step)
-            ?(max_tree_depth     : int   = default.max_tree_depth)
-            ?(random             : bool  = default.random)
-            ?(n_depth_increments : int   = default.n_depth_increments)
-            b
-            ->
-            b
 
         let first : 'b 'c 'd. ('b, 'c) a -> ('b * 'd, 'c * 'd) a =
           fun b_c_a ->
@@ -164,7 +151,7 @@ module Fun =
 
         let second : 'b 'c 'd. ('b, 'c) a -> ('d * 'b, 'd * 'c) a =
           fun a ->
-            id *** a
+            arr Fn.id *** a
 
         let dimap : 'b 'c 'd 'e. ('b -> 'c) -> ('d -> 'e) -> ('c, 'd) a -> ('b, 'e) a =
           fun b_c d_e c_d_a ->
