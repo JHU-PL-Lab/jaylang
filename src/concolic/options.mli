@@ -35,7 +35,7 @@ module Refs :
 (* `Fun` for optional arguments on functions *)
 module Fun :
   sig
-    type ('a, 'b) t =
+    type ('a, 'b) a =
       ?global_timeout_sec    : float
       -> ?solver_timeout_sec : float
       -> ?global_max_step    : int
@@ -44,41 +44,44 @@ module Fun :
       -> ?n_depth_increments : int
       -> 'a
       -> 'b
+    (** [a] is an arrow *)
 
-    val run : ('a, 'b) t -> T.t -> 'a -> 'b
+    val appl : ('b, 'c) a -> T.t -> 'b -> 'c
     (** [run x r] applies the values from [r] to the arguments of [x] *)
 
-    val make : (T.t -> 'a -> 'b) -> ('a, 'b) t
+    val make : (T.t -> 'b -> 'c) -> ('b, 'c) a
     (** [make f] accepts optional arguments and applies them in the default record to [f]. *)
+    
+    val arr : ('b -> 'c) -> ('b, 'c) a
 
-    (*
-      Note we can't do the normal bind of type `('a, 'r) t -> ('a -> ('b, 'r) t) -> ('b, 'r) t`.
-      To see why, forget the optional argument part. Just assume `('a, 'b) t = 'a -> 'b`.
-      Then such a bind would be
-        `val bind : ('a -> 'r) -> ('a -> 'b -> 'r) -> 'b -> 'r`
-      Then try to start by saying
-        let bind x f =
-          fun b ->
-            ...
-      And we need to make an 'r. However, this requires we have an 'a! We don't!
+    val first : ('b, 'c) a -> ('b * 'd, 'c * 'd) a
 
-      So let's just call the following behavior `bind`, even if that's a bad name.
-    *)
-    val bind : ('a, 'b) t -> ('b, 'r) t -> ('a, 'r) t
-    (** [bind x f] is a function that runs [x] and then runs [f] on that result. *)
+    module Infix :
+      sig
+        val (>>>) : ('b, 'c) a -> ('c, 'd) a -> ('b, 'd) a
 
-    val map : ('a, 'b) t -> ('b -> 'r) -> ('a, 'r) t
-    (** [map x f] is a function that runs [x] and then maps the result with [f]. *)
+        val ( *** ) : ('b, 'c) a -> ('d, 'e) a -> ('b * 'd, 'c * 'e) a
+        (** [( *** )] is infix [split]. *)
 
-    val compose : ('a -> 'b) -> ('b, 'r) t -> ('a, 'r) t
-    (** [compose f x] first applies [f] without any optional arguments and then runs [x] on that result. *)
+        val (&&&) : ('b, 'c) a -> ('b, 'd) a -> ('b, 'c * 'd) a
+        (** [(&&&)] is infix [fanout]. *)
 
-    val (>>=) : ('a, 'b) t -> ('b, 'r) t -> ('a, 'r) t
-    (** [(>>=)] is infix [bind]. *)
+        val (^>>) : ('b, 'c) a -> ('c -> 'd) -> ('b, 'd) a
+        (** [(^>>)] is infix [map_snd] because an a is also a profunctor. *)
 
-    val (>>|) : ('a, 'b) t -> ('b -> 'r) -> ('a, 'r) t
-    (** [(>>|)] is infix [map]. *)
+        (* contramap first *)
+        val (<<^) : ('c, 'd) a -> ('b -> 'c) -> ('b, 'd) a
+        (** [(<<^)] is infix [contramap_fst] because an a is also a profunctor. *)
+      end
 
-    val (>=>) : ('a -> 'b) -> ('b, 'r) t -> ('a, 'r) t
-    (** [(>=>)] is infix [compose]. *)
+    val second : ('b, 'c) a -> ('d * 'b, 'd * 'c) a
+
+    val dimap : ('b -> 'c) -> ('d -> 'e) -> ('c, 'd) a -> ('b, 'e) a
+
+    val uncurry : ('b, 'c -> 'd) a -> ('b * 'c, 'd) a 
+
+    val strong : ('b -> 'c -> 'd) -> ('b, 'c) a -> ('b, 'd) a
+
+    val thaw : (unit, 'b -> 'c) a -> ('b, 'c) a
+    (** [thaw x] is [uncurry x <<^ (fun y -> (), y)] *)
   end
