@@ -5,13 +5,13 @@ type t
 (* val empty : t
 * [empty] knows no program paths yet. *)
 
-val of_options : (unit, t) Options.Fun.p
+val of_options : (unit, t) Options.Fun.a
 (** [of_options ()] take optional arguments to set target queue options, and it knows no program paths yet. *)
 
 val formulas_of_target : t -> Target.t -> Z3.Expr.expr list
 (** [formulas_of_target t target] are the formulas required to hit the [target] in the path tree [t] *)
 
-val of_stem : (Formulated_stem.t,  bool -> Branch.t list -> t) Options.Fun.p
+val of_stem : (Formulated_stem.t,  bool -> Branch.t list -> t) Options.Fun.a
 (** [of_stem stem failed_assume] is a function with optional concolic arguments that returns the  tree
     that is made entirely from one stem, where the stem was made from an interpretation that failed an
     assume/assert iff [failed_assume] is true. *)

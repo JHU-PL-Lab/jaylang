@@ -103,9 +103,9 @@ module DFS =
       { q      : Q.t (* will use negative target depth as priority in order to prefer deeper targets *)
       ; stride : int }
 
-    let of_options : (unit, t) Options.Fun.p =
-      (fun (r : Options.t) -> { q = Q.empty ; stride = r.max_tree_depth / r.n_depth_increments })
-      ^>>> Options.Fun.unit
+    let of_options : (unit, t) Options.Fun.a =
+      Options.Fun.make
+      @@ fun (r : Options.t) () -> { q = Q.empty ; stride = r.max_tree_depth / r.n_depth_increments }
 
     let empty : t = Options.Fun.appl of_options Options.default ()
 
@@ -158,9 +158,9 @@ module By_ast_branch =
       ; branch_hist = BQ.empty
       ; branch_map  = M.empty }
 
-    let of_options : (unit, t) Options.Fun.p =
-      (fun r -> { empty with options = r })
-      ^>>> Options.Fun.unit
+    let of_options : (unit, t) Options.Fun.a =
+      Options.Fun.make
+      @@ fun (r : Options.t) () -> { empty with options = r }
 
     let hit_branches ({ branch_hist ; _ } as x : t) (ls : Branch.t list) : t =
       { x with branch_hist =
@@ -229,10 +229,9 @@ let empty : t =
   ; uniform = R.empty
   ; by_branch = By_ast_branch.empty }
 
-let of_options : (unit, t) Options.Fun.p =
-  let open Options.Fun in
-  (fun (dfs, by_branch) -> { empty with dfs ; by_branch })
-  ^>>> fanout DFS.of_options By_ast_branch.of_options
+let of_options : (unit, t) Options.Fun.a =
+  (DFS.of_options &&& By_ast_branch.of_options)
+  ^>> fun (dfs, by_branch) -> { empty with dfs ; by_branch }
 
 (* Deeper targets are at the back of [ls] *)
 let push_list ({ dfs ; bfs ; uniform ; by_branch } : t) (ls : Target.t list) : t =

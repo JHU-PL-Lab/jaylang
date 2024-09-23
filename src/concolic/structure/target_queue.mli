@@ -14,7 +14,7 @@ type t
 
 (* val make : Pop_kind.t list -> t *)
 
-val of_options : (unit, t) Options.Fun.p
+val of_options : (unit, t) Options.Fun.a
 
 val hit_branches : t -> Branch.t list -> t
 (** necessary to call this to keep the By_ast_branch heuristic up to date *)

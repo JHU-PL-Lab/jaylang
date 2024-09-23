@@ -276,14 +276,16 @@ let rec loop (e : expr) (session : Session.t) (symb_session : Session.Symbolic.t
 let seed =
   String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
 
-let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.p =
+let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.a =
   (* Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug }; *)
-  Options.Fun.thaw
-  @@ (fun (session, symb_session) r -> fun e ->
+  Session.of_options
+  >>> (Options.Fun.make
+  @@ fun r (session, symb_session) (e : expr) ->
       Concolic_riddler.set_timeout (Core.Time_float.Span.of_sec r.solver_timeout_sec);
       if not r.random then Random.init seed;
       CLog.app (fun m -> m "\nStarting concolic execution...\n");
       Concolic_riddler.reset ();
       Lwt_unix.with_timeout r.global_timeout_sec
       @@ fun () -> loop e session symb_session (* repeatedly evaluate program *)
-  ) ^^>>> Session.of_options
+  )
+  |> Options.Fun.thaw

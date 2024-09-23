@@ -35,7 +35,7 @@ type t
 val empty : t
 (** [empty] is a default symbolic session. *)
 
-val with_options : (t, t) Options.Fun.p
+val with_options : (t, t) Options.Fun.a
 (** [with_options t] is [t] configured with the optional arguments. *)
 
 val get_max_step : t -> int
@@ -98,7 +98,7 @@ val reach_max_step : t -> t
   -----------
 *)
 
-val finish : (t, Path_tree.t -> Dead.t) Options.Fun.p
+val finish : (t, Path_tree.t -> Dead.t) Options.Fun.a
 (** [finish t root] creates a finished session from [t] that merges info with the given [root].
     The merged result can be gotten with [root_exn @@ finish t root]. *)
 

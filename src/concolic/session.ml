@@ -1,5 +1,6 @@
 open Core
 open Dj_common
+open Options.Fun.Infix
 
 module Symbolic = Symbolic_session
 
@@ -56,14 +57,10 @@ let empty : t =
   ; status       = Status.In_progress { pruned = false }
   ; last_sym     = None }
 
-let of_options : (unit, t * Symbolic.t) Options.Fun.p =
-  let open Options.Fun in
-  let symbolic_of_unit = (fun () -> Symbolic.empty) <<<^ Symbolic.with_options in
-  let t_of_unit =
-    (fun (r, tree) -> { empty with options = r ; tree })
-    ^>>> fanout unit Path_tree.of_options
-  in
-  fanout t_of_unit symbolic_of_unit
+let of_options : (unit, t * Symbolic.t) Options.Fun.a =
+  (Options.Fun.make (fun r () -> r) &&& Path_tree.of_options) 
+  ^>> (fun (r, tree) -> { empty with options = r ; tree })
+  &&& (Symbolic.with_options <<^ fun () -> Symbolic.empty)
 
 let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let dead_sym = Symbolic.finish sym x.tree in

@@ -31,7 +31,7 @@ module Depth_tracker =
       ; is_max_step  = false
       ; is_max_depth = false }
 
-    let with_options : (t, t) Options.Fun.p =
+    let with_options : (t, t) Options.Fun.a =
       Options.Fun.make
       @@ fun (r : Options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth }
 
@@ -77,7 +77,7 @@ let empty : t =
   ; depth_tracker  = Depth_tracker.empty
   ; hit_branches   = [] }
 
-let with_options : (t, t) Options.Fun.p =
+let with_options : (t, t) Options.Fun.a =
   Options.Fun.make
   @@ fun (r : Options.t) -> fun (x : t) ->
     { x with depth_tracker = Options.Fun.appl Depth_tracker.with_options r x.depth_tracker
@@ -172,19 +172,17 @@ module Dead =
       { tree    : Path_tree.t
       ; prev    : T.t }
 
-    let of_sym_session : (T.t, Path_tree.t -> t) Options.Fun.p =
-      Options.Fun.map_snd_given_fst
-        (fun s -> fun (f : bool -> Branch.t list -> Path_tree.t) -> 
-          fun tree ->
-            let failed_assume = match s.status with `Failed_assume -> true | _ -> false in
-            let tree = 
-              match s.consts.target with
-              | None -> f failed_assume s.hit_branches
-              | Some target -> Path_tree.add_stem tree target s.stem failed_assume s.hit_branches
-            in
-            { tree ; prev = s })
-        ((fun (s : T.t) -> s.stem) <<<^ Path_tree.of_stem)
-    
+    let of_sym_session : (T.t, Path_tree.t -> t) Options.Fun.a =
+      Options.Fun.strong
+        (fun (s : T.t) (f : bool -> Branch.t list -> Path_tree.t) (tree : Path_tree.t) -> 
+          let failed_assume = match s.status with `Failed_assume -> true | _ -> false in
+          let tree = 
+            match s.consts.target with
+            | None -> f failed_assume s.hit_branches
+            | Some target -> Path_tree.add_stem tree target s.stem failed_assume s.hit_branches
+          in
+          { tree ; prev = s })
+        (Path_tree.of_stem <<^ (fun (s : T.t) -> s.stem))
 
     let root (x : t) : Path_tree.t =
       x.tree
@@ -202,7 +200,7 @@ module Dead =
   end
 
 (* Note that other side of all new targets are all the new hits *)
-let[@landmarks] finish : (t, Path_tree.t -> Dead.t) Options.Fun.p =
+let[@landmarks] finish : (t, Path_tree.t -> Dead.t) Options.Fun.a =
   Dead.of_sym_session
 
 let make (target : Target.t) (input_feeder : Concolic_feeder.t): t =

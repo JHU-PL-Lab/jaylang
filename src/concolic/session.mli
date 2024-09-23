@@ -21,7 +21,7 @@ type t
 (* val empty : t *)
 (** [empty] is a default empty session *)
 
-val of_options : (unit, t * Symbolic.t) Options.Fun.p
+val of_options : (unit, t * Symbolic.t) Options.Fun.a
 (** [of_options ()] is an empty session that has all relevant info loaded in from the optional arguments,
     along with a symbolic session for the first interpreter run. *)
 

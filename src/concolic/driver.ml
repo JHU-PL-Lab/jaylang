@@ -46,27 +46,28 @@ module Test_result =
   ----------------------
 *)
 
-let[@landmark] lwt_test_one : (Jayil.Ast.expr, Test_result.t Lwt.t) Options.Fun.p =
+let[@landmark] lwt_test_one : (Jayil.Ast.expr, Test_result.t Lwt.t) Options.Fun.a =
   let open Lwt.Syntax in
-  (fun res_status_lwt ->
+  Evaluator.lwt_eval
+  ^>> fun res_status_lwt ->
     let t0 = Caml_unix.gettimeofday () in
     let+ res_status = res_status_lwt in
     CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
     Test_result.of_session_status res_status
-  ) ^>>> Evaluator.lwt_eval
 
 (* runs [lwt_test_one] and catches lwt timeout *)
-let test_with_timeout : (Jayil.Ast.expr, Test_result.t) Options.Fun.p =
-  (fun tr r -> 
+let test_with_timeout : (Jayil.Ast.expr, Test_result.t) Options.Fun.a =
+  lwt_test_one
+  ^>> Options.Fun.make
+  @@ fun r tr -> 
     try Lwt_main.run tr with
     | Lwt_unix.Timeout ->
       CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
       Test_result.Timeout
-  ) ^^>>> lwt_test_one
 
-let[@landmark] test_expr : (Jayil.Ast.expr, Test_result.t) Options.Fun.p =
-  (fun res -> Format.printf "\n%s\n" (Test_result.to_string res); res)
-  ^>>> test_with_timeout
+let[@landmark] test_expr : (Jayil.Ast.expr, Test_result.t) Options.Fun.a =
+  test_with_timeout
+  ^>> fun res -> Format.printf "\n%s\n" (Test_result.to_string res); res
 
 (*
   -------------------
@@ -74,22 +75,22 @@ let[@landmark] test_expr : (Jayil.Ast.expr, Test_result.t) Options.Fun.p =
   -------------------
 *)
 
-let test_jil : (string, Test_result.t) Options.Fun.p =
-  Dj_common.File_utils.read_source
-  <<<^ test_expr
+let test_jil : (string, Test_result.t) Options.Fun.a =
+  test_expr
+  <<^ Dj_common.File_utils.read_source
 
-let test_bjy : (string, Test_result.t) Options.Fun.p =
-  (fun filename ->
+let test_bjy : (string, Test_result.t) Options.Fun.a =
+  test_expr
+  <<^ fun filename ->
     filename
     |> Dj_common.File_utils.read_source_full ~do_instrument:true ~do_wrap:true
     |> Dj_common.Convert.jil_ast_of_convert
-  ) <<<^ test_expr
 
-let test : (string, Test_result.t) Options.Fun.p =
+let test : (string, Test_result.t) Options.Fun.a =
   Options.Fun.make
   @@ fun r ->
       fun filename ->
-          match Core.Filename.split_extension filename with 
-          | _, Some "jil" -> Options.Fun.appl test_jil r filename
-          | _, Some "bjy" -> Options.Fun.appl test_bjy r filename
-          | _ -> failwith "expected jil or bjy file"
+        match Core.Filename.split_extension filename with 
+        | _, Some "jil" -> Options.Fun.appl test_jil r filename
+        | _, Some "bjy" -> Options.Fun.appl test_bjy r filename
+        | _ -> failwith "expected jil or bjy file"

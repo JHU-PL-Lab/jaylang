@@ -46,114 +46,143 @@ module Refs =
 (* `Fun` for optional arguments on functions *)
 module Fun =
   struct
-    (* p is a profunctor *)
-    type ('a, 'b) p =
-      ?global_timeout_sec    : float
-      -> ?solver_timeout_sec : float
-      -> ?global_max_step    : int
-      -> ?max_tree_depth     : int
-      -> ?random             : bool
-      -> ?n_depth_increments : int
-      -> 'a
-      -> 'b
 
-    let appl (x : ('a, 'b) p) (r : T.t) : 'a -> 'b =
-      x
-        ~global_timeout_sec:r.global_timeout_sec
-        ~solver_timeout_sec:r.solver_timeout_sec
-        ~global_max_step:r.global_max_step
-        ~max_tree_depth:r.max_tree_depth
-        ~random:r.random
-        ~n_depth_increments:r.n_depth_increments
-
-    let make (f : T.t -> 'a -> 'b) : ('a, 'b) p =
-      fun
-      ?(global_timeout_sec : float = default.global_timeout_sec)
-      ?(solver_timeout_sec : float = default.solver_timeout_sec)
-      ?(global_max_step    : int   = default.global_max_step)
-      ?(max_tree_depth     : int   = default.max_tree_depth)
-      ?(random             : bool  = default.random)
-      ?(n_depth_increments : int   = default.n_depth_increments)
-      ->
-      { global_timeout_sec
-      ; solver_timeout_sec
-      ; global_max_step
-      ; max_tree_depth
-      ; random
-      ; n_depth_increments }
-      |> f 
-
-    let unit : (unit, T.t) p =
-      make @@ fun r -> fun () -> r
-
-    (* let compose : type a b c. (a, b) p -> (b, c) p -> (a, c) p =
-      fun ab_p bc_p ->
-        make
-        @@ fun r -> fun a ->
-            appl bc_p r @@ appl ab_p r a *)
-
-    let uncurry : type a b c. (a, b -> c) p -> (a * b, c) p =
-      fun abc_p ->
-        make
-        @@ fun r -> fun (a, b) ->
-          appl abc_p r a b
-
-    let curry : type a b c. (a * b, c) p -> (a, b -> c) p =
-      fun ab_c_p ->
-        make
-        @@ fun r -> fun a -> fun b ->
-          appl ab_c_p r (a, b)
-
-    let split : type a b c d. (a, b) p -> (c, d) p -> (a * c, b * d) p =
-      fun ab_p cd_p ->
-        make
-        @@ fun r -> fun (a, c) ->
-          (appl ab_p r a, appl cd_p r c)
-
-    let fanout : type a b c. (a, b) p -> (a, c) p -> (a, b * c) p =
-      fun ab_p ac_p ->
-        make
-        @@ fun r -> fun a ->
-          (appl ab_p r a, appl ac_p r a)
-
-    let dimap : type a b c d. (b -> a) -> (c -> d) -> (a, c) p -> (b, d) p =
-      fun ba cd ac_p ->
-        make
-        @@ fun r -> fun b ->
-            cd @@ appl ac_p r @@ ba b
-
-    let contramap_fst : type a b c. (a -> b) -> (b, c) p -> (a, c) p =
-      fun ab bc_p ->
-        dimap ab Fn.id bc_p
-
-    let map_snd : type a b c. (b -> c) -> (a, b) p -> (a, c) p =
-      fun bc ab_p ->
-        dimap Fn.id bc ab_p
-
-    let map_sndt : type a b c. (b -> t -> c) -> (a, b) p -> (a, c) p =
-      fun btc ab_p ->
-        make
-        @@ fun r -> fun a ->
-            btc (appl ab_p r a) r
-
-    let map_snd_given_fst : type a b c. (a -> b -> c) -> (a, b) p -> (a, c) p =
-      fun abc ab_p ->
-        make
-        @@ fun r -> fun a ->
-            abc a @@ appl ab_p r a
-
-    module Infix =
-      struct
-        let (<<<^) = contramap_fst
-        let (^>>>) = map_snd
-        let (^^>>>) = map_sndt
-        (* let (>>>) = compose *)
+    module type ARROW =
+      sig
+        type ('b, 'c) a
+        val id : ('b, 'b) a
+        val arr : ('b -> 'c) -> ('b, 'c) a
+        val first : ('b, 'c) a -> ('b * 'd, 'c * 'd) a
+        val (>>>) : ('b, 'c) a -> ('c, 'd) a -> ('b, 'd) a
       end
 
-    include Infix
+    module A = 
+      struct
+        (* a is an arrow. *)
+        type ('b, 'c) a =
+          ?global_timeout_sec    : float
+          -> ?solver_timeout_sec : float
+          -> ?global_max_step    : int
+          -> ?max_tree_depth     : int
+          -> ?random             : bool
+          -> ?n_depth_increments : int
+          -> 'b
+          -> 'c
 
-    let thaw : type a b. (unit, a -> b) p -> (a, b) p =
-      fun x ->
-        (fun a -> (), a)
-        <<<^ uncurry x
+        let appl (x : ('b, 'c) a) (r : T.t) : 'b -> 'a =
+          x
+            ~global_timeout_sec:r.global_timeout_sec
+            ~solver_timeout_sec:r.solver_timeout_sec
+            ~global_max_step:r.global_max_step
+            ~max_tree_depth:r.max_tree_depth
+            ~random:r.random
+            ~n_depth_increments:r.n_depth_increments
+
+        let make : 'b 'c. (T.t -> 'b -> 'c) -> ('b, 'c) a =
+          fun f ->
+            fun
+            ?(global_timeout_sec : float = default.global_timeout_sec)
+            ?(solver_timeout_sec : float = default.solver_timeout_sec)
+            ?(global_max_step    : int   = default.global_max_step)
+            ?(max_tree_depth     : int   = default.max_tree_depth)
+            ?(random             : bool  = default.random)
+            ?(n_depth_increments : int   = default.n_depth_increments)
+            ->
+            { global_timeout_sec
+            ; solver_timeout_sec
+            ; global_max_step
+            ; max_tree_depth
+            ; random
+            ; n_depth_increments }
+            |> f 
+
+        let arr : 'b 'c. ('b -> 'c) -> ('b, 'c) a =
+          fun b_c ->
+            make @@ fun _ -> b_c
+
+        (* type checker is stupid and won't let me use `make`. Turn off warning for unusedvariable for this function. *)
+        let[@ocaml.warning "-27"] id : 'b. ('b, 'b) a =
+          fun 
+            ?(global_timeout_sec : float = default.global_timeout_sec)
+            ?(solver_timeout_sec : float = default.solver_timeout_sec)
+            ?(global_max_step    : int   = default.global_max_step)
+            ?(max_tree_depth     : int   = default.max_tree_depth)
+            ?(random             : bool  = default.random)
+            ?(n_depth_increments : int   = default.n_depth_increments)
+            b
+            ->
+            b
+
+        let first : 'b 'c 'd. ('b, 'c) a -> ('b * 'd, 'c * 'd) a =
+          fun b_c_a ->
+            make @@ fun r -> fun (b, d) ->
+              (appl b_c_a r b), d
+
+        let (>>>) : 'b 'c 'd. ('b, 'c) a -> ('c, 'd) a -> ('b, 'd) a =
+          fun b_c_a c_d_a ->
+            make @@ fun r -> fun b ->
+              appl c_d_a r @@ appl b_c_a r b
+      end
+
+    include A
+
+    module Make_arrow (A : ARROW) =
+      struct
+        include A
+
+        let swap (x, y) = (y, x)
+
+        module Infix =
+          struct
+            let (>>>) = (>>>)
+
+            (* split *)
+            let ( *** ) : 'b 'c 'd 'e. ('b, 'c) a -> ('d, 'e) a -> ('b * 'd, 'c * 'e) a = 
+              fun b_c d_e ->
+                first b_c
+                >>> arr swap
+                >>> first d_e
+                >>> arr swap
+
+            (* fanout *)
+            let (&&&) : 'b 'c 'd. ('b, 'c) a -> ('b, 'd) a -> ('b, 'c * 'd) a =
+              fun f g ->
+                arr (fun b -> (b, b)) >>> f *** g
+
+            (* map second *)
+            let (^>>) : 'b 'c 'd. ('b, 'c) a -> ('c -> 'd) -> ('b, 'd) a =
+              fun bc_a cd ->
+                bc_a >>> arr cd
+
+            (* contramap first *)
+            let (<<^) : 'b 'c 'd. ('c, 'd) a -> ('b -> 'c) -> ('b, 'd) a =
+              fun cd_a bc ->
+                arr bc >>> cd_a
+          end
+
+        include Infix
+
+        let second : 'b 'c 'd. ('b, 'c) a -> ('d * 'b, 'd * 'c) a =
+          fun a ->
+            id *** a
+
+        let dimap : 'b 'c 'd 'e. ('b -> 'c) -> ('d -> 'e) -> ('c, 'd) a -> ('b, 'e) a =
+          fun b_c d_e c_d_a ->
+            (c_d_a <<^ b_c) ^>> d_e
+
+        let uncurry : 'b 'c 'd. ('b, 'c -> 'd) a -> ('b * 'c, 'd) a =
+          fun b_c_d_a ->
+            first b_c_d_a ^>> (fun (c_d, c) -> c_d c)
+
+        let strong : 'b 'c 'd. ('b -> 'c -> 'd) -> ('b, 'c) a -> ('b, 'd) a =
+          fun b_c_d b_c_a ->
+            first b_c_a
+            ^>> (fun (c, b) -> b_c_d b c)
+            <<^ (fun b -> (b, b))
+
+        let thaw : 'b 'c. (unit, 'b -> 'c) a -> ('b, 'c) a =
+          fun x -> uncurry x <<^ (fun y -> (), y)
+      end
+
+    include Make_arrow (A)
   end
