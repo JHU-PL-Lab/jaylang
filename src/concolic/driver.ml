@@ -1,8 +1,8 @@
 open Core
+open Options.Fun.Infix (* expose infix operators *)
 
 module CLog = Dj_common.Log.Export.CLog
 
-open Options.Fun.Infix (* expose infix operators *)
 
 module Test_result =
   struct

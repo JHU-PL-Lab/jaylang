@@ -41,9 +41,8 @@ module Status =
       | Exhausted _                   -> "Exhausted full tree"
   end
 
-[@@@ocaml.warning "-69"] (* ignore warning about last_sym not used *)
-
-type t =
+(* ignore warning about last_sym not used because it depends on current code for pop kind *)
+type[@ocaml.warning "-69"] t =
   { tree         : Path_tree.t (* pointer to the root of the entire tree of paths *)
   ; run_num      : int
   ; options      : Options.t
@@ -88,21 +87,19 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ]
     let%lwt () = Lwt.pause () in
     if Status.quit x.status then done_ x else
     match Path_tree.pop_target ~kind:pop_kind x.tree with
-    | Some (target, tree) -> solve_for_target { x with tree } target
+    | Some (target, tree) -> handle_target { x with tree } target
     | None -> done_ x (* no targets left, so done *)
 
-  and solve_for_target (x : t) (target : Target.t) =
-    let t0 = Caml_unix.gettimeofday () in
-    match Concolic_riddler.solve (Path_tree.formulas_of_target x.tree target) with
-    | Unsat ->
-      let t1 = Caml_unix.gettimeofday () in
-      Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0));
+  and handle_target (x : t) (target : Target.t) =
+    match solve_for_target x target with
+    | Concolic_riddler.Solve_status.Unsat ->
+      Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE BRANCH\n");
       next { x with tree = Path_tree.set_unsat_target x.tree target }
     | Unknown ->
       Log.Export.CLog.info (fun m -> m "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n");
-      failwith "unhandled solver timeout"
+      next { x with tree = Path_tree.set_timeout_target x.tree target ; status = Status.prune x.status }
     | Sat model ->
-      Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.Runtime.to_string target.branch));
+      Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH\n");
       Lwt.return
       @@ `Next (
             { x with run_num = x.run_num + 1 }
@@ -111,6 +108,14 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ]
               |> Symbolic.make target
               |> Options.Fun.appl Symbolic.with_options x.options
           )
+
+  and solve_for_target (x : t) (target : Target.t) =
+    Log.Export.CLog.info (fun m -> m "Solving for target: %s\n" (Branch.Runtime.to_string target.branch));
+    let t0 = Caml_unix.gettimeofday () in
+    let res = Concolic_riddler.solve (Path_tree.formulas_of_target x.tree target) in
+    let t1 = Caml_unix.gettimeofday () in
+    Log.Export.CLog.info (fun m -> m "Finished solve in %fs\n" (t1 -. t0));
+    res
 
   and done_ (x : t) =
     Log.Export.CLog.info (fun m -> m "Done.\n");

@@ -2,9 +2,6 @@
 type t
 (** [t] is a tree that will hold all program paths *)
 
-(* val empty : t
-* [empty] knows no program paths yet. *)
-
 val of_options : (unit, t) Options.Fun.a
 (** [of_options ()] take optional arguments to set target queue options, and it knows no program paths yet. *)
 
@@ -23,6 +20,9 @@ val add_stem : t -> Target.t -> Formulated_stem.t -> bool -> Branch.t list -> t
 
 val set_unsat_target : t -> Target.t -> t
 (** [set_unsat_target t target] is [t] where the given [target] has been marked off as unsatisfiable. *)
+
+val set_timeout_target : t -> Target.t -> t
+(** [set_timeout_target t target] is [t] where the given [target] has been marked off as causing a solver timeout. *)
 
 val pop_target : ?kind:Target_queue.Pop_kind.t -> t -> (Target.t * t) option
 (** [pop_target t] is most prioritized target and new queue, or [None] if there are no targets let.

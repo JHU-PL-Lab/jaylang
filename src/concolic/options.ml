@@ -50,7 +50,6 @@ module Fun =
     module type ARROW =
       sig
         type ('b, 'c) a
-        (* val id : ('b, 'b) a *)
         val arr : ('b -> 'c) -> ('b, 'c) a
         val first : ('b, 'c) a -> ('b * 'd, 'c * 'd) a
         val (>>>) : ('b, 'c) a -> ('c, 'd) a -> ('b, 'd) a
