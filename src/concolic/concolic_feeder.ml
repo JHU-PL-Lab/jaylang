@@ -1,13 +1,11 @@
 
-open Core
-
 type t = Concolic_key.t -> int
 
 let zero : t =
   fun _ -> 0
 
 let default : t =
-  fun _ -> Random.int_incl (-10) 10
+  fun _ -> C_random.int_incl (-10) 10
 
 let from_model (model : Z3.Model.model) : t =
   fun key ->

@@ -98,6 +98,10 @@ module rec Node :
       in
       trace_path [] tree target.path.forward_path
 
+    let filter_targets =
+      List.filter 
+       ~f:Target.(fun target -> not @@ Concolic_key.is_const target.branch.condition_key)
+
     (*
       The way we handle paths here is very inefficient. A reverse path would be smart
 
@@ -109,7 +113,7 @@ module rec Node :
         match stem with
         | Formulated_stem.Root { root_formulas } ->
           { formulas = root_formulas ; children = acc_children }
-          , List.filter acc_targets ~f:Target.(fun target -> not @@ Concolic_key.is_const target.branch.condition_key)
+          , filter_targets acc_targets
         | Cons { branch ; formulas ; tail } ->
           let path_to_children = Path.drop_last_exn path in (* drop the branch off the path *)
           let new_children, new_target = Children.of_branch branch { formulas ; children = acc_children } path_to_children in
@@ -145,7 +149,7 @@ module rec Node :
             )
         in
         loop target.path.forward_path tree (fun (x, new_targets) ->
-          x, List.filter new_targets ~f:Target.(fun target -> not @@ Concolic_key.is_const target.branch.condition_key)
+          x, filter_targets new_targets
         )
 
     (*
