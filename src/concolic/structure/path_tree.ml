@@ -108,7 +108,7 @@ module rec Node :
       let rec make_node path acc_children acc_targets stem =
         match stem with
         | Formulated_stem.Root { root_formulas } ->
-          { formulas = root_formulas ; children = acc_children }, acc_targets
+          { formulas = root_formulas ; children = acc_children }, List.filter acc_targets ~f:Target.(fun target -> not @@ Concolic_key.is_const target.branch.condition_key)
         | Cons { branch ; formulas ; tail } ->
           let path_to_children = Path.drop_last_exn path in (* drop the branch off the path *)
           let new_children, new_target = Children.of_branch branch { formulas ; children = acc_children } path_to_children in
@@ -143,7 +143,9 @@ module rec Node :
               finish ({ parent with children = Children.update parent.children next_dir @@ Child.make_hit_node child_node }, targets)
             )
         in
-        loop target.path.forward_path tree (fun a -> a)
+        loop target.path.forward_path tree (fun (x, new_targets) ->
+          x, List.filter new_targets ~f:Target.(fun target -> not @@ Concolic_key.is_const target.branch.condition_key)
+        )
 
     (*
       No pruning yet. Just update tree and leave it hanging out there in memory
