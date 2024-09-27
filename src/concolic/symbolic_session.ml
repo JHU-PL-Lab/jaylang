@@ -52,7 +52,7 @@ module Session_consts =
 
     let default : t =
       { target       = None
-      ; input_feeder = Concolic_feeder.default
+      ; input_feeder = Concolic_feeder.zero
       ; max_step     = Options.default.global_max_step }
   end
 
