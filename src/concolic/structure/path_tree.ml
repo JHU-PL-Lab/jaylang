@@ -108,7 +108,8 @@ module rec Node :
       let rec make_node path acc_children acc_targets stem =
         match stem with
         | Formulated_stem.Root { root_formulas } ->
-          { formulas = root_formulas ; children = acc_children }, List.filter acc_targets ~f:Target.(fun target -> not @@ Concolic_key.is_const target.branch.condition_key)
+          { formulas = root_formulas ; children = acc_children }
+          , List.filter acc_targets ~f:Target.(fun target -> not @@ Concolic_key.is_const target.branch.condition_key)
         | Cons { branch ; formulas ; tail } ->
           let path_to_children = Path.drop_last_exn path in (* drop the branch off the path *)
           let new_children, new_target = Children.of_branch branch { formulas ; children = acc_children } path_to_children in

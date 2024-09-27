@@ -83,7 +83,7 @@ let test_bjy : (string, Test_result.t) Options.Fun.a =
   test_expr
   <<^ fun filename ->
     filename
-    |> Dj_common.File_utils.read_source_full ~do_instrument:true ~do_wrap:true
+    |> Dj_common.File_utils.read_source_full ~do_instrument:false ~do_wrap:true
     |> Dj_common.Convert.jil_ast_of_convert
 
 let test : (string, Test_result.t) Options.Fun.a =

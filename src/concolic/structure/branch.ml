@@ -37,7 +37,7 @@ module Runtime =
   struct
     type t =
       { branch_key    : Concolic_key.t
-      ; condition_key : Concolic_key.t
+      ; condition_key : Concolic_key.t[@compare.ignore]
       ; direction     : Direction.t }
       [@@deriving compare, sexp]
 

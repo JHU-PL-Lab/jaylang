@@ -151,7 +151,7 @@ module By_ast_branch =
     type t =
       { options     : Options.t
       ; branch_hist : BQ.t
-      ; branch_map  : DFS.t M.t }
+      ; branch_map  : BFS.t M.t }
 
     let empty : t =
       { options     = Options.default
@@ -184,7 +184,7 @@ module By_ast_branch =
         BQ.pop branch_hist
         >>= fun ((branch, _), remaining_hist) -> begin (* Some branch has been hit a fewest number of times *)
           Map.find x.branch_map branch
-          >>= DFS.pop (* check if the least-hit branch has a target queue *)
+          >>= BFS.pop (* check if the least-hit branch has a target queue *)
           >>| (fun (target, new_q) -> target, Map.set x.branch_map ~key:branch ~data:new_q) (* pop the best target and set the new queue (without that target) to be in the branch map *)
           |> function
             | None -> pop remaining_hist (* couldn't find a target for this branch, so try again with all of the other branches *)
@@ -197,15 +197,15 @@ module By_ast_branch =
     let remove ({ branch_map ; _ } as x : t) (target : Target.t) : t =
       { x with branch_map =
           Map.change branch_map (Branch.Runtime.to_ast_branch target.branch) ~f:(function
-            | Some q -> Some (DFS.remove q target)
+            | Some q -> Some (BFS.remove q target)
             | None -> None
           )
       }
 
-    let push_one (r : Options.t) (branch_map : DFS.t M.t) (target : Target.t) : DFS.t M.t =
+    let push_one (_r : Options.t) (branch_map : BFS.t M.t) (target : Target.t) : BFS.t M.t =
       Map.update branch_map (Branch.Runtime.to_ast_branch target.branch) ~f:(function
-        | Some q -> DFS.push_one q target
-        | None -> DFS.push_one (Options.Fun.appl DFS.of_options r ()) target
+        | Some q -> BFS.push_one q target
+        | None -> BFS.push_one BFS.empty target (*(Options.Fun.appl BFS.of_options r ()) target*)
       ) 
 
     let push_list (x : t) (ls : Target.t list) : t =

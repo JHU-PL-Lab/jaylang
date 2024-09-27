@@ -40,7 +40,7 @@ module Runtime :
   sig
     type t =
       { branch_key    : Concolic_key.t
-      ; condition_key : Concolic_key.t
+      ; condition_key : Concolic_key.t[@compare.ignore]
       ; direction     : Direction.t } [@@deriving compare, sexp]
     (** [t] is a branch in the AST during runtime, where its branch and condition both have a clause
         step count to identify them (hence they are a [Concolic_key.t]).
