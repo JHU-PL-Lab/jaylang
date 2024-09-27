@@ -78,10 +78,10 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
 (* $ OCAML_LANDMARKS=on ./_build/... *)
 let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
   let pop_kind =
-    (* match x.last_sym with
+    match x.last_sym with
     | Some s when Symbolic.Dead.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
-    | _ -> Random *)
-    Target_queue.Pop_kind.By_ast_branch
+    | _ -> Random
+    (* Target_queue.Pop_kind.By_ast_branch *)
   in
   let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
     let%lwt () = Lwt.pause () in

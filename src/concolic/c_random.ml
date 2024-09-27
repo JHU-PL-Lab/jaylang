@@ -4,7 +4,7 @@ open Core
 let seed =
   String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
 
-let init () = 
+let reset () = 
   Random.init seed
 
 let int = 
