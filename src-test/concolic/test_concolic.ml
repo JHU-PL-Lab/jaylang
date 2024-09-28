@@ -17,7 +17,7 @@ let test_for_abort is_error_expected testname _args =
   | Some "jil" -> Dj_common.File_utils.read_source testname
   | Some "bjy" ->
     Convert.jil_ast_of_convert
-    @@ Dj_common.File_utils.read_source_full ~do_wrap:true ~do_instrument:true testname
+    @@ Dj_common.File_utils.read_source_full ~do_wrap:true ~do_instrument:false testname
   | _ -> failwith "unsupported test extension"
   end
   |> Driver.test_expr ~global_timeout_sec:30.0

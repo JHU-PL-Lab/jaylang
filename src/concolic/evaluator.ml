@@ -67,10 +67,6 @@ open Cresult
 
   This section is basically an interpreter injected with concolic logic.
   It is a single evaluation of the program, and it accumulates symbolic formulas.
-
-  I used to have a nice state monad here, but because of the ppx expansion, we 
-  lost tail recursion, so now I just manually pass it through and case on the
-  result a *lot*. It's ugly, but it's faster than with the nice state monad.
 *)
 
 type k = Cresult.t -> Cresult.t
