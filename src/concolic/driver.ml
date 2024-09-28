@@ -38,6 +38,13 @@ module Test_result =
       | Exhausted { pruned = false } -> Exhausted
       | In_progress _ -> failwith "session status unfinished"
 
+    let is_error_found = function
+    | Timeout
+    | Exhausted_pruned_tree
+    | Exhausted -> false
+    | Found_abort _
+    | Type_mismatch _ -> true
+
   end
 
 (*
