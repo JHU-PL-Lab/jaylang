@@ -1,5 +1,6 @@
 # Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program.
 # This has been trimmed down to remove any code that had no intersection with the erroring code.
+# We would like to keep types on the helper functions, but we currently don't handle that well.
 
 let pos_int = {. int | fun i -> i > 0 }
 in
@@ -37,8 +38,8 @@ let rec take n =
     end
 in
 
-#letd make_ngrams (type a_) (n : pos_int) : (List a_) -> List (ngram n a_) =
 let make_ngrams n =
+#letd make_ngrams (type a_) (n : pos_int) : (List a_) -> List (ngram n a_) =
   fun ls ->
     let rec loop l =
       match l with
@@ -51,8 +52,8 @@ let make_ngrams n =
     loop ls
 in
 
-#let rec compare_list (type a_) (compare : a_ -> a_ -> int) (l1 : List a_) (l2 : List a_) : int =
 let rec compare_list compare l1 l2 =
+#let rec compare_list (type a_) (compare : a_ -> a_ -> int) (l1 : List a_) (l2 : List a_) : int =
   match l1 with
   | [] ->
     match l2 with
@@ -74,8 +75,33 @@ in
 let tuple a b = {: fst : a , snd : b :}
 in
 
-letd bag_map_of_list (type a_ b_) (ls : List (tuple a_ b_)) : (a_ -> a_ -> int) -> map a_ (bag b_) =
-#let bag_map_of_list ls =
+let rec last_exn ls = 
+#let rec last_exn (type a_) (ls : {. List a_ | fun l -> len l > 0 }) : a_ = 
+  match ls with
+  | [] -> assert false
+  | hd :: tl ->
+    match tl with
+    | [] -> hd
+    | _ -> last_exn tl
+    end
+  end
+in
+
+letd rec make_dist (type a_) (n : pos_int) : (List a_) -> (a_ -> a_ -> int) -> distribution n a_ =
+  fun l ->
+    fun compare ->
+      let ngrams = make_ngrams n l in
+      let rec make_tup_list ls =
+        match ls with
+        | [] -> []
+        | ngram :: tl ->
+          { fst = last_exn ngram , snd = take (n - 1) ngram } :: make_tup_list ls # ERROR: fst and snd are switched here. fst here is a_, but we use compare_list below
+          #{ snd = last_exn ngram , fst = take (n - 1) ngram } :: make_tup_list ls # This would be the well-typed version
+        end
+      in
+      bag_map_of_list (ngram (n - 1) a_) a_ (make_tup_list ngrams) (compare_list compare) # Notice we need to instantiate the types because `bag_map_of_list` is typed
+      
+with bag_map_of_list (type a_ b_) (ls : List (tuple a_ b_)) : (a_ -> a_ -> int) -> map a_ (bag b_) =
   fun compare ->
     fun a ->
       let rec loop l =
@@ -88,32 +114,6 @@ letd bag_map_of_list (type a_ b_) (ls : List (tuple a_ b_)) : (a_ -> a_ -> int) 
         end
       in
       loop ls
-in
-
-#let rec last_exn (type a_) (ls : {. List a_ | fun l -> len l > 0 }) : a_ = 
-let rec last_exn ls = 
-  match ls with
-  | [] -> assert false
-  | hd :: tl ->
-    match tl with
-    | [] -> hd
-    | _ -> last_exn tl
-    end
-  end
-in
-
-letd make_dist (type a_) (n : pos_int) : (List a_) -> (a_ -> a_ -> int) -> distribution n a_ =
-  fun l ->
-    fun compare ->
-      let ngrams = make_ngrams n l in
-      let rec make_tup_list ls =
-        match ls with
-        | [] -> []
-        | ngram :: tl ->
-          { fst = last_exn ngram , snd = take (n - 1) ngram } :: make_tup_list ls # ERROR: fst and snd are switched here. fst here is a_, but we use compare_list below
-        end
-      in
-      bag_map_of_list (ngram (n - 1) a_) a_ (make_tup_list ngrams) (compare_list compare)
 in
 
 make_ngrams

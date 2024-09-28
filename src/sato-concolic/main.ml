@@ -108,7 +108,7 @@ let main_commandline () =
     Argparse.parse_commandline ~config:Global_config.default_sato_config ()
   in
   let program_full =
-    File_utils.read_source_full ~do_wrap:config.is_wrapped ~do_instrument:true (* NOTICE: Brandon changed do_instrument to false. It is typically true (but actually right now it's back to true) *)
+    File_utils.read_source_full ~do_wrap:config.is_wrapped ~do_instrument:false (* NOTICE: Brandon changed do_instrument to false. It is typically true for error reporting *)
       config.filename
   in
   let () =
