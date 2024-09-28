@@ -11,10 +11,11 @@ module Pop_kind =
       | Random (* randomly choose one of the above pop kinds *)
 
     let random () =
-      match C_random.int 2 with
+      match C_random.int 4 with
       | 0 -> DFS
       | 1 -> BFS
-      | _ -> Uniform
+      | 2 -> Uniform
+      | _ -> By_ast_branch
   end
 
 (*

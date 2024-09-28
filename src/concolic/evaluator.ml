@@ -220,8 +220,8 @@ let eval_exp
             | Binary_operator_plus, Value_int n1, Value_int n2                  -> n (Value_int  (n1 + n2))
             | Binary_operator_minus, Value_int n1, Value_int n2                 -> n (Value_int  (n1 - n2))
             | Binary_operator_times, Value_int n1, Value_int n2                 -> n (Value_int  (n1 * n2))
-            | Binary_operator_divide, Value_int n1, Value_int n2                -> n (Value_int  (n1 / n2))
-            | Binary_operator_modulus, Value_int n1, Value_int n2               -> n (Value_int  (n1 mod n2))
+            | Binary_operator_divide, Value_int n1, Value_int n2 when n2 <> 0   -> n (Value_int  (n1 / n2))
+            | Binary_operator_modulus, Value_int n1, Value_int n2 when n2 <> 0  -> n (Value_int  (n1 mod n2))
             | Binary_operator_less_than, Value_int n1, Value_int n2             -> n (Value_bool (n1 < n2))
             | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 -> n (Value_bool (n1 <= n2))
             | Binary_operator_equal_to, Value_int n1, Value_int n2              -> n (Value_bool (n1 = n2))
@@ -229,7 +229,7 @@ let eval_exp
             | Binary_operator_and, Value_bool b1, Value_bool b2                 -> n (Value_bool (b1 && b2))
             | Binary_operator_or, Value_bool b1, Value_bool b2                  -> n (Value_bool (b1 || b2))
             | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> n (Value_bool (n1 <> n2))
-            | _ -> type_mismatch
+            | _ -> type_mismatch (* includes mod or divide by 0 *)
           end @@ Session.Symbolic.add_binop x_key op y_key z_key symb_session
         | _ -> type_mismatch symb_session
       end
