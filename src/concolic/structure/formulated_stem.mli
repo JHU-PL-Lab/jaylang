@@ -15,5 +15,5 @@ val push_branch : t -> Branch.Runtime.t -> t
 val push_formula : t -> Z3.Expr.expr -> t
 (** [push_formula t expr] adds [expr] to [t] in the current scope. *)
 
-val to_path : t -> Path.t
-(** [to_path t] is a path to the final branch in [t]. *)
+val to_rev_path : t -> Path.Reverse.t
+(** [to_rev_path t] is the reverse path to the final branch in [t]. *)

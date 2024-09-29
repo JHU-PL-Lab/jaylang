@@ -1,19 +1,32 @@
 
-type t = { forward_path : Branch.Direction.t list }
+module T :
+  sig
+    type t = { forward_path : Branch.Direction.t list }
+  end
 
-val compare : t -> t -> int
+type t = T.t
 
-val empty : t
-(** [empty] is a path with no directions. *)
+module Reverse :
+  sig
+    type t = { backward_path : Branch.Direction.t list }
 
-val return : Branch.Direction.t list -> t
-(** [return ls] is a path of the forward direction list [ls]. *)
+    val compare : t -> t -> int
 
-val append : t -> Branch.Direction.t -> t
-(** [append t dir] is a path with [dir] appended as the last direction to [t.forward_path]. *)
+    val empty : t
+    (** [empty] is a path with no directions. *)
 
-val concat : t -> t -> t
-(** [concat a b] is the path [a] followed by [b].  *)
+    val return : Branch.Direction.t list -> t
+    (** [return ls] is a path of the forward direction list [ls]. *)
 
-val drop_last_exn : t -> t
-(** [drop_last_exn t] is a path with all but the last direction in [t], or exception if [t] is empty. *)
+    val cons : Branch.Direction.t -> t -> t
+    (** [cons dir t] is a path with [dir] put on the front of [t.backward_path]. *)
+
+    val concat : t -> t -> t
+    (** [concat a b] is the reverse path [a.backward_path @ b.backward_path].*)
+
+    val drop_hd_exn : t -> t
+    (** [drop_hd_exn t] is [t] with the head of [t.backward_path]. *)
+
+    val to_forward_path : t -> T.t
+    (** [to_forward_path t] is the reversed list in [t] as a forward path. *)
+  end

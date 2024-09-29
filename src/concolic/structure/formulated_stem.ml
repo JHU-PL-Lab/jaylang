@@ -19,10 +19,11 @@ let push_formula (x : t) (expr : Z3.Expr.expr) : t =
   | Root { root_formulas } -> Root { root_formulas = Formula_set.add root_formulas expr }
   | Cons r -> Cons { r with formulas = Formula_set.add r.formulas expr }
 
-let to_path (x : t) : Path.t =
+let to_rev_path (x : t) : Path.Reverse.t =
   let rec loop acc = function
     | Root _ -> acc
     | Cons { branch = { direction ; _ } ; tail ; _ } -> loop (direction :: acc) tail
   in
-  Path.return
-  @@ loop [] x
+  loop [] x
+  |> List.rev
+  |> Path.Reverse.return

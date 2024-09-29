@@ -38,8 +38,8 @@ module type CHILDREN =
     val is_empty : t -> bool
     val child_exn : t -> Branch.Direction.t -> child
     val update : t -> Branch.Direction.t -> child -> t
-    val make_failed_assume : Branch.Runtime.t -> Formula_set.t -> Path.t -> t * Target.t * Target.t
-    val of_branch : Branch.Runtime.t -> node -> Path.t -> t * Target.t
+    val make_failed_assume : Branch.Runtime.t -> Formula_set.t -> Path.Reverse.t -> t * (Target.t * Target.t) option
+    val of_branch : Branch.Runtime.t -> node -> Path.Reverse.t -> t * Target.t option
   end
 
 module type CHILD =
@@ -96,46 +96,41 @@ module rec Node :
             tl
         | [] -> failwith "no path given for target"
       in
-      trace_path [] tree target.path.forward_path
-
-    let filter_targets =
-      List.filter 
-       ~f:Target.(fun target -> not @@ Concolic_key.is_const target.branch.condition_key)
+      trace_path [] tree (Path.Reverse.to_forward_path target.path).forward_path
 
     (*
-      The way we handle paths here is very inefficient. A reverse path would be smart
-
       TODO: see about how we handle failing an assume immediately in root of the stem (because the root of the stem might not be the global scope)
     *)
-    let node_of_stem (initial_path : Path.t) (stem : Formulated_stem.t) (failed_assume : bool) : t * Target.t list =
+    let node_of_stem (initial_path : Path.Reverse.t) (stem : Formulated_stem.t) (failed_assume : bool) : t * Target.t list =
       (* path passed in here is the path that includes the branch in the cons, or is empty if root *)
-      let rec make_node path acc_children acc_targets stem =
+      let rec make_node path acc_children stem acc_targets =
         match stem with
         | Formulated_stem.Root { root_formulas } ->
-          { formulas = root_formulas ; children = acc_children }
-          , filter_targets acc_targets
+          { formulas = root_formulas ; children = acc_children }, acc_targets
         | Cons { branch ; formulas ; tail } ->
-          let path_to_children = Path.drop_last_exn path in (* drop the branch off the path *)
+          let path_to_children = Path.Reverse.drop_hd_exn path in (* drop the branch off the path *)
           let new_children, new_target = Children.of_branch branch { formulas ; children = acc_children } path_to_children in
-          make_node path_to_children new_children (new_target :: acc_targets) tail
+          make_node path_to_children new_children tail
+            (match new_target with Some target -> target :: acc_targets | _ -> acc_targets)
       in
-      let full_path = Path.concat initial_path @@ Formulated_stem.to_path stem in
+      let full_path = Path.Reverse.concat (Formulated_stem.to_rev_path stem) initial_path in
       match stem with
       | Cons { branch ; formulas ; tail } when failed_assume ->
-        let path_to_assume = Path.drop_last_exn full_path in
-        let children, t1, t2 = Children.make_failed_assume branch formulas path_to_assume in
-        make_node path_to_assume children [ t1 ; t2 ] tail
+        let path_to_assume = Path.Reverse.drop_hd_exn full_path in
+        let children, new_targets = Children.make_failed_assume branch formulas path_to_assume in
+        make_node path_to_assume children tail 
+          (match new_targets with Some (t1, t2) -> [ t1 ; t2 ] | _ -> [])
       | Cons _ ->
-        make_node full_path Pruned [] stem
+        make_node full_path Pruned stem []
       | Root { root_formulas } ->
         { formulas = root_formulas ; children = Pruned }, []
 
     let of_stem (stem : Formulated_stem.t) (failed_assume : bool) : t * Target.t list =
-      node_of_stem Path.empty stem failed_assume
+      node_of_stem Path.Reverse.empty stem failed_assume
 
     let add_stem (tree : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) : t * Target.t list =
       if is_empty tree
-      then node_of_stem Path.empty stem failed_assume
+      then node_of_stem Path.Reverse.empty stem failed_assume
       else
         let rec loop path parent finish =
           match path with
@@ -148,9 +143,7 @@ module rec Node :
               finish ({ parent with children = Children.update parent.children next_dir @@ Child.make_hit_node child_node }, targets)
             )
         in
-        loop target.path.forward_path tree (fun (x, new_targets) ->
-          x, filter_targets new_targets
-        )
+        loop (Path.Reverse.to_forward_path target.path).forward_path tree (fun a -> a)
 
     (*
       No pruning yet. Just update tree and leave it hanging out there in memory
@@ -165,7 +158,7 @@ module rec Node :
             finish { parent with children = Children.update parent.children next_dir @@ Child.make_hit_node node }
           )
       in
-      loop target.path.forward_path tree (fun a -> a)
+      loop (Path.Reverse.to_forward_path target.path).forward_path tree (fun a -> a)
  
 
     let set_timeout_target (tree : t) (target : Target.t) : t =
@@ -205,31 +198,50 @@ and Children :
         | True_direction -> Both { r with true_side = child }
         | False_direction -> Both { r with false_side = child }
 
-    let make_failed_assume (branch : Branch.Runtime.t) (assumed_formulas : Formula_set.t) (path : Path.t) : t * Target.t * Target.t =
+    (* this is independent of the branch direction *)
+    let is_valid_target (branch : Branch.Runtime.t) : bool =
+      not
+      @@ Concolic_key.is_const branch.condition_key
+
+    let make_failed_assume (branch : Branch.Runtime.t) (assumed_formulas : Formula_set.t) (path : Path.Reverse.t) : t * (Target.t * Target.t) option =
       let failed_assume_child = Child.make_failed_assume_child assumed_formulas in
-      let failed_assume_target = Target.create branch @@ Path.append path branch.direction in
 
       let branch_other_dir = Branch.Runtime.other_direction branch in
       let other_child = Child.make_target_child branch_other_dir in
-      let other_target = Target.create branch_other_dir @@ Path.append path branch_other_dir.direction in
+
+      let new_targets = 
+        if is_valid_target branch
+        then Some (
+          Target.create branch @@ Path.Reverse.cons branch.direction path
+          , Target.create branch_other_dir @@ Path.Reverse.cons branch_other_dir.direction path
+        )
+        else None
+      in
 
       let children =
         match branch.direction with
         | True_direction  -> Both { true_side = failed_assume_child ; false_side = other_child }
         | False_direction -> Both { true_side = other_child ; false_side = failed_assume_child }
       in
-      children, failed_assume_target, other_target
+      children, new_targets
 
-    let of_branch (branch : Branch.Runtime.t) (node : Node.t) (path : Path.t) : t * Target.t =
+    let of_branch (branch : Branch.Runtime.t) (node : Node.t) (path : Path.Reverse.t) : t * Target.t option =
       let branch_other_dir = Branch.Runtime.other_direction branch in
       let child = Child.make_hit_node node in
       let other_child = Child.make_target_child branch_other_dir in
+
+      let new_target =
+        if is_valid_target branch
+        then Some (Target.create branch_other_dir @@ Path.Reverse.cons branch_other_dir.direction path)
+        else None
+      in
+
       let children =
         match branch.direction with
         | True_direction  -> Both { true_side = child ; false_side = other_child }
         | False_direction -> Both { true_side = other_child ; false_side = child }
       in
-      children, Target.create branch_other_dir @@ Path.append path branch_other_dir.direction
+      children, new_target
   end
 and Child :
   CHILD with
