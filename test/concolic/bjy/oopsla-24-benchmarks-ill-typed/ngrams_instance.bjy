@@ -1,4 +1,5 @@
 # Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program.
+# I have added an instance of an input we'd like the concolic evaluator to generate for this version.
 # This has been trimmed down to remove any code that had no intersection with the erroring code.
 # We would like to keep types on the helper functions, but we currently don't handle that well.
 
@@ -20,7 +21,7 @@ let rec len ls =
   end
 in
 
-let ngram n a = {. List a | fun ls -> len ls == n and n > 0 }
+let ngram n a = {. List a | fun ls -> (len ls == n) and n >= 0 }
 in
 
 let distribution n a = map (ngram (n - 1) a) (bag a)
@@ -29,6 +30,7 @@ in
 let rec take n =
 #letd rec take (type a_) (n : pos_int) : (List a_) -> {. List a_ | fun ls -> len ls <= n } =
   fun l ->
+    if n == 0 then [] else if n < 0 then assert false else
     match l with
     | [] -> []
     | hd :: tl ->
@@ -41,15 +43,16 @@ in
 let make_ngrams n =
 #letd make_ngrams (type a_) (n : pos_int) : (List a_) -> List (ngram n a_) =
   fun ls ->
-    let rec loop l =
+    let rec loop l m =
       match l with
       | [] -> []
       | hd :: tl ->
-        if len l < n then [] else
-        take n l :: loop tl
+        if m < n
+        then []
+        else take n l :: loop tl (m - 1)
       end
     in
-    loop ls
+    loop ls (len ls)
 in
 
 let rec compare_list compare l1 l2 =
@@ -78,7 +81,6 @@ in
 let rec last_exn ls = 
 #let rec last_exn (type a_) (ls : {. List a_ | fun l -> len l > 0 }) : a_ = 
   match ls with
-  | [] -> assert false
   | hd :: tl ->
     match tl with
     | [] -> hd
@@ -87,21 +89,25 @@ let rec last_exn ls =
   end
 in
 
-letd rec make_dist (type a_) (n : pos_int) : (List a_) -> (a_ -> a_ -> int) -> distribution n a_ =
+#letd rec make_dist (type a_) (n : pos_int) : (List a_) -> (a_ -> a_ -> int) -> distribution n a_ =
+let rec make_dist n =
   fun l ->
     fun compare ->
       let ngrams = make_ngrams n l in
-      let rec make_tup_list ls =
+      let tup_of_ng ng =
+        { fst = last_exn ng , snd = take (n - 1) ng } # ERROR: fst and snd are switched here. fst here is a_, but we use compare_list below
+      in
+      let rec map_ng_to_tups ls =
         match ls with
         | [] -> []
-        | ngram :: tl ->
-          { fst = last_exn ngram , snd = take (n - 1) ngram } :: make_tup_list ls # ERROR: fst and snd are switched here. fst here is a_, but we use compare_list below
-          #{ snd = last_exn ngram , fst = take (n - 1) ngram } :: make_tup_list ls # This would be the well-typed version
+        | ng :: tl -> tup_of_ng ng :: map_ng_to_tups tl
         end
       in
-      bag_map_of_list (ngram (n - 1) a_) a_ (make_tup_list ngrams) (compare_list compare) # Notice we need to instantiate the types because `bag_map_of_list` is typed
+      #bag_map_of_list (ngram (n - 1) a_) a_ (map_ng_to_tups ngrams) (compare_list compare) # Notice we need to instantiate the types because `bag_map_of_list` is typed
+      bag_map_of_list (map_ng_to_tups ngrams) (compare_list compare)
       
-with bag_map_of_list (type a_ b_) (ls : List (tuple a_ b_)) : (a_ -> a_ -> int) -> map a_ (bag b_) =
+#with bag_map_of_list (type a_ b_) (ls : List (tuple a_ b_)) : (a_ -> a_ -> int) -> map a_ (bag b_) =
+with bag_map_of_list tup_list =
   fun compare ->
     fun a ->
       let rec loop l =
@@ -113,8 +119,23 @@ with bag_map_of_list (type a_ b_) (ls : List (tuple a_ b_)) : (a_ -> a_ -> int) 
           else loop tl
         end
       in
-      loop ls
+      loop tup_list
 in
 
-make_ngrams
+let compare_bool a b =
+  if a
+  then
+    if b 
+    then 0 # both true
+    else 0 - 1 
+  else
+    if b
+    then 1
+    else 0 # both false
+in
+
+let (res : distribution 3 (bool)) = make_dist 3 [ true , false , true, false , false ] compare_bool
+in
+
+res
 

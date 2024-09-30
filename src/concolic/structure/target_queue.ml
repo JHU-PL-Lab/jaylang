@@ -133,16 +133,6 @@ module DFS =
       { x with q = Q.remove target q }
   end
 
-(*
-  I want to have a heap that allows me to get the minimum-hit branch of those with targets.
-  Then pop a target with that AST branch.
-  I also need to remember how many times every branch has been hit so that it has the correct
-  count when it is put in the heap.
-
-  I think this warrants a refactor where I can create a target queue that has such a heuristic.
-  I want to be able to use multiple heuristics, so I should join the target queues.
-*)
-
 module By_ast_branch =
   struct
 
