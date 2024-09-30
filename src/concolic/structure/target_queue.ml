@@ -44,7 +44,7 @@ module R =
   end
 
 (*
-  This implementation of BFS is somewhat dishonest. It is bread-first in that shallower targets
+  This implementation of BFS is somewhat dishonest. It is breadth-first in that shallower targets
   are popped first, but the lexicographically smaller targets of the same depth are popped first, which is
   not typical. It is concise but not fully in depth-first spirit, so I leave it commented for now.
 *)
@@ -145,77 +145,112 @@ module DFS =
 
 module By_ast_branch =
   struct
-    module BQ = Psq.Make (Branch) (Int)
 
-    module M = Map.Make (Branch)
+    (* queue heap: heap of branches and the number of times they've been hit, and their nonempty queue *)
+    module QH =
+      struct
+        module BQ = Psq.Make (Branch) (struct
+          type t = int * DFS.t
+          let compare (a, _) (b, _) = Int.compare a b
+        end)
+
+        type t = BQ.t
+
+        let empty : t = BQ.empty
+
+        let incr (x : t) (branch : Branch.t) : t =
+          BQ.update branch (function
+            | Some (c, q) -> Some (c + 1, q)
+            | None -> None
+          ) x
+
+        let pop (x : t) : (Target.t * t) option =
+          let open Option.Let_syntax in
+          BQ.min x (* get branch with fewest hits that has at least one target *)
+          >>= fun (branch, (c, q)) -> q (* extract the queue for the branch *)
+          |> DFS.pop (* pop best target *)
+          >>| fun (target, remaining_q) ->
+            target
+            , if DFS.is_empty remaining_q
+              then BQ.remove branch x (* delete the queue if that was the last target *)
+              else BQ.add branch (c, remaining_q) x (* otherwise just update the queue *)
+
+        let remove (x : t) (target : Target.t) : t =
+          BQ.update (Target.to_ast_branch target) (function
+            | None -> None
+            | Some (c, q) ->
+              let new_q = DFS.remove q target in
+              if DFS.is_empty new_q
+              then None (* delete the queue from the heap if this was the last target *)
+              else Some (c, new_q) (* otherwise just keep the remainder *)
+          ) x
+
+        (* Push the target. If the queue for the target was previously empty, then we need to know the hit count. *)
+        let push (x : t) (target : Target.t) (hit_count : int) (r : Options.t) : t =
+          BQ.update (Target.to_ast_branch target) (function
+            | Some (c, q) -> Some (c, DFS.push_one q target)
+            | None -> Some (hit_count, DFS.push_one (Options.Fun.appl DFS.of_options r ()) target)
+          ) x
+
+      end
+
+    module Hist =
+      struct
+        module M = Map.Make (Branch)
+        type t = int M.t
+
+        let empty : t = M.empty
+
+        let count (x : t) (target : Target.t) : int =
+          target
+          |> Target.to_ast_branch
+          |> Map.find x
+          |> Option.value ~default:0
+
+        let incr (x : t) (branch : Branch.t) : t =
+          Map.update x branch ~f:(function
+            | Some c -> c + 1
+            | None -> 1
+          )
+      end
 
     type t =
-      { options     : Options.t
-      ; branch_hist : BQ.t
-      ; branch_map  : DFS.t M.t }
+      { options : Options.t (* needed to create DFS with correct depth increments *)
+      ; q_heap  : QH.t (* queue heap (see module above) *)
+      ; hist    : Hist.t } (* counts number of hits for each branch *)
 
     let empty : t =
-      { options     = Options.default
-      ; branch_hist = BQ.empty
-      ; branch_map  = M.empty }
+      { options = Options.default
+      ; q_heap  = QH.empty
+      ; hist    = Hist.empty }
 
     let of_options : (unit, t) Options.Fun.a =
       Options.Fun.make
       @@ fun (r : Options.t) () -> { empty with options = r }
 
-    let hit_branches ({ branch_hist ; _ } as x : t) (ls : Branch.t list) : t =
-      { x with branch_hist =
-        List.fold ls ~init:branch_hist ~f:(fun acc branch ->
-          BQ.update branch (function
-            | Some p -> Some (p + 1) (* increment number of times the branch has been hit *)
-            | None -> Some 1 (* first time seeing this branch. It has been hit once *)
-          ) acc
-        )
-      }
-
-    (*
-      TODO: maintain a second hist that has all the counts, and also a hist that has branches
-        with nonempty queues. Then remember to delete from that hist whenever popping from 
-        a singleton queue or removing the only target under that branch. This removes all of these
-        inefficiencies
-    *)
-    let pop (x : t) : (Target.t * t) option =
-      let open Option.Let_syntax in
-      let rec pop branch_hist =
-        BQ.pop branch_hist
-        >>= fun ((branch, _), remaining_hist) -> begin (* Some branch has been hit a fewest number of times *)
-          Map.find x.branch_map branch
-          >>= DFS.pop (* check if the least-hit branch has a target queue *)
-          >>| (fun (target, new_q) -> target, Map.set x.branch_map ~key:branch ~data:new_q) (* pop the best target and set the new queue (without that target) to be in the branch map *)
-          |> function
-            | None -> pop remaining_hist (* couldn't find a target for this branch, so try again with all of the other branches *)
-            | y -> y (* found a target, so return *)
-        end
+    let hit_branches (x : t) (ls : Branch.t list) : t =
+      let rec loop heap hist = function
+      | [] -> { x with q_heap = heap ; hist }
+      | branch :: tl -> loop (QH.incr heap branch) (Hist.incr hist branch) tl
       in
-      pop x.branch_hist
-      >>| fun (target, branch_map) -> target, { x with branch_map }
+      loop x.q_heap x.hist ls
 
-    let remove ({ branch_map ; _ } as x : t) (target : Target.t) : t =
-      { x with branch_map =
-          Map.change branch_map (Branch.Runtime.to_ast_branch target.branch) ~f:(function
-            | Some q -> Some (DFS.remove q target)
-            | None -> None
-          )
-      }
+    let pop (x : t) : (Target.t * t) option =
+      Option.map ~f:(fun (target, q_heap) -> target, { x with q_heap })
+      @@ QH.pop x.q_heap
 
-    let push_one (r : Options.t) (branch_map : DFS.t M.t) (target : Target.t) : DFS.t M.t =
-      Map.update branch_map (Branch.Runtime.to_ast_branch target.branch) ~f:(function
-        | Some q -> DFS.push_one q target
-        | None -> DFS.push_one (Options.Fun.appl DFS.of_options r ()) target
-      ) 
+    let remove (x : t) (target : Target.t) : t =
+      { x with q_heap = QH.remove x.q_heap target }
 
     let push_list (x : t) (ls : Target.t list) : t =
-      { x with branch_map = List.fold ls ~init:x.branch_map ~f:(push_one x.options)
-      ; branch_hist = (* need to make it known that these branches exist if they have never been hit *)
-        ls
-        |> List.map ~f:Target.(fun target -> Branch.Runtime.to_ast_branch target.branch)
-        |> List.fold ~init:x.branch_hist ~f:(fun acc branch -> BQ.update branch (function None -> Some 0 | n -> n) acc)
-      }
+      let rec loop ls heap =
+        match ls with
+        | [] -> { x with q_heap = heap }
+        | target :: tl ->
+          loop tl
+          @@ QH.push heap target (Hist.count x.hist target) x.options
+      in
+      loop ls x.q_heap
   end
 
 type t =

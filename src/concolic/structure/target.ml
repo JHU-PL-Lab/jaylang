@@ -17,3 +17,7 @@ let compare (a : t) (b : t) : int =
 
 let create (branch : Branch.Runtime.t) (path : Path.Reverse.t) : t =
   { path ; path_n = List.length path.backward_path ; branch }
+
+let to_ast_branch ({ branch ; _ } : t) : Branch.t =
+  Branch.Runtime.to_ast_branch branch
+

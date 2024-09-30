@@ -11,3 +11,5 @@ val compare : t -> t -> int
 
 val create : Branch.Runtime.t -> Path.Reverse.t -> t
 (** [create branch path] is a target for the [branch] where [branch] is the deepest in the [path]. *)
+
+val to_ast_branch : t -> Branch.t
