@@ -46,9 +46,15 @@ module R =
 (*
   This implementation of BFS is somewhat dishonest. It is breadth-first in that shallower targets
   are popped first, but the lexicographically smaller targets of the same depth are popped first, which is
-  not typical. It is concise but not fully in depth-first spirit, so I leave it commented for now.
+  not typical. 
+
+  Further, because many new targets get added at once from a single run that are not like the neighbors of a
+  node in a typical tree search, no list-like queue can really ensure we visit the shallowest neighbors first.
+  Thus, we use a priority search queue with the depth of the targets as the priority.
+
+  To be sure that targets found first are dequeued first, we could use run number as the tie-breaker in priority.
 *)
-(* module BFS =
+module BFS =
   struct
     type t = Bfs of Q.t
 
@@ -69,33 +75,6 @@ module R =
     let remove (Bfs q : t) (target : Target.t) : t =
       return
       @@ Q.remove target q
-  end *)
-
-module BFS =
-  struct
-    type t =
-      { m : int (* worst priority in the queue. *)
-      ; q : Q.t }
-
-    (* default priority for only element in queue *)
-    let default_prio = 0
-
-    let empty : t =
-      { m = default_prio (* note that max priority is actually the *least prioritized* item. Lower prio is popped first. *)
-      ; q = Q.empty }
-
-    let push_one ({ q ; m } : t) (target : Target.t) : t =
-      (* use `push` so that if it is already in the queue, it is not moved to the back. To move to the back, use `add`. *)
-      { q = Q.push target m q ; m = m + 1 }
-
-    let push_list (x : t) (ls : Target.t list) : t =
-      List.fold ls ~init:x ~f:push_one
-
-    let pop ({ q ; _ } as x : t) : (Target.t * t) option =
-      Option.map (Q.pop q) ~f:(function (target, _), q -> target, { x with q })
-
-    let remove ({ q ; _ } as x: t) (target : Target.t) : t =
-      { x with q = Q.remove target q }
   end
 
 module DFS =
@@ -259,10 +238,9 @@ let of_options : (unit, t) Options.Fun.a =
   (DFS.of_options &&& By_ast_branch.of_options)
   ^>> fun (dfs, by_branch) -> { empty with dfs ; by_branch }
 
-(* Deeper targets are at the back of [ls] *)
 let push_list ({ dfs ; bfs ; uniform ; by_branch } : t) (ls : Target.t list) : t =
   { dfs = DFS.push_list dfs ls
-  ; bfs = BFS.push_list bfs (List.rev ls) (* reverse so that deeper targets have worse priority *)
+  ; bfs = BFS.push_list bfs ls 
   ; uniform = R.push_list uniform ls (* give random priority *)
   ; by_branch = By_ast_branch.push_list by_branch ls
   }
