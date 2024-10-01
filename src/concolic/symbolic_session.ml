@@ -56,6 +56,7 @@ module Session_consts =
       ; max_step     = Options.default.global_max_step }
   end
 
+(* TODO: put all branch management (and maybe depth with it) into a module instead of flat in this record *)
 module T =
   struct
     type t =
@@ -64,7 +65,8 @@ module T =
       ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch | `Failed_assume ]
       ; rev_inputs     : Jil_input.t list
       ; depth_tracker  : Depth_tracker.t 
-      ; hit_branches   : Branch.t list }
+      ; any_hit_branches : Branch.t list
+      ; solvable_hit_branches : Branch.t list }
   end
 
 include T
@@ -75,7 +77,8 @@ let empty : t =
   ; status         = `In_progress
   ; rev_inputs     = []
   ; depth_tracker  = Depth_tracker.empty
-  ; hit_branches   = [] }
+  ; any_hit_branches = []
+  ; solvable_hit_branches = [] }
 
 let with_options : (t, t) Options.Fun.a =
   Options.Fun.make
@@ -90,7 +93,7 @@ let get_feeder ({ consts = { input_feeder ; _ } ; _ } : t) : Concolic_feeder.t =
   input_feeder
 
 let found_abort (s : t) : t =
-  { s with status = `Found_abort (List.hd_exn s.hit_branches) } (* safe to get value b/c no aborts show up in global scope *)
+  { s with status = `Found_abort (List.hd_exn s.any_hit_branches) } (* safe to get value b/c no aborts show up in global scope *)
 
 let found_type_mismatch (s : t) : t =
   { s with status = `Type_mismatch }
@@ -118,13 +121,20 @@ let fail_assume (x : t) : t =
   else { x with status = `Failed_assume }
 
 let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
-  let after_incr = 
-    { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker 
-    ; hit_branches = Branch.Runtime.to_ast_branch branch :: x.hit_branches }
-  in
-  if after_incr.depth_tracker.is_max_depth || Fn.non has_reached_target x
-  then after_incr
-  else { after_incr with stem = Formulated_stem.push_branch after_incr.stem branch }
+  let ast_branch = Branch.Runtime.to_ast_branch branch in
+  if Concolic_key.is_const branch.condition_key
+  then (* branch is constant and therefore isn't solvable. Just push say the branch was hit and push a formula for the branch *)
+    add_lazy_formula { x with any_hit_branches = ast_branch :: x.any_hit_branches }
+    @@ fun () -> Branch.Runtime.to_expr branch
+  else (* branch could be solved for *)
+    let after_incr = 
+      { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker 
+      ; any_hit_branches = ast_branch :: x.any_hit_branches
+      ; solvable_hit_branches = ast_branch :: x.solvable_hit_branches }
+    in
+    if after_incr.depth_tracker.is_max_depth || Fn.non has_reached_target x
+    then after_incr
+    else { after_incr with stem = Formulated_stem.push_branch after_incr.stem branch }
 
 let reach_max_step (x : t) : t =
   { x with depth_tracker = Depth_tracker.hit_max_step x.depth_tracker }
@@ -178,8 +188,8 @@ module Dead =
           let failed_assume = match s.status with `Failed_assume -> true | _ -> false in
           let tree = 
             match s.consts.target with
-            | None -> f failed_assume s.hit_branches
-            | Some target -> Path_tree.add_stem tree target s.stem failed_assume s.hit_branches
+            | None -> f failed_assume s.solvable_hit_branches (* use only solvable branches in path *)
+            | Some target -> Path_tree.add_stem tree target s.stem failed_assume s.solvable_hit_branches
           in
           { tree ; prev = s })
         (Path_tree.of_stem <<^ (fun (s : T.t) -> s.stem))
