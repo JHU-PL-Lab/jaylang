@@ -56,7 +56,6 @@ module Session_consts =
       ; max_step     = Options.default.global_max_step }
   end
 
-(* TODO: put all branch management (and maybe depth with it) into a module instead of flat in this record *)
 module T =
   struct
     type t =
@@ -65,8 +64,8 @@ module T =
       ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch | `Failed_assume ]
       ; rev_inputs     : Jil_input.t list
       ; depth_tracker  : Depth_tracker.t 
-      ; any_hit_branches : Branch.t list
-      ; solvable_hit_branches : Branch.t list }
+      ; latest_branch  : Branch.t option (* need to track the latest branch in order to report where an abort was found *)
+      ; solvable_hit_branches : Branch.t list } (* this is different from latest branch because these are only non-const branches *)
   end
 
 include T
@@ -77,7 +76,7 @@ let empty : t =
   ; status         = `In_progress
   ; rev_inputs     = []
   ; depth_tracker  = Depth_tracker.empty
-  ; any_hit_branches = []
+  ; latest_branch  = None
   ; solvable_hit_branches = [] }
 
 let with_options : (t, t) Options.Fun.a =
@@ -93,7 +92,7 @@ let get_feeder ({ consts = { input_feeder ; _ } ; _ } : t) : Concolic_feeder.t =
   input_feeder
 
 let found_abort (s : t) : t =
-  { s with status = `Found_abort (List.hd_exn s.any_hit_branches) } (* safe to get value b/c no aborts show up in global scope *)
+  { s with status = `Found_abort (Option.value_exn s.latest_branch) } (* safe to get value b/c no aborts show up in global scope *)
 
 let found_type_mismatch (s : t) : t =
   { s with status = `Type_mismatch }
@@ -124,12 +123,12 @@ let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
   let ast_branch = Branch.Runtime.to_ast_branch branch in
   if Concolic_key.is_const branch.condition_key
   then (* branch is constant and therefore isn't solvable. Just push say the branch was hit and push a formula for the branch *)
-    add_lazy_formula { x with any_hit_branches = ast_branch :: x.any_hit_branches }
+    add_lazy_formula { x with latest_branch = Some ast_branch }
     @@ fun () -> Branch.Runtime.to_expr branch
   else (* branch could be solved for *)
     let after_incr = 
       { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker 
-      ; any_hit_branches = ast_branch :: x.any_hit_branches
+      ; latest_branch = Some ast_branch
       ; solvable_hit_branches = ast_branch :: x.solvable_hit_branches }
     in
     if after_incr.depth_tracker.is_max_depth || Fn.non has_reached_target x
