@@ -53,15 +53,6 @@ module Make_datatype_builders (C : Context) = struct
   (* making *the* sort *)
   let valS = Datatype.mk_sort_s ctx "TypeJayilConcolic" [ intC; boolC ]
 
-  (* making recognizers *)
-  let intR, boolR =
-    match Datatype.get_recognizers valS with
-    | [ r1; r2 ] -> (r1, r2)
-    | _ -> failwith "recognizers mismatch"
-
-  (* building Z3 bool expressions with the recognizers  *)
-  let ifInt e = FuncDecl.apply intR [ e ]
-
   (* making field getters *)
   let getInt, getBool =
     match Datatype.get_accessors valS with
