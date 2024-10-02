@@ -180,8 +180,8 @@ let eval_exp
       | Match_body (vy, p) ->
         (* x = y ~ <pattern> ; *)
         let match_res = Value_bool (check_pattern env vy p) in
-        let y_key = Denv.fetch_key env vy in
-        next (Direct match_res) @@ Session.Symbolic.add_match x_key y_key p symb_session
+        (* match is always constant because it is determined by a parent branch, so there are no formulas to add *)
+        next (Direct match_res) symb_session
       | Projection_body (v, label) -> begin
         match Denv.fetch_val env v with
         | RecordClosure (Record_value r, denv) ->
@@ -286,7 +286,6 @@ let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.a =
       Concolic_riddler.set_timeout (Core.Time_float.Span.of_sec r.solver_timeout_sec);
       if not r.random then C_random.reset ();
       CLog.app (fun m -> m "\nStarting concolic execution...\n");
-      (* Concolic_riddler.reset (); *)
       Lwt_unix.with_timeout r.global_timeout_sec
       @@ fun () -> loop e session symb_session (* repeatedly evaluate program *)
   )

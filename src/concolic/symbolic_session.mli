@@ -65,9 +65,6 @@ val add_input : Concolic_key.t -> Dvalue.t -> t -> t
 val add_not : Concolic_key.t -> Concolic_key.t -> t -> t
 (** [add_not x y t] adds [x = not y] to [t]. *)
 
-val add_match : Concolic_key.t -> Concolic_key.t -> Jayil.Ast.pattern -> t -> t
-(** [add_match x y pat t] adds [x = y ~ pat] to [t]. *)
-
 (*
   -----------------
   CONTROL FLOW ETC.
