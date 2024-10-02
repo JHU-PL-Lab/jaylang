@@ -122,10 +122,10 @@ let fail_assume (x : t) : t =
 let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
   let ast_branch = Branch.Runtime.to_ast_branch branch in
   if Concolic_key.is_const branch.condition_key
-  then (* branch is constant and therefore isn't solvable. Just push say the branch was hit and push a formula for the branch *)
+  then (* branch is constant and therefore isn't solvable. Just set as latest branch and push a formula for the branch *)
     add_lazy_formula { x with latest_branch = Some ast_branch }
     @@ fun () -> Branch.Runtime.to_expr branch
-  else (* branch could be solved for *)
+  else (* branch could be solved for, so add it as a branch to be later put in the tree, and say it was hit *)
     let after_incr = 
       { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker 
       ; latest_branch = Some ast_branch
