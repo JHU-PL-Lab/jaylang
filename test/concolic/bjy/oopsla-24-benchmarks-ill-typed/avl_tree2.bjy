@@ -1,5 +1,5 @@
 # This is an avl tree program, where insert on balanced tree returns a balanced tree
-# There is a type error in `insert`. See the comment
+# There is a type error in `rotate_right_left`. See the comment
 # Other ways to introduce a type error:
 # 1. Don't rotate at all
 # 2. Rotate left only on left insert, and right only on right insert (this was my first bug)
@@ -142,13 +142,13 @@ in
 
 let rotate_left_right x =
   match x with
-  | `Node node -> rotate_right (create_node node.right (rotate_left node.left) node.right)
+  | `Node node -> rotate_right (create_node node.item (rotate_left node.left) node.right) 
   end
 in
 
 let rotate_right_left x =
   match x with
-  | `Node node -> rotate_left (create_node node.item node.left (rotate_right node.right))
+  | `Node node -> rotate_left (create_node node.left node.left (rotate_right node.right))     # ERROR HERE! `create_node node.left ...` should be `create_node node.item ...`
   end
 in
 
@@ -158,7 +158,7 @@ let rec insert (tree : avl_tree) (i : int) : avl_tree =
     if bf > 1
     then
       if i < item_exn (left_exn node)
-      then rotate_left node           # ERROR HERE! should be rotate_right
+      then rotate_right node
       else rotate_left_right node
     else
       if bf < (0 - 1)

@@ -158,7 +158,7 @@ let rec insert (tree : avl_tree) (i : int) : avl_tree =
     if bf > 1
     then
       if i < item_exn (left_exn node)
-      then rotate_right node
+      then rotate_left node           # ERROR HERE! should be rotate_right
       else rotate_left_right node
     else
       if bf < (0 - 1)
