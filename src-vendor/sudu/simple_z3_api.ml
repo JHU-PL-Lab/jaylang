@@ -2,8 +2,8 @@
 open Core
 open Z3
 
-type plain = Int of int | Bool of bool | Fun of int | Record of int
-(* Fun and Record payloads are just int identifiers *)
+type plain = Int of int | Bool of bool
+(* Fun and Record have no payloads because we can do nothing with them *)
 
 module type Context = sig
   val ctx : Z3.context
@@ -12,13 +12,6 @@ end
 module Make_common_builders (C : Context) = struct
   let ctx = C.ctx
 
-  let get_model solver status =
-    match status with
-    | Z3.Solver.SATISFIABLE -> Z3.Solver.get_model solver
-    | Z3.Solver.UNSATISFIABLE -> None
-    | Z3.Solver.UNKNOWN -> None
-
-  let simplify e = Expr.simplify e None
   let eq e1 e2 = Boolean.mk_eq ctx e1 e2
   let and2 e1 e2 = Boolean.mk_and ctx [ e1; e2 ]
   let and_ = Boolean.mk_and ctx
@@ -31,16 +24,10 @@ module Make_common_builders (C : Context) = struct
   let box_bool b = Boolean.mk_val ctx b
 
   (* unbox from Z3 expression *)
-  let unbox_bool_exn v =
-    match Boolean.get_bool_value v with
-    | L_TRUE -> true
-    | L_FALSE -> false
-    | L_UNDEF -> failwith "pass_if_true"
-
   let unbox_bool v =
     match Boolean.get_bool_value v with
     | L_TRUE -> true
-    | L_FALSE -> false
+    | L_FALSE
     | L_UNDEF -> false
 
   let unbox_int e =
@@ -76,114 +63,54 @@ module Make_datatype_builders (C : Context) = struct
       [ Symbol.mk_string ctx "b" ]
       [ Some boolS ] [ 1 ]
 
-  let funC =
-    Datatype.mk_constructor_s ctx "Fun"
-      (Symbol.mk_string ctx "is-Fun")
-      [ Symbol.mk_string ctx "fid" ]
-      [ Some intS ] [ 1 ]
-
-  let recordC =
-    Datatype.mk_constructor_s ctx "Record"
-      (Symbol.mk_string ctx "is-Record")
-      [ Symbol.mk_string ctx "r" ]
-      [ Some intS ] [ 1 ]
-
   (* making *the* sort *)
-  let valS = Datatype.mk_sort_s ctx "TypOdefa" [ intC; boolC; funC; recordC ]
+  let valS = Datatype.mk_sort_s ctx "TypeJilConcolic" [ intC; boolC ]
 
   (* making recognizers *)
-  let intR, boolR, funR, recordR =
+  let intR, boolR =
     match Datatype.get_recognizers valS with
-    | [ r1; r2; r3; r4 ] -> (r1, r2, r3, r4)
-    | _ -> failwith "recogniziers mismatch"
+    | [ r1; r2 ] -> (r1, r2)
+    | _ -> failwith "recognizers mismatch"
 
   (* building Z3 bool expressions with the recognizers  *)
   let ifInt e = FuncDecl.apply intR [ e ]
   let ifBool e = FuncDecl.apply boolR [ e ]
-  let ifFun e = FuncDecl.apply funR [ e ]
-  let ifRecord e = FuncDecl.apply recordR [ e ]
 
   (* making field getters *)
-  let getInt, getBool, getFun, getRecord =
+  let getInt, getBool =
     match Datatype.get_accessors valS with
-    | [ [ a1 ]; [ a2 ]; [ a3 ]; [ a4 ] ] -> (a1, a2, a3, a4)
+    | [ [ a1 ]; [ a2 ] ] -> (a1, a2)
     | _ -> failwith "accessors mismatch"
 
   (* making declarations from constructors *)
   let intD = Datatype.Constructor.get_constructor_decl intC
   let boolD = Datatype.Constructor.get_constructor_decl boolC
-  let funD = Datatype.Constructor.get_constructor_decl funC
-  let recordD = Datatype.Constructor.get_constructor_decl recordC
 
   (* building Z3 value expressions with the declarations  *)
   let int_ i = FuncDecl.apply intD [ box_int i ]
   let bool_ b = FuncDecl.apply boolD [ box_bool b ]
-  let fun_ i = FuncDecl.apply funD [ box_int i ]
-  let record_ i = FuncDecl.apply recordD [ box_int i ]
+  (* there is no reason to represent a fun or record in Z3, so just give dummy value *)
+  let fun_ = int_ 0
+  let record_ = int_ 0
 
   (* basic builders *)
-  let inject_int e = FuncDecl.apply intD [ e ]
-  let inject_bool e = FuncDecl.apply boolD [ e ]
   let project_int e = FuncDecl.apply getInt [ e ]
-  let project_bool e = FuncDecl.apply getBool [ e ]
-  let true_ = bool_ true
-  let false_ = bool_ false
   let var_i i = Expr.mk_const ctx (Symbol.mk_int ctx i) valS (* used to identify variables with a unique int *)
 
   (* model *)
   let is_int_from_model model e =
     unbox_bool (Option.value_exn (Model.eval model (ifInt e) false))
 
-  let is_bool_from_model model e =
-    unbox_bool (Option.value_exn (Model.eval model (ifBool e) false))
-
-  let is_fun_from_model model e =
-    unbox_bool (Option.value_exn (Model.eval model (ifFun e) false))
-
-  let is_record_from_model model e =
-    unbox_bool (Option.value_exn (Model.eval model (ifRecord e) false))
-
   let get_int_expr_exn model e =
     Option.value_exn (Model.eval model (project_int e) false)
 
-  let get_bool_expr_exn model e =
-    Option.value_exn (Model.eval model (project_bool e) false)
-
-  let get_fun_expr_exn model e =
-    Option.value_exn (Model.eval model (project_int e) false)
-
-  let get_record_expr_exn model e =
-    Option.value_exn (Model.eval model (project_int e) false)
-
   let get_unbox_int_exn model e = unbox_int (get_int_expr_exn model e)
-  let get_unbox_bool_exn model e = unbox_bool (get_bool_expr_exn model e)
-  let get_unbox_fun_exn model e = unbox_int (get_fun_expr_exn model e)
-  let get_unbox_record_exn model e = unbox_int (get_record_expr_exn model e)
-  let eval_value model e = Option.value_exn (Model.eval model e false)
-
-  let get_value model e =
-    if is_int_from_model model e
-    then Some (Int (get_unbox_int_exn model e))
-    else if is_bool_from_model model e
-    then Some (Bool (get_unbox_bool_exn model e))
-    else if is_fun_from_model model e
-    then
-      let fid = get_unbox_fun_exn model e in
-      Some (Fun fid)
-    else if is_record_from_model model e
-    then
-      let i = get_unbox_record_exn model e in
-      Some (Record i)
-    else None
 
   (* use variable expression to query model for int input *)
   let get_int_expr model e =
-    match get_value model e with
-    | Some (Int i) -> Some i
-    | Some _ ->
-        Logs.warn (fun m -> m "Get non-int for input%s" (Z3.Expr.to_string e)) ;
-        Some 0
-    | None -> None
+    if is_int_from_model model e
+    then Some (get_unbox_int_exn model e)
+    else None
 end
 
 module Make_datatype_builder_helpers (C : Context) = struct
