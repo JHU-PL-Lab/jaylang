@@ -115,12 +115,12 @@ let eval_exp
       in
       
       match cbody with
-      | Value_body ((Value_function vf) as v) ->
+      | Value_body (Value_function vf) ->
         (* x = fun ... ; *)
-        next (FunClosure (x, vf, env)) @@ Session.Symbolic.add_key_eq_val x_key v symb_session
-      | Value_body ((Value_record r) as v) ->
+        next (FunClosure (x, vf, env)) symb_session
+      | Value_body (Value_record r) ->
         (* x = { ... } ; *)
-        next (RecordClosure (r, env)) @@ Session.Symbolic.add_key_eq_val x_key v symb_session
+        next (RecordClosure (r, env)) symb_session
       | Value_body v -> 
         (* x = <bool or int> ; *)
         next (Direct v) @@ Session.Symbolic.add_key_eq_val x_key v symb_session
@@ -128,7 +128,7 @@ let eval_exp
         (* x = y ; *)
         let ret_val, ret_key = Denv.fetch env vx in
         let x_key = Concolic_key.with_dependencies x_key [ ret_key ] in
-        next ~x_key ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+        next ~x_key ret_val @@ Session.Symbolic.add_alias x_key ret_key ret_val symb_session
       | Conditional_body (cx, e1, e2) -> 
         (* x = if y then e1 else e2 ; *)
         let cond_val, condition_key = Denv.fetch env cx in
@@ -142,7 +142,7 @@ let eval_exp
               let last_v = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
               let ret_key = Denv.fetch_key ret_env last_v in
               let x_key = Concolic_key.with_dependencies x_key [ ret_key ] in
-              next ~x_key ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+              next ~x_key ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key ret_val symb_session
             | res -> res
             )
           | _ -> type_mismatch symb_session
@@ -160,19 +160,19 @@ let eval_exp
           let step = step + 1 in
 
           (* varg is the argument that fills in param *)
-          let arg, arg_key = Denv.fetch env varg in
+          let arg_val, arg_key = Denv.fetch env varg in
           let param_key = Concolic_key.create param step @@ Concolic_key.is_const arg_key in
-          let env' = Denv.add fenv param arg param_key in
+          let env' = Denv.add fenv param arg_val param_key in
 
           (* returned value of function *)
-          eval_exp ~symb_session:(Session.Symbolic.add_alias param_key arg_key symb_session) ~step env' body (function
+          eval_exp ~symb_session:(Session.Symbolic.add_alias param_key arg_key arg_val symb_session) ~step env' body (function
           | Ok { denv = ret_env ; dval = ret_val ; step ; symb_session } ->
             let last_v = Jayil.Ast_tools.retv body in
             let ret_key = Denv.fetch_key ret_env last_v in
             let x_key = Concolic_key.with_dependencies x_key [ ret_key ] in
 
             (* exit function: *)
-            next ~x_key ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+            next ~x_key ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key ret_val symb_session
           | res -> res
           )
         | _ -> type_mismatch symb_session
@@ -188,7 +188,7 @@ let eval_exp
           let proj_var = Ident_map.find label r in
           let ret_val, ret_key = Denv.fetch denv proj_var in
           let x_key = Concolic_key.with_dependencies x_key [ ret_key ] in
-          next ~x_key ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+          next ~x_key ret_val @@ Session.Symbolic.add_alias x_key ret_key ret_val symb_session
         | Direct (Value_record (Record_value _record)) ->
           failwith "project should also have a closure"
         | _ -> type_mismatch symb_session

@@ -89,9 +89,6 @@ module Make_datatype_builders (C : Context) = struct
   (* building Z3 value expressions with the declarations  *)
   let int_ i = FuncDecl.apply intD [ box_int i ]
   let bool_ b = FuncDecl.apply boolD [ box_bool b ]
-  (* there is no reason to represent a fun or record in Z3, so just give dummy value *)
-  let fun_ = int_ 0
-  let record_ = int_ 0
 
   (* basic builders *)
   let project_int e = FuncDecl.apply getInt [ e ]

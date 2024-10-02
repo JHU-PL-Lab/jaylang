@@ -11,6 +11,8 @@ module rec T :
     val value_of_t : t -> value
 
     val pp : t -> string
+
+    val is_int_or_bool : t -> bool
   end
   =
   struct
@@ -36,6 +38,10 @@ module rec T :
       let pp_entry (x, v) = Format.sprintf "%s = %s" (Dj_common.Id.show x) (Jayil.Pp.show_var v) in
       let s = Ident_map.to_list r |> List.map pp_entry |> String.concat ", " in
       Format.sprintf "@[{%s}@]" s
+
+    let is_int_or_bool = function
+      | Direct (Value_int _) | Direct (Value_bool _) -> true
+      | _ -> false
   end
 and Denv :
   sig

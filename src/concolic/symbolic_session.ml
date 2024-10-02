@@ -146,8 +146,10 @@ let reach_max_step (x : t) : t =
 let add_key_eq_val (key : Concolic_key.t) (v : Jayil.Ast.value) (x : t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.eqv key v
 
-let add_alias (key1 : Concolic_key.t) (key2 : Concolic_key.t) (x : t) : t =
-  add_lazy_formula x @@ fun () -> Concolic_riddler.eq key1 key2
+let add_alias (key1 : Concolic_key.t) (key2 : Concolic_key.t) (dv : Dvalue.t) (x : t) : t =
+  if Dvalue.is_int_or_bool dv
+  then add_lazy_formula x @@ fun () -> Concolic_riddler.eq key1 key2
+  else x (* nothing to do when the alias is not int or bool because there is no meaningful z3 formula *)
 
 let add_binop (key : Concolic_key.t) (op : Jayil.Ast.binary_operator) (left : Concolic_key.t) (right : Concolic_key.t) (x : t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.binop key op left right

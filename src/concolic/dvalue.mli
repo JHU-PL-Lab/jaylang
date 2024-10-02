@@ -12,6 +12,8 @@ module rec T :
     val value_of_t : t -> value
 
     val pp : t -> string
+
+    val is_int_or_bool : t -> bool
   end
 and Denv :
   sig

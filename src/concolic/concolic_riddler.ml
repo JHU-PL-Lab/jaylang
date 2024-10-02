@@ -76,8 +76,8 @@ let is_bool key = ifBool (key_to_var key)
 let phi_of_value (_key : Concolic_key.t) = function
   | Value_int i -> SuduZ3.int_ i
   | Value_bool i -> SuduZ3.bool_ i
-  | Value_function _ -> SuduZ3.fun_
-  | Value_record _ -> SuduZ3.record_
+  | Value_function _ 
+  | Value_record _ -> failwith "z3 value of function or record is not allowed or supported" 
 
 let eqv key v = SuduZ3.eq (key_to_var key) (phi_of_value key v)
 let eq key key' = SuduZ3.eq (key_to_var key) (key_to_var key')
