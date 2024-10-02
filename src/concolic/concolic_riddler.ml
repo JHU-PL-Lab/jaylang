@@ -9,59 +9,11 @@ module Solve_status =
       | Unsat
   end
 
-module SuduZ3 = Sudu.Z3_api.Make (struct
+module SuduZ3 = Sudu.Simple_z3_api.Make (struct
   let ctx = Z3.mk_context []
 end)
 
 open SuduZ3
-
-module Record_logic =
-  struct
-    module Table =
-      struct
-        (* mutable type! *)
-        type t =
-          { tbl : (ident, int) Hashtbl.t (* maps ident to bit, where rightmost bit is 0 *)
-          ; mutable n : int } (* is the greatest unused offset *)
-
-        let create () : t =
-          { tbl = Hashtbl.create (module Ident_new) ; n = 0 }
-
-        let clear (x : t) : unit =
-          Hashtbl.clear x.tbl;
-          x.n <- 0
-
-        (* assigns id an offset and returns that offset. mutates the table *)
-        let set_found ({ tbl ; n } as x : t) (id : Ident_new.t) : int =
-          match Hashtbl.find tbl id with
-          | None ->
-            if n > 62 then failwith "too many record labels" else (* fail if about to assign to 63rd index or greater *)
-            Hashtbl.set tbl ~key:id ~data:n; x.n <- n + 1; n (* give next offset and increment *)
-          | Some n -> n (* id has already been found *)
-      end
-
-    let tbl = Table.create ()
-
-    (* it is suggested (but not always necessary) to clear the table of record labels before running over a new program *)
-    let clear_labels () : unit =
-      Table.clear tbl
-
-    (* assigns bitvector positions from the given labels *)
-    let set_labels (labels : Ident_new.t list) : unit =
-      Table.clear tbl;
-      List.iter labels ~f:(fun id -> let _ = Table.set_found tbl id in ());
-      if tbl.n > 63 then failwith "too many record labels" else ()
-
-    (* Use the table to create a bitvector to indicate which labels are given in the [labels] list. *)
-    let create_bv_from_labels (labels : ident list) : int =
-      let set_bit i b = i lor (1 lsl b) in
-      List.fold
-        labels
-        ~init:0
-        ~f:(fun acc id -> set_bit acc (Table.set_found tbl id))
-  end (* Record_logic *)
-
-include Record_logic
 
 let ctx = SuduZ3.ctx
 let solver = Z3.Solver.mk_solver ctx None
@@ -87,16 +39,9 @@ let solve formulas =
     Solve_status.Sat (Option.value_exn model)
   | _ -> Z3.Solver.reset solver; Unsat
 
-let reset () =
-  clear_labels ()
-
 let get_int_expr model key =
   SuduZ3.get_int_expr model
   @@ key_to_var key
-
-(* Solver primitives *)
-
-let true_ = box_bool true
 
 (* AST primitive *)
 
@@ -126,49 +71,14 @@ let binop t op t1 t2 =
   in
   fop e e1 e2
 
-let z_of_fid (Ident fid) = SuduZ3.fun_ fid
+let z_of_fid (Ident _fid) = SuduZ3.fun_ 0
 let is_bool key = ifBool (key_to_var key)
 
 let phi_of_value (key : Concolic_key.t) = function
-  | Value_function _ -> z_of_fid @@ Concolic_key.id key
   | Value_int i -> SuduZ3.int_ i
   | Value_bool i -> SuduZ3.bool_ i
-  | Value_record (Record_value m) ->
-    m
-    |> Ident_map.key_list
-    |> create_bv_from_labels
-    |> SuduZ3.record_
+  | Value_function _
+  | Value_record _ -> SuduZ3.int_ @@ Concolic_key.x key
 
 let eqv key v = SuduZ3.eq (key_to_var key) (phi_of_value key v)
 let eq key key' = SuduZ3.eq (key_to_var key) (key_to_var key')
-
-
-let if_pattern term pat =
-  let x = key_to_var term in
-  match pat with
-  | Fun_pattern -> ifFun x
-  | Int_pattern -> ifInt x
-  | Bool_pattern -> ifBool x
-  | Rec_pattern label_set ->
-    let sub_bv = create_bv_from_labels (Ident_set.to_list label_set) in (* this bitvector should be contained within the record's bv *)
-    let projected = SuduZ3.project_record (SuduZ3.record_ sub_bv) in
-    SuduZ3.and_
-      [ ifRecord x
-      ; SuduZ3.eq
-          projected
-          (Z3.BitVector.mk_and ctx projected (SuduZ3.project_record x))
-      ]
-  | Strict_rec_pattern label_set ->
-    let eq_bv = create_bv_from_labels (Ident_set.to_list label_set) in (* the record's bv should be exactly this *)
-    let desired_record = SuduZ3.record_ eq_bv in
-    SuduZ3.and_
-      [ ifRecord x
-      ; SuduZ3.eq
-          (SuduZ3.project_record desired_record)
-          (SuduZ3.project_record x)
-      ]
-  | Any_pattern -> true_
-
-let match_ key m pat =
-  let k_expr = key_to_var key in
-  SuduZ3.eq (SuduZ3.project_bool k_expr) (if_pattern m pat)

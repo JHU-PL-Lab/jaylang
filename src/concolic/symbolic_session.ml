@@ -160,14 +160,15 @@ let add_input (key : Concolic_key.t) (v : Dvalue.t) (x : t) : t =
   in
   Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n (let Ident s = Concolic_key.id key in s));
   { x with rev_inputs = { clause_id = Concolic_key.id key ; input_value = n } :: x.rev_inputs }
-  |> Fn.flip add_lazy_formula @@ fun () -> Concolic_riddler.if_pattern key Jayil.Ast.Int_pattern
+  (* |> Fn.flip add_lazy_formula @@ fun () -> Concolic_riddler.if_pattern key Jayil.Ast.Int_pattern *)
 
 let add_not (key1 : Concolic_key.t) (key2 : Concolic_key.t) (x : t) : t =
   add_lazy_formula x @@ fun () -> Concolic_riddler.not_ key1 key2
 
-let add_match (k : Concolic_key.t) (m : Concolic_key.t) (pat : Jayil.Ast.pattern) (x : t) : t =
-  add_lazy_formula x
-  @@ fun () -> Concolic_riddler.match_ k m pat
+let add_match (_k : Concolic_key.t) (_m : Concolic_key.t) (_pat : Jayil.Ast.pattern) (x : t) : t =
+  x
+  (* add_lazy_formula x
+  @@ fun () -> Concolic_riddler.match_ k m pat *)
 
 (*
   -----------------

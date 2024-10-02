@@ -286,7 +286,7 @@ let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.a =
       Concolic_riddler.set_timeout (Core.Time_float.Span.of_sec r.solver_timeout_sec);
       if not r.random then C_random.reset ();
       CLog.app (fun m -> m "\nStarting concolic execution...\n");
-      Concolic_riddler.reset ();
+      (* Concolic_riddler.reset (); *)
       Lwt_unix.with_timeout r.global_timeout_sec
       @@ fun () -> loop e session symb_session (* repeatedly evaluate program *)
   )
