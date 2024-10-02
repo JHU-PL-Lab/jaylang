@@ -12,79 +12,23 @@ end
 module Make_common_builders (C : Context) = struct
   let ctx = C.ctx
 
-  (* clone by translating to the same context *)
-  let clone_solver solver = Z3.Solver.translate solver ctx
-
-  let dump e =
-    let es = Z3.Expr.to_string e in
-    let ss = e |> Z3.Expr.get_sort |> Z3.Sort.to_string in
-    let s = Printf.sprintf "E:%s; Sort:%s" es ss in
-    print_endline s
-
-  let dump_model model =
-    let open Z3.Model in
-    Fmt.(
-      pr
-        ("\nModel: %s\n" ^^ "Const[%n]: @[%a@]\n" ^^ "Decl[%n]: @[%a@]\n"
-       ^^ "Sort[%n]: @[%a@]\n")
-        (to_string model)
-        (* _ *)
-        (get_num_consts model)
-        (list string ~sep:cut)
-        (List.map (get_const_decls model) ~f:Z3.FuncDecl.to_string)
-        (get_num_funcs model) (list string ~sep:cut)
-        (List.map (get_func_decls model) ~f:Z3.FuncDecl.to_string)
-        (get_num_sorts model) (list string ~sep:cut)
-        (List.map (get_sorts model) ~f:Z3.Sort.to_string))
-
   let get_model solver status =
     match status with
     | Z3.Solver.SATISFIABLE -> Z3.Solver.get_model solver
     | Z3.Solver.UNSATISFIABLE -> None
     | Z3.Solver.UNKNOWN -> None
 
-  let get_model_exn solver status =
-    match status with
-    | Z3.Solver.SATISFIABLE -> (
-        match Z3.Solver.get_model solver with
-        | None -> failwith "should have model1"
-        | Some model -> model)
-    | Z3.Solver.UNSATISFIABLE -> failwith "should not UNSAT"
-    | Z3.Solver.UNKNOWN -> failwith (Z3.Solver.get_reason_unknown solver)
-
-  let is_unsat status =
-    match status with
-    | Z3.Solver.SATISFIABLE -> false
-    | Z3.Solver.UNSATISFIABLE -> true
-    | Z3.Solver.UNKNOWN -> false
-
-  let is_sat status =
-    match status with
-    | Z3.Solver.SATISFIABLE -> true
-    | Z3.Solver.UNSATISFIABLE -> false
-    | Z3.Solver.UNKNOWN -> false
-
-  let eval model e flag = Z3.Model.eval model e flag
-  let eval_exn model e flag = Option.value_exn (eval model e flag)
   let simplify e = Expr.simplify e None
-  let mk_bool_s s = Boolean.mk_const_s ctx s
-  let string_sort = Seq.mk_string_sort ctx
-  (* let mk_string_s s = Expr.mk_const_s ctx s string_sort *)
   let eq e1 e2 = Boolean.mk_eq ctx e1 e2
   let and2 e1 e2 = Boolean.mk_and ctx [ e1; e2 ]
   let and_ = Boolean.mk_and ctx
   let join = and_
   let or_ = Boolean.mk_or ctx
   let not_ = Boolean.mk_not ctx
-  let implies = Boolean.mk_implies ctx
-  let ite = Boolean.mk_ite ctx
-  let ( @=> ) = implies
 
   (* box to Z3 expression *)
   let box_int i = Z3.Arithmetic.Integer.mk_numeral_i ctx i
   let box_bool b = Boolean.mk_val ctx b
-  (* let box_string s = Seq.mk_string ctx s *)
-  (* let box_record i = BitVector.mk_numeral ctx (Int.to_string i) 63 if we want the bits for 0b011, we give argument i = 3 *)
 
   (* unbox from Z3 expression *)
   let unbox_bool_exn v =
@@ -101,10 +45,6 @@ module Make_common_builders (C : Context) = struct
 
   let unbox_int e =
     e |> Z3.Arithmetic.Integer.get_big_int |> Big_int_Z.int_of_big_int
-
-  (* let unbox_string e = Seq.get_string ctx e *)
-
-  (* let unbox_record e = BitVector.numeral_to_string e |> Int.of_string allow only 63 bits *)
 end
 
 module Make_datatype_builders (C : Context) = struct
@@ -114,7 +54,7 @@ module Make_datatype_builders (C : Context) = struct
      type t = 
      | Int of {i : Z3.int}
      | Bool of {b : Z3.bool}
-     | Fun of {fid : Z3.string}
+     | Fun of {fid : Z3.int}
      ```
   *)
   include Make_common_builders (C)
@@ -122,8 +62,6 @@ module Make_datatype_builders (C : Context) = struct
   (* making sorts *)
   let intS = Arithmetic.Integer.mk_sort ctx
   let boolS = Boolean.mk_sort ctx
-  (* let strS = Seq.mk_string_sort ctx *)
-  (* let bvS = BitVector.mk_sort ctx 63 hardcode 63 bits because we use ocaml int *)
 
   (* making constructors, checkers, and selectors *)
   let intC =
@@ -169,7 +107,6 @@ module Make_datatype_builders (C : Context) = struct
   let getInt, getBool, getFun, getRecord =
     match Datatype.get_accessors valS with
     | [ [ a1 ]; [ a2 ]; [ a3 ]; [ a4 ] ] -> (a1, a2, a3, a4)
-    (* | [a1]::[a2]::[a3;a4]::[] -> a1, a2, (a3, a4) *)
     | _ -> failwith "accessors mismatch"
 
   (* making declarations from constructors *)
@@ -182,24 +119,15 @@ module Make_datatype_builders (C : Context) = struct
   let int_ i = FuncDecl.apply intD [ box_int i ]
   let bool_ b = FuncDecl.apply boolD [ box_bool b ]
   let fun_ i = FuncDecl.apply funD [ box_int i ]
-  (* let string_ = fun_ *)
-  (* let record_ rid = FuncDecl.apply recordD [ Seq.mk_string ctx rid ] *)
   let record_ i = FuncDecl.apply recordD [ box_int i ]
 
   (* basic builders *)
   let inject_int e = FuncDecl.apply intD [ e ]
   let inject_bool e = FuncDecl.apply boolD [ e ]
-  (* let inject_string e = FuncDecl.apply funD [ e ] *)
-  (* let inject_record e = FuncDecl.apply recordD [ e ] *)
   let project_int e = FuncDecl.apply getInt [ e ]
   let project_bool e = FuncDecl.apply getBool [ e ]
-  (* let project_string e = FuncDecl.apply getFun [ e ] *)
-  (* let project_record e = FuncDecl.apply getRecord [ e ] *)
   let true_ = bool_ true
   let false_ = bool_ false
-  let ground_truth = eq true_ true_
-  (* let var_s n = Expr.mk_const_s ctx n valS *)
-  let var_sym n = Expr.mk_const ctx n valS
   let var_i i = Expr.mk_const ctx (Symbol.mk_int ctx i) valS (* used to identify variables with a unique int *)
 
   (* model *)
@@ -244,19 +172,9 @@ module Make_datatype_builders (C : Context) = struct
       Some (Fun fid)
     else if is_record_from_model model e
     then
-      let bv = get_unbox_record_exn model e in
-      Some (Record bv)
+      let i = get_unbox_record_exn model e in
+      Some (Record i)
     else None
-  (* failwith "get_value" *)
-
-  (* let get_int_s model s =
-    let e = var_s s in
-    match get_value model e with
-    | Some (Int i) -> Some i
-    | Some _ ->
-        Logs.warn (fun m -> m "Get non-int for input%s" (Z3.Expr.to_string e)) ;
-        Some 0
-    | None -> None *)
 
   (* use variable expression to query model for int input *)
   let get_int_expr model e =
@@ -266,15 +184,6 @@ module Make_datatype_builders (C : Context) = struct
         Logs.warn (fun m -> m "Get non-int for input%s" (Z3.Expr.to_string e)) ;
         Some 0
     | None -> None
-
-  let get_bool model e =
-    let r = Option.value_exn (Z3.Model.eval model e false) in
-    match Z3.Boolean.get_bool_value r with
-    | L_TRUE -> Some true
-    | L_FALSE -> Some false
-    | L_UNDEF ->
-        Logs.warn (fun m -> m "%s L_UNDEF" (Z3.Expr.to_string e)) ;
-        None
 end
 
 module Make_datatype_builder_helpers (C : Context) = struct
@@ -320,24 +229,6 @@ module Make_datatype_builder_helpers (C : Context) = struct
 
   let fn_and = fn_two_bools and2
   let fn_or = fn_two_bools (fun e1 e2 -> Boolean.mk_or ctx [ e1; e2 ])
-  (* let fn_xor = fn_two_bools (Boolean.mk_xor ctx) *)
-
-  (* check *)
-
-  let check_with_assumption solver assumptions =
-    match Z3.Solver.check solver assumptions with
-    | Z3.Solver.SATISFIABLE -> (
-        match Z3.Solver.get_model solver with
-        | None ->
-            failwith
-              ("check is not invoked before; " ^ "the result is not SAT; "
-             ^ " the model production is not enabled")
-        | Some model -> Result.Ok model)
-    | Z3.Solver.UNSATISFIABLE -> Result.Error None
-    | Z3.Solver.UNKNOWN ->
-        failwith
-        @@ Printf.sprintf "[check_and_get_model] Unknown result in solve: %s"
-             (Z3.Solver.get_reason_unknown solver)
 end
 
 module Make (C : Context) = struct
