@@ -45,10 +45,8 @@ let get_int_expr model key =
 
 (* AST primitive *)
 
-let not_ t t1 =
-  let e = key_to_var t in
-  let e1 = key_to_var t1 in
-  fn_not e e1
+let not_ k1 k2 =
+  fn_not (key_to_var k1) (key_to_var k2)
 
 let binop t op t1 t2 =
   let open Jayil.Ast in
@@ -70,8 +68,6 @@ let binop t op t1 t2 =
     | Binary_operator_or -> fn_or
   in
   fop e e1 e2
-
-let is_bool key = ifBool (key_to_var key)
 
 let phi_of_value (_key : Concolic_key.t) = function
   | Value_int i -> SuduZ3.int_ i
