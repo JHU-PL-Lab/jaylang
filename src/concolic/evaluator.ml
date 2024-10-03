@@ -226,7 +226,7 @@ let eval_exp
             | Binary_operator_or, Value_bool b1, Value_bool b2                  -> n (Value_bool (b1 || b2))
             | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> n (Value_bool (n1 <> n2))
             | _ -> type_mismatch (* includes mod or divide by 0 *)
-          end @@ Session.Symbolic.add_binop x_key op y_key z_key symb_session
+          end @@ Session.Symbolic.add_binop x_key op y_key y z_key symb_session
         | _ -> type_mismatch symb_session
       end
       | Abort_body -> found_abort symb_session
