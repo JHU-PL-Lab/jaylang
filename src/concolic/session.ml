@@ -103,7 +103,7 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ]
             { x with run_num = x.run_num + 1 }
             , model
               |> Concolic_feeder.from_model
-              |> Symbolic.make target
+              |> Symbolic.make target (Path_tree.cache_of_target x.tree target)
               |> Options.Fun.appl Symbolic.with_options x.options
           )
 

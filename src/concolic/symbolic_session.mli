@@ -50,7 +50,9 @@ val get_feeder : t -> Concolic_feeder.t
   -----------
 *)
 
-val add_key_eq_val : Concolic_key.t -> Jayil.Ast.value -> t -> t
+val add_key_eq_int : Concolic_key.t -> int -> t -> t
+val add_key_eq_bool : Concolic_key.t -> bool -> t -> t
+(* val add_key_eq_val : Concolic_key.t -> Jayil.Ast.value -> t -> t *)
 (** [add_key_eq_val k v t] adds the formula that [k] has value [v] in [t]. *)
 
 val add_alias : Concolic_key.t -> Concolic_key.t -> Dvalue.t -> t -> t
@@ -100,5 +102,5 @@ val finish : (t, Path_tree.t -> Dead.t) Options.Fun.a
 (** [finish t root] creates a finished session from [t] that merges info with the given [root].
     The merged result can be gotten with [root_exn @@ finish t root]. *)
 
-val make : Target.t -> Concolic_feeder.t -> t
+val make : Target.t -> Expression.Cache.t -> Concolic_feeder.t -> t
 (** [make target feeder] makes an empty t that knows the given [target] and [feeder]. *)

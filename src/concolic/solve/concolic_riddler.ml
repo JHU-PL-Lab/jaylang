@@ -1,4 +1,4 @@
-open Core
+(* open Core
 open Jayil.Ast
 
 module Solve_status =
@@ -81,4 +81,4 @@ let phi_and_sort_of_value = function
   | Value_record _ -> failwith "z3 value of function or record is not allowed or supported" 
 
 let eqv key v = let phi, sort = phi_and_sort_of_value v in SuduZ3.eq (key_to_var key sort) phi
-let eq dv key key' = let s = Dvalue.to_sort_exn dv in SuduZ3.eq (key_to_var key s) (key_to_var key' s)
+let eq dv key key' = let s = Dvalue.to_sort_exn dv in SuduZ3.eq (key_to_var key s) (key_to_var key' s) *)

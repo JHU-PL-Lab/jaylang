@@ -4,7 +4,7 @@
     This module uses internal state and is not thread-safe.
 *)
 
-open Core
+(* open Core
 
 module Solve_status :
   sig
@@ -41,5 +41,5 @@ val binop : Concolic_key.t -> Jayil.Ast.binary_operator -> Concolic_key.t -> Dva
 val eqv : Concolic_key.t -> Jayil.Ast.value -> bool Sudu.Gadt_z3_api.Gexpr.t
 (** [eqv x v] is the expression that [x = v]. *)
 
-val eq : Dvalue.t -> Concolic_key.t -> Concolic_key.t -> bool Sudu.Gadt_z3_api.Gexpr.t
+val eq : Dvalue.t -> Concolic_key.t -> Concolic_key.t -> bool Sudu.Gadt_z3_api.Gexpr.t *)
 (** [eq x y] is the expression that [x = y], i.e. it says [x] is an alias for [y]. *)

@@ -20,6 +20,10 @@ module Direction =
       | True_direction -> Ast.Value_bool true
       | False_direction -> Ast.Value_bool false
 
+    let to_bool = function
+      | True_direction -> true
+      | False_direction -> false
+
     let of_bool b = if b then True_direction else False_direction
   end
 
@@ -41,11 +45,11 @@ module Runtime =
       ; direction     : Direction.t }
       [@@deriving compare, sexp]
 
-    let to_expr ({condition_key ; direction ; _ } : t) : Z3.Expr.expr =
-      Concolic_riddler.eqv condition_key (Direction.to_value_bool direction)
+    let to_claim ({ condition_key ; direction ; _ } : t) : Claim.t =
+      Claim.Bool_equality (condition_key, Const_bool (Direction.to_bool direction))
 
     let to_ast_branch ({ branch_key ; direction ; _ } : t) : T.t =
-      T.{ branch_ident = Concolic_key.id branch_key ; direction }
+      T.{ branch_ident = Concolic_key.clause_name branch_key ; direction }
 
     let to_string ({ branch_key ; condition_key ; direction } : t) : string =
       Concolic_key.to_string branch_key

@@ -60,6 +60,7 @@ module T =
   struct
     type t =
       { stem           : Formulated_stem.t
+      (* ; e_cache        : Expression.Cache.t *)
       ; consts         : Session_consts.t
       ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch | `Failed_assume ]
       ; rev_inputs     : Jil_input.t list
@@ -72,6 +73,7 @@ include T
 
 let empty : t =
   { stem           = Formulated_stem.empty
+  (* ; e_cache        = Expression.Cache.empty *)
   ; consts         = Session_consts.default
   ; status         = `In_progress
   ; rev_inputs     = []
@@ -102,29 +104,43 @@ let has_reached_target (x : t) : bool =
   | Some target -> x.depth_tracker.cur_depth >= target.path_n
   | None -> true
 
-let add_lazy_formula (x : t) (lazy_expr : unit -> Z3.Expr.expr) : t =
+let add_lazy_expr (type a) (x : t) (key : Concolic_key.t) (lazy_expr : unit -> a Expression.t) : t =
   if
     x.depth_tracker.is_max_depth
-    || Fn.non has_reached_target x
-    (* we don't add formula if we haven't yet reached the target because the formulas already exist in the path tree *)
+    (* || Fn.non has_reached_target x *)
   then x
-  else { x with stem = Formulated_stem.push_formula x.stem @@ lazy_expr () }
+  else { x with stem = Formulated_stem.push_expr x.stem key @@ lazy_expr () }
+
+let update_expr_lazy (type a) (x : t) (update : unit -> Expression.Cache.t) : t =
+  if
+    x.depth_tracker.is_max_depth
+    (* || Fn.non has_reached_target x *)
+  then x
+  else { x with stem = update () }
+
 
 (* require that cx is true by adding as formula *)
 let found_assume (cx : Concolic_key.t) (x : t) : t =
-  add_lazy_formula x @@ fun () -> Concolic_riddler.eqv cx (Jayil.Ast.Value_bool true)
+  add_lazy_expr x cx @@ fun () -> Expression.Const_bool true
+  (* add_lazy_formula x @@ fun () -> Concolic_riddler.eqv cx (Jayil.Ast.Value_bool true) *)
 
 let fail_assume (x : t) : t =
   if x.depth_tracker.is_max_depth
   then x
   else { x with status = `Failed_assume }
 
+(*
+  Handle case where we're too deep to even push a formula, so the expression doesn't exist,
+  and therefore we can't check if it is constant.
+*)
 let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
   let ast_branch = Branch.Runtime.to_ast_branch branch in
-  if Concolic_key.is_const branch.condition_key
+  if Expression.Cache.is_const_bool x.e_cache branch.condition_key
   then (* branch is constant and therefore isn't solvable. Just set as latest branch and push a formula for the branch *)
-    add_lazy_formula { x with latest_branch = Some ast_branch }
-    @@ fun () -> Branch.Runtime.to_expr branch
+    (* actually there is no need to push any formula because it is constant *)
+    { x with latest_branch = Some ast_branch }
+    (* add_lazy_expr { x with latest_branch = Some ast_branch }
+    @@ fun () -> Branch.Runtime.to_expr branch *)
   else (* branch could be solved for, so add it as a branch to be later put in the tree, and say it was hit *)
     let after_incr = 
       { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker 
@@ -132,7 +148,7 @@ let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
       ; solvable_hit_branches = ast_branch :: x.solvable_hit_branches }
     in
     if after_incr.depth_tracker.is_max_depth || Fn.non has_reached_target x
-    then after_incr
+    then after_incr (* we're too deep to track formulas, so don't even both to push the branch *)
     else { after_incr with stem = Formulated_stem.push_branch after_incr.stem branch }
 
 let reach_max_step (x : t) : t =
@@ -143,16 +159,25 @@ let reach_max_step (x : t) : t =
   FORMULAS FOR BASIC JIL CLAUSES
   ------------------------------
 *)
-let add_key_eq_val (key : Concolic_key.t) (v : Jayil.Ast.value) (x : t) : t =
-  add_lazy_formula x @@ fun () -> Concolic_riddler.eqv key v
+let add_key_eq_int (key : Concolic_key.t) (i : int) (x : t) : t =
+  add_lazy_expr x key @@ fun () -> Const_int i
 
-let add_alias (key1 : Concolic_key.t) (key2 : Concolic_key.t) (dv : Dvalue.t) (x : t) : t =
-  if Dvalue.is_int_or_bool dv
-  then add_lazy_formula x @@ fun () -> Concolic_riddler.eq dv key1 key2
-  else x (* nothing to do when the alias is not int or bool because there is no meaningful z3 formula *)
+let add_key_eq_bool (key : Concolic_key.t) (b : bool) (x : t) : t =
+  add_lazy_expr x key @@ fun () -> Const_bool b
 
-let add_binop (key : Concolic_key.t) (op : Jayil.Ast.binary_operator) (left : Concolic_key.t) (left_v : Dvalue.t) (right : Concolic_key.t) (x : t) : t =
-  add_lazy_formula x @@ fun () -> Concolic_riddler.binop key op left left_v right
+let add_alias (key1 : Concolic_key.t) (key2 : Concolic_key.t) (_dv : Dvalue.t) (x : t) : t =
+  update_expr_lazy x @@ fun () -> Expression.Cache.add_alias key1 key2 x.e_cache
+
+(*
+  I don't want to be working around the type checker so much. I think I might
+  need to create a separate function for each binop.
+
+  I need to look up the two keys (I wish I could just store them with their expression) and check if their
+    expressions are const. This is a nice reason to have stored whether it is const just in the key.
+    I may choose to go back to that.
+*)
+let add_binop (type a b) (key : Concolic_key.t) (op : Expression.Untyped_binop.t) (left : Concolic_key.t) (right : Concolic_key.t) (x : t) : t =
+  update_expr_lazy x @@ fun () -> Expression.Cache.binop key op left right x.e_cache
 
 let add_input (key : Concolic_key.t) (v : Dvalue.t) (x : t) : t =
   let n =
@@ -160,11 +185,12 @@ let add_input (key : Concolic_key.t) (v : Dvalue.t) (x : t) : t =
     | Dvalue.Direct (Value_int n) -> n
     | _ -> failwith "non-int input" (* logically impossible *)
   in
-  Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n (let Ident s = Concolic_key.id key in s));
-  { x with rev_inputs = { clause_id = Concolic_key.id key ; input_value = n } :: x.rev_inputs }
+  Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n (let Ident s = Concolic_key.clause_name key in s));
+  { x with rev_inputs = { clause_id = Concolic_key.clause_name key ; input_value = n } :: x.rev_inputs }
+  |> fun x -> add_lazy_expr x key @@ fun () -> Expression.int_ key
 
 let add_not (key1 : Concolic_key.t) (key2 : Concolic_key.t) (x : t) : t =
-  add_lazy_formula x @@ fun () -> Concolic_riddler.not_ key1 key2
+  update_expr_lazy x @@ fun () -> Expression.Cache.not_ x.e_cache key1 key2
 
 (*
   -----------------
@@ -209,6 +235,6 @@ module Dead =
 let[@landmarks] finish : (t, Path_tree.t -> Dead.t) Options.Fun.a =
   Dead.of_sym_session
 
-let make (target : Target.t) (input_feeder : Concolic_feeder.t): t =
+let make (target : Target.t) (cache : Expression.Cache.t) (input_feeder : Concolic_feeder.t) : t =
   { empty with consts = { empty.consts with target = Some target ; input_feeder }
-  ; stem = Formulated_stem.of_target target }
+  ; stem = Formulated_stem.of_cache cache }

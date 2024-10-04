@@ -14,8 +14,6 @@ module rec T :
     val pp : t -> string
 
     val is_int_or_bool : t -> bool
-
-    val to_sort_exn : t -> Sudu.Simpler_z3_api.Sort.t
   end
 and Denv :
   sig
