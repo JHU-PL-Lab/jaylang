@@ -30,16 +30,16 @@ val get_int_expr : Z3.Model.model -> Concolic_key.t -> int option
   --------------
 *)
 
-val not_ : Concolic_key.t -> Concolic_key.t -> Z3.Expr.expr
+val not_ : Concolic_key.t -> Concolic_key.t -> bool Sudu.Gadt_z3_api.Gexpr.t
 (** [not x y] is the expression that [x = not y]. *)
 
-val binop : Concolic_key.t -> Jayil.Ast.binary_operator -> Concolic_key.t -> Dvalue.t -> Concolic_key.t -> Z3.Expr.expr
+val binop : Concolic_key.t -> Jayil.Ast.binary_operator -> Concolic_key.t -> Dvalue.t -> Concolic_key.t -> bool Sudu.Gadt_z3_api.Gexpr.t
 (** [binop x op y left_v z] is the expression that [x = op y z] with prefix notation for the operator [op], where
     the concrete value for [y] is [left_v], which is a quick patch in order to help the solver know the sort
     in case [op] is equality. *)
 
-val eqv : Concolic_key.t -> Jayil.Ast.value -> Z3.Expr.expr
+val eqv : Concolic_key.t -> Jayil.Ast.value -> bool Sudu.Gadt_z3_api.Gexpr.t
 (** [eqv x v] is the expression that [x = v]. *)
 
-val eq : Dvalue.t -> Concolic_key.t -> Concolic_key.t -> Z3.Expr.expr
+val eq : Dvalue.t -> Concolic_key.t -> Concolic_key.t -> bool Sudu.Gadt_z3_api.Gexpr.t
 (** [eq x y] is the expression that [x = y], i.e. it says [x] is an alias for [y]. *)

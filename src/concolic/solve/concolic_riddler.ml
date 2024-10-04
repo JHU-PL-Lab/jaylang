@@ -49,19 +49,6 @@ let get_int_expr model key =
 let not_ k1 k2 =
   fn_not (key_to_var k1 Bool_sort) (key_to_var k2 Bool_sort)
 
-let sorts_of_binop = function
-  | Binary_operator_plus
-  | Binary_operator_minus
-  | Binary_operator_times
-  | Binary_operator_divide
-  | Binary_operator_modulus -> Some (Int_sort, Int_sort, Int_sort)
-  | Binary_operator_less_than
-  | Binary_operator_less_than_or_equal_to
-  | Binary_operator_not_equal_to -> Some (Bool_sort, Int_sort, Int_sort)
-  | Binary_operator_or
-  | Binary_operator_and -> Some (Bool_sort, Bool_sort, Bool_sort)
-  | Binary_operator_equal_to -> None
-
 let binop t op t1 left_v t2 =
   let open Jayil.Ast in
   let e_sort, e1_sort, e2_sort = 
