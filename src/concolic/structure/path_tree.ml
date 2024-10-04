@@ -199,6 +199,7 @@ and Children :
         | False_direction -> Both { r with false_side = child }
 
     (* this is independent of the branch direction *)
+    (* TODO: remove this because we filter formulated stem to only have nonconst branches already *)
     let is_valid_target (branch : Branch.Runtime.t) : bool =
       not
       @@ Concolic_key.is_const branch.condition_key
