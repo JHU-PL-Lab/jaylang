@@ -19,10 +19,6 @@ open Options.Fun.Infix
     The cache of each node is contained in the caches of its children. It only
     exists for easy copying. I should note that I can discard the cache once
     neither child is a target because it will never be needed again. This is a TODO.
-
-  TODO: don't only load in the claim for the branch but also the expression for that
-    key. It is not enough to just claim the condition key takes the direction, but I 
-    also need to load in everything that the condition key is supposed to be.
 *)
 
 module type NODE =
@@ -192,11 +188,6 @@ and Children :
     type t =
       | Pruned (* to signify end of tree in any way. We prune at max depth or if children can't exist (or later if they're exhausted) *)
       | Both of { true_side : Child.t ; false_side : Child.t }
-
-    (* let is_empty (x : t) : bool =
-      match x with
-      | Pruned -> true
-      | Both _ -> false *)
 
     let child_exn (x : t) (dir : Branch.Direction.t) : Child.t =
       match x with
