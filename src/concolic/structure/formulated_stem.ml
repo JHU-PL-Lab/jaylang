@@ -42,8 +42,7 @@ let not_ (x : t) (key1 : Concolic_key.t) (key2 : Concolic_key.t) : t =
     |> Expression.Cache.add_expr expr_cache key1
 
 let is_const_bool (x : t) (key : Concolic_key.t) : bool =
-  Expression.is_const
-  @@ Expression.Cache.lookup_bool (expr_cache x) key
+  Expression.Cache.is_const_bool (expr_cache x) key
 
 let to_rev_path (x : t) : Path.Reverse.t =
   let rec loop acc = function

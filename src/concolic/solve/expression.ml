@@ -101,7 +101,10 @@ module Cache =
     let add_alias (key1 : Concolic_key.t) (key2 : Concolic_key.t) (m : t) : t =
       match Map.find m.b_exprs key2 with
       | Some expr -> { m with b_exprs = Map.set m.b_exprs ~key:key1 ~data:expr }
-      | None -> { m with i_exprs = Map.set m.i_exprs ~key:key1 ~data:(Map.find_exn m.i_exprs key2)}
+      | None -> 
+        match Map.find m.i_exprs key2 with
+        | Some expr -> { m with i_exprs = Map.set m.i_exprs ~key:key1 ~data:expr }
+        | None -> m (* alias was for a non-int or non-bool, which means we can ignore *)
 
     let lookup_bool (m : t) (key : Concolic_key.t) : bool T.t =
       Map.find_exn m.b_exprs key
@@ -110,8 +113,9 @@ module Cache =
       Map.find_exn m.i_exprs key
 
     let is_const_bool (m : t) (key : Concolic_key.t) : bool =
-      is_const
-      @@ lookup_bool m key
+      match Map.find m.b_exprs key with
+      | Some e -> is_const e
+      | None -> true
 
     let not_ (m : t) (x : Concolic_key.t) (y : Concolic_key.t) : t =
       add_expr m x

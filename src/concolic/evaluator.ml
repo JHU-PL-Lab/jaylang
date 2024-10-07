@@ -219,7 +219,7 @@ let eval_exp
           in (* quick alias for shorter code in following match *)
           let open Expression.Untyped_binop in
           match op, v1, v2 with
-          | Binary_operator_plus, Value_int n1, Value_int n2                  -> n (Value_int (n1 + n2)) Plus
+          | Binary_operator_plus, Value_int n1, Value_int n2                  -> n (Value_int  (n1 + n2)) Plus
           | Binary_operator_minus, Value_int n1, Value_int n2                 -> n (Value_int  (n1 - n2)) Minus
           | Binary_operator_times, Value_int n1, Value_int n2                 -> n (Value_int  (n1 * n2)) Times
           | Binary_operator_divide, Value_int n1, Value_int n2 when n2 <> 0   -> n (Value_int  (n1 / n2)) Divide
@@ -285,7 +285,7 @@ let rec loop (e : expr) (session : Session.t) (symb_session : Session.Symbolic.t
     end
 
 let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.a =
-  Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug };
+  (* Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug }; *)
   Session.of_options
   >>> (Options.Fun.make
   @@ fun r (session, symb_session) (e : expr) ->
