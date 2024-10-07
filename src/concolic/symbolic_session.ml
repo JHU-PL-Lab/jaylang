@@ -60,7 +60,6 @@ module T =
   struct
     type t =
       { stem           : Formulated_stem.t
-      (* ; e_cache        : Expression.Cache.t *)
       ; consts         : Session_consts.t
       ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch | `Failed_assume ]
       ; rev_inputs     : Jil_input.t list
@@ -73,7 +72,6 @@ include T
 
 let empty : t =
   { stem           = Formulated_stem.empty
-  (* ; e_cache        = Expression.Cache.empty *)
   ; consts         = Session_consts.default
   ; status         = `In_progress
   ; rev_inputs     = []
@@ -104,24 +102,16 @@ let has_reached_target (x : t) : bool =
   | Some target -> x.depth_tracker.cur_depth >= target.path_n
   | None -> true
 
-let add_lazy_expr (type a) (x : t) (key : Concolic_key.t) (lazy_expr : unit -> a Expression.t) : t =
+let update_lazy_stem (x : t) (lazy_stem : unit -> Formulated_stem.t) : t =
   if
     x.depth_tracker.is_max_depth
     (* || Fn.non has_reached_target x *)
   then x
-  else { x with stem = Formulated_stem.push_expr x.stem key @@ lazy_expr () }
-
-let update_expr_lazy (type a) (x : t) (update : unit -> Expression.Cache.t) : t =
-  if
-    x.depth_tracker.is_max_depth
-    (* || Fn.non has_reached_target x *)
-  then x
-  else { x with stem = update () }
-
+  else { x with stem = lazy_stem () }
 
 (* require that cx is true by adding as formula *)
 let found_assume (cx : Concolic_key.t) (x : t) : t =
-  add_lazy_expr x cx @@ fun () -> Expression.Const_bool true
+  update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem cx (Expression.Const_bool true)
   (* add_lazy_formula x @@ fun () -> Concolic_riddler.eqv cx (Jayil.Ast.Value_bool true) *)
 
 let fail_assume (x : t) : t =
@@ -135,7 +125,7 @@ let fail_assume (x : t) : t =
 *)
 let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
   let ast_branch = Branch.Runtime.to_ast_branch branch in
-  if Expression.Cache.is_const_bool x.e_cache branch.condition_key
+  if Formulated_stem.is_const_bool x.stem branch.condition_key
   then (* branch is constant and therefore isn't solvable. Just set as latest branch and push a formula for the branch *)
     (* actually there is no need to push any formula because it is constant *)
     { x with latest_branch = Some ast_branch }
@@ -160,13 +150,14 @@ let reach_max_step (x : t) : t =
   ------------------------------
 *)
 let add_key_eq_int (key : Concolic_key.t) (i : int) (x : t) : t =
-  add_lazy_expr x key @@ fun () -> Const_int i
+  update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem key (Expression.Const_int i)
 
 let add_key_eq_bool (key : Concolic_key.t) (b : bool) (x : t) : t =
-  add_lazy_expr x key @@ fun () -> Const_bool b
+  update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem key (Expression.Const_bool b)
 
 let add_alias (key1 : Concolic_key.t) (key2 : Concolic_key.t) (_dv : Dvalue.t) (x : t) : t =
-  update_expr_lazy x @@ fun () -> Expression.Cache.add_alias key1 key2 x.e_cache
+  update_lazy_stem x @@ fun () -> Formulated_stem.push_alias x.stem key1 key2
+  (* update_expr_lazy x @@ fun () -> Expression.Cache.add_alias key1 key2 x.e_cache *)
 
 (*
   I don't want to be working around the type checker so much. I think I might
@@ -177,7 +168,7 @@ let add_alias (key1 : Concolic_key.t) (key2 : Concolic_key.t) (_dv : Dvalue.t) (
     I may choose to go back to that.
 *)
 let add_binop (type a b) (key : Concolic_key.t) (op : Expression.Untyped_binop.t) (left : Concolic_key.t) (right : Concolic_key.t) (x : t) : t =
-  update_expr_lazy x @@ fun () -> Expression.Cache.binop key op left right x.e_cache
+  update_lazy_stem x @@ fun () -> Formulated_stem.binop x.stem key op left right
 
 let add_input (key : Concolic_key.t) (v : Dvalue.t) (x : t) : t =
   let n =
@@ -187,10 +178,11 @@ let add_input (key : Concolic_key.t) (v : Dvalue.t) (x : t) : t =
   in
   Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n (let Ident s = Concolic_key.clause_name key in s));
   { x with rev_inputs = { clause_id = Concolic_key.clause_name key ; input_value = n } :: x.rev_inputs }
-  |> fun x -> add_lazy_expr x key @@ fun () -> Expression.int_ key
+  |> fun x -> update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem key (Expression.int_ key)
 
 let add_not (key1 : Concolic_key.t) (key2 : Concolic_key.t) (x : t) : t =
-  update_expr_lazy x @@ fun () -> Expression.Cache.not_ x.e_cache key1 key2
+  update_lazy_stem x @@ fun () -> Formulated_stem.not_ x.stem key1 key2
+  (* update_expr_lazy x @@ fun () -> Expression.Cache.not_ x.e_cache key1 key2 *)
 
 (*
   -----------------

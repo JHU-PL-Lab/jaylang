@@ -58,8 +58,8 @@ val add_key_eq_bool : Concolic_key.t -> bool -> t -> t
 val add_alias : Concolic_key.t -> Concolic_key.t -> Dvalue.t -> t -> t
 (** [add_alias k k' dv t] adds the formula that [k] and [k'] hold the same value [dv] in [t] *)
 
-val add_binop : Concolic_key.t -> Jayil.Ast.binary_operator -> Concolic_key.t -> Dvalue.t -> Concolic_key.t -> t -> t
-(** [add_binop x op left left_v right t] adds the formula that [x = left op right] in [t], where [left] has
+val add_binop : Concolic_key.t -> Expression.Untyped_binop.t -> Concolic_key.t -> Concolic_key.t -> t -> t
+(** [add_binop x op left right t] adds the formula that [x = left op right] in [t], where [left] has
     concrete value [left_v] in this run (see [Concolic_riddler.binop] for explanation). *)
 
 val add_input : Concolic_key.t -> Dvalue.t -> t -> t

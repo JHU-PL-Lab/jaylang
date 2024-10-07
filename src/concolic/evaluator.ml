@@ -121,9 +121,12 @@ let eval_exp
       | Value_body (Value_record r) ->
         (* x = { ... } ; *)
         next (RecordClosure (r, env)) symb_session
-      | Value_body v -> 
-        (* x = <bool or int> ; *)
-        next (Direct v) @@ Session.Symbolic.add_key_eq_val x_key v symb_session
+      | Value_body (Value_int i as v) ->
+        (* x = <int> ; *)
+        next (Direct v) @@ Session.Symbolic.add_key_eq_int x_key i symb_session
+      | Value_body (Value_bool b as v) ->
+        (* x = <bool> ; *)
+        next (Direct v) @@ Session.Symbolic.add_key_eq_bool x_key b symb_session
       | Var_body vx ->
         (* x = y ; *)
         let ret_val, ret_key = Denv.fetch env vx in
@@ -209,24 +212,27 @@ let eval_exp
         let z, z_key = Denv.fetch env vz in
         (* let x_key = Concolic_key.with_dependencies x_key [ y_key ; z_key ] in *)
         match y, z with
-        | Direct v1, Direct v2 ->
-          begin
-            let n v = next ~x_key (Direct v) in (* quick alias for shorter code in following match *)
-            match op, v1, v2 with
-            | Binary_operator_plus, Value_int n1, Value_int n2                  -> n (Value_int  (n1 + n2))
-            | Binary_operator_minus, Value_int n1, Value_int n2                 -> n (Value_int  (n1 - n2))
-            | Binary_operator_times, Value_int n1, Value_int n2                 -> n (Value_int  (n1 * n2))
-            | Binary_operator_divide, Value_int n1, Value_int n2 when n2 <> 0   -> n (Value_int  (n1 / n2))
-            | Binary_operator_modulus, Value_int n1, Value_int n2 when n2 <> 0  -> n (Value_int  (n1 mod n2))
-            | Binary_operator_less_than, Value_int n1, Value_int n2             -> n (Value_bool (n1 < n2))
-            | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 -> n (Value_bool (n1 <= n2))
-            | Binary_operator_equal_to, Value_int n1, Value_int n2              -> n (Value_bool (n1 = n2))
-            | Binary_operator_equal_to, Value_bool b1, Value_bool b2            -> n (Value_bool (Bool.(b1 = b2)))
-            | Binary_operator_and, Value_bool b1, Value_bool b2                 -> n (Value_bool (b1 && b2))
-            | Binary_operator_or, Value_bool b1, Value_bool b2                  -> n (Value_bool (b1 || b2))
-            | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> n (Value_bool (n1 <> n2))
-            | _ -> type_mismatch (* includes mod or divide by 0 *)
-          end @@ Session.Symbolic.add_binop x_key op y_key y z_key symb_session
+        | Direct v1, Direct v2 -> begin
+          let n v binop =
+            next ~x_key (Direct v)
+            @@ Session.Symbolic.add_binop x_key binop y_key z_key symb_session
+          in (* quick alias for shorter code in following match *)
+          let open Expression.Untyped_binop in
+          match op, v1, v2 with
+          | Binary_operator_plus, Value_int n1, Value_int n2                  -> n (Value_int (n1 + n2)) Plus
+          | Binary_operator_minus, Value_int n1, Value_int n2                 -> n (Value_int  (n1 - n2)) Minus
+          | Binary_operator_times, Value_int n1, Value_int n2                 -> n (Value_int  (n1 * n2)) Times
+          | Binary_operator_divide, Value_int n1, Value_int n2 when n2 <> 0   -> n (Value_int  (n1 / n2)) Divide
+          | Binary_operator_modulus, Value_int n1, Value_int n2 when n2 <> 0  -> n (Value_int  (n1 mod n2)) Modulus
+          | Binary_operator_less_than, Value_int n1, Value_int n2             -> n (Value_bool (n1 < n2)) Less_than
+          | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 -> n (Value_bool (n1 <= n2)) Less_than_eq
+          | Binary_operator_equal_to, Value_int n1, Value_int n2              -> n (Value_bool (n1 = n2)) Equal_int
+          | Binary_operator_equal_to, Value_bool b1, Value_bool b2            -> n (Value_bool (Bool.(b1 = b2))) Equal_bool
+          | Binary_operator_and, Value_bool b1, Value_bool b2                 -> n (Value_bool (b1 && b2)) And
+          | Binary_operator_or, Value_bool b1, Value_bool b2                  -> n (Value_bool (b1 || b2)) Or
+          | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> n (Value_bool (n1 <> n2)) Not_equal
+          | _ -> type_mismatch symb_session (* includes mod or divide by 0 *)
+        end 
         | _ -> type_mismatch symb_session
       end
       | Abort_body -> found_abort symb_session
@@ -279,7 +285,7 @@ let rec loop (e : expr) (session : Session.t) (symb_session : Session.Symbolic.t
     end
 
 let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.a =
-  (* Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug }; *)
+  Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug };
   Session.of_options
   >>> (Options.Fun.make
   @@ fun r (session, symb_session) (e : expr) ->
