@@ -105,14 +105,13 @@ let has_reached_target (x : t) : bool =
 let update_lazy_stem (x : t) (lazy_stem : unit -> Formulated_stem.t) : t =
   if
     x.depth_tracker.is_max_depth
-    (* || Fn.non has_reached_target x *)
+    || Fn.non has_reached_target x
   then x
   else { x with stem = lazy_stem () }
 
 (* require that cx is true by adding as formula *)
 let found_assume (cx : Concolic_key.t) (x : t) : t =
-  update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem cx (Expression.Const_bool true)
-  (* add_lazy_formula x @@ fun () -> Concolic_riddler.eqv cx (Jayil.Ast.Value_bool true) *)
+  update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem cx Expression.true_
 
 let fail_assume (x : t) : t =
   if x.depth_tracker.is_max_depth
@@ -127,10 +126,7 @@ let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
   let ast_branch = Branch.Runtime.to_ast_branch branch in
   if Formulated_stem.is_const_bool x.stem branch.condition_key
   then (* branch is constant and therefore isn't solvable. Just set as latest branch and push a formula for the branch *)
-    (* actually there is no need to push any formula because it is constant *)
     { x with latest_branch = Some ast_branch }
-    (* add_lazy_expr { x with latest_branch = Some ast_branch }
-    @@ fun () -> Branch.Runtime.to_expr branch *)
   else (* branch could be solved for, so add it as a branch to be later put in the tree, and say it was hit *)
     let after_incr = 
       { x with depth_tracker = Depth_tracker.incr_branch x.depth_tracker 
@@ -157,16 +153,7 @@ let add_key_eq_bool (key : Concolic_key.t) (b : bool) (x : t) : t =
 
 let add_alias (key1 : Concolic_key.t) (key2 : Concolic_key.t) (_dv : Dvalue.t) (x : t) : t =
   update_lazy_stem x @@ fun () -> Formulated_stem.push_alias x.stem key1 key2
-  (* update_expr_lazy x @@ fun () -> Expression.Cache.add_alias key1 key2 x.e_cache *)
 
-(*
-  I don't want to be working around the type checker so much. I think I might
-  need to create a separate function for each binop.
-
-  I need to look up the two keys (I wish I could just store them with their expression) and check if their
-    expressions are const. This is a nice reason to have stored whether it is const just in the key.
-    I may choose to go back to that.
-*)
 let add_binop (type a b) (key : Concolic_key.t) (op : Expression.Untyped_binop.t) (left : Concolic_key.t) (right : Concolic_key.t) (x : t) : t =
   update_lazy_stem x @@ fun () -> Formulated_stem.binop x.stem key op left right
 
@@ -182,7 +169,6 @@ let add_input (key : Concolic_key.t) (v : Dvalue.t) (x : t) : t =
 
 let add_not (key1 : Concolic_key.t) (key2 : Concolic_key.t) (x : t) : t =
   update_lazy_stem x @@ fun () -> Formulated_stem.not_ x.stem key1 key2
-  (* update_expr_lazy x @@ fun () -> Expression.Cache.not_ x.e_cache key1 key2 *)
 
 (*
   -----------------

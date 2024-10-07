@@ -108,7 +108,7 @@ let eval_exp
     if step >= max_step
     then reach_max_step symb_session
     else
-      let x_key = Concolic_key.create x step (*true*) in
+      let x_key = Concolic_key.create x step in
 
       let next ?(step : int = step) ?(x_key : Concolic_key.t = x_key) v s =
         cont @@ return (Denv.add env x v x_key) v s step

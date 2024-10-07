@@ -64,6 +64,7 @@ let simplify_int op construct =
 let simplify_bool op construct =
   simplify (fun x y -> Abstract_bool (construct x y)) (fun x y -> Const_bool (op x y))
 
+let true_ = Const_bool true
 let bool_ key = Abstract_bool (Bool_key key)
 let int_ key = Abstract_int (Int_key key)
 
