@@ -65,11 +65,12 @@ let simplify_bool op construct =
   simplify (fun x y -> Abstract_bool (construct x y)) (fun x y -> Const_bool (op x y))
 
 let true_ = Const_bool true
-let bool_ key = Abstract_bool (Bool_key key)
-let int_ key = Abstract_int (Int_key key)
+let const_bool b = Const_bool b
+let const_int i = Const_int i
+let bool_key key = Abstract_bool (Bool_key key)
+let int_key key = Abstract_int (Int_key key)
 
 let not_ (x : bool t) : bool t = match x with Const_bool b -> Const_bool (not b) | _ -> Abstract_bool (Not x)
-let alias (x : _ t) : _ t = x
 let plus = simplify_int ( + ) (fun a b -> Plus (a, b))
 let minus = simplify_int ( - ) (fun a b -> Minus (a, b))
 let times = simplify_int ( * ) (fun a b -> Times (a, b))
@@ -146,6 +147,11 @@ module Cache =
 
 module Resolve = 
   struct
+    (*
+      I can't seem to get the type checker to like when I use polymorphic t to formula,
+      but it works okay when I separately handle the int and bool cases.
+    *)
+
     let rec int_t_to_formula (x : int t) : int C_sudu.Gexpr.t =
       match x with
       | Const_int i -> C_sudu.box_int i
@@ -179,5 +185,15 @@ module Resolve =
       | Times (e1, e2) -> op_two_ints C_sudu.times e1 e2
       | Divide (e1, e2) -> op_two_ints C_sudu.divide e1 e2
       | Modulus (e1, e2) -> op_two_ints C_sudu.modulus e1 e2
+
+    (* I can't combine the two int or two bool cases, or else the type checker thinks it's wrong. *)
+    let t_to_formula (type a) (x : a t) : a C_sudu.Gexpr.t =
+      match x with
+      | Const_int _ -> int_t_to_formula x
+      | Abstract_int _ -> int_t_to_formula x
+      | Const_bool _ -> bool_t_to_formula x
+      | Abstract_bool _ -> bool_t_to_formula x
   end
+
+let t_to_formula = Resolve.t_to_formula
 

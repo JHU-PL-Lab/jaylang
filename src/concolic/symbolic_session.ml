@@ -134,7 +134,7 @@ let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
       ; solvable_hit_branches = ast_branch :: x.solvable_hit_branches }
     in
     if after_incr.depth_tracker.is_max_depth || Fn.non has_reached_target x
-    then after_incr (* we're too deep to track formulas, so don't even both to push the branch *)
+    then after_incr (* we're too deep to track formulas, so don't even bother to push the branch *)
     else { after_incr with stem = Formulated_stem.push_branch after_incr.stem branch }
 
 let reach_max_step (x : t) : t =
@@ -146,12 +146,12 @@ let reach_max_step (x : t) : t =
   ------------------------------
 *)
 let add_key_eq_int (key : Concolic_key.t) (i : int) (x : t) : t =
-  update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem key (Expression.Const_int i)
+  update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem key (Expression.const_int i)
 
 let add_key_eq_bool (key : Concolic_key.t) (b : bool) (x : t) : t =
-  update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem key (Expression.Const_bool b)
+  update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem key (Expression.const_bool b)
 
-let add_alias (key1 : Concolic_key.t) (key2 : Concolic_key.t) (_dv : Dvalue.t) (x : t) : t =
+let add_alias (key1 : Concolic_key.t) (key2 : Concolic_key.t) (x : t) : t =
   update_lazy_stem x @@ fun () -> Formulated_stem.push_alias x.stem key1 key2
 
 let add_binop (type a b) (key : Concolic_key.t) (op : Expression.Untyped_binop.t) (left : Concolic_key.t) (right : Concolic_key.t) (x : t) : t =
@@ -165,7 +165,7 @@ let add_input (key : Concolic_key.t) (v : Dvalue.t) (x : t) : t =
   in
   Dj_common.Log.Export.CLog.app (fun m -> m "Feed %d to %s \n" n (let Ident s = Concolic_key.clause_name key in s));
   { x with rev_inputs = { clause_id = Concolic_key.clause_name key ; input_value = n } :: x.rev_inputs }
-  |> fun x -> update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem key (Expression.int_ key)
+  |> fun x -> update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem key (Expression.int_key key)
 
 let add_not (key1 : Concolic_key.t) (key2 : Concolic_key.t) (x : t) : t =
   update_lazy_stem x @@ fun () -> Formulated_stem.not_ x.stem key1 key2
