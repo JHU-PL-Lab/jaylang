@@ -1,5 +1,5 @@
 open Core
-open Dbmc
+open From_dbmc
 open Jayil.Ast
 
 (* The alias should follow the rule that each node has a single successor *)

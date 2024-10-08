@@ -1,8 +1,0 @@
-x = input;
-f = false;
-z = f ? (
-  z1 = {}
-) : (
-  z2 = diverge
-);
-target = x;

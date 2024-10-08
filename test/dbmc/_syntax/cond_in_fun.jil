@@ -1,8 +1,0 @@
-t = true;
-f = false;
-g = fun c -> (
-  r = c ? (r1 = 1) : (r2 = 2);
-  rr = r
-);
-p = g t;
-target = p

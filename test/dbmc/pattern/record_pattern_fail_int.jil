@@ -1,8 +1,0 @@
-x = input;
-one = 1;
-c = one ~ {a};
-z = c ? (
-      dummy = 0
-    ) : (
-      target = 1
-    )

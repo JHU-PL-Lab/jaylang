@@ -178,9 +178,9 @@ let eval_exp
         end
       | Match_body (vy, p) ->
         (* x = y ~ <pattern> ; *)
-        let match_res = Value_bool (check_pattern env vy p) in
-        (* match is always constant because it is determined by a parent branch, so there are no formulas to add *)
-        next (Direct match_res) symb_session
+        let b = check_pattern env vy p in
+        (* match is always constant because it is determined by a parent branch, so there are no formulas to add. But we do add so that instrumented version doesn't fail *)
+        next (Direct (Value_bool b)) @@ Session.Symbolic.add_key_eq_bool x_key b symb_session
       | Projection_body (v, label) -> begin
         match Denv.fetch_val env v with
         | RecordClosure (Record_value r, denv) ->
