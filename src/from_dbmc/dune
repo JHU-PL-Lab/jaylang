@@ -21,7 +21,6 @@
   bluejay
   dj_common
   jil_analysis
-  unroll
   sudu)
  (instrumentation
   (backend landmarks))

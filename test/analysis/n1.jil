@@ -1,9 +1,0 @@
-tt = true;
-ff = false;
-wrap = fun c -> (
-  f1 = fun y -> ( r1 = y );
-  f2 = fun x -> ( r2 = f1 x );
-)
-f3 = fun d -> ( r3 = wrap tt );
-t1 = f3 tt;
-t = f3 ff;

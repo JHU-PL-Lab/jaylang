@@ -39,7 +39,6 @@
   alcotest
   alcotest-lwt
   sudu
-  unroll
   (jhupllib
    (>= 0.1.1))
   (ocaml-monadic
@@ -55,18 +54,6 @@
  (name sudu)
  (description "Z3 API built upon official one for easy operations")
  (depends core z3 logs fmt))
-
-(package
- (name unroll)
- (description "Unroll is a library to search unbounded cases")
- (depends
-  core
-  core_unix
-  core_kernel
-  hashcons
-  fmt
-  lwt
-  logs))
 
 (package
  (name langdk)
