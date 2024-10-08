@@ -42,40 +42,40 @@ val int_key : Concolic_key.t -> int t
 val not_ : bool t -> bool t
 (** [not_ e] is the negation of [e]. *)
 
-val plus : int t -> int t -> int t
+(* val plus : int t -> int t -> int t *)
 (** [plus e1 e2] is an expression for [e1] plus [e2]. *)
 
-val minus : int t -> int t -> int t
+(* val minus : int t -> int t -> int t *)
 (** [minus e1 e2] is an expression for [e1] minus [e2]. *)
 
-val times : int t -> int t -> int t
+(* val times : int t -> int t -> int t *)
 (** [times e1 e2] is an expression for [e1] times [e2]. *)
 
-val divide : int t -> int t -> int t
+(* val divide : int t -> int t -> int t *)
 (** [divide e1 e2] is an expression for [e1] divided by [e2]. *)
 
-val modulus : int t -> int t -> int t
+(* val modulus : int t -> int t -> int t *)
 (** [modulus e1 e2] is an expression for [e1] mod [e2]. *)
 
-val less_than : int t -> int t -> bool t
+(* val less_than : int t -> int t -> bool t *)
 (** [less_than e1 e2] is an expression for [e1] is less than [e2]. *)
 
-val less_than_eq : int t -> int t -> bool t
+(* val less_than_eq : int t -> int t -> bool t *)
 (** [less_than_eq e1 e2] is an expression for [e1] is less than or equal to [e2]. *)
 
-val equal_int : int t -> int t -> bool t
+(* val equal_int : int t -> int t -> bool t *)
 (** [equal_int e1 e2] is an expression for [e1] is equal to [e2]. *)
 
-val equal_bool : bool t -> bool t -> bool t
+(* val equal_bool : bool t -> bool t -> bool t *)
 (** [equal_bool e1 e2] is an expression for [e1] is equal to [e2]. *)
 
-val not_equal : int t -> int t -> bool t
+(* val not_equal : int t -> int t -> bool t *)
 (** [not_equal e1 e2] is an expression for [e1] is not equal to [e2]. *)
 
-val and_ : bool t -> bool t -> bool t
+(* val and_ : bool t -> bool t -> bool t *)
 (** [and_ e1 e2] is an expression for the logical operation [e1] and [e2]. *)
 
-val or_ : bool t -> bool t -> bool t
+(* val or_ : bool t -> bool t -> bool t *)
 (** [or_ e1 e2] is an expression for the logical operation [e1] or [e2]. *)
 
 val t_to_formula : 'a t -> 'a C_sudu.Gexpr.t

@@ -135,7 +135,7 @@ module Cache =
       | Minus -> op_ints minus
       | Times -> op_ints times
       | Divide -> op_ints divide
-      | Modulus -> op_ints divide
+      | Modulus -> op_ints modulus
       | Less_than -> op_ints less_than
       | Less_than_eq -> op_ints less_than_eq
       | Equal_int -> op_ints equal_int
