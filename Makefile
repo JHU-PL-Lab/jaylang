@@ -55,6 +55,9 @@ sc-test:
 sctest: sc-test
 	./sctest
 
+test-concolic:
+	dune exec src-test/concolic/test_concolic.exe
+
 # benchmark
 
 cbenchmark:
