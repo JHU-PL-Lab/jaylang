@@ -90,7 +90,7 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ]
 
   and handle_target (x : t) (target : Target.t) =
     match solve_for_target x target with
-    | Concolic_riddler.Solve_status.Unsat ->
+    | C_sudu.Solve_status.Unsat ->
       Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE BRANCH\n");
       next { x with tree = Path_tree.set_unsat_target x.tree target }
     | Unknown ->
@@ -103,14 +103,18 @@ let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ]
             { x with run_num = x.run_num + 1 }
             , model
               |> Concolic_feeder.from_model
-              |> Symbolic.make target
+              |> Symbolic.make target (Path_tree.cache_of_target x.tree target)
               |> Options.Fun.appl Symbolic.with_options x.options
           )
 
   and solve_for_target (x : t) (target : Target.t) =
     Log.Export.CLog.app (fun m -> m "Solving for target: %s\n" (Branch.Runtime.to_string target.branch));
     let t0 = Caml_unix.gettimeofday () in
-    let res = Concolic_riddler.solve (Path_tree.formulas_of_target x.tree target) in
+    let res = 
+      Path_tree.claims_of_target x.tree target
+      |> Tuple2.uncurry Claim.get_formulas
+      |> C_sudu.solve
+    in
     let t1 = Caml_unix.gettimeofday () in
     Log.Export.CLog.info (fun m -> m "Finished solve in %fs\n" (t1 -. t0));
     res

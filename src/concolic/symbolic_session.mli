@@ -50,14 +50,17 @@ val get_feeder : t -> Concolic_feeder.t
   -----------
 *)
 
-val add_key_eq_val : Concolic_key.t -> Jayil.Ast.value -> t -> t
-(** [add_key_eq_val k v t] adds the formula that [k] has value [v] in [t]. *)
+val add_key_eq_int : Concolic_key.t -> int -> t -> t
+(** [add_key_eq_int k i t] adds the claim that [k = i] in [t]. *)
 
-val add_alias : Concolic_key.t -> Concolic_key.t -> Dvalue.t -> t -> t
-(** [add_alias k k' dv t] adds the formula that [k] and [k'] hold the same value [dv] in [t] *)
+val add_key_eq_bool : Concolic_key.t -> bool -> t -> t
+(** [add_key_eq_int k b t] adds the claim that [k = b] in [t]. *)
 
-val add_binop : Concolic_key.t -> Jayil.Ast.binary_operator -> Concolic_key.t -> Concolic_key.t -> t -> t
-(** [add_binop x op left right t] adds the formula that [x = left op right] in [t]. *)
+val add_alias : Concolic_key.t -> Concolic_key.t -> t -> t
+(** [add_alias k k' t] adds the formula that [k = k'] in [t] where [k'] was defined first. *)
+
+val add_binop : Concolic_key.t -> Expression.Untyped_binop.t -> Concolic_key.t -> Concolic_key.t -> t -> t
+(** [add_binop x op left right t] adds the formula that [x = left op right] in [t]. *) 
 
 val add_input : Concolic_key.t -> Dvalue.t -> t -> t
 (** [add_input x v t] is [t] that knows input [x = v] was given. *)
@@ -99,5 +102,5 @@ val finish : (t, Path_tree.t -> Dead.t) Options.Fun.a
 (** [finish t root] creates a finished session from [t] that merges info with the given [root].
     The merged result can be gotten with [root_exn @@ finish t root]. *)
 
-val make : Target.t -> Concolic_feeder.t -> t
+val make : Target.t -> Expression.Cache.t -> Concolic_feeder.t -> t
 (** [make target feeder] makes an empty t that knows the given [target] and [feeder]. *)

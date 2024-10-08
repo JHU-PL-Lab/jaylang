@@ -47,8 +47,8 @@ module Runtime :
         The [branch_key] is the key of the clause to identify the node in the AST, and the [condition_key]
         is the key of the condition variable. *)
 
-    val to_expr : t -> Z3.Expr.expr
-    (** [to_expr x] is a Z3 expression that sets the condition key in [x] to be equal to the direction as a bool. *)
+    val to_claim : t -> Claim.t
+    (** [to_expr x] is a claim that [x.condition_key] must take the direction as a bool. *)
 
     val to_string : t -> string
     (** [to_string x] shows all of the branch, condition, and direction in [x] as a string. *)

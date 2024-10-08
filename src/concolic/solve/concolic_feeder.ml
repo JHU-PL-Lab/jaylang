@@ -9,7 +9,7 @@ let default : t =
 
 let from_model (model : Z3.Model.model) : t =
   fun key ->
-    match Concolic_riddler.get_int_expr model key with
+    match C_sudu.get_int_expr model key with
     | Some i -> i
     | None -> default key
     

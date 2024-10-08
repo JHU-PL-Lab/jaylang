@@ -108,7 +108,7 @@ let eval_exp
     if step >= max_step
     then reach_max_step symb_session
     else
-      let x_key = Concolic_key.create x step true in
+      let x_key = Concolic_key.create x step in
 
       let next ?(step : int = step) ?(x_key : Concolic_key.t = x_key) v s =
         cont @@ return (Denv.add env x v x_key) v s step
@@ -121,14 +121,16 @@ let eval_exp
       | Value_body (Value_record r) ->
         (* x = { ... } ; *)
         next (RecordClosure (r, env)) symb_session
-      | Value_body v -> 
-        (* x = <bool or int> ; *)
-        next (Direct v) @@ Session.Symbolic.add_key_eq_val x_key v symb_session
+      | Value_body (Value_int i as v) ->
+        (* x = <int> ; *)
+        next (Direct v) @@ Session.Symbolic.add_key_eq_int x_key i symb_session
+      | Value_body (Value_bool b as v) ->
+        (* x = <bool> ; *)
+        next (Direct v) @@ Session.Symbolic.add_key_eq_bool x_key b symb_session
       | Var_body vx ->
         (* x = y ; *)
         let ret_val, ret_key = Denv.fetch env vx in
-        let x_key = Concolic_key.with_dependencies x_key [ ret_key ] in
-        next ~x_key ret_val @@ Session.Symbolic.add_alias x_key ret_key ret_val symb_session
+        next ~x_key ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
       | Conditional_body (cx, e1, e2) -> 
         (* x = if y then e1 else e2 ; *)
         let cond_val, condition_key = Denv.fetch env cx in
@@ -141,15 +143,13 @@ let eval_exp
             | Ok { denv = ret_env ; dval = ret_val ; symb_session ; step } ->
               let last_v = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
               let ret_key = Denv.fetch_key ret_env last_v in
-              let x_key = Concolic_key.with_dependencies x_key [ ret_key ] in
-              next ~x_key ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key ret_val symb_session
+              next ~x_key ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
             | res -> res
             )
           | _ -> type_mismatch symb_session
         end
       | Input_body ->
         (* x = input ; *)
-        let x_key = Concolic_key.set_not_const x_key in
         let ret_val = Direct (Value_int (Session.Symbolic.get_feeder symb_session x_key)) in
         next ~x_key ret_val @@ Session.Symbolic.add_input x_key ret_val symb_session
       | Appl_body (vf, varg) -> begin 
@@ -161,18 +161,17 @@ let eval_exp
 
           (* varg is the argument that fills in param *)
           let arg_val, arg_key = Denv.fetch env varg in
-          let param_key = Concolic_key.create param step @@ Concolic_key.is_const arg_key in
+          let param_key = Concolic_key.create param step (*@@ Concolic_key.is_const arg_key*) in
           let env' = Denv.add fenv param arg_val param_key in
 
           (* returned value of function *)
-          eval_exp ~symb_session:(Session.Symbolic.add_alias param_key arg_key arg_val symb_session) ~step env' body (function
+          eval_exp ~symb_session:(Session.Symbolic.add_alias param_key arg_key symb_session) ~step env' body (function
           | Ok { denv = ret_env ; dval = ret_val ; step ; symb_session } ->
             let last_v = Jayil.Ast_tools.retv body in
             let ret_key = Denv.fetch_key ret_env last_v in
-            let x_key = Concolic_key.with_dependencies x_key [ ret_key ] in
 
             (* exit function: *)
-            next ~x_key ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key ret_val symb_session
+            next ~x_key ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
           | res -> res
           )
         | _ -> type_mismatch symb_session
@@ -187,8 +186,7 @@ let eval_exp
         | RecordClosure (Record_value r, denv) ->
           let proj_var = Ident_map.find label r in
           let ret_val, ret_key = Denv.fetch denv proj_var in
-          let x_key = Concolic_key.with_dependencies x_key [ ret_key ] in
-          next ~x_key ret_val @@ Session.Symbolic.add_alias x_key ret_key ret_val symb_session
+          next ~x_key ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
         | Direct (Value_record (Record_value _record)) ->
           failwith "project should also have a closure"
         | _ -> type_mismatch symb_session
@@ -199,7 +197,6 @@ let eval_exp
         begin
           match y_val with
           | Direct (Value_bool b) ->
-            let x_key = Concolic_key.with_dependencies x_key [ y_key ] in
             next ~x_key (Direct (Value_bool (not b))) @@ Session.Symbolic.add_not x_key y_key symb_session
           | _ -> type_mismatch symb_session
         end
@@ -207,32 +204,33 @@ let eval_exp
         (* x = y op z *)
         let y, y_key = Denv.fetch env vy in
         let z, z_key = Denv.fetch env vz in
-        let x_key = Concolic_key.with_dependencies x_key [ y_key ; z_key ] in
         match y, z with
-        | Direct v1, Direct v2 ->
-          begin
-            let n v = next ~x_key (Direct v) in (* quick alias for shorter code in following match *)
-            match op, v1, v2 with
-            | Binary_operator_plus, Value_int n1, Value_int n2                  -> n (Value_int  (n1 + n2))
-            | Binary_operator_minus, Value_int n1, Value_int n2                 -> n (Value_int  (n1 - n2))
-            | Binary_operator_times, Value_int n1, Value_int n2                 -> n (Value_int  (n1 * n2))
-            | Binary_operator_divide, Value_int n1, Value_int n2 when n2 <> 0   -> n (Value_int  (n1 / n2))
-            | Binary_operator_modulus, Value_int n1, Value_int n2 when n2 <> 0  -> n (Value_int  (n1 mod n2))
-            | Binary_operator_less_than, Value_int n1, Value_int n2             -> n (Value_bool (n1 < n2))
-            | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 -> n (Value_bool (n1 <= n2))
-            | Binary_operator_equal_to, Value_int n1, Value_int n2              -> n (Value_bool (n1 = n2))
-            | Binary_operator_equal_to, Value_bool b1, Value_bool b2            -> n (Value_bool (Bool.(b1 = b2)))
-            | Binary_operator_and, Value_bool b1, Value_bool b2                 -> n (Value_bool (b1 && b2))
-            | Binary_operator_or, Value_bool b1, Value_bool b2                  -> n (Value_bool (b1 || b2))
-            | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> n (Value_bool (n1 <> n2))
-            | _ -> type_mismatch (* includes mod or divide by 0 *)
-          end @@ Session.Symbolic.add_binop x_key op y_key z_key symb_session
+        | Direct v1, Direct v2 -> begin
+          let k v binop = (* continuation alias for shorter code in following match *)
+            next ~x_key (Direct v)
+            @@ Session.Symbolic.add_binop x_key binop y_key z_key symb_session
+          in
+          let open Expression.Untyped_binop in
+          match op, v1, v2 with
+          | Binary_operator_plus, Value_int n1, Value_int n2                  -> k (Value_int  (n1 + n2)) Plus
+          | Binary_operator_minus, Value_int n1, Value_int n2                 -> k (Value_int  (n1 - n2)) Minus
+          | Binary_operator_times, Value_int n1, Value_int n2                 -> k (Value_int  (n1 * n2)) Times
+          | Binary_operator_divide, Value_int n1, Value_int n2 when n2 <> 0   -> k (Value_int  (n1 / n2)) Divide
+          | Binary_operator_modulus, Value_int n1, Value_int n2 when n2 <> 0  -> k (Value_int  (n1 mod n2)) Modulus
+          | Binary_operator_less_than, Value_int n1, Value_int n2             -> k (Value_bool (n1 < n2)) Less_than
+          | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 -> k (Value_bool (n1 <= n2)) Less_than_eq
+          | Binary_operator_equal_to, Value_int n1, Value_int n2              -> k (Value_bool (n1 = n2)) Equal_int
+          | Binary_operator_equal_to, Value_bool b1, Value_bool b2            -> k (Value_bool (Bool.(b1 = b2))) Equal_bool
+          | Binary_operator_and, Value_bool b1, Value_bool b2                 -> k (Value_bool (b1 && b2)) And
+          | Binary_operator_or, Value_bool b1, Value_bool b2                  -> k (Value_bool (b1 || b2)) Or
+          | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> k (Value_bool (n1 <> n2)) Not_equal
+          | _ -> type_mismatch symb_session (* includes mod or divide by 0 *)
+        end 
         | _ -> type_mismatch symb_session
       end
       | Abort_body -> found_abort symb_session
       | Assert_body cx | Assume_body cx ->
         let cond_val, cond_key = Denv.fetch env cx in 
-        let x_key = Concolic_key.with_dependencies x_key [ cond_key ] in
         match cond_val with
         | Direct (Value_bool b) ->
           let symb_session = Session.Symbolic.found_assume cond_key symb_session in
@@ -283,7 +281,7 @@ let lwt_eval : (Jayil.Ast.expr, Session.Status.t Lwt.t) Options.Fun.a =
   Session.of_options
   >>> (Options.Fun.make
   @@ fun r (session, symb_session) (e : expr) ->
-      Concolic_riddler.set_timeout (Core.Time_float.Span.of_sec r.solver_timeout_sec);
+      C_sudu.set_timeout (Core.Time_float.Span.of_sec r.solver_timeout_sec);
       if not r.random then C_random.reset ();
       CLog.app (fun m -> m "\nStarting concolic execution...\n");
       Lwt_unix.with_timeout r.global_timeout_sec
