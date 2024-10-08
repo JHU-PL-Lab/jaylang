@@ -324,17 +324,6 @@ and eval_clause ~session stk env clause : denv * dvalue =
         let retv = Direct v in
         let () = add_val_def_mapping (x, stk) (cbody, retv) session in
         retv
-        (* | Abort_body ->
-             raise @@ Found_abort x
-           | Assert_body vx ->
-             let v = fetch_val_to_direct ~session ~stk env vx in
-             let bv =
-               match v with
-               | Value_bool b -> Value_bool b
-               | _ -> failwith "failed assert"
-             in
-             Direct bv *)
-        (* TODO: What should the interpreter do with an assume statement? *)
     | Abort_body -> (
         let ab_v = AbortClosure env in
         let () = add_val_def_mapping (x, stk) (cbody, ab_v) session in

@@ -1,4 +1,8 @@
 x = input;
 t = true;
-z = assume t;
+z = t ? (
+  z1 = {}
+) : (
+  z2 = diverge
+);
 target = x;
