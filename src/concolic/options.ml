@@ -5,10 +5,10 @@ module T =
     type t =
       { global_timeout_sec : float [@default 90.0]
       ; solver_timeout_sec : float [@default 1.0]
-      ; global_max_step    : int   [@default Int.(5 * 10**4)]
-      ; max_tree_depth     : int   [@default 60]
+      ; global_max_step    : int   [@default Int.(10**5)]
+      ; max_tree_depth     : int   [@default 30]
       ; random             : bool  [@default false]
-      ; n_depth_increments : int   [@default 3] }
+      ; n_depth_increments : int   [@default 6] }
       [@@deriving sexp]
   end
 
@@ -46,81 +46,129 @@ module Refs =
 (* `Fun` for optional arguments on functions *)
 module Fun =
   struct
-    type ('a, 'b) t =
-      ?global_timeout_sec    : float
-      -> ?solver_timeout_sec : float
-      -> ?global_max_step    : int
-      -> ?max_tree_depth     : int
-      -> ?random             : bool
-      -> ?n_depth_increments : int
-      -> 'a
-      -> 'b
 
-    let run (x : ('a, 'b) t) (r : T.t) : 'a -> 'b =
-      x
-        ~global_timeout_sec:r.global_timeout_sec
-        ~solver_timeout_sec:r.solver_timeout_sec
-        ~global_max_step:r.global_max_step
-        ~max_tree_depth:r.max_tree_depth
-        ~random:r.random
-        ~n_depth_increments:r.n_depth_increments
+    module type ARROW =
+      sig
+        type ('b, 'c) a
+        val arr : ('b -> 'c) -> ('b, 'c) a
+        val first : ('b, 'c) a -> ('b * 'd, 'c * 'd) a
+        val (>>>) : ('b, 'c) a -> ('c, 'd) a -> ('b, 'd) a
+      end
 
-    let make (f : T.t -> 'a -> 'b) : ('a, 'b) t =
-      fun
-      ?(global_timeout_sec : float = default.global_timeout_sec)
-      ?(solver_timeout_sec : float = default.solver_timeout_sec)
-      ?(global_max_step    : int   = default.global_max_step)
-      ?(max_tree_depth     : int   = default.max_tree_depth)
-      ?(random             : bool  = default.random)
-      ?(n_depth_increments : int   = default.n_depth_increments)
-      ->
-      { global_timeout_sec
-      ; solver_timeout_sec
-      ; global_max_step
-      ; max_tree_depth
-      ; random
-      ; n_depth_increments }
-      |> f 
+    module A = 
+      struct
+        (* a is an arrow. *)
+        type ('b, 'c) a =
+          ?global_timeout_sec    : float
+          -> ?solver_timeout_sec : float
+          -> ?global_max_step    : int
+          -> ?max_tree_depth     : int
+          -> ?random             : bool
+          -> ?n_depth_increments : int
+          -> 'b
+          -> 'c
 
-    let return (f : 'a -> 'b) : ('a, 'b) t =
-      make (fun _ -> f)
+        let appl (x : ('b, 'c) a) (r : T.t) : 'b -> 'a =
+          x
+            ~global_timeout_sec:r.global_timeout_sec
+            ~solver_timeout_sec:r.solver_timeout_sec
+            ~global_max_step:r.global_max_step
+            ~max_tree_depth:r.max_tree_depth
+            ~random:r.random
+            ~n_depth_increments:r.n_depth_increments
 
-    (*
-      Note we can't do the normal bind of type `('a, 'r) t -> ('a -> ('b, 'r) t) -> ('b, 'r) t`.
-      To see why, forget the optional argument part. Just assume `('a, 'b) t = 'a -> 'b`.
-      Then such a bind would be
-        `val bind : ('a -> 'r) -> ('a -> 'b -> 'r) -> 'b -> 'r`
-      Then try to start by saying
-        let bind x f =
-          fun b ->
-            ...
-      And we need to make an 'r. However, this requires we have an 'a! We don't!
+        let make : 'b 'c. (T.t -> 'b -> 'c) -> ('b, 'c) a =
+          fun f ->
+            fun
+            ?(global_timeout_sec : float = default.global_timeout_sec)
+            ?(solver_timeout_sec : float = default.solver_timeout_sec)
+            ?(global_max_step    : int   = default.global_max_step)
+            ?(max_tree_depth     : int   = default.max_tree_depth)
+            ?(random             : bool  = default.random)
+            ?(n_depth_increments : int   = default.n_depth_increments)
+            ->
+            { global_timeout_sec
+            ; solver_timeout_sec
+            ; global_max_step
+            ; max_tree_depth
+            ; random
+            ; n_depth_increments }
+            |> f 
 
-      So let's just call the following code `bind`, even if that's a bad name.
-    *)
-    let bind (x : ('a, 'b) t) (f : ('b, 'r) t) : ('a, 'r) t =
-      make
-      @@ fun r ->
+        let arr : 'b 'c. ('b -> 'c) -> ('b, 'c) a =
+          fun b_c ->
+            make @@ fun _ -> b_c
+
+        let first : 'b 'c 'd. ('b, 'c) a -> ('b * 'd, 'c * 'd) a =
+          fun b_c_a ->
+            make @@ fun r -> fun (b, d) ->
+              (appl b_c_a r b), d
+
+        let (>>>) : 'b 'c 'd. ('b, 'c) a -> ('c, 'd) a -> ('b, 'd) a =
+          fun b_c_a c_d_a ->
+            make @@ fun r -> fun b ->
+              appl c_d_a r @@ appl b_c_a r b
+      end
+
+    include A
+
+    module Make_arrow (A : ARROW) =
+      struct
+        include A
+
+        let swap (x, y) = (y, x)
+
+        module Infix =
+          struct
+            let (>>>) = (>>>)
+
+            (* split *)
+            let ( *** ) : 'b 'c 'd 'e. ('b, 'c) a -> ('d, 'e) a -> ('b * 'd, 'c * 'e) a = 
+              fun b_c d_e ->
+                first b_c
+                >>> arr swap
+                >>> first d_e
+                >>> arr swap
+
+            (* fanout *)
+            let (&&&) : 'b 'c 'd. ('b, 'c) a -> ('b, 'd) a -> ('b, 'c * 'd) a =
+              fun f g ->
+                arr (fun b -> (b, b)) >>> f *** g
+
+            (* map second *)
+            let (^>>) : 'b 'c 'd. ('b, 'c) a -> ('c -> 'd) -> ('b, 'd) a =
+              fun bc_a cd ->
+                bc_a >>> arr cd
+
+            (* contramap first *)
+            let (<<^) : 'b 'c 'd. ('c, 'd) a -> ('b -> 'c) -> ('b, 'd) a =
+              fun cd_a bc ->
+                arr bc >>> cd_a
+          end
+
+        include Infix
+
+        let second : 'b 'c 'd. ('b, 'c) a -> ('d * 'b, 'd * 'c) a =
           fun a ->
-            let b = run x r a in
-            run f r b
+            arr Fn.id *** a
 
-    let map (x : ('a, 'b) t) (f : 'b -> 'r) : ('a, 'r) t =
-      bind x (return f)
+        let dimap : 'b 'c 'd 'e. ('b -> 'c) -> ('d -> 'e) -> ('c, 'd) a -> ('b, 'e) a =
+          fun b_c d_e c_d_a ->
+            (c_d_a <<^ b_c) ^>> d_e
 
-    let compose (f : 'a -> 'b) (x : ('b, 'r) t) : ('a, 'r) t =
-      bind (return f) x
+        let uncurry : 'b 'c 'd. ('b, 'c -> 'd) a -> ('b * 'c, 'd) a =
+          fun b_c_d_a ->
+            first b_c_d_a ^>> (fun (c_d, c) -> c_d c)
 
-    let join (x : ('a, ('b, 'r) t) t) : ('a, 'r) t =
-      make
-      @@ fun r ->
-          fun a ->
-            let b_r = run x r a
-            in
-            run b_r r a
+        let strong : 'b 'c 'd. ('b -> 'c -> 'd) -> ('b, 'c) a -> ('b, 'd) a =
+          fun b_c_d b_c_a ->
+            first b_c_a
+            ^>> (fun (c, b) -> b_c_d b c)
+            <<^ (fun b -> (b, b))
 
-    let (>>=) x f = bind x f
-    let (>>|) x f = map x f
-    let (>=>) f g = compose f g
+        let thaw : 'b 'c. (unit, 'b -> 'c) a -> ('b, 'c) a =
+          fun x -> uncurry x <<^ (fun y -> (), y)
+      end
 
+    include Make_arrow (A)
   end

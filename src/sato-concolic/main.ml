@@ -29,7 +29,7 @@ let dump_program program filename dump_level =
   | _ -> ()
 
 let main_lwt ~(config : Global_config.t) program_full :
-    (reported_error option * bool) Lwt.t =
+    [ `Error of reported_error | `Type_mismatch | `No_error of [ `Conclusive | `Inconclusive ] ] Lwt.t =
   dump_program program_full config.filename config.dump_level ;
 
   let program = Convert.jil_ast_of_convert program_full in
@@ -83,42 +83,46 @@ let main_lwt ~(config : Global_config.t) program_full :
                     Sc_result.Bluejay_type_errors.get_errors init_sato_state
                       abort_var session final_env inputs
                   in
-                  (Some (Bluejay_error errors), false)
+                  `Error (Bluejay_error errors)
               | Jay ->
                   let errors =
                     Sc_result.Jay_type_errors.get_errors init_sato_state
                       abort_var session final_env inputs
                   in
-                  (Some (Jay_error errors), false)
+                  `Error (Jay_error errors)
               | Jayil ->
                   let errors =
                     Sc_result.Jayil_type_errors.get_errors init_sato_state
                       abort_var session final_env inputs
                   in
-                  (Some (Jayil_error errors), false)
+                  `Error (Jayil_error errors)
             in
             Lwt.return result
-        | _ -> failwith "Shoud have run into abort here!"))
-  | Type_mismatch _ -> failwith "found type mismatch, but currently unhandled in sato-concolic"
-  | Exhausted -> Lwt.return (None, false)
-  | Exhausted_pruned_tree | Timeout -> Lwt.return (None, true)
+        | _ -> failwith "Should have run into abort here!"))
+  | Type_mismatch _ -> Lwt.return `Type_mismatch
+  | Exhausted -> Lwt.return (`No_error `Conclusive)
+  | Exhausted_pruned_tree | Timeout -> Lwt.return (`No_error `Inconclusive)
 
 let main_commandline () =
   let config =
     Argparse.parse_commandline ~config:Global_config.default_sato_config ()
   in
   let program_full =
-    File_utils.read_source_full ~do_wrap:config.is_wrapped ~do_instrument:true (* NOTICE: Brandon changed do_instrument to false. It is typically true (but actually right now it's back to true) *)
+    File_utils.read_source_full ~do_wrap:config.is_wrapped ~do_instrument:true (* NOTE: we would like to turn off instrument to improve performance, but it is currently not compatible with error reporting. *)
       config.filename
   in
   let () =
     let errors_res = Lwt_main.run (main_lwt ~config program_full) in
     match errors_res with
-    | None, false -> print_endline @@ "No errors found."
-    | None, true ->
+    | `No_error `Conclusive -> print_endline @@ "Program is error-free."
+    | `No_error `Inconclusive ->
         print_endline
         @@ "Some search timed out; inconclusive result. Please run again with \
             longer timeout setting."
-    | Some errors, _ -> print_endline @@ show_reported_error errors
+    | `Type_mismatch ->
+        print_endline 
+        @@ "Some type mismatch was found. Error-reporting is currently not \
+            available. The input program is ill-typed."
+    | `Error errors -> print_endline @@ show_reported_error errors
   in
   Log.close ()

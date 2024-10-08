@@ -3,14 +3,6 @@
 # Other ways to introduce a type error:
 # 1. Don't rotate at all
 # 2. Rotate left only on left insert, and right only on right insert (this was my first bug)
-#
-# The current type error does not get caught with 50,000 max step, tree depth 50 (to 100, even), timeout 300 seconds.
-# Difficulties:
-# 1. Needs lots of constraints to create well-formed tree
-# 2. `is_balanced` is necessarily recursive, so it is a costly constraint to check
-# 3. Needs types on rotate functions and wrapped, or else can hit runtime non-abort error, but then we are type-checking many functions in the same file
-
-# We get timeout in 30 minutes trying to exhaust to 60 branches. Bad look...
 
 let t = Mu tt. 
   (  ``Node {: left : tt
@@ -150,7 +142,7 @@ in
 
 let rotate_left_right x =
   match x with
-  | `Node node -> rotate_right (create_node node.right (rotate_left node.left) node.right)
+  | `Node node -> rotate_right (create_node node.item (rotate_left node.left) node.right)
   end
 in
 
@@ -166,7 +158,7 @@ let rec insert (tree : avl_tree) (i : int) : avl_tree =
     if bf > 1
     then
       if i < item_exn (left_exn node)
-      then rotate_left node           # ERROR HERE! should be rotate_right
+      then rotate_right node
       else rotate_left_right node
     else
       if bf < (0 - 1)

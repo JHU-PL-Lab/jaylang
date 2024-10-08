@@ -1,31 +1,6 @@
 open Core
-open Path_tree
 open Dj_common
-
-(*
-  Mutable record that tracks a run through the evaluation. aka "interpreter session"
-*)
-module Concrete =
-  struct
-
-    type t =
-      { input_feeder    : Concolic_feeder.t
-      ; mutable step    : int
-      ; max_step        : int }
-
-    let create_default () =
-      { input_feeder    = Fn.const 0
-      ; step            = 0
-      ; max_step        = Options.default.global_max_step }
-
-    let create (input_feeder : Concolic_feeder.t) (global_max_step : int) : t =
-      { (create_default ()) with 
-        input_feeder
-      ; max_step = global_max_step }
-
-    let incr_step (x : t) : unit =
-      x.step <- x.step + 1
-  end
+open Options.Fun.Infix
 
 module Symbolic = Symbolic_session
 
@@ -66,27 +41,25 @@ module Status =
       | Exhausted _                   -> "Exhausted full tree"
   end
 
-type t =
-  { tree         : Root.t (* pointer to the root of the entire tree of paths *)
-  ; target_queue : Target_queue.t
+(* ignore warning about last_sym not used because it depends on current code for pop kind *)
+type[@ocaml.warning "-69"] t =
+  { tree         : Path_tree.t (* pointer to the root of the entire tree of paths *)
   ; run_num      : int
   ; options      : Options.t
   ; status       : Status.t
   ; last_sym     : Symbolic.Dead.t option }
 
 let empty : t =
-  { tree         = Root.empty
-  ; target_queue = Target_queue.empty
-  ; run_num      = 0
+  { tree         = Options.Fun.appl Path_tree.of_options Options.default ()
+  ; run_num      = 1
   ; options      = Options.default
   ; status       = Status.In_progress { pruned = false }
   ; last_sym     = None }
 
-let with_options : (t, t) Options.Fun.t =
-  Options.Fun.make
-  @@ fun (r : Options.t) -> fun (x : t) ->
-    { x with options = r
-    ; target_queue = Options.Fun.run Target_queue.with_options r x.target_queue } 
+let of_options : (unit, t * Symbolic.t) Options.Fun.a =
+  (Options.Fun.make (fun r () -> r) &&& Path_tree.of_options) 
+  ^>> (fun (r, tree) -> { empty with options = r ; tree })
+  &&& (Symbolic.with_options <<^ fun () -> Symbolic.empty)
 
 let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   let dead_sym = Symbolic.finish sym x.tree in
@@ -98,59 +71,53 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
     | _ -> x.status
   in
   { x with
-    tree         = Symbolic.Dead.root dead_sym
-  ; target_queue = Target_queue.push_list x.target_queue @@ Symbolic.Dead.targets dead_sym
-  ; status       = new_status
-  ; last_sym     = Some dead_sym }
+    tree     = Symbolic.Dead.root dead_sym
+  ; status   = new_status
+  ; last_sym = Some dead_sym }
 
-let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
-  Options.Fun.run Symbolic.with_options x.options sym
-
-(* $ OCAML_LANDMARKS=on ./_build/... *)
-let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] Lwt.t =
+let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
   let pop_kind =
     match x.last_sym with
     | Some s when Symbolic.Dead.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
     | _ -> Random
   in
-  let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] Lwt.t =
+  let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
     let%lwt () = Lwt.pause () in
     if Status.quit x.status then done_ x else
-    match Target_queue.pop ~kind:pop_kind x.target_queue with
-    | Some (target, target_queue) -> 
-      solve_for_target { x with target_queue } target
-    | None when x.run_num = 0 ->
-      Lwt.return
-      @@ `Next (
-          { x with run_num = 1 }
-          , apply_options_symbolic x Symbolic.empty
-          , Concrete.create Concolic_feeder.default x.options.global_max_step
-        )
+    match Path_tree.pop_target ~kind:pop_kind x.tree with
+    | Some (target, tree) -> handle_target { x with tree } target
     | None -> done_ x (* no targets left, so done *)
 
-  and solve_for_target (x : t) (target : Target.t) =
-    let t0 = Caml_unix.gettimeofday () in
-    Concolic_riddler.set_timeout (Core.Time_float.Span.of_sec x.options.solver_timeout_sec);
-    Log.Export.CLog.debug (fun m -> m "Solving for target %s\n" (Branch.Runtime.to_string target.branch));
-    match Concolic_riddler.solve (Target.to_formulas target x.tree) with
-    | _, Z3.Solver.UNSATISFIABLE ->
-      let t1 = Caml_unix.gettimeofday () in
-      Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE in %fs\n" (t1 -. t0));
-      next { x with tree = Root.set_status x.tree target.branch Unsatisfiable target.path }
-    | _, Z3.Solver.UNKNOWN ->
+  and handle_target (x : t) (target : Target.t) =
+    match solve_for_target x target with
+    | C_sudu.Solve_status.Unsat ->
+      Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE BRANCH\n");
+      next { x with tree = Path_tree.set_unsat_target x.tree target }
+    | Unknown ->
       Log.Export.CLog.info (fun m -> m "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n");
-      next { x with tree = Root.set_status x.tree target.branch Unknown target.path }
-    | model, Z3.Solver.SATISFIABLE ->
-      Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH: %s\n" (Branch.to_string @@ Branch.Runtime.to_ast_branch target.branch));
+      next { x with tree = Path_tree.set_timeout_target x.tree target ; status = Status.prune x.status }
+    | Sat model ->
+      Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH\n");
       Lwt.return
       @@ `Next (
             { x with run_num = x.run_num + 1 }
-            , apply_options_symbolic x @@ Symbolic.make x.tree target
             , model
-              |> Core.Option.value_exn
               |> Concolic_feeder.from_model
-              |> fun feeder -> Concrete.create feeder x.options.global_max_step
+              |> Symbolic.make target (Path_tree.cache_of_target x.tree target)
+              |> Options.Fun.appl Symbolic.with_options x.options
           )
+
+  and solve_for_target (x : t) (target : Target.t) =
+    Log.Export.CLog.app (fun m -> m "Solving for target: %s\n" (Branch.Runtime.to_string target.branch));
+    let t0 = Caml_unix.gettimeofday () in
+    let res = 
+      Path_tree.claims_of_target x.tree target
+      |> Tuple2.uncurry Claim.get_formulas
+      |> C_sudu.solve
+    in
+    let t1 = Caml_unix.gettimeofday () in
+    Log.Export.CLog.info (fun m -> m "Finished solve in %fs\n" (t1 -. t0));
+    res
 
   and done_ (x : t) =
     Log.Export.CLog.info (fun m -> m "Done.\n");

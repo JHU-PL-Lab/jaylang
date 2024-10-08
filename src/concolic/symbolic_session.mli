@@ -1,4 +1,3 @@
-open Path_tree
 
 module Status :
   sig
@@ -20,11 +19,8 @@ module Dead :
       ---------
     *)
 
-    val root : t -> Root.t
+    val root : t -> Path_tree.t
     (** [root t] is the root from the dead [t]. *)
-
-    val targets : t -> Target.t list
-    (** [targets t] is the targets in the dead [t]. *)
 
     val get_status : t -> Status.t
     (** [get_status t] is the status of the (now finished) symbolic session. *)
@@ -39,8 +35,14 @@ type t
 val empty : t
 (** [empty] is a default symbolic session. *)
 
-val with_options : (t, t) Options.Fun.t
+val with_options : (t, t) Options.Fun.a
 (** [with_options t] is [t] configured with the optional arguments. *)
+
+val get_max_step : t -> int
+(** [get_max_step t] is the number of steps [t] expects interpretations to max out at. *)
+
+val get_feeder : t -> Concolic_feeder.t
+(** [get_feeder t] is the feeder for an interpretation alongside [t]. *)
 
 (*
   -----------
@@ -48,23 +50,23 @@ val with_options : (t, t) Options.Fun.t
   -----------
 *)
 
-val add_key_eq_val : t -> Concolic_key.t -> Jayil.Ast.value -> t
-(** [add_key_eq_val t k v] adds the formula that [k] has value [v] in [t]. *)
+val add_key_eq_int : Concolic_key.t -> int -> t -> t
+(** [add_key_eq_int k i t] adds the claim that [k = i] in [t]. *)
 
-val add_alias : t -> Concolic_key.t -> Concolic_key.t -> t
-(** [add_alias t k k'] adds the formula that [k] and [k'] hold the same value in [t]. *)
+val add_key_eq_bool : Concolic_key.t -> bool -> t -> t
+(** [add_key_eq_int k b t] adds the claim that [k = b] in [t]. *)
 
-val add_binop : t -> Concolic_key.t -> Jayil.Ast.binary_operator -> Concolic_key.t -> Concolic_key.t -> t
-(** [add_binop t x op left right] adds the formula that [x = left op right] in [t]. *)
+val add_alias : Concolic_key.t -> Concolic_key.t -> t -> t
+(** [add_alias k k' t] adds the formula that [k = k'] in [t] where [k'] was defined first. *)
 
-val add_input : t -> Concolic_key.t -> Dvalue.t -> t
-(** [add_input t x v] is [t] that knows input [x = v] was given. *)
+val add_binop : Concolic_key.t -> Expression.Untyped_binop.t -> Concolic_key.t -> Concolic_key.t -> t -> t
+(** [add_binop x op left right t] adds the formula that [x = left op right] in [t]. *) 
 
-val add_not : t -> Concolic_key.t -> Concolic_key.t -> t
-(** [add_not t x y] adds [x = not y] to [t]. *)
+val add_input : Concolic_key.t -> Dvalue.t -> t -> t
+(** [add_input x v t] is [t] that knows input [x = v] was given. *)
 
-val add_match : t -> Concolic_key.t -> Concolic_key.t -> Jayil.Ast.pattern -> t
-(** [add_match t x y pat] adds [x = y ~ pat] to [t]. *)
+val add_not : Concolic_key.t -> Concolic_key.t -> t -> t
+(** [add_not x y t] adds [x = not y] to [t]. *)
 
 (*
   -----------------
@@ -72,11 +74,11 @@ val add_match : t -> Concolic_key.t -> Concolic_key.t -> Jayil.Ast.pattern -> t
   -----------------
 *)
 
-val hit_branch : t -> Branch.Runtime.t -> t
-(** [hit_branch t branch] is [t] that knows [branch] has been hit during interpretation. *)
+val hit_branch : Branch.Runtime.t -> t -> t
+(** [hit_branch branch t] is [t] that knows [branch] has been hit during interpretation. *)
 
-val found_assume : t -> Concolic_key.t -> t
-(** [found_assume t key] tells [t] that [key] is assumed to be true. *)
+val found_assume : Concolic_key.t -> t -> t
+(** [found_assume key t] tells [t] that [key] is assumed to be true. *)
 
 val fail_assume : t -> t
 (** [fail_assume t] tells [t] that a recent assume/assert was false when it needs to be true. *)
@@ -96,9 +98,9 @@ val reach_max_step : t -> t
   -----------
 *)
 
-val finish : t -> Root.t -> Dead.t
+val finish : (t, Path_tree.t -> Dead.t) Options.Fun.a
 (** [finish t root] creates a finished session from [t] that merges info with the given [root].
     The merged result can be gotten with [root_exn @@ finish t root]. *)
 
-val make : Root.t -> Target.t -> t
-(** [make root target] makes an empty t that knows the given [root] and [target]. *)
+val make : Target.t -> Expression.Cache.t -> Concolic_feeder.t -> t
+(** [make target feeder] makes an empty t that knows the given [target] and [feeder]. *)

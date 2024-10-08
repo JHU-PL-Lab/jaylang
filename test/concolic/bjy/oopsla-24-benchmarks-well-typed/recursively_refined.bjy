@@ -1,0 +1,50 @@
+# Note: error is found quickly when we use uniform target sampling, 70 conditionals deep, 1 increment
+# However, the error is not found to only 50 deep, which is our standard
+
+let coord =
+  {: x : int
+   , y : int :}
+in
+
+let t = Mu tt.
+  {: parent : (``Some tt || ``None int)
+   , relative_coord : coord :}
+in
+
+let is_coord_nonzero c = 
+  not (c.x == 0) and not (c.y == 0)
+in
+
+let coord_equal a b =
+  a.x == b.x and a.y == b.y
+in
+
+let has_parent x = 
+  match x.parent with
+  | `Some ignore -> true
+  | _ -> false
+  end
+in
+
+letd rec get_abs_coord (r : t)
+  : 
+  {. coord | fun abs_coord -> 
+    match r.parent with
+    | `Some p ->
+      if is_coord_nonzero (get_abs_coord p) # Note: recursive call here
+      then not (coord_equal abs_coord r.relative_coord)
+      else true
+    | `None ignore -> true
+    end
+  }
+  =
+  match r.parent with
+  | `Some parent -> 
+    let c = get_abs_coord parent in
+    { x = c.x + r.relative_coord.x , y = c.y + r.relative_coord.y }
+  | `None ignore -> r.relative_coord
+  end
+in
+
+get_abs_coord
+

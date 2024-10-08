@@ -13,10 +13,12 @@ module Test_result :
 
     val merge : t -> t -> t
     (** [merge a b] is the more information of the two [a] and [b]. *)
+
+    val is_error_found : t -> bool
   end
 
-val test_expr : (Jayil.Ast.expr, Test_result.t) Options.Fun.t
+val test_expr : (Jayil.Ast.expr, Test_result.t) Options.Fun.a
 (** [test expr] is the result where [expr] is the JIL AST. *)
 
-val test : (string, Test_result.t) Options.Fun.t
+val test : (string, Test_result.t) Options.Fun.a
 (** [test filename] is the result where [filename] is a jil or bjy file name. *)

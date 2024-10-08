@@ -28,7 +28,7 @@ let () =
   | "" -> ()
   | src_file ->
     let _ =
-      Options.Fun.run
+      Options.Fun.appl
         Driver.test
         (Options.Refs.without_refs optional_args)
         src_file

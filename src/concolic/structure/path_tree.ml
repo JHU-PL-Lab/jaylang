@@ -1,343 +1,295 @@
+
 open Core
+open Options.Fun.Infix
 
-(*
-  -----------------
-  MODULE SIGNATURES   
-  -----------------
 
-  We have lowercase type names for all types in recursive modules. We use destructive
-  substitution to fill the types in when they're actually used as module signatures in the
-  recursive modules.
-*)
 
 module type NODE =
   sig
     type children
-    type child
-    type status
+
+    (*
+      The cache of each node is contained in the caches of its children. It only
+      exists for easy copying. I should note that I can discard the cache once
+      neither child is a target because it will never be needed again. This is a TODO.
+    *)
     type t =
-      { formulas : Formula_set.t
-      ; children : children } [@@deriving compare]
-    (** [t] is the root of the JIL program. *)
+      { expr_cache : Expression.Cache.t
+      ; children   : children }
+
     val empty : t
-    (** [empty] is the tree before the program has ever been run. It has no formulas or children. *)
-    val merge : t -> t -> t
-    (** [merge a b] combines the trees [a] and [b] and throws an exception if there is a discrepancy. *)
-    val add_formula : t -> Z3.Expr.expr -> t
-    (** [add_formulas t expr] is [t] that has gained [expr] as a formula. *)
-    val get_child : t -> Branch.Runtime.t -> child option
-    (** [get_child t branch] is the child of [t] by taking the [branch], if it exists. *)
-    val get_child_exn : t -> Branch.Runtime.t -> child
-    (** [get_child_exn t branch] is the child of [t] by taking the [branch], or exception. *)
-    val is_valid_target_child : t -> Branch.Runtime.t -> bool
-    (** [is_valid_target t branch] is [true] if and only if [branch] should be a target child from [t]. *)
-    val with_formulas : t -> Formula_set.t -> t
-    (** [with_formulas t formulas] is [t] with the given [formulas] overwriting its old formulas. *)
-    val set_status : t -> Branch.Runtime.t -> status -> Path.t -> t
-    (** [set_status t branch status path] is [t] where child at [branch] is given [status], and [branch] is necessarily
-        found along the [path]. *)
+    val claims_of_target : t -> Target.t -> Claim.t list * Expression.Cache.t
+    val of_stem : Formulated_stem.t -> bool -> t * Target.t list
+    val add_stem : t -> Target.t -> Formulated_stem.t -> bool -> t * Target.t list
+    (** [add_stem t old_target stem failed_assume] adds the [stem] to the path tree [t] beginning from the
+        [old_target], which was hit at the root of the stem. The interpretation that generated the [stem]
+        ended in a failed assume/assert iff [failed_assume] is true.
+          
+        The new path tree and the acquired targets are returned. *)
+
+    val set_unsat_target : t -> Target.t -> t
+    (** [set_unsat_target t target] is [t] where the given [target] has been marked off as unsatisfiable. *)
+
+    val set_timeout_target : t -> Target.t -> t
+    (** [set_timeout_target t target] is [t] where the given [target] has been marked off as causing a solver timeout. *)
   end
 
-module type CHILDREN = 
+module type CHILDREN =
   sig
-    type node
     type child
-    type t [@@deriving compare]
-    (** [t] represents the branches underneath some node. *)
-    val empty : t
-    (** [empty] is no children. *)
-    val is_empty : t -> bool
-    val set_node : t -> Branch.Runtime.t -> node -> t
-    (** [add t branch child] adds [child] as a node underneath the [branch] in [t]. *)
-    val merge : t -> t -> t
-    (** [merge a b] merges all children in [a] and [b]. *)
-    val get_child : t -> Branch.Runtime.t -> child option
-    (** [get_child t branch] is the child in [t] by taking the [branch]. *)
-    val is_valid_target : t -> Branch.Runtime.t -> bool
-    (** [is_valid_target t branch] is [true] if and only if [branch] should be a target. *)
-    val set_child : t -> child -> t
+    type node
+
+    type t =
+      | Pruned (* to signify end of tree in any way. We prune at max depth and when both children are collapsed *)
+      | Both of { true_side : child ; false_side : child }
+    val child_exn : t -> Branch.Direction.t -> child
+    val update : t -> Branch.Direction.t -> child -> t
+    (* val make_failed_assume : Branch.Runtime.t -> Formula_set.t -> Path.Reverse.t -> t * Target.t * Target.t *)
+    val of_branch : Branch.Runtime.t -> node -> Path.Reverse.t -> t * Target.t
   end
 
 module type CHILD =
   sig
-    type status
     type node
+
     type t =
-      { status      : status
-      ; constraints : Formula_set.t
-      ; branch      : Branch.Runtime.t
-      } [@@deriving compare]
-    (** [t] is a single child of a [Node.t] *)
-    val create : node -> Branch.Runtime.t -> t
-    (** [create node branch] makes a child by taken the [branch] to reach the given [node]. *)
-    val create_both : node -> Branch.Runtime.t -> t * t
-    (** [create_both node branch] makes a child by taking the [branch] to reach the given [node]. 
-        Also returns the other side as unsolved. **Note** [node] is the child, not the parent. *)
-    val merge : t -> t -> t
-    val is_valid_target : t -> bool
-    val to_node_exn : t -> node
-    val unsolved : Branch.Runtime.t -> t
-    val to_formulas : t -> Z3.Expr.expr list
-    val map_node : t -> f:(node -> node) -> t
-    val is_hit : t -> bool
-  end
-  
-module type STATUS =
-  sig
-    type node
-    type t =
-      | Hit of node
+      | Hit of { node : node ; constraint_ : Claim.t }
+      | Target_acquired of { constraint_ : Claim.t }
+      (*| Waiting_to_pass_assume of { assumed_formulas : Formula_set.t }*) (* can join with target acquired... *)
       | Unsatisfiable
-      | Failed_assume
-      | Unknown (* for timeouts *)
-      | Unsolved (* not yet tried *)
-      [@@deriving compare]
-    (** [t] is a node during a solve. It has been hit, determined unsatisfiable,
-        is not known if hittable or unsatisfiable, or has not been solved or seen yet.
-        Unsatisfiable or Unknown nodes are status of the node before they've ever been
-        hit during interpretation, so there is no existing node as a payload. *)
+      | Solver_timeout
 
-    val merge : t -> t -> t
-    (** [merge a b] keeps the most information from [a] or [b] and merges the nodes if both are [Hit]. *)
-
-    val is_valid_target : t -> bool
+    val node_and_claim_exn : t -> node * Claim.t
+    val make_hit_node : node -> Branch.Runtime.t -> t
+    (* val make_failed_assume_child : Formula_set.t -> t *)
+    val make_target_child : Branch.Runtime.t -> t
   end
 
-
-(*
-  --------------------------------
-  RECURSIVE MODULE IMPLEMENTATIONS   
-  --------------------------------
-*)
-
-module rec Node : (* serves as root node *)
+module rec Node :
   NODE with
-  type children := Children.t and
-  type child    := Child.t and
-  type status   := Status.t 
+  type children := Children.t
   =
   struct
     type t =
-      { formulas : Formula_set.t
-      ; children : Children.t } [@@deriving compare]
+      { expr_cache : Expression.Cache.t
+      ; children   : Children.t }
 
     let empty : t =
-      { formulas = Formula_set.empty
-      ; children = Children.empty }
+      { expr_cache = Expression.Cache.empty
+      ; children   = Children.Pruned }
 
-    let merge (a : t) (b : t) : t =
-      { formulas = Formula_set.union a.formulas b.formulas
-      ; children = Children.merge a.children b.children }
+    let child_node_exn (x : t) (dir : Branch.Direction.t) : t * Claim.t =
+      Child.node_and_claim_exn
+      @@ Children.child_exn x.children dir
 
-    let add_formula (x : t) (expr : Z3.Expr.expr) : t =
-      { x with formulas = Formula_set.add x.formulas expr }
-
-    let get_child (x : t) (branch : Branch.Runtime.t) : Child.t option =
-      Children.get_child x.children branch
-
-    let get_child_exn (x : t) (branch : Branch.Runtime.t) : Child.t =
-      Option.value_exn
-      @@ get_child x branch
-
-    let is_valid_target_child (x : t) (branch : Branch.Runtime.t) : bool =
-      Children.is_valid_target x.children branch
-
-    let with_formulas (x : t) (formulas : Formula_set.t) : t =
-      { x with formulas }
-
-    let set_status (x : t) (branch : Branch.Runtime.t) (status : Status.t) (path : Path.t) : t =
-      let rec loop node path d =
-        match path with
-        | [] -> begin (* at end of path, so target should be a child of this node *)
-          match get_child node branch with
-          | Some target_child ->
-            { node with children = Children.set_child node.children { target_child with status } }
-          | None -> failwith "bad path in set status"
-          end
-        | hd :: tl -> (* continue down path *)
-          let old_child = get_child_exn node hd in (* is Hit next_node *)
-          let result_node = loop (Child.to_node_exn old_child) tl (d + 1) in 
-          let new_child = { old_child with status = Hit result_node } in (* must do this to keep constraints of old child *)
-          { node with children = Children.set_child node.children new_child }
+    let claims_of_target (tree : t) (target : Target.t) : Claim.t list * Expression.Cache.t =
+      let rec trace_path acc parent = function
+        | last_dir :: [] -> begin
+          match Children.child_exn parent.children last_dir with
+          | Target_acquired { constraint_ } -> constraint_ :: acc, parent.expr_cache
+          (* | Waiting_to_pass_assume { assumed_formulas = constraints } ->
+            Formula_set.to_list constraints @ Formula_set.to_list parent.formulas @ acc *)
+          | _ -> failwith "target not at end of path"
+        end
+        | next_dir :: tl ->
+          let node_exn, claim = child_node_exn parent next_dir in
+          trace_path
+            (claim :: acc)
+            node_exn
+            tl
+        | [] -> failwith "no path given for target"
       in
-      loop x path.forward_path 1
-  end (* Node *)
+      trace_path [] tree (Path.Reverse.to_forward_path target.path).forward_path
+
+    (*
+      TODO: see about how we handle failing an assume immediately in root of the stem (because the root of the stem might not be the global scope)
+    *)
+    let node_of_stem (initial_path : Path.Reverse.t) (stem : Formulated_stem.t) (_failed_assume : bool) : t * Target.t list =
+      (* path passed in here is the path that includes the branch in the cons, or is empty if root *)
+      let rec make_node acc_children stem acc_targets path =
+        match stem with
+        | Formulated_stem.Root { expr_cache } ->
+          { expr_cache ; children = acc_children }, acc_targets
+        | Cons { branch ; expr_cache ; tail } ->
+          let path_to_children = Path.Reverse.drop_hd_exn path in (* drop the branch off the path *)
+          let new_children, new_target = Children.of_branch branch { expr_cache ; children = acc_children } path_to_children in
+          make_node new_children tail (new_target :: acc_targets) path_to_children
+      in
+      make_node Pruned stem []
+      @@ Path.Reverse.concat (Formulated_stem.to_rev_path stem) initial_path
+      (* match stem with *)
+      (* | Cons { branch ; formulas ; tail } when failed_assume -> (* TODO: think about failed assume *)
+        let path_to_assume = Path.Reverse.drop_hd_exn full_path in
+        let children, t1, t2 = Children.make_failed_assume branch formulas path_to_assume in
+        make_node path_to_assume children tail [ t1 ; t2 ] *)
+      (* | Cons _ ->
+        make_node full_path Pruned stem []
+      | Root { expr_cache } ->
+        { expr_cache ; children = Pruned }, [] *)
+
+    let of_stem (stem : Formulated_stem.t) (failed_assume : bool) : t * Target.t list =
+      node_of_stem Path.Reverse.empty stem failed_assume
+
+    let add_stem (tree : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) : t * Target.t list =
+      let rec loop path parent finish =
+        match path with
+        | [] -> failwith "setting target with no path"
+        | last_dir :: [] -> (* would step onto target node if we followed last_dir *)
+          let new_node, targets = node_of_stem target.path stem failed_assume in
+          finish ({ parent with children = Children.update parent.children last_dir @@ Child.make_hit_node new_node target.branch }, targets)
+        | next_dir :: tl ->
+          let next_node, claim = child_node_exn parent next_dir in (* TODO: clean this up *)
+          loop tl next_node (fun (node, targets) ->
+            finish ({ parent with children = Children.update parent.children next_dir (Child.Hit { node ; constraint_ = claim }) }, targets)
+          )
+      in
+      loop (Path.Reverse.to_forward_path target.path).forward_path tree (fun a -> a)
+
+    (*
+      No pruning yet. Just update tree and leave it hanging out there in memory
+    *)
+    let set_target (tree : t) (target : Target.t) (new_child : Child.t) : t =
+      let rec loop path parent finish =
+        match path with
+        | [] -> failwith "setting target with no path"
+        | last_dir :: [] -> finish { parent with children = Children.update parent.children last_dir new_child }
+        | next_dir :: tl ->
+          let next_node, claim = child_node_exn parent next_dir in (* TODO: clean this up *)
+          loop tl next_node (fun node ->
+            finish { parent with children = Children.update parent.children next_dir (Child.Hit { node ; constraint_ = claim }) }
+          )
+      in
+      loop (Path.Reverse.to_forward_path target.path).forward_path tree (fun a -> a)
+ 
+    let set_timeout_target (tree : t) (target : Target.t) : t =
+      set_target tree target Child.Solver_timeout
+
+    let set_unsat_target (tree : t) (target : Target.t) : t =
+      set_target tree target Child.Unsatisfiable
+  end
 and Children :
   CHILDREN with
-  type node  := Node.t and
-  type child := Child.t
-  =
-  struct
-    type t = 
-      | No_children
-      | Both of { true_side : Child.t ; false_side : Child.t ; branch_key : Concolic_key.t } [@@deriving compare]
-      (* Could have chosen to have only true or only false, but Status.Unsolved takes care of that. *)
-
-    let empty : t = No_children
-    let is_empty (x : t) : bool =
-      match x with
-      | No_children -> true
-      | _ -> false
-
-    let set_child (x : t) (child : Child.t) : t =
-      let other = Child.unsolved @@ Branch.Runtime.other_direction child.branch in
-      match child.branch.direction with
-      | True_direction -> begin
-        match x with
-        | No_children -> Both { true_side = child ; false_side = other ; branch_key = child.branch.branch_key }
-        | Both r -> Both { r with true_side = child }
-      end
-      | False_direction -> begin
-        match x with
-        | No_children -> Both { true_side = other ; false_side = child ; branch_key = child.branch.branch_key }
-        | Both r -> Both { r with false_side = child }
-      end
-
-    let set_node (x : t) (branch : Branch.Runtime.t) (node : Node.t) : t =
-      match x with
-      | No_children ->
-        let left, right = Child.create_both node branch in
-        Both { true_side = left ; false_side = right ; branch_key = branch.branch_key }
-      | Both r -> begin
-        match branch.direction with
-        | True_direction -> Both { r with true_side = Child.create node branch }
-        | False_direction -> Both { r with false_side = Child.create node branch }
-      end
-
-    let merge (a : t) (b : t) : t =
-      match a, b with
-      | No_children, x
-      | x, No_children -> x
-      | Both a, Both b ->
-        if Concolic_key.compare a.branch_key b.branch_key <> 0
-        then failwith "unequal branches in merging children";
-        Both
-        { true_side = Child.merge a.true_side b.true_side
-        ; false_side = Child.merge a.false_side b.false_side
-        ; branch_key = a.branch_key }
-
-    let get_child (x : t) (branch : Branch.Runtime.t) : Child.t option =
-      match x, branch.direction with
-      | Both { true_side = child ; branch_key ; _ }, Branch.Direction.True_direction
-      | Both { false_side = child ; branch_key ; _ }, Branch.Direction.False_direction ->
-          if Concolic_key.compare branch_key branch.branch_key <> 0
-          then None
-          else Some child
-      | _ -> None
-
-    let is_valid_target (x : t) (branch : Branch.Runtime.t) : bool =
-      match x, branch.direction with
-      | Both { true_side = child ; _ }, Branch.Direction.True_direction
-      | Both { false_side = child ; _ }, Branch.Direction.False_direction -> Child.is_valid_target child
-      | No_children, _ -> failwith "child does not exist" (* no children *) 
-  end (* Children *)
-and Child : 
-  CHILD with
-  type status := Status.t and
-  type node   := Node.t
+  type child := Child.t and
+  type node  := Node.t
   =
   struct
     type t =
-      { status      : Status.t
-      ; constraints : Formula_set.t [@compare.ignore] (* for assumes, asserts, etc that must be satisfied when entering this child *)
-      ; branch      : Branch.Runtime.t (* branch taken to reach the child *)
-      } [@@deriving compare]
+      | Pruned (* to signify end of tree in any way. We prune at max depth or if children can't exist (or later if they're exhausted) *)
+      | Both of { true_side : Child.t ; false_side : Child.t }
 
-    let create (node : Node.t) (branch : Branch.Runtime.t) : t =
-      { status = Status.Hit node
-      ; constraints = Formula_set.singleton @@ Branch.Runtime.to_expr branch
-      ; branch }
+    let child_exn (x : t) (dir : Branch.Direction.t) : Child.t =
+      match x with
+      | Pruned -> failwith "no child in child_exn"
+      | Both r ->
+        match dir with
+        | True_direction -> r.true_side
+        | False_direction -> r.false_side
 
-    (* makes true side, false side, where the given branch is hit, and the other is unsolved *)
-    let create_both (node : Node.t) (branch : Branch.Runtime.t) : t * t =
-      let this_side = create node branch in
-      let other_branch = Branch.Runtime.other_direction branch in
-      let other_side =
-        { status = Status.Unsolved
-        ; constraints = Formula_set.singleton @@ Branch.Runtime.to_expr other_branch
-        ; branch = other_branch }
+    let update (x : t) (dir : Branch.Direction.t) (child : Child.t) : t =
+      match x with
+      | Pruned -> failwith "invalid argument"
+      | Both r ->
+        match dir with
+        | True_direction -> Both { r with true_side = child }
+        | False_direction -> Both { r with false_side = child }
+
+    (* let make_failed_assume (branch : Branch.Runtime.t) (assumed_formulas : Formula_set.t) (path : Path.Reverse.t) : t * Target.t * Target.t =
+      let failed_assume_child = Child.make_failed_assume_child assumed_formulas in
+
+      let branch_other_dir = Branch.Runtime.other_direction branch in
+      let other_child = Child.make_target_child branch_other_dir in
+
+      let children =
+        match branch.direction with
+        | True_direction  -> Both { true_side = failed_assume_child ; false_side = other_child }
+        | False_direction -> Both { true_side = other_child ; false_side = failed_assume_child }
       in
-      match branch.direction with
-      | True_direction -> this_side, other_side
-      | False_direction -> other_side, this_side
+      children
+      , Target.create branch @@ Path.Reverse.cons branch.direction path
+      , Target.create branch_other_dir @@ Path.Reverse.cons branch_other_dir.direction path *)
 
-    let merge (a : t) (b : t) : t =
-      assert (Branch.Runtime.compare a.branch b.branch = 0);
-      { status = Status.merge a.status b.status
-      ; constraints = Formula_set.union a.constraints b.constraints
-      ; branch = a.branch }
 
-    let is_valid_target ({ status ; _ } : t) : bool = 
-      Status.is_valid_target status
+    let of_branch (branch : Branch.Runtime.t) (node : Node.t) (path : Path.Reverse.t) : t * Target.t =
+      let branch_other_dir = Branch.Runtime.other_direction branch in
+      let child = Child.make_hit_node node branch in
+      let other_child = Child.make_target_child branch_other_dir in
 
-    let to_node_exn ({ status ; _ } : t) : Node.t =
-      match status with
-      | Hit node -> node
-      | _ -> failwith "no node in Child.to_node_exn"
-
-    let unsolved (branch : Branch.Runtime.t) : t =
-      { status = Unsolved
-      ; constraints = Formula_set.singleton @@ Branch.Runtime.to_expr branch
-      ; branch }
-
-    let to_formulas (x : t) : Z3.Expr.expr list =
-      Formula_set.to_list x.constraints
-      @ match x.status with
-        | Hit node -> Formula_set.to_list node.formulas
-        | _ -> []
-
-    let map_node (x : t) ~(f : Node.t -> Node.t) : t =
-      match x.status with
-      | Hit node -> { x with status = Hit (f node) }
-      | _ -> x
-
-    let is_hit ({ status ; _ } : t) : bool =
-      match status with
-      | Hit _
-      | Failed_assume -> true
-      | _ -> false
-  end (* Child *)
-and Status :
-  STATUS with
+      let children =
+        match branch.direction with
+        | True_direction  -> Both { true_side = child ; false_side = other_child }
+        | False_direction -> Both { true_side = other_child ; false_side = child }
+      in
+      children
+      , Target.create branch_other_dir @@ Path.Reverse.cons branch_other_dir.direction path
+  end
+and Child :
+  CHILD with
   type node := Node.t
   =
   struct
     type t =
-      | Hit of Node.t
+      | Hit of { node : Node.t ; constraint_ : Claim.t }
+      | Target_acquired of { constraint_ : Claim.t }
+      (* | Waiting_to_pass_assume of { assumed_formulas : Formula_set.t } *)
       | Unsatisfiable
-      | Failed_assume (* node was hit but has since failed an assume/assert *)
-      | Unknown (* for timeouts *)
-      | Unsolved (* not yet tried *)
-      [@@deriving compare]
+      | Solver_timeout
 
-    (*
-      Merge by keeping the most info.
-      * It is most information to know that we have hit a node. Merge the nodes if necessary.
-      * Next is to have solved and determined unsatisfiable
-      * It is less knowledge to know that we have hit a node but failed assume, so we couldn't get further.
-        It's intended that these nodes will be solved for again and determined as (fully) Hit or Unsatisfiable.
-      * After that is solved by timed out, so unknown
-      * After that is completely unsolved, which is no information at all
-    *)
-    let merge (a : t) (b : t) : t =
-      match a, b with
-      | Hit n1, Hit n2 ->
-        (* We now optimize this away, but this assert always did pass before the optimization *)
-        (* if not (Formula_set.equal n1.formulas n2.formulas)
-        then failwith "formula sets not equal in merge of Status"; *) (* formula sets should only ever be equivalent after any visit to the same node *)
-        Hit (Node.merge n1 n2)
-      | Hit node, _ | _, Hit node -> Hit node
-      | Unsatisfiable, _ | _, Unsatisfiable -> Unsatisfiable
-      | Failed_assume, _ | _, Failed_assume -> Failed_assume 
-      | Unknown, _ | _, Unknown -> Unknown
-      | Unsolved, _ -> Unsolved
-
-    let is_valid_target (x : t) : bool =
+    let node_and_claim_exn (x : t) : Node.t * Claim.t =
       match x with
-      | Unsolved
-      | Failed_assume -> true
-      | _ -> false
-  end (* Status *)
+      | Hit { node ; constraint_ } -> node, constraint_
+      | _ -> failwith "no node in node_exn"
 
-(* This is just for better naming *)
-module Root = Node
+    let make_hit_node (node : Node.t) (branch : Branch.Runtime.t) : t =
+      Hit { node ; constraint_ = Branch.Runtime.to_claim branch }
+
+    (* let make_failed_assume_child (assumed_formulas : Formula_set.t) : t =
+      Waiting_to_pass_assume { assumed_formulas }  *)
+
+    let make_target_child (branch : Branch.Runtime.t) : t =
+      Target_acquired { constraint_ = Branch.Runtime.to_claim branch }
+  end
+
+type t =
+  { root         : Node.t
+  ; target_queue : Target_queue.t }
+
+let of_options : (unit, t) Options.Fun.a =
+  Target_queue.of_options
+  ^>> fun target_queue -> { root = Node.empty ; target_queue }
+
+let claims_of_target (x : t) (target : Target.t) : Claim.t list * Expression.Cache.t =
+  Node.claims_of_target x.root target
+
+let cache_of_target (x : t) (target : Target.t) : Expression.Cache.t =
+  Tuple2.get2
+  @@ Node.claims_of_target x.root target
+
+let enqueue (x : t) (targets : Target.t list) : t =
+  { x with target_queue = Target_queue.push_list x.target_queue targets }
+
+let enqueue_result (g : unit -> Node.t * Target.t list) (x : t) : t =
+  let root, targets = g () in
+  enqueue { x with root } targets
+
+let of_stem : (Formulated_stem.t, bool -> Branch.t list -> t) Options.Fun.a =
+  Options.Fun.thaw
+  @@ of_options
+  ^>> fun x -> fun (stem : Formulated_stem.t) (failed_assume : bool) (hit_branches : Branch.t list) ->
+    enqueue_result
+      (fun _ -> Node.of_stem stem failed_assume)
+      { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches }
+
+let add_stem (x : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) (hit_branches : Branch.t list) : t =
+  enqueue_result
+    (fun _ -> Node.add_stem x.root target stem failed_assume)
+    { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches }
+
+let set_unsat_target (x : t) (target : Target.t) : t =
+  { x with root = Node.set_unsat_target x.root target }
+
+let set_timeout_target (x : t) (target : Target.t) : t =
+  { x with root = Node.set_timeout_target x.root target }
+
+let pop_target ?(kind : Target_queue.Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
+  Option.map ~f:(fun (target, new_queue) -> target, { x with target_queue = new_queue })
+  @@ Target_queue.pop ~kind x.target_queue

@@ -140,7 +140,7 @@ in
 
 let rotate_left_right x =
   match x with
-  | `Node node -> rotate_right (create_node node.right (rotate_left node.left) node.right)
+  | `Node node -> rotate_right (create_node node.item (rotate_left node.left) node.right)
   end
 in
 
@@ -190,13 +190,14 @@ let (res : avl_tree) =
   let a =
     `Node {
       left = `Node
-        { left = empty , right = empty 
+        { left = empty 
+        , right = empty 
         , item = 10 }
     , right = empty
     , item = 100
     }
   in
-  insert a 0
+  insert a 1
 in
 
 insert

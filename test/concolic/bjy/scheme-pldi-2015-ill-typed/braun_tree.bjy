@@ -1,5 +1,4 @@
 # error is that item is always inserted on the left, so it doesn't stay balanced
-# the concolic evaluator doesn't always find this error, probably because the union type is expensive
 
 let t a = Mu tt. (``Node {: v : a , l : tt , r : tt :} || ``Leaf {: leaf : bool :}) in
 

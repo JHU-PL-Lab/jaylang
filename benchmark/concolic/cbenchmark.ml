@@ -65,7 +65,7 @@ module Report_row (* : Latex_table.ROW *) =
         let t0 = Caml_unix.gettimeofday () in
         let source =  
           Dj_common.Convert.jil_ast_of_convert
-          @@ Dj_common.File_utils.read_source_full ~do_wrap:true ~do_instrument:true testname
+          @@ Dj_common.File_utils.read_source_full ~do_wrap:true ~do_instrument:false testname
         in
         let t1 = Caml_unix.gettimeofday () in
         let test_result =

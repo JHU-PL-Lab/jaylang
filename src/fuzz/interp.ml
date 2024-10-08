@@ -102,6 +102,8 @@ and Denv :
       | _, _ -> false
   end
 
+open Dvalue
+
 module Session =
   struct
     type t =
@@ -134,113 +136,117 @@ module Session =
 let rec eval_exp
   ~(session : Session.t) (* Note: is mutable *)
   (env : Denv.t)
-  (e : expr)
-  : Dvalue.t
+  (Expr clauses : expr)
+  (continue : Denv.t * Dvalue.t -> Denv.t * Dvalue.t)
+  : (Denv.t * Dvalue.t)
   =
-  let Expr clauses = e in
-  assert (Fn.non List.is_empty clauses);
-  Tuple2.get2
-  @@ List.fold
-      clauses
-      ~init:(env, Dvalue.Direct (Value_int 00)) (* safe to use arbitrary value because of assert above *)
-      ~f:(fun (env, _) clause -> eval_clause ~session env clause)
+  match clauses with
+  | [] -> failwith "empty clause list" (* empty clause list is parse error, so this is safe *)
+  | clause :: [] ->
+    eval_clause ~session env clause continue
+  | clause :: nonempty_tl ->
+    eval_clause ~session env clause (fun (res_env, _) ->
+      eval_exp ~session res_env (Expr nonempty_tl) continue
+    )
 
 and eval_clause
   ~(session : Session.t)
   (env : Denv.t)
   (clause : clause)
+  (continue : Denv.t * Dvalue.t -> Denv.t * Dvalue.t)
   : Denv.t * Dvalue.t
   =
   let Clause (Var (x, _), cbody) = clause in
   Session.incr_step session;
   if Session.is_max_step session
   then raise Exns.Reach_max_step;
-  
-  let v : Dvalue.t =
-    match cbody with
-    | Value_body (Value_function vf) -> FunClosure (vf, env) (* x = fun ... ; *) 
-    | Value_body (Value_record r) -> RecordClosure (r, env) (* x = { ... } ; *) 
-    | Value_body v -> Direct v (* x = <bool or int> ; *) 
-    | Var_body vx -> Denv.fetch env vx (* x = y ; *) 
-    | Conditional_body (cx, e1, e2) -> (* x = if y then e1 else e2 ; *)
-      let e =
-        if
-          match Denv.fetch env cx with
-          | Direct (Value_bool b) -> b
-          | _ -> raise Exns.Type_mismatch
-        then e1
-        else e2
-      in
-      eval_exp ~session env e
-    | Input_body -> Direct (Value_int (session.input_feeder ())) (* x = input ; *) 
-    | Appl_body (vf, varg) -> begin (* x = f y ; *)
-      match Denv.fetch env vf with
-      | FunClosure (Function_value (Var (param, _), body), fenv) ->
-        (* varg is the argument that fills in param *)
-        let arg = Denv.fetch env varg in
-        let env' = Denv.add fenv param arg in
 
-        (* returned value of function *)
-        eval_exp ~session env' body
-      | _ -> raise Exns.Type_mismatch
-      end
-    | Match_body (vy, p) -> Direct (Value_bool (Denv.check_pattern env vy p)) (* x = y ~ <pattern> ; *) 
-    | Projection_body (v, label) -> begin
-      match Denv.fetch env v with
-      | RecordClosure (Record_value r, denv) ->
-        let proj_var = Ident_map.find label r in
-        Denv.fetch denv proj_var
-      | Direct (Value_record (Record_value _record)) ->
-        failwith "project should also have a closure"
-      | _ -> raise Exns.Type_mismatch
-      end
-    | Not_body vy -> (* x = not y ; *)
-      begin
-      match Denv.fetch env vy with
-      | Direct (Value_bool b) -> Direct (Value_bool (not b))
-      | _ -> raise Exns.Type_mismatch
-      end
-    | Binary_operation_body (vy, op, vz) -> (* x = y op z *)
-      let v1 = Denv.fetch_to_val env vy
-      and v2 = Denv.fetch_to_val env vz in
-      let v =
-        match op, v1, v2 with
-        | Binary_operator_plus, Value_int n1, Value_int n2                  -> Value_int  (n1 + n2)
-        | Binary_operator_minus, Value_int n1, Value_int n2                 -> Value_int  (n1 - n2)
-        | Binary_operator_times, Value_int n1, Value_int n2                 -> Value_int  (n1 * n2)
-        | Binary_operator_divide, Value_int n1, Value_int n2                -> Value_int  (n1 / n2)
-        | Binary_operator_modulus, Value_int n1, Value_int n2               -> Value_int  (n1 mod n2)
-        | Binary_operator_less_than, Value_int n1, Value_int n2             -> Value_bool (n1 < n2)
-        | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 -> Value_bool (n1 <= n2)
-        | Binary_operator_equal_to, Value_int n1, Value_int n2              -> Value_bool (n1 = n2)
-        | Binary_operator_equal_to, Value_bool b1, Value_bool b2            -> Value_bool (Bool.(b1 = b2))
-        | Binary_operator_and, Value_bool b1, Value_bool b2                 -> Value_bool (b1 && b2)
-        | Binary_operator_or, Value_bool b1, Value_bool b2                  -> Value_bool (b1 || b2)
-        | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> Value_bool (n1 <> n2)
-        | _ -> raise Exns.Type_mismatch
-      in
-      Direct v
-    | Abort_body -> raise Exns.Found_abort
-    | Assert_body cx | Assume_body cx ->
+  let return v =
+    continue (Denv.add env x v, v)
+  in
+  
+  match cbody with
+  | Value_body (Value_function vf) -> return @@ FunClosure (vf, env)
+  | Value_body (Value_record r) -> return @@ RecordClosure (r, env)
+  | Value_body v -> return @@ Direct v
+  | Var_body vx -> return @@ Denv.fetch env vx
+  | Conditional_body (cx, e1, e2) ->
+    let e =
       if
         match Denv.fetch env cx with
         | Direct (Value_bool b) -> b
         | _ -> raise Exns.Type_mismatch
-      then Direct (Value_bool true)
-      else raise Exns.Failed_assume
-  in
-  (Denv.add env x v, v)
+      then e1
+      else e2
+    in
+    eval_exp ~session env e (fun (_, r) -> return r)
+  | Input_body -> return @@ Direct (Value_int (session.input_feeder ()))
+  | Appl_body (vf, varg) -> begin
+    match Denv.fetch env vf with
+    | FunClosure (Function_value (Var (param, _), body), fenv) ->
+      (* varg is the argument that fills in param *)
+      let arg = Denv.fetch env varg in
+      let env' = Denv.add fenv param arg in
+
+      (* returned value of function *)
+      eval_exp ~session env' body (fun (_, r) -> return r)
+    | _ -> raise Exns.Type_mismatch
+    end
+  | Match_body (vy, p) -> return @@ Direct (Value_bool (Denv.check_pattern env vy p))
+  | Projection_body (v, label) -> begin
+    match Denv.fetch env v with
+    | RecordClosure (Record_value r, denv) ->
+      let proj_var = Ident_map.find label r in
+      return @@ Denv.fetch denv proj_var
+    | Direct (Value_record (Record_value _record)) ->
+      failwith "project should also have a closure"
+    | _ -> raise Exns.Type_mismatch
+    end
+  | Not_body vy -> (* x = not y ; *)
+    begin
+    match Denv.fetch env vy with
+    | Direct (Value_bool b) -> return @@ Direct (Value_bool (not b))
+    | _ -> raise Exns.Type_mismatch
+    end
+  | Binary_operation_body (vy, op, vz) -> (* x = y op z *)
+    let v1 = Denv.fetch_to_val env vy
+    and v2 = Denv.fetch_to_val env vz in
+    let v =
+      match op, v1, v2 with
+      | Binary_operator_plus, Value_int n1, Value_int n2                  -> Value_int  (n1 + n2)
+      | Binary_operator_minus, Value_int n1, Value_int n2                 -> Value_int  (n1 - n2)
+      | Binary_operator_times, Value_int n1, Value_int n2                 -> Value_int  (n1 * n2)
+      | Binary_operator_divide, Value_int n1, Value_int n2                -> Value_int  (n1 / n2)
+      | Binary_operator_modulus, Value_int n1, Value_int n2               -> Value_int  (n1 mod n2)
+      | Binary_operator_less_than, Value_int n1, Value_int n2             -> Value_bool (n1 < n2)
+      | Binary_operator_less_than_or_equal_to, Value_int n1, Value_int n2 -> Value_bool (n1 <= n2)
+      | Binary_operator_equal_to, Value_int n1, Value_int n2              -> Value_bool (n1 = n2)
+      | Binary_operator_equal_to, Value_bool b1, Value_bool b2            -> Value_bool (Bool.(b1 = b2))
+      | Binary_operator_and, Value_bool b1, Value_bool b2                 -> Value_bool (b1 && b2)
+      | Binary_operator_or, Value_bool b1, Value_bool b2                  -> Value_bool (b1 || b2)
+      | Binary_operator_not_equal_to, Value_int n1, Value_int n2          -> Value_bool (n1 <> n2)
+      | _ -> raise Exns.Type_mismatch
+    in
+    return @@ Direct v
+  | Abort_body -> raise Exns.Found_abort
+  | Assert_body cx | Assume_body cx ->
+    if
+      match Denv.fetch env cx with
+      | Direct (Value_bool b) -> b
+      | _ -> raise Exns.Type_mismatch
+    then return @@ Direct (Value_bool true)
+    else raise Exns.Failed_assume
 
 let eval_exp_default
   (e : expr)
   : unit
   =
   let _ =
-    eval_exp ~session:(Session.create_default ()) Denv.empty e
+    eval_exp ~session:(Session.create_default ()) Denv.empty e (fun a -> a)
   in
   ()
 
-let rec test (e : expr) (n_runs : int) : bool =
+let rec test_for_failure (e : expr) (n_runs : int) : bool =
   if n_runs <= 0
   then false
   else
@@ -253,4 +259,4 @@ let rec test (e : expr) (n_runs : int) : bool =
     | Exns.Found_abort
     | Exns.Type_mismatch -> true
     | Exns.Failed_assume
-    | Exns.Reach_max_step -> test e (n_runs - 1)
+    | Exns.Reach_max_step -> test_for_failure e (n_runs - 1)

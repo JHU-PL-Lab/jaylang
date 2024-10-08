@@ -3,19 +3,16 @@ open Core
 
 let usage_msg =
   {|
-  fuzzer -i <file>
+  fuzzer <file>
   |}
 
 let source_file = ref "" 
 
-let inputs = ref []
-
-let anon_fun i_raw =
-  let this_i = int_of_string_opt i_raw in
-  inputs := !inputs @ [ this_i ]
+let anon_fun src_file_name =
+  source_file := src_file_name
 
 let speclist = 
-  [ ("-i", Arg.Set_string source_file, "Input source file") ]
+  []
 
 let () = 
   Arg.parse speclist anon_fun usage_msg;
@@ -27,11 +24,11 @@ let () =
       @@ Dj_common.File_utils.read_source_full src_file ~do_wrap:true ~do_instrument:true
     in
     if
-      Fuzz.Interp.test
+      Fuzz.Interp.test_for_failure
         expr
         Int.(10 ** 4)
     then
-      Format.printf "Found failure"
+      Format.printf "Found failure\n"
     else
-      Format.printf "No failure found"
+      Format.printf "No failure found\n"
   end
