@@ -106,25 +106,26 @@ module rec Node :
     *)
     let node_of_stem (initial_path : Path.Reverse.t) (stem : Formulated_stem.t) (_failed_assume : bool) : t * Target.t list =
       (* path passed in here is the path that includes the branch in the cons, or is empty if root *)
-      let rec make_node path acc_children stem acc_targets =
+      let rec make_node acc_children stem acc_targets path =
         match stem with
         | Formulated_stem.Root { expr_cache } ->
           { expr_cache ; children = acc_children }, acc_targets
         | Cons { branch ; expr_cache ; tail } ->
           let path_to_children = Path.Reverse.drop_hd_exn path in (* drop the branch off the path *)
           let new_children, new_target = Children.of_branch branch { expr_cache ; children = acc_children } path_to_children in
-          make_node path_to_children new_children tail (new_target :: acc_targets)
+          make_node new_children tail (new_target :: acc_targets) path_to_children
       in
-      let full_path = Path.Reverse.concat (Formulated_stem.to_rev_path stem) initial_path in
-      match stem with
+      make_node Pruned stem []
+      @@ Path.Reverse.concat (Formulated_stem.to_rev_path stem) initial_path
+      (* match stem with *)
       (* | Cons { branch ; formulas ; tail } when failed_assume -> (* TODO: think about failed assume *)
         let path_to_assume = Path.Reverse.drop_hd_exn full_path in
         let children, t1, t2 = Children.make_failed_assume branch formulas path_to_assume in
         make_node path_to_assume children tail [ t1 ; t2 ] *)
-      | Cons _ ->
+      (* | Cons _ ->
         make_node full_path Pruned stem []
       | Root { expr_cache } ->
-        { expr_cache ; children = Pruned }, []
+        { expr_cache ; children = Pruned }, [] *)
 
     let of_stem (stem : Formulated_stem.t) (failed_assume : bool) : t * Target.t list =
       node_of_stem Path.Reverse.empty stem failed_assume
