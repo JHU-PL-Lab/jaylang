@@ -21,41 +21,49 @@ let check_pattern (env : Denv.t) (vx : var) (p : pattern) : bool =
 
 module Cresult =
   struct
-    type t =
-      | Ok of { denv : Denv.t ; dval : Dvalue.t ; step : int ; symb_session : Session.Symbolic.t }
-      | Found_abort of Session.Symbolic.t
-      | Found_diverge of Session.Symbolic.t
-      | Type_mismatch of Session.Symbolic.t
-      | Reach_max_step of Session.Symbolic.t
 
-    let pp (x : t) : string =
+    module Crecord =
+      struct
+        type t = { denv : Denv.t ; dval : Dvalue.t ; step : int ; symb_session : Session.Symbolic.t }
+
+        let return denv dval symb_session step = { denv ; dval ; step ; symb_session }
+      end
+
+    module Cerror =
+      struct
+        type t = Found_abort | Found_diverge | Type_mismatch | Reach_max_step
+
+        let pp = function
+          | Found_abort -> "Found abort in interpretation"
+          | Type_mismatch -> "Type mismatch in interpretation"
+          | Found_diverge -> "Found diverge"
+          | Reach_max_step -> "Reach max steps during interpretation"
+      end
+
+    open Crecord
+    open Cerror
+
+    type t = (Crecord.t, Cerror.t * Session.Symbolic.t) result
+
+    let show (x : t) : string =
       match x with
       | Ok r -> Dvalue.pp r.dval
-      | Found_abort _ -> "Found abort in interpretation"
-      | Type_mismatch _ -> "Type mismatch in interpretation"
-      | Found_diverge _ -> "Found diverge"
-      | Reach_max_step _ -> "Reach max steps during interpretation"
-
-    let return denv dval symb_session step = Ok { denv ; dval ; step ; symb_session }
+      | Error (e, _) -> Cerror.pp e
 
     let get_session = function
     | Ok { symb_session = s ; _ } 
-    | Found_abort s
-    | Found_diverge s
-    | Type_mismatch s
-    | Reach_max_step s -> s
+    | Error (_, s) -> s
 
-    let reach_max_step =
-      fun s -> Reach_max_step (Session.Symbolic.reach_max_step s)
+    let return denv dval symb_session step =
+      Result.return
+      @@ Crecord.return denv dval symb_session step
 
-    let found_abort =
-      fun s -> Found_abort (Session.Symbolic.found_abort s)
+    let err e f = fun s -> Result.fail (e, f s)
 
-    let found_diverge =
-      fun s -> Found_diverge (Session.Symbolic.found_diverge s)
-
-    let type_mismatch =
-      fun s -> Type_mismatch (Session.Symbolic.found_type_mismatch s)
+    let reach_max_step = err Reach_max_step Session.Symbolic.reach_max_step
+    let found_abort = err Found_abort Session.Symbolic.found_abort
+    let found_diverge = err Found_diverge Session.Symbolic.found_diverge
+    let type_mismatch = err Type_mismatch Session.Symbolic.found_type_mismatch
   end
 
 open Cresult
@@ -234,7 +242,7 @@ let eval_exp
 
   get_session
   @@ eval_exp ~symb_session ~step:0 Denv.empty e (fun res ->
-      let s = Cresult.pp res in
+      let s = Cresult.show res in
       CLog.app (fun m -> m "Evaluated to: %s\n" s);
       res
     )
