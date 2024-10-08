@@ -3,28 +3,16 @@ open Core
 open Options.Fun.Infix
 
 
-(*
-  NOTES:
-    I want to store the caches at each node level, and that way when
-    I go to create a symbolic session, I can just copy the cache from
-    that target and not have to recreate the cache.
-
-    The only expressions I need to load are those for the branches.
-    Right now, I create a big expression for each branch without extracting
-    out subexpressions. I should like later to extract out any subexpression
-    that is used more than once.
-    However, temporarily, the expression cache maps a key to the only expression
-    it needs, and it can be equated blindly with that expression.
-    
-    The cache of each node is contained in the caches of its children. It only
-    exists for easy copying. I should note that I can discard the cache once
-    neither child is a target because it will never be needed again. This is a TODO.
-*)
 
 module type NODE =
   sig
     type children
 
+    (*
+      The cache of each node is contained in the caches of its children. It only
+      exists for easy copying. I should note that I can discard the cache once
+      neither child is a target because it will never be needed again. This is a TODO.
+    *)
     type t =
       { expr_cache : Expression.Cache.t
       ; children   : children }
@@ -54,7 +42,6 @@ module type CHILDREN =
     type t =
       | Pruned (* to signify end of tree in any way. We prune at max depth and when both children are collapsed *)
       | Both of { true_side : child ; false_side : child }
-    (* val is_empty : t -> bool *)
     val child_exn : t -> Branch.Direction.t -> child
     val update : t -> Branch.Direction.t -> child -> t
     (* val make_failed_assume : Branch.Runtime.t -> Formula_set.t -> Path.Reverse.t -> t * Target.t * Target.t *)
@@ -279,7 +266,7 @@ let cache_of_target (x : t) (target : Target.t) : Expression.Cache.t =
 let enqueue (x : t) (targets : Target.t list) : t =
   { x with target_queue = Target_queue.push_list x.target_queue targets }
 
-let enqueue_result (x : t) (g : unit -> Node.t * Target.t list) : t =
+let enqueue_result (g : unit -> Node.t * Target.t list) (x : t) : t =
   let root, targets = g () in
   enqueue { x with root } targets
 
@@ -288,12 +275,13 @@ let of_stem : (Formulated_stem.t, bool -> Branch.t list -> t) Options.Fun.a =
   @@ of_options
   ^>> fun x -> fun (stem : Formulated_stem.t) (failed_assume : bool) (hit_branches : Branch.t list) ->
     enqueue_result
-      { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches }
       (fun _ -> Node.of_stem stem failed_assume)
+      { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches }
 
 let add_stem (x : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) (hit_branches : Branch.t list) : t =
-  let x = { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches } in (* TODO: fix this ugly quick patch, and above in of_stem *)
-  enqueue_result x (fun _ -> Node.add_stem x.root target stem failed_assume)
+  enqueue_result
+    (fun _ -> Node.add_stem x.root target stem failed_assume)
+    { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches }
 
 let set_unsat_target (x : t) (target : Target.t) : t =
   { x with root = Node.set_unsat_target x.root target }

@@ -60,21 +60,6 @@ module Make_datatype_builders (C : Context) = struct
 
   open Gexpr
 
-
-  (* let fn fop =
-    fun y e1 e2 ->
-      eq y @@ fop e1 e2
-
-  let fn_two_ints ret op  =
-    fn
-    @@ fun (e1 : int t) (e2 : int t) ->
-      ret @@ op (extract e1) (extract e2)
-
-  let fn_two_bools ret op  =
-    fn
-    @@ fun (e1 : bool t) (e2 : bool t) ->
-      ret @@ op (extract e1) (extract e2) *)
-
   let op_two_ints ret op =
     fun (e1 : int t) (e2 : int t) ->
       ret @@ op (extract e1) (extract e2)
@@ -102,20 +87,6 @@ module Make_datatype_builders (C : Context) = struct
   let neq e1 e2 = not_ @@ (op_two_ints bool_ @@ Boolean.mk_eq ctx) e1 e2
   let and_ = op_two_bools bool_ @@ list_curry @@ Boolean.mk_and ctx
   let or_ = op_two_bools bool_ @@ list_curry @@ Boolean.mk_or ctx
-
-  (* let fn_not y (e : bool t) = eq y @@ bool_ (Boolean.mk_not ctx (extract e))
-  let fn_plus = fn_two_ints int_ @@ list_curry @@ Arithmetic.mk_add ctx
-  let fn_minus = fn_two_ints int_ @@ list_curry @@ Arithmetic.mk_sub ctx
-  let fn_times = fn_two_ints int_ @@ list_curry @@ Arithmetic.mk_mul ctx
-  let fn_divide = fn_two_ints int_ @@ Arithmetic.mk_div ctx
-  let fn_modulus = fn_two_ints int_ @@ Arithmetic.Integer.mk_mod ctx
-  let fn_lt = fn_two_ints bool_ @@ Arithmetic.mk_lt ctx
-  let fn_le = fn_two_ints bool_ @@ Arithmetic.mk_le ctx
-  let fn_eq_ints = fn_two_ints bool_ @@ Boolean.mk_eq ctx
-  let fn_eq_bools = fn_two_bools bool_ @@ Boolean.mk_eq ctx
-  let fn_neq = fn_two_ints bool_ @@ (fun e1 e2 -> Boolean.mk_not ctx @@ Boolean.mk_eq ctx e1 e2)
-  let fn_and = fn_two_bools bool_ @@ list_curry @@ Boolean.mk_and ctx
-  let fn_or = fn_two_bools bool_ @@ list_curry @@ Boolean.mk_or ctx *)
 end
 
 module Make (C : Context) = struct

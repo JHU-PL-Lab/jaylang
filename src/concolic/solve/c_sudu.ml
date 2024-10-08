@@ -17,6 +17,12 @@ module Solve_status =
 
 let solver = Z3.Solver.mk_solver ctx None
 
+let get_int_expr model key =
+  key
+  |> Concolic_key.uniq_id
+  |> int_var
+  |> int_of_expr model
+
 let set_timeout time =
   time
   |> Time_float.Span.to_ms
