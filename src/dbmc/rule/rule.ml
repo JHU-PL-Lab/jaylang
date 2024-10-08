@@ -75,14 +75,6 @@ module Pattern_rule = struct
   type t = { x' : Lookup_key.t; pat : pattern }
 end
 
-module Assume_rule = struct
-  type t = { x' : Lookup_key.t }
-end
-
-module Assert_rule = struct
-  type t = { x' : Lookup_key.t }
-end
-
 module Abort_rule = struct
   type t = { is_target : bool }
 end
@@ -101,9 +93,8 @@ type t =
   | Fun_exit of Fun_exit_rule.t
   | Record_start of Record_start_rule.t
   | Pattern of Pattern_rule.t
-  | Assume of Assume_rule.t
-  | Assert of Assert_rule.t
   | Abort of Abort_rule.t
+  | Diverge
   | Mismatch
 
 let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
@@ -167,12 +158,9 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
             Lookup_key.equal key (Lookup_key.start target key.block)
           in
           Abort { is_target }
-      | { clause = Clause (_, Assume_body (Var (ix', _))); _ } ->
-          let x' = Lookup_key.with_x key ix' in
-          Assume { x' }
-      | { clause = Clause (_, Assert_body (Var (ix', _))); _ } ->
-          let x' = Lookup_key.with_x key ix' in
-          Assert { x' }
+      | { clause = Clause (_, Diverge_body); _ } ->
+          (* TODO: take care of direct `abort` in the main block *)
+          Diverge
       | { clause = Clause (_, Match_body (Var (ix', _), pat)); _ } ->
           let x' = Lookup_key.with_x key ix' in
           Pattern { x'; pat }
@@ -229,9 +217,8 @@ let show_rule : t -> string = function
   | Fun_exit _ -> "Fun_exit"
   | Record_start _ -> "Record_start"
   | Pattern _ -> "Pattern"
-  | Assume _ -> "Assume"
-  | Assert _ -> "Assert"
   | Abort _ -> "Abort"
+  | Diverge -> "Diverge"
   | Mismatch -> "Mismatch"
 
 let sexp_of_t r = r |> show_rule |> Sexp.of_string

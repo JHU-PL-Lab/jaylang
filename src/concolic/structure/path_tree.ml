@@ -19,11 +19,10 @@ module type NODE =
 
     val empty : t
     val claims_of_target : t -> Target.t -> Claim.t list * Expression.Cache.t
-    val of_stem : Formulated_stem.t -> bool -> t * Target.t list
-    val add_stem : t -> Target.t -> Formulated_stem.t -> bool -> t * Target.t list
-    (** [add_stem t old_target stem failed_assume] adds the [stem] to the path tree [t] beginning from the
-        [old_target], which was hit at the root of the stem. The interpretation that generated the [stem]
-        ended in a failed assume/assert iff [failed_assume] is true.
+    val of_stem : Formulated_stem.t -> t * Target.t list
+    val add_stem : t -> Target.t -> Formulated_stem.t -> t * Target.t list
+    (** [add_stem t old_target stem] adds the [stem] to the path tree [t] beginning from the
+        [old_target], which was hit at the root of the stem..
           
         The new path tree and the acquired targets are returned. *)
 
@@ -44,7 +43,6 @@ module type CHILDREN =
       | Both of { true_side : child ; false_side : child }
     val child_exn : t -> Branch.Direction.t -> child
     val update : t -> Branch.Direction.t -> child -> t
-    (* val make_failed_assume : Branch.Runtime.t -> Formula_set.t -> Path.Reverse.t -> t * Target.t * Target.t *)
     val of_branch : Branch.Runtime.t -> node -> Path.Reverse.t -> t * Target.t
   end
 
@@ -55,13 +53,11 @@ module type CHILD =
     type t =
       | Hit of { node : node ; constraint_ : Claim.t }
       | Target_acquired of { constraint_ : Claim.t }
-      (*| Waiting_to_pass_assume of { assumed_formulas : Formula_set.t }*) (* can join with target acquired... *)
       | Unsatisfiable
       | Solver_timeout
 
     val node_and_claim_exn : t -> node * Claim.t
     val make_hit_node : node -> Branch.Runtime.t -> t
-    (* val make_failed_assume_child : Formula_set.t -> t *)
     val make_target_child : Branch.Runtime.t -> t
   end
 
@@ -87,8 +83,6 @@ module rec Node :
         | last_dir :: [] -> begin
           match Children.child_exn parent.children last_dir with
           | Target_acquired { constraint_ } -> constraint_ :: acc, parent.expr_cache
-          (* | Waiting_to_pass_assume { assumed_formulas = constraints } ->
-            Formula_set.to_list constraints @ Formula_set.to_list parent.formulas @ acc *)
           | _ -> failwith "target not at end of path"
         end
         | next_dir :: tl ->
@@ -101,10 +95,7 @@ module rec Node :
       in
       trace_path [] tree (Path.Reverse.to_forward_path target.path).forward_path
 
-    (*
-      TODO: see about how we handle failing an assume immediately in root of the stem (because the root of the stem might not be the global scope)
-    *)
-    let node_of_stem (initial_path : Path.Reverse.t) (stem : Formulated_stem.t) (_failed_assume : bool) : t * Target.t list =
+    let node_of_stem (initial_path : Path.Reverse.t) (stem : Formulated_stem.t) : t * Target.t list =
       (* path passed in here is the path that includes the branch in the cons, or is empty if root *)
       let rec make_node acc_children stem acc_targets path =
         match stem with
@@ -117,25 +108,16 @@ module rec Node :
       in
       make_node Pruned stem []
       @@ Path.Reverse.concat (Formulated_stem.to_rev_path stem) initial_path
-      (* match stem with *)
-      (* | Cons { branch ; formulas ; tail } when failed_assume -> (* TODO: think about failed assume *)
-        let path_to_assume = Path.Reverse.drop_hd_exn full_path in
-        let children, t1, t2 = Children.make_failed_assume branch formulas path_to_assume in
-        make_node path_to_assume children tail [ t1 ; t2 ] *)
-      (* | Cons _ ->
-        make_node full_path Pruned stem []
-      | Root { expr_cache } ->
-        { expr_cache ; children = Pruned }, [] *)
 
-    let of_stem (stem : Formulated_stem.t) (failed_assume : bool) : t * Target.t list =
-      node_of_stem Path.Reverse.empty stem failed_assume
+    let of_stem (stem : Formulated_stem.t) : t * Target.t list =
+      node_of_stem Path.Reverse.empty stem
 
-    let add_stem (tree : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) : t * Target.t list =
+    let add_stem (tree : t) (target : Target.t) (stem : Formulated_stem.t) : t * Target.t list =
       let rec loop path parent finish =
         match path with
         | [] -> failwith "setting target with no path"
         | last_dir :: [] -> (* would step onto target node if we followed last_dir *)
-          let new_node, targets = node_of_stem target.path stem failed_assume in
+          let new_node, targets = node_of_stem target.path stem in
           finish ({ parent with children = Children.update parent.children last_dir @@ Child.make_hit_node new_node target.branch }, targets)
         | next_dir :: tl ->
           let next_node, claim = child_node_exn parent next_dir in (* TODO: clean this up *)
@@ -193,22 +175,6 @@ and Children :
         | True_direction -> Both { r with true_side = child }
         | False_direction -> Both { r with false_side = child }
 
-    (* let make_failed_assume (branch : Branch.Runtime.t) (assumed_formulas : Formula_set.t) (path : Path.Reverse.t) : t * Target.t * Target.t =
-      let failed_assume_child = Child.make_failed_assume_child assumed_formulas in
-
-      let branch_other_dir = Branch.Runtime.other_direction branch in
-      let other_child = Child.make_target_child branch_other_dir in
-
-      let children =
-        match branch.direction with
-        | True_direction  -> Both { true_side = failed_assume_child ; false_side = other_child }
-        | False_direction -> Both { true_side = other_child ; false_side = failed_assume_child }
-      in
-      children
-      , Target.create branch @@ Path.Reverse.cons branch.direction path
-      , Target.create branch_other_dir @@ Path.Reverse.cons branch_other_dir.direction path *)
-
-
     let of_branch (branch : Branch.Runtime.t) (node : Node.t) (path : Path.Reverse.t) : t * Target.t =
       let branch_other_dir = Branch.Runtime.other_direction branch in
       let child = Child.make_hit_node node branch in
@@ -230,7 +196,6 @@ and Child :
     type t =
       | Hit of { node : Node.t ; constraint_ : Claim.t }
       | Target_acquired of { constraint_ : Claim.t }
-      (* | Waiting_to_pass_assume of { assumed_formulas : Formula_set.t } *)
       | Unsatisfiable
       | Solver_timeout
 
@@ -241,9 +206,6 @@ and Child :
 
     let make_hit_node (node : Node.t) (branch : Branch.Runtime.t) : t =
       Hit { node ; constraint_ = Branch.Runtime.to_claim branch }
-
-    (* let make_failed_assume_child (assumed_formulas : Formula_set.t) : t =
-      Waiting_to_pass_assume { assumed_formulas }  *)
 
     let make_target_child (branch : Branch.Runtime.t) : t =
       Target_acquired { constraint_ = Branch.Runtime.to_claim branch }
@@ -271,17 +233,17 @@ let enqueue_result (g : unit -> Node.t * Target.t list) (x : t) : t =
   let root, targets = g () in
   enqueue { x with root } targets
 
-let of_stem : (Formulated_stem.t, bool -> Branch.t list -> t) Options.Fun.a =
+let of_stem : (Formulated_stem.t, Branch.t list -> t) Options.Fun.a =
   Options.Fun.thaw
   @@ of_options
-  ^>> fun x -> fun (stem : Formulated_stem.t) (failed_assume : bool) (hit_branches : Branch.t list) ->
+  ^>> fun x -> fun (stem : Formulated_stem.t) (hit_branches : Branch.t list) ->
     enqueue_result
-      (fun _ -> Node.of_stem stem failed_assume)
+      (fun _ -> Node.of_stem stem)
       { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches }
 
-let add_stem (x : t) (target : Target.t) (stem : Formulated_stem.t) (failed_assume : bool) (hit_branches : Branch.t list) : t =
+let add_stem (x : t) (target : Target.t) (stem : Formulated_stem.t) (hit_branches : Branch.t list) : t =
   enqueue_result
-    (fun _ -> Node.add_stem x.root target stem failed_assume)
+    (fun _ -> Node.add_stem x.root target stem)
     { x with target_queue = Target_queue.hit_branches x.target_queue hit_branches }
 
 let set_unsat_target (x : t) (target : Target.t) : t =

@@ -64,9 +64,8 @@ let[@landmark] run_ddse ~(config : Global_config.t) ~(state : Global_state.t) :
       | Fun_enter_nonlocal p -> R.fun_enter_nonlocal p this_key phis
       | Fun_exit p -> R.fun_exit p this_key phis
       | Pattern p -> R.pattern p this_key phis
-      | Assume p -> R.assume p this_key phis
-      | Assert p -> R.assert_ p this_key phis
       | Abort p -> R.abort p this_key phis
+      | Diverge -> R.diverge this_key phis
       | Mismatch -> R.mismatch this_key phis
     in
     ()

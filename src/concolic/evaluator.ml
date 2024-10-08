@@ -24,8 +24,8 @@ module Cresult =
     type t =
       | Ok of { denv : Denv.t ; dval : Dvalue.t ; step : int ; symb_session : Session.Symbolic.t }
       | Found_abort of Session.Symbolic.t
+      | Found_diverge of Session.Symbolic.t
       | Type_mismatch of Session.Symbolic.t
-      | Found_failed_assume of Session.Symbolic.t
       | Reach_max_step of Session.Symbolic.t
 
     let pp (x : t) : string =
@@ -33,16 +33,16 @@ module Cresult =
       | Ok r -> Dvalue.pp r.dval
       | Found_abort _ -> "Found abort in interpretation"
       | Type_mismatch _ -> "Type mismatch in interpretation"
+      | Found_diverge _ -> "Found diverge"
       | Reach_max_step _ -> "Reach max steps during interpretation"
-      | Found_failed_assume _ -> "Found failed assume or assert"
 
     let return denv dval symb_session step = Ok { denv ; dval ; step ; symb_session }
 
     let get_session = function
     | Ok { symb_session = s ; _ } 
     | Found_abort s
+    | Found_diverge s
     | Type_mismatch s
-    | Found_failed_assume s
     | Reach_max_step s -> s
 
     let reach_max_step =
@@ -51,8 +51,8 @@ module Cresult =
     let found_abort =
       fun s -> Found_abort (Session.Symbolic.found_abort s)
 
-    let failed_assume =
-      fun s -> Found_failed_assume (Session.Symbolic.fail_assume s)
+    let found_diverge =
+      fun s -> Found_diverge (Session.Symbolic.found_diverge s)
 
     let type_mismatch =
       fun s -> Type_mismatch (Session.Symbolic.found_type_mismatch s)
@@ -229,15 +229,7 @@ let eval_exp
         | _ -> type_mismatch symb_session
       end
       | Abort_body -> found_abort symb_session
-      | Assert_body cx | Assume_body cx ->
-        let cond_val, cond_key = Denv.fetch env cx in 
-        match cond_val with
-        | Direct (Value_bool b) ->
-          let symb_session = Session.Symbolic.found_assume cond_key symb_session in
-          if not b
-          then failed_assume symb_session
-          else next ~x_key cond_val symb_session
-        | _ -> type_mismatch symb_session
+      | Diverge_body -> found_diverge symb_session
   in
 
   get_session

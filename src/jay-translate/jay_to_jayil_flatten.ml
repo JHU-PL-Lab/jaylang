@@ -39,6 +39,14 @@ let add_abort_expr (e_desc : Jay_ast.expr_desc) (_ : Ast.var list) : Ast.expr m
   let abort_clause = Ast.Clause (abort_var, Abort_body) in
   return @@ Ast.Expr [ abort_clause ]
 
+(** Create a new diverge clause with multiple conditional clause variables *)
+let add_diverge_expr (e_desc : Jay_ast.expr_desc) (_ : Ast.var list) : Ast.expr m
+    =
+  let%bind diverge_var = fresh_var "div" in
+  let%bind () = add_jayil_jay_mapping diverge_var e_desc in
+  let diverge_clause = Ast.Clause (diverge_var, Diverge_body) in
+  return @@ Ast.Expr [ diverge_clause ]
+
 let add_void_expr (e_desc : Jay_ast.expr_desc) (_ : Ast.var list) : Ast.expr m =
   let%bind void_var = fresh_var "void" in
   let%bind () = add_jayil_jay_mapping void_var e_desc in
@@ -448,12 +456,46 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       in
       let all_clauses = flattened_exprs @ [ alias_clause; cond_clause ] in
       return (all_clauses, assert_result)
-  | Assume e ->
+  | Assume e -> (* much of this is copied from assert. Would be a good idea to abstract it *)
+      let%bind is_instrumented = is_jay_instrumented tag in
       let%bind flattened_exprs, last_var = recurse e in
+      (* Helper function *)
+      let add_var var_name ed =
+        let%bind var = fresh_var var_name in
+        let%bind () = add_jayil_jay_mapping var ed in
+        return var
+      in
+      (* Variables *)
+      let%bind assume_pred = add_var "assume_pred" e in
+      let%bind assume_result =
+        if is_instrumented
+        then new_jayil_inst_var expr_desc "assume_res"
+        else add_var "assume_res" expr_desc
+      in
+      let%bind assume_result_inner = add_var "assume_res_true" expr_desc in
+      (* Clauses *)
+      let alias_clause = Ast.Clause (assume_pred, Var_body last_var) in
+      (* We use an empty record as the result value, since no valid operation can
+         done on it (any projection will fail, and no binop, application, nor
+         conditional will work either).  It's a hack (especially if we match on
+         it), but it will do for now. *)
+      let res_value = Ast.Value_record (Record_value Ast.Ident_map.empty) in
+      let t_path =
+        Ast.Expr [ Clause (assume_result_inner, Value_body res_value) ]
+      in
+      let%bind f_path = add_diverge_expr expr_desc [ assume_result ] in
+      let cond_clause =
+        Ast.Clause
+          (assume_result, Conditional_body (assume_pred, t_path, f_path))
+      in
+      let all_clauses = flattened_exprs @ [ alias_clause; cond_clause ] in
+      return (all_clauses, assume_result)
+      (* The following is the old conversion, which kept an assume. The new (above) makes diverge *)
+      (* let%bind flattened_exprs, last_var = recurse e in
       let%bind assume_var = fresh_var "assume" in
       let%bind () = add_jayil_jay_mapping assume_var expr_desc in
       let new_clause = Ast.Clause (assume_var, Assume_body last_var) in
-      return (flattened_exprs @ [ new_clause ], assume_var)
+      return (flattened_exprs @ [ new_clause ], assume_var) *)
   | Error (Jay_ast.Ident x) ->
       let%bind is_instrumented = is_jay_instrumented tag in
       let%bind error_var = fresh_var "error_var" in

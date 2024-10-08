@@ -34,6 +34,7 @@ module Make (Ctx : Finite_callstack.C) = struct
         (* | ARecord of Set.M(Id).t * Ctx.t *)
         | ARecord of Id.t Map.M(Id).t * Ctx.t
         | AAbort
+        | ADiverge
       [@@deriving equal, compare, hash, sexp]
 
       let pp_record0 fmter rmap =
@@ -47,6 +48,7 @@ module Make (Ctx : Finite_callstack.C) = struct
         | ARecord (rmap, ctx) ->
             Fmt.pf fmter "{%a ! %a}" pp_record0 rmap Ctx.pp ctx
         | AAbort -> Fmt.string fmter "abort"
+        | ADiverge -> Fmt.string fmter "diverge"
     end
 
     include T
@@ -240,6 +242,7 @@ module Make (Ctx : Finite_callstack.C) = struct
               Fmt.pf fmter "{%a %a}}" Ctx.pp ctx (Fmt.list pp_env) aenvs
           | Error _ -> Fmt.pf fmter "!%a}" Ctx.pp ctx)
       | AAbort -> Fmt.string fmter "abort"
+      | ADiverge -> Fmt.string fmter "diverge"
     in
     pp_env fmter aenv
 

@@ -10,15 +10,13 @@ val claims_of_target : t -> Target.t -> Claim.t list * Expression.Cache.t
 
 val cache_of_target : t -> Target.t -> Expression.Cache.t
 
-val of_stem : (Formulated_stem.t,  bool -> Branch.t list -> t) Options.Fun.a
-(** [of_stem stem failed_assume] is a function with optional concolic arguments that returns the  tree
-    that is made entirely from one stem, where the stem was made from an interpretation that failed an
-    assume/assert iff [failed_assume] is true. *)
+val of_stem : (Formulated_stem.t,  Branch.t list -> t) Options.Fun.a
+(** [of_stem stem] is a function with optional concolic arguments that returns the tree
+    that is made entirely from one stem. *)
 
-val add_stem : t -> Target.t -> Formulated_stem.t -> bool -> Branch.t list -> t
-(** [add_stem t old_target stem failed_assume] adds the [stem] to the path tree [t] beginning from the
-    [old_target], which was hit at the root of the stem. The interpretation that generated the [stem]
-    ended in a failed assume/assert iff [failed_assume] is true. *)
+val add_stem : t -> Target.t -> Formulated_stem.t -> Branch.t list -> t
+(** [add_stem t old_target stem] adds the [stem] to the path tree [t] beginning from the
+    [old_target], which was hit at the root of the stem. *)
 
 val set_unsat_target : t -> Target.t -> t
 (** [set_unsat_target t target] is [t] where the given [target] has been marked off as unsatisfiable. *)

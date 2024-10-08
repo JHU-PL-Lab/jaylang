@@ -303,13 +303,12 @@ module Make (S : S) = struct
         if p.is_in_main
         then (at_main key None, Leaf Complete)
         else (implies key key_first, first_but_drop key)
-    | Assume p -> (invalid key, Leaf Fail)
-    | Assert p -> (invalid key, Leaf Fail)
     | Mismatch -> (invalid key, Leaf Fail)
     | Abort p ->
         if p.is_target
         then (implies key key_first, first_but_drop key)
         else (invalid key, Leaf Fail)
+    | Diverge -> (invalid key, Leaf Fail)
     | Alias p -> (eq_lookup key p.x', Direct { pub = p.x' })
     | Not p -> (not_lookup key p.x', listen_but_use p.x' key)
     | Binop p -> (binop key p.bop p.x1 p.x2, Both { pub1 = p.x1; pub2 = p.x2 })
@@ -340,9 +339,8 @@ let complete_phis_of_rule (state : Global_state.t) key
   | Discovery_main p -> at_main key (Some p.v)
   | Discovery_nonmain p -> implies_v key key_first p.v
   | Input p -> if p.is_in_main then at_main key None else implies key key_first
-  | Assume p -> invalid key
-  | Assert p -> invalid key
   | Mismatch -> invalid key
+  | Diverge -> invalid key
   | Abort p -> if p.is_target then implies key key_first else invalid key
   | Alias p -> eq_lookup key p.x'
   | Not p -> not_lookup key p.x'

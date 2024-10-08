@@ -20,7 +20,7 @@ module Exns =
     exception Reach_max_step
     exception Found_abort (* TODO: add input list payload *)
     exception Type_mismatch (* .. *)
-    exception Failed_assume
+    exception Found_diverge
   end
 
 module rec Dvalue :
@@ -229,13 +229,7 @@ and eval_clause
     in
     return @@ Direct v
   | Abort_body -> raise Exns.Found_abort
-  | Assert_body cx | Assume_body cx ->
-    if
-      match Denv.fetch env cx with
-      | Direct (Value_bool b) -> b
-      | _ -> raise Exns.Type_mismatch
-    then return @@ Direct (Value_bool true)
-    else raise Exns.Failed_assume
+  | Diverge_body -> raise Exns.Found_diverge
 
 let eval_exp_default
   (e : expr)
@@ -258,5 +252,5 @@ let rec test_for_failure (e : expr) (n_runs : int) : bool =
     with
     | Exns.Found_abort
     | Exns.Type_mismatch -> true
-    | Exns.Failed_assume
+    | Exns.Found_diverge
     | Exns.Reach_max_step -> test_for_failure e (n_runs - 1)

@@ -41,7 +41,7 @@ and abstract_clause_body =
   | Abs_not_body of abstract_var
   | Abs_binary_operation_body of abstract_var * binary_operator * abstract_var
   | Abs_abort_body
-  | Abs_assume_body of abstract_var
+  | Abs_diverge_body
 [@@deriving eq, ord, to_yojson]
 
 (** A type to represent abstract clauses. *)
@@ -98,7 +98,7 @@ and pp_abstract_clause_body formatter b =
       Format.fprintf formatter "%a %a %a" pp_abstract_var x1 pp_binary_operator
         op pp_abstract_var x2
   | Abs_abort_body -> Format.pp_print_string formatter "abort"
-  | Abs_assume_body x -> Format.fprintf formatter "assume %a" pp_abstract_var x
+  | Abs_diverge_body -> Format.pp_print_string formatter "diverge"
 
 and pp_abstract_clause formatter (Abs_clause (x, b)) =
   Format.fprintf formatter "%a = @[<hv 2>%a@]" pp_abstract_var x
@@ -151,7 +151,7 @@ and pp_brief_abstract_clause_body formatter b =
       Format.fprintf formatter "%a %a %a" pp_abstract_var x1 pp_binary_operator
         op pp_abstract_var x2
   | Abs_abort_body -> Format.pp_print_string formatter "abort"
-  | Abs_assume_body x -> Format.fprintf formatter "assume %a" pp_abstract_var x
+  | Abs_diverge_body -> Format.pp_print_string formatter "diverge"
 
 and pp_brief_abstract_clause formatter (Abs_clause (x, b)) =
   Format.fprintf formatter "%a = @[<hv 2>%a@]" pp_abstract_var x
@@ -170,7 +170,7 @@ let is_abstract_clause_immediate (Abs_clause (_, b)) =
   match b with
   | Abs_var_body _ | Abs_value_body _ | Abs_input_body | Abs_match_body _
   | Abs_projection_body _ | Abs_not_body _ | Abs_binary_operation_body _
-  | Abs_abort_body | Abs_assume_body _ ->
+  | Abs_abort_body | Abs_diverge_body ->
       true
   | Abs_appl_body _ | Abs_conditional_body _ -> false
 

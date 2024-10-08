@@ -77,11 +77,8 @@ val add_not : Concolic_key.t -> Concolic_key.t -> t -> t
 val hit_branch : Branch.Runtime.t -> t -> t
 (** [hit_branch branch t] is [t] that knows [branch] has been hit during interpretation. *)
 
-val found_assume : Concolic_key.t -> t -> t
-(** [found_assume key t] tells [t] that [key] is assumed to be true. *)
-
-val fail_assume : t -> t
-(** [fail_assume t] tells [t] that a recent assume/assert was false when it needs to be true. *)
+val found_diverge : t -> t
+(** [found_diverge t] tells [t] that the interpretation was forced to diverge, and it ended. *)
 
 val found_abort : t -> t
 (** [found_abort t] tells [t] that an abort was found in interpretation. *)

@@ -131,7 +131,7 @@ and calc_clause_body (b : clause_body) (db : depth_bindings) : source_statistics
   | Projection_body (x, _) -> ss_var_ref x db empty
   | Binary_operation_body (x1, _, x2) -> ss_vars_ref [ x1; x2 ] db empty
   | Abort_body -> empty
-  | Assume_body x -> ss_var_ref x db empty
+  | Diverge_body -> empty
   | _ -> failwith "refactor"
 
 and calc_value (v : value) (db : depth_bindings) : source_statistics =

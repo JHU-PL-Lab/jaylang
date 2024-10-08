@@ -92,8 +92,7 @@ and lift_clause_body b =
   | Binary_operation_body (x1, op, x2) ->
       Abs_binary_operation_body (lift_var x1, op, lift_var x2)
   | Abort_body -> Abs_abort_body
-  | Assume_body x -> Abs_assume_body (lift_var x)
-  | Assert_body _ -> failwith "no direct assert yet"
+  | Diverge_body -> Abs_diverge_body
 
 and lift_value v =
   match v with

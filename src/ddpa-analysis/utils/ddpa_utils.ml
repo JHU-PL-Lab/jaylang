@@ -150,7 +150,7 @@ and _create_end_of_block_map_for_body (b : abstract_clause_body) =
   | Abs_not_body _ -> Annotated_clause_map.empty
   | Abs_binary_operation_body (_, _, _) -> Annotated_clause_map.empty
   | Abs_abort_body -> Annotated_clause_map.empty
-  | Abs_assume_body _ -> Annotated_clause_map.empty
+  | Abs_diverge_body -> Annotated_clause_map.empty
 
 and _create_end_of_block_map_for_function (f : abstract_function_value) =
   let (Abs_function_value (_, Abs_expr body)) = f in

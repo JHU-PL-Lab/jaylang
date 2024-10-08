@@ -61,7 +61,7 @@ module T =
     type t =
       { stem           : Formulated_stem.t
       ; consts         : Session_consts.t
-      ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch | `Failed_assume ]
+      ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch | `Diverged ]
       ; rev_inputs     : Jil_input.t list
       ; depth_tracker  : Depth_tracker.t 
       ; latest_branch  : Branch.t option (* need to track the latest branch in order to report where an abort was found *)
@@ -109,19 +109,11 @@ let update_lazy_stem (x : t) (lazy_stem : unit -> Formulated_stem.t) : t =
   then x
   else { x with stem = lazy_stem () }
 
-(* require that cx is true by adding as formula *)
-let found_assume (cx : Concolic_key.t) (x : t) : t =
-  update_lazy_stem x @@ fun () -> Formulated_stem.push_expr x.stem cx Expression.true_
-
-let fail_assume (x : t) : t =
+let found_diverge (x : t) : t =
   if x.depth_tracker.is_max_depth
   then x
-  else { x with status = `Failed_assume }
+  else { x with status = `Diverged }
 
-(*
-  Handle case where we're too deep to even push a formula, so the expression doesn't exist,
-  and therefore we can't check if it is constant.
-*)
 let hit_branch (branch : Branch.Runtime.t) (x : t) : t =
   let ast_branch = Branch.Runtime.to_ast_branch branch in
   if Formulated_stem.is_const_bool x.stem branch.condition_key
@@ -184,12 +176,11 @@ module Dead =
 
     let of_sym_session : (T.t, Path_tree.t -> t) Options.Fun.a =
       Options.Fun.strong
-        (fun (s : T.t) (f : bool -> Branch.t list -> Path_tree.t) (tree : Path_tree.t) -> 
-          let failed_assume = match s.status with `Failed_assume -> true | _ -> false in
+        (fun (s : T.t) (f : Branch.t list -> Path_tree.t) (tree : Path_tree.t) -> 
           let tree = 
             match s.consts.target with
-            | None -> f failed_assume s.solvable_hit_branches (* use only solvable branches in path *)
-            | Some target -> Path_tree.add_stem tree target s.stem failed_assume s.solvable_hit_branches
+            | None -> f s.solvable_hit_branches (* use only solvable branches in path *)
+            | Some target -> Path_tree.add_stem tree target s.stem s.solvable_hit_branches
           in
           { tree ; prev = s })
         (Path_tree.of_stem <<^ (fun (s : T.t) -> s.stem))
@@ -199,7 +190,7 @@ module Dead =
 
     let get_status (x : t) : Status.t =
       match x.prev.status with
-      | `In_progress | `Failed_assume ->
+      | `In_progress | `Diverged ->
           let dt = x.prev.depth_tracker in
           Finished_interpretation { pruned = dt.is_max_depth || dt.is_max_step }
       | `Found_abort branch -> Found_abort (branch, List.rev x.prev.rev_inputs)

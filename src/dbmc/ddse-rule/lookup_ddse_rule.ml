@@ -281,13 +281,10 @@ module Make (S : S) = struct
     ()
 
   let pattern _p _key _phis_top = ()
-  let assume _p _key _phis_top = ()
-
-  let assert_ _p this_key phis_top =
-    let _phis' = S.add_phi this_key Riddler.false_ phis_top in
-    ()
 
   let abort _p _key _phis_top = ()
+
+  let diverge _key _phis_top = ()
 
   let mismatch this_key phis =
     let _phis' = S.add_phi this_key Riddler.false_ phis in
