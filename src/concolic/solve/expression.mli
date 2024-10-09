@@ -78,7 +78,8 @@ val not_ : bool t -> bool t
 (* val or_ : bool t -> bool t -> bool t *)
 (** [or_ e1 e2] is an expression for the logical operation [e1] or [e2]. *)
 
-val t_to_formula : 'a t -> 'a C_sudu.Gexpr.t
+val int_t_to_formula : int t -> int C_sudu.Gexpr.t
+val bool_t_to_formula : bool t -> bool C_sudu.Gexpr.t
 (** [t_to_formula e] is a typed Z3 formula for the expression [e]. *)
 
 module Cache :
