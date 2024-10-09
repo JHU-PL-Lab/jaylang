@@ -37,7 +37,7 @@ let binop (x : t) (key : Concolic_key.t) (untyped_binop : Expression.Untyped_bin
 let not_ (x : t) (key1 : Concolic_key.t) (key2 : Concolic_key.t) : t =
   map_expr_cache x @@ fun expr_cache ->
     key2
-    |> Expression.Cache.lookup_bool expr_cache
+    |> Expression.Cache.lookup expr_cache
     |> Expression.not_
     |> Expression.Cache.add_expr expr_cache key1
 

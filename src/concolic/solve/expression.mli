@@ -92,11 +92,8 @@ module Cache :
     val empty : t
     (** [empty] knows no mappings. *)
 
-    val lookup_int : t -> Concolic_key.t -> int T.t
-    (** [lookup_int t key] is an unsafe lookup for the int expression associated with [key] in [t]. *)
-    
-    val lookup_bool : t -> Concolic_key.t -> bool T.t
-    (** [lookup_bool t key] is an unsafe lookup for the bool expression associated with [key] in [t]. *)
+    val lookup : t -> Concolic_key.t -> 'a T.t
+    (** [lookup t key] is an unsafe lookup for the expression associated with [key] in [t]. *)
 
     val add_expr : t -> Concolic_key.t -> 'a T.t -> t
     (** [add_expr t key e] has that [key] maps to [e]. *)

@@ -97,11 +97,7 @@ module Cache =
       | Some data -> Map.set m ~key:key1 ~data
       | None -> m
 
-    let lookup_bool (m : t) (key : Concolic_key.t) : bool T.t =
-      Packed.unpack
-      @@ Map.find_exn m key
-
-    let lookup_int (m : t) (key : Concolic_key.t) : int T.t =
+    let lookup (m : t) (key : Concolic_key.t) : 'a T.t =
       Packed.unpack
       @@ Map.find_exn m key
 
@@ -112,28 +108,25 @@ module Cache =
 
     let not_ (m : t) (x : Concolic_key.t) (y : Concolic_key.t) : t =
       add_expr m x
-      @@ not_ (lookup_bool m y)
+      @@ not_ (lookup m y)
 
     let binop (key : Concolic_key.t) (untyped_binop : Untyped_binop.t) (left : Concolic_key.t) (right : Concolic_key.t) (m : t) : t =
-      let op_bools (type a) (op : bool T.t -> bool T.t -> a T.t) : t =
-        add_expr m key @@ op (lookup_bool m left) (lookup_bool m right)
-      in
-      let op_ints (type a) (op : int T.t -> int T.t -> a T.t) : t =
-        add_expr m key @@ op (lookup_int m left) (lookup_int m right)
+      let op (type a b) (binop : a T.t -> a T.t -> b T.t) : t =
+        add_expr m key @@ binop (lookup m left) (lookup m right)
       in
       match untyped_binop with
-      | Plus -> op_ints plus
-      | Minus -> op_ints minus
-      | Times -> op_ints times
-      | Divide -> op_ints divide
-      | Modulus -> op_ints modulus
-      | Less_than -> op_ints less_than
-      | Less_than_eq -> op_ints less_than_eq
-      | Equal_int -> op_ints equal_int
-      | Not_equal -> op_ints not_equal
-      | Equal_bool -> op_bools equal_bool
-      | And -> op_bools and_
-      | Or -> op_bools or_
+      | Plus         -> op plus
+      | Minus        -> op minus
+      | Times        -> op times
+      | Divide       -> op divide
+      | Modulus      -> op modulus
+      | Less_than    -> op less_than
+      | Less_than_eq -> op less_than_eq
+      | Equal_int    -> op equal_int
+      | Not_equal    -> op not_equal
+      | Equal_bool   -> op equal_bool
+      | And          -> op and_
+      | Or           -> op or_
   end
 
 module Resolve = 
@@ -171,6 +164,7 @@ module Resolve =
       | Times (e1, e2) -> op_two_ints C_sudu.times e1 e2
       | Divide (e1, e2) -> op_two_ints C_sudu.divide e1 e2
       | Modulus (e1, e2) -> op_two_ints C_sudu.modulus e1 e2
+
   end
 
 let int_t_to_formula = Resolve.int_t_to_formula
