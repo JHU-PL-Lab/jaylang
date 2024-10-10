@@ -38,7 +38,7 @@ let parse_jayil_file filename = In_channel.with_file filename ~f:parse_jayil
 let parse_bluejay_file filename =
   In_channel.with_file filename ~f:Bluejay.Bluejay_parse.parse_program
 
-let read_source_full ?(do_wrap = false) ?(do_instrument = true) ?(consts = [])
+let read_source_full ?(do_wrap = false) ?(do_instrument = true) (*?(consts = [])*)
     filename =
   let convert_result =
     match lang_from_file filename with
@@ -46,7 +46,7 @@ let read_source_full ?(do_wrap = false) ?(do_instrument = true) ?(consts = [])
         parse_bluejay_file filename
         |> Convert.bluejay_to_jayil ~do_wrap ~do_instrument
     | Jay ->
-        parse_jay_file filename |> Convert.jay_to_jayil ~do_instrument ~consts
+        parse_jay_file filename |> Convert.jay_to_jayil ~do_instrument (*~consts*)
     | Jayil ->
         parse_jayil_file filename |> Convert.instrument_jayil ~do_instrument
   in
@@ -54,9 +54,9 @@ let read_source_full ?(do_wrap = false) ?(do_instrument = true) ?(consts = [])
   Jayil.Ast_wellformedness.check_wellformed_or_exit jayil_ast ;
   convert_result
 
-let read_source ?(do_wrap = false) ?(do_instrument = false) ?(consts = [])
+let read_source ?(do_wrap = false) ?(do_instrument = false) (*?(consts = [])*)
     filename =
-  read_source_full ~do_wrap ~do_instrument ~consts filename
+  read_source_full ~do_wrap ~do_instrument (*~consts*) filename
   |> Convert.jil_ast_of_convert
 
 let dump_jil_to_file jil_ast filename =

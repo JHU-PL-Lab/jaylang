@@ -1,8 +1,6 @@
 (** This module defines a routine which simplifies an JayIL AST by removing
     unnecessary variable aliases. *)
 
-[@@@ocaml.warning "-33"]
-
 open Batteries
 open Jayil
 open Ast
@@ -11,9 +9,8 @@ open Jay_to_jayil_monad.TranslationMonad
 open Lazy_logger
 
 
-let[@landmarks] eliminate_alias_pass (_consts : Ast.Var_set.t) (e : expr) : expr m =
-  return e (* don't actually do anything. This is slow and not worth it *)
-  (* let (Expr cls) = e in
+let[@landmarks] eliminate_alias_pass (consts : Ast.Var_set.t) (e : expr) : expr m =
+  let (Expr cls) = e in
   (* Identify all immediate aliases except the return value.  (We might
      need to preserve its name.) *)
   let aliases =
@@ -50,7 +47,7 @@ let[@landmarks] eliminate_alias_pass (_consts : Ast.Var_set.t) (e : expr) : expr
            e'')
   in
   let%bind () = update_jayil_jay_maps replacement_map in
-  return e' *)
+  return e'
 
 let rec eliminate_aliases (consts : Ast.Var_set.t) (e : expr) : expr m =
   let%bind e' = eliminate_alias_pass consts e in

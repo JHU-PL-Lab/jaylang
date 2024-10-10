@@ -41,7 +41,7 @@ let debug_transform_jayil_inst (trans_name : string)
   return c_list
 
 let do_translate ?(is_instrumented : bool = true) context
-    (consts : Ast.Var_set.t) (bluejay_instruments : ISet.t)
+    (*(_consts : Ast.Var_set.t)*) (bluejay_instruments : ISet.t)
     (e : Jay_ast.expr_desc) :
     Ast.expr
     * Jay_instrumentation.Jayil_instrumentation_maps.t
@@ -62,8 +62,8 @@ let do_translate ?(is_instrumented : bool = true) context
       >>= debug_transform_jay "desugaring" Jay_desugar.desugar
       >>= debug_transform_jay "alphatization" Jay_alphatize.alphatize
       >>= debug_transform_jayil "flattening" Jay_to_jayil_flatten.flatten
-      >>= debug_transform_jayil "eliminating"
-            (Jayil_eliminate_alias.eliminate_alias consts)
+      (* >>= debug_transform_jayil "eliminating"
+            (Jayil_eliminate_alias.eliminate_alias consts) *) (* it is slow and not worth it to eliminate aliases. *)
     in
     let translation_result_p1, ctx =
       run_verbose context translation_result_p1_m

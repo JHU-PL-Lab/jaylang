@@ -84,7 +84,7 @@ let bluejay_edesc_to_jay ~do_wrap bluejay_edesc =
 
 let[@landmarks] bluejay_to_jayil ~do_wrap ~do_instrument raw_bluejay =
   let bluejay_edesc = raw_bluejay |> Bluejay.Bluejay_ast.new_expr_desc in
-  let consts = bluejay_edesc_to_consts bluejay_edesc in
+  (* let consts = bluejay_edesc_to_consts bluejay_edesc in *)
   let jay_edesc, bluejay_jay_map =
     bluejay_edesc_to_jay ~do_wrap bluejay_edesc
   in
@@ -95,7 +95,7 @@ let[@landmarks] bluejay_to_jayil ~do_wrap ~do_instrument raw_bluejay =
   in *)
   let a, b, c =
     Jay_translate.Jay_to_jayil.translate ~is_jay:true
-      ~is_instrumented:do_instrument ~consts ~bluejay_instruments jay_edesc
+      ~is_instrumented:do_instrument (*~consts*) ~bluejay_instruments jay_edesc
   in
   (* let () = Fmt.pr "\nThis is the Jayil expr: %a \n" Jayil.Pp.expr a in *)
   convert_t_of6 a (Some jay_edesc) (Some bluejay_edesc) b (Some c)
@@ -107,12 +107,12 @@ let bluejay_to_jay ~do_wrap raw_bluejay =
   |> fst
   |> fun (e : Jay.Jay_ast.expr_desc) -> e.body
 
-let jay_to_jayil ~do_instrument ?(consts = []) raw_jay =
+let jay_to_jayil ~do_instrument (*?(consts = [])*) raw_jay =
   let jay_ast = raw_jay |> Jay.Jay_ast.new_expr_desc in
-  let consts = Jayil.Ast.Var_set.of_list consts in
+  (* let consts = Jayil.Ast.Var_set.of_list consts in *)
   let a, b, c =
     Jay_translate.Jay_to_jayil.translate ~is_jay:true
-      ~is_instrumented:do_instrument ~consts jay_ast
+      ~is_instrumented:do_instrument (*~consts*) jay_ast
   in
   convert_t_of5 a (Some jay_ast) b (Some c) None
 

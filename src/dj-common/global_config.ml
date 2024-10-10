@@ -138,6 +138,6 @@ let load_expect config =
   with_expect (List.hd_exn expect) config
 
 let read_source config =
-  let target_var = Jayil.Ast.Var (config.target, None) in
+  (* let target_var = Jayil.Ast.Var (config.target, None) in *)
   File_utils.read_source ~do_wrap:config.is_wrapped
-    ~do_instrument:config.is_instrumented ~consts:[ target_var ] config.filename
+    ~do_instrument:config.is_instrumented (*~consts:[ target_var ]*) config.filename
