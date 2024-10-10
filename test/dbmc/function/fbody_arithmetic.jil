@@ -1,6 +1,0 @@
-x = input;
-f = fun p -> ( r = p + p );
-y = f x;
-n = 4;
-q = n < y;
-c = q ? ( dummy1 = 0; target = true; ) : ( dummy2 = 0; bad = false );

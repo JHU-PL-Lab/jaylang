@@ -1,27 +1,8 @@
-(executable
- (name dj)
- (modules dj)
- (libraries core logs dbmc jayil)
- (preprocess
-  (pps ppx_jane))
- (promote
-  (until-clean)
-  (into "../..")))
-
-(executable
- (name sato)
- (modules sato)
- (libraries core logs dbmc sato jayil)
- (preprocess
-  (pps ppx_jane))
- (promote
-  (until-clean)
-  (into "../..")))
 
 (executable
  (name sato_concolic)
  (modules sato_concolic)
- (libraries core logs dbmc sato sato_concolic jayil)
+ (libraries core logs sato_concolic jayil)
  (preprocess
   (pps ppx_jane))
  (promote
@@ -37,29 +18,9 @@
   (into "../..")))
 
 (executable
- (name perf)
- (modules perf)
- (libraries core csv logs dbmc jayil)
- (preprocess
-  (pps ppx_jane))
- (promote
-  (until-clean)
-  (into "../..")))
-
-(executables
- (names dbmc_debugger)
- (modules dbmc_debugger)
- (libraries core logs lambda-term dj_common jayil dbmc)
- (preprocess
-  (pps ppx_jane))
- (promote
-  (until-clean)
-  (into "../..")))
-
-(executable
  (name jil)
  (modules jil)
- (libraries core logs dj_common dbmc jayil)
+ (libraries core logs dj_common from_dbmc jayil)
  (preprocess
   (pps ppx_jane))
  (promote
@@ -87,26 +48,12 @@
 (executable
  (name jay)
  (modules jay)
- (libraries core logs dj_common dbmc jay)
+ (libraries core logs dj_common jay)
  (preprocess
   (pps ppx_jane))
  (promote
   (until-clean)
   (into "../..")))
-
-(executable
- (name ddpa_toploop)
- (modules ddpa_toploop)
- (libraries batteries jhupllib jayil jayil_parser jayil_toploop langdk))
-
-(executable
- (name table_bench)
- (modules table_bench)
- (libraries core core_bench fix landmarks jayil jayil_parser dbmc)
- (preprocess
-  (pps ppx_jane landmarks-ppx --auto))
- (instrumentation
-  (backend landmarks)))
 
 (env
  (dev

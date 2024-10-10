@@ -1,4 +1,0 @@
-x = input;
-y = input;
-z = x + y;
-target = 1;

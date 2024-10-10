@@ -1,5 +1,5 @@
 open Core
-open Dbmc
+open From_dbmc
 
 let usage_msg = "jil -i <file> [<input_i>]"
 (* let source_file = ref "" *)

@@ -1,9 +1,0 @@
-x = input;
-one = 1;
-c = x < one;
-r = {
-  a = one,
-  d = c
-};
-e = r.d;
-z = e ? (target = 42) : (dummy = 0)

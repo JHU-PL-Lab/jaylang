@@ -28,7 +28,6 @@ depends: [
   "alcotest"
   "alcotest-lwt"
   "sudu"
-  "unroll"
   "jhupllib" {>= "0.1.1"}
   "ocaml-monadic" {>= "0.4.1"}
   "ppx_deriving" {>= "3.2"}

@@ -601,16 +601,16 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           let v = From_dbmc.Interpreter.value_of_dvalue dv1 in
           let alias_graph = interp_session.alias_graph in
           let jayil_aliases_raw =
-            Sato.Sato_tools.find_alias alias_graph (x, stk)
+            Sato_tools.find_alias alias_graph (x, stk)
           in
           let jayil_aliases =
             jayil_aliases_raw |> List.map ~f:(fun (x, _) -> x) |> List.rev
           in
-          let actual_type = Sato.Sato_tools.get_value_type v in
+          let actual_type = Sato_tools.get_value_type v in
           let errors =
             let mapper (pat, _) =
               let expected_type =
-                Sato.Sato_tools.get_expected_type_from_pattern jayil_jay_maps
+                Sato_tools.get_expected_type_from_pattern jayil_jay_maps
                   pat
               in
               On_error.Error_match
@@ -841,7 +841,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let jayil_vars_with_stack : Id_with_stack.t list =
         jayil_vars
         |> List.map ~f:(fun (Var (x, _)) -> x)
-        |> List.map ~f:(Sato.Sato_tools.find_alias_without_stack alias_graph)
+        |> List.map ~f:(Sato_tools.find_alias_without_stack alias_graph)
         |> List.concat |> List.concat
         (* TODO: This might be buggy; we're assuming that all values that might
            trigger the error must have an alias that is defined within the same
@@ -849,7 +849,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
            will have the same stack). *)
         (* |> List.filter ~f:(fun (_, stk) ->
                Concrete_stack.equal stk relevant_stk) *)
-        |> List.map ~f:(Sato.Sato_tools.find_alias alias_graph)
+        |> List.map ~f:(Sato_tools.find_alias alias_graph)
         |> List.concat
       in
       (* let () =
@@ -898,12 +898,12 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                jayil_jay_maps
           (* TODO: This is the problem here *)
           |> List.map ~f:(fun (Ast.Var (x, _)) ->
-                 Sato.Sato_tools.find_alias_without_stack alias_graph x)
+                 Sato_tools.find_alias_without_stack alias_graph x)
           |> List.concat |> List.concat
           (* TODO: Rethink the strategy here *)
           |> List.filter ~f:(fun (_, stk) ->
                  Concrete_stack.equal stk relevant_stk)
-          |> List.map ~f:(Sato.Sato_tools.find_alias alias_graph)
+          |> List.map ~f:(Sato_tools.find_alias alias_graph)
           |> List.concat
         in
         let val_exprs =

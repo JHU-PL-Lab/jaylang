@@ -1,7 +1,0 @@
-if true then
-  if true then
-    let target = 1 in 1
-  else
-    0
-else
-  0
