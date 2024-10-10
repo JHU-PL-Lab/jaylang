@@ -82,7 +82,7 @@ let bluejay_edesc_to_jay ~do_wrap bluejay_edesc =
 
 (* external functions *)
 
-let bluejay_to_jayil ~do_wrap ~do_instrument raw_bluejay =
+let[@landmarks] bluejay_to_jayil ~do_wrap ~do_instrument raw_bluejay =
   let bluejay_edesc = raw_bluejay |> Bluejay.Bluejay_ast.new_expr_desc in
   let consts = bluejay_edesc_to_consts bluejay_edesc in
   let jay_edesc, bluejay_jay_map =

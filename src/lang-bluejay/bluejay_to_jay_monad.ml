@@ -140,8 +140,7 @@ end = struct
   let bluejay_to_jay_maps ctx = ctx.tc_bluejay_to_jay_mappings
 
   let is_instrumented (tag : int) ctx =
-    let instrumented_tags = ctx.tc_bluejay_to_jay_mappings.instrumented_tags in
-    List.mem tag instrumented_tags
+    ISet.mem tag ctx.tc_bluejay_to_jay_mappings.instrumented_tags
 
   let rec sequence ms =
     match ms with

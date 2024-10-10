@@ -41,7 +41,7 @@ let debug_transform_jayil_inst (trans_name : string)
   return c_list
 
 let do_translate ?(is_instrumented : bool = true) context
-    (consts : Ast.Var_set.t) (bluejay_instruments : int list)
+    (consts : Ast.Var_set.t) (bluejay_instruments : ISet.t)
     (e : Jay_ast.expr_desc) :
     Ast.expr
     * Jay_instrumentation.Jayil_instrumentation_maps.t

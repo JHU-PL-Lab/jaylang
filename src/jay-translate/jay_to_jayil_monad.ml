@@ -39,7 +39,7 @@ module TranslationMonad : sig
   val add_const : Ast.var -> unit m
   val get_const_vars : Ast.var list m
   val update_jayil_jay_maps : Ast.var Ast.Var_map.t -> unit m
-  val update_instrumented_tags : int list -> unit m
+  val update_instrumented_tags : ISet.t -> unit m
   val is_jay_instrumented : int -> bool m
   val add_jay_instrumented : int -> unit m
 

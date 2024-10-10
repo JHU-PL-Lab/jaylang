@@ -3253,7 +3253,7 @@ let debug_transform_bluejay (trans_name : string)
         (Pp_utils.pp_to_string Bluejay_ast_internal_pp.pp_expr e'.body)) ;
   return e'
 
-let transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
+let[@landmarks] transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
     core_bluejay_edesc * Bluejay_to_jay_maps.t =
   let transformed_expr : (core_bluejay_edesc * Bluejay_to_jay_maps.t) m =
     let () = if do_wrap then wrap_flag := true else () in
