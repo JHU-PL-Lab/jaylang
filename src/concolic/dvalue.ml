@@ -42,11 +42,6 @@ module rec T :
     let is_int_or_bool = function
       | Direct (Value_int _) | Direct (Value_bool _) -> true
       | _ -> false
-(* 
-    let to_sort_exn = function
-      | Direct (Value_int _) -> Sudu.Simpler_z3_api.Sort.Int_sort
-      | Direct (Value_bool _) -> Bool_sort
-      | _ -> failwith "no sort for dvalue that is not direct int or bool" *)
   end
 and Denv :
   sig

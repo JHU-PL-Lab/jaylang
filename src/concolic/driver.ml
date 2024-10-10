@@ -14,11 +14,11 @@ module Test_result =
       | Timeout                 (* total evaluation timeout *)
 
     let to_string = function
-    | Found_abort _ ->         "FOUND_ABORT"
-    | Type_mismatch _ ->       "TYPE_MISMATCH"
-    | Exhausted ->             "EXHAUSTED"
-    | Exhausted_pruned_tree -> "EXHAUSTED_PRUNED_TREE"
-    | Timeout ->               "TIMEOUT"
+      | Found_abort _ ->         "FOUND_ABORT"
+      | Type_mismatch _ ->       "TYPE_MISMATCH"
+      | Exhausted ->             "EXHAUSTED"
+      | Exhausted_pruned_tree -> "EXHAUSTED_PRUNED_TREE"
+      | Timeout ->               "TIMEOUT"
 
     let merge a b =
       match a, b with
@@ -39,11 +39,11 @@ module Test_result =
       | In_progress _ -> failwith "session status unfinished"
 
     let is_error_found = function
-    | Timeout
-    | Exhausted_pruned_tree
-    | Exhausted -> false
-    | Found_abort _
-    | Type_mismatch _ -> true
+      | Timeout
+      | Exhausted_pruned_tree
+      | Exhausted -> false
+      | Found_abort _
+      | Type_mismatch _ -> true
 
   end
 
@@ -95,9 +95,8 @@ let test_bjy : (string, Test_result.t) Options.Fun.a =
 
 let test : (string, Test_result.t) Options.Fun.a =
   Options.Fun.make
-  @@ fun r ->
-      fun filename ->
-        match Core.Filename.split_extension filename with 
-        | _, Some "jil" -> Options.Fun.appl test_jil r filename
-        | _, Some "bjy" -> Options.Fun.appl test_bjy r filename
-        | _ -> failwith "expected jil or bjy file"
+  @@ fun r -> fun filename ->
+      match Core.Filename.split_extension filename with 
+      | _, Some "jil" -> Options.Fun.appl test_jil r filename
+      | _, Some "bjy" -> Options.Fun.appl test_bjy r filename
+      | _ -> failwith "expected jil or bjy file"
