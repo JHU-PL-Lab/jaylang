@@ -118,7 +118,7 @@ let eval_exp
     else
       let x_key = Concolic_key.create x step in
 
-      let next ?(step : int = step) ?(x_key : Concolic_key.t = x_key) v s =
+      let next ?(step : int = step) v s =
         cont @@ return (Denv.add env x v x_key) v s step
       in
       
@@ -138,7 +138,7 @@ let eval_exp
       | Var_body vx ->
         (* x = y ; *)
         let ret_val, ret_key = Denv.fetch env vx in
-        next ~x_key ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+        next ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
       | Conditional_body (cx, e1, e2) -> 
         (* x = if y then e1 else e2 ; *)
         let cond_val, condition_key = Denv.fetch env cx in
@@ -151,7 +151,7 @@ let eval_exp
             | Ok { denv = ret_env ; dval = ret_val ; symb_session ; step } ->
               let last_v = Jayil.Ast_tools.retv e in (* last defined value in the branch *)
               let ret_key = Denv.fetch_key ret_env last_v in
-              next ~x_key ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+              next ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
             | res -> res
             )
           | _ -> type_mismatch symb_session
@@ -159,7 +159,7 @@ let eval_exp
       | Input_body ->
         (* x = input ; *)
         let ret_val = Direct (Value_int (Session.Symbolic.get_feeder symb_session x_key)) in
-        next ~x_key ret_val @@ Session.Symbolic.add_input x_key ret_val symb_session
+        next ret_val @@ Session.Symbolic.add_input x_key ret_val symb_session
       | Appl_body (vf, varg) -> begin 
         (* x = f y ; *)
         match Denv.fetch_val env vf with
@@ -179,7 +179,7 @@ let eval_exp
             let ret_key = Denv.fetch_key ret_env last_v in
 
             (* exit function: *)
-            next ~x_key ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+            next ~step ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
           | res -> res
           )
         | _ -> type_mismatch symb_session
@@ -194,7 +194,7 @@ let eval_exp
         | RecordClosure (Record_value r, denv) ->
           let proj_var = Ident_map.find label r in
           let ret_val, ret_key = Denv.fetch denv proj_var in
-          next ~x_key ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+          next ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
         | Direct (Value_record (Record_value _record)) ->
           failwith "project should also have a closure"
         | _ -> type_mismatch symb_session
@@ -205,7 +205,7 @@ let eval_exp
         begin
           match y_val with
           | Direct (Value_bool b) ->
-            next ~x_key (Direct (Value_bool (not b))) @@ Session.Symbolic.add_not x_key y_key symb_session
+            next (Direct (Value_bool (not b))) @@ Session.Symbolic.add_not x_key y_key symb_session
           | _ -> type_mismatch symb_session
         end
       | Binary_operation_body (vy, op, vz) -> begin
@@ -215,7 +215,7 @@ let eval_exp
         match y, z with
         | Direct v1, Direct v2 -> begin
           let k v binop = (* continuation alias for shorter code in following match *)
-            next ~x_key (Direct v)
+            next (Direct v)
             @@ Session.Symbolic.add_binop x_key binop y_key z_key symb_session
           in
           let open Expression.Untyped_binop in
