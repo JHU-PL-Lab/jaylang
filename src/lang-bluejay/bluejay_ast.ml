@@ -1,3 +1,4 @@
+open Batteries
 open Dj_std.Translation_counter
 
 type label = Label of string [@@deriving eq, ord, show, to_yojson]

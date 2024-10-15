@@ -1,0 +1,22 @@
+a1 = 1;
+a2 = 2;
+
+f1 = fun t1 -> (
+  target = t1
+);
+
+f2 = fun t2 -> (
+  r2 = 100
+);
+
+apply = fun s -> (
+  ra = s a1
+);
+
+zero = 0;
+x_in = input;
+c1 = x_in == zero;
+
+dr = c1
+  ? (d1 = apply f1)
+  : (d2 = apply f2)

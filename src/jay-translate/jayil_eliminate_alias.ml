@@ -8,8 +8,7 @@ open Ast_tools
 open Jay_to_jayil_monad.TranslationMonad
 open Lazy_logger
 
-
-let[@landmarks] eliminate_alias_pass (consts : Ast.Var_set.t) (e : expr) : expr m =
+let eliminate_alias_pass (consts : Ast.Var_set.t) (e : expr) : expr m =
   let (Expr cls) = e in
   (* Identify all immediate aliases except the return value.  (We might
      need to preserve its name.) *)

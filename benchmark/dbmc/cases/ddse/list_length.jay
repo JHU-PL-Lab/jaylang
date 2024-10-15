@@ -1,0 +1,14 @@
+let x = input in
+let rec length lst = 
+  match lst with
+  | x :: xs -> 1 + length xs
+  | [] -> 0
+  end
+in
+let none = [] in
+let la = [1,2,3,4,5] in
+let len = length la in
+if len == x then
+  let target = 42 in 1
+else
+  0

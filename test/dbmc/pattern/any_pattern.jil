@@ -1,0 +1,4 @@
+x = input;
+i = 42;
+c = i ~ any;
+z = c ? (target = 1) : (dummy = 0);

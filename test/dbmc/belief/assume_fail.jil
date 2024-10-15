@@ -1,0 +1,4 @@
+x = input;
+f = false;
+z = assume f;
+target = x;

@@ -1,0 +1,67 @@
+# Std.List - start
+
+let rec append l1 l2 =
+  match l1 with
+  | x :: xs -> x :: (append xs l2)
+  | [] -> l2
+  end
+in
+
+let rec rev lst =
+  match lst with
+  | x :: xs -> append (rev xs) [x]
+  | [] -> lst
+  end
+in
+
+let rec gen_list _n = 
+  let t = input in
+  if (t < 0) then []
+              else (t :: (gen_list 0))
+in
+
+let is_lst_nil lst = 
+  match lst with
+  | {___empty = x, _} -> true
+  | _ -> false
+  end
+in
+let rec eq_list lst1 lst2 = 
+  let c1 = is_lst_nil lst1 in
+  let c2 = is_lst_nil lst1 in
+  if c1 and c2 then
+    true
+  else
+    if lst1.___head <> lst2.___head then
+      false
+    else
+      eq_list lst1.___tail lst2.___tail
+in
+
+let rec len lst = 
+  match lst with
+  | x :: xs -> 1 + len xs
+  | [] -> 0
+  end
+in
+
+let rec sum_list lst = 
+  match lst with
+  | x :: xs -> x + sum_list xs
+  | [] -> 0
+  end
+in
+
+# Std.List - end
+
+let dummy = 1 in
+let nil = [] in
+
+let l0 = gen_list nil in
+let l1 = rev l0 in
+if (len l0 == 4)
+  and (sum_list l0 == 11)
+  and (eq_list l0 l1) then
+  let target = 1 in 1
+else
+  0

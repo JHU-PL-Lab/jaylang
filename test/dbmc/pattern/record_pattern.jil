@@ -1,0 +1,10 @@
+x = input;
+one = 1;
+two = 2;
+r = {a = one, b = two};
+c = r ~ {a};
+z = c ? (
+      target = 1
+    ) : (
+      dummy = 0
+    )

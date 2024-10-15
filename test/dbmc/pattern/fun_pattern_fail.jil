@@ -1,0 +1,4 @@
+x = input;
+f = fun t -> (rt = 1);
+c = f ~ fun;
+z = c ? (dummy = 0) : (target = 1);

@@ -33,7 +33,8 @@ module Abs_exp = struct
       | Match of var * pattern
       | Project of var * Id.t
       | Abort
-      | Diverge
+      | Assume of var
+      | Assert of var
 
     and pattern =
       | Fun_pat
@@ -110,7 +111,8 @@ and lift_cbody = function
   | Jayil.Ast.Match_body (x, pat) -> Match (of_var x, lift_pattern pat)
   | Jayil.Ast.Projection_body (x, d) -> Project (of_var x, d)
   | Jayil.Ast.Abort_body -> Abort
-  | Jayil.Ast.Diverge_body -> Diverge
+  | Jayil.Ast.Assume_body x -> Assume (of_var x)
+  | Jayil.Ast.Assert_body x -> Assert (of_var x)
 
 and lift_value = function
   | Jayil.Ast.Value_int _ -> Int

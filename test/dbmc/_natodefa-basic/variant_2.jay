@@ -1,0 +1,13 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-STACK-IS 0ddpa
+# EXPECT-ANALYSIS-LOOKUP-FROM-END ~result {int}
+# EXPECT-NO-TYPE-ERRORS
+
+let x = `A 5 in
+let y =
+    match x with
+    | `A y -> y
+    | `B z -> z
+    end
+in y

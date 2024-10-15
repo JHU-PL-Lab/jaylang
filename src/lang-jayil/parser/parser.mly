@@ -48,7 +48,8 @@ let rec mark_dupes_record_labels lbls_seen r_list =
 %token KEYWORD_NOT
 %token KEYWORD_ANY
 %token KEYWORD_ABORT
-%token KEYWORD_DIVERGE
+%token KEYWORD_ASSUME
+%token KEYWORD_ASSERT
 %token UNDERSCORE
 %token PLUS
 %token MINUS
@@ -106,8 +107,10 @@ clause_body:
       { Input_body }
   | KEYWORD_ABORT
       { Abort_body }
-  | KEYWORD_DIVERGE
-			{ Diverge_body }
+  | KEYWORD_ASSUME variable
+      { Assume_body $2 }
+  | KEYWORD_ASSERT variable
+      { Assert_body $2 }
   | KEYWORD_NOT variable
       { Not_body $2 }
   | variable

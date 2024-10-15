@@ -1826,7 +1826,8 @@ let rec get_poly_vars (t : 'a expr_desc) (acc : 'a expr_desc list) :
         acc
     | TypeUntouched _ -> List.rev @@ (t :: acc)
     | Function (_, ed) ->
-        acc ||> ed
+        let acc' = get_poly_vars ed acc in
+        acc'
     | Appl (ed1, ed2)
     | Plus (ed1, ed2)
     | Minus (ed1, ed2)
@@ -1845,67 +1846,87 @@ let rec get_poly_vars (t : 'a expr_desc) (acc : 'a expr_desc list) :
     | TypeArrow (ed1, ed2)
     | TypeSet (ed1, ed2)
     | TypeIntersect (ed1, ed2) ->
-        acc
-        ||> ed1
-        ||> ed2
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        acc''
     | Not ed
     | RecordProj (ed, _)
     | VariantExpr (_, ed)
     | Assert ed
     | Assume ed
     | TypeList ed ->
-        acc ||> ed
+        let acc' = get_poly_vars ed acc in
+        acc'
     | TypeVariant vs ->
-        List.fold_left
-          (fun tv_lst (_, t_ed) -> get_poly_vars t_ed tv_lst)
-          acc vs
+        let acc' =
+          List.fold_left
+            (fun tv_lst (_, t_ed) -> get_poly_vars t_ed tv_lst)
+            acc vs
+        in
+        acc'
     | If (ed1, ed2, ed3) ->
-        acc
-        ||> ed1
-        ||> ed2
-        ||> ed3
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        let acc''' = get_poly_vars ed3 acc'' in
+        acc'''
     | Record r | TypeRecord r ->
-        Ident_map.fold (fun _ ed acc -> get_poly_vars ed acc) r acc
+        let acc' =
+          Ident_map.fold (fun _ ed acc -> get_poly_vars ed acc) r acc
+        in
+        acc'
     | List eds ->
-        List.fold_left (fun acc ed -> get_poly_vars ed acc) acc eds
+        let acc' =
+          List.fold_left (fun acc ed -> get_poly_vars ed acc) acc eds
+        in
+        acc'
     | Match (med, pat_ed_lst) ->
-      List.fold_left
-        (fun acc (_, ed) -> get_poly_vars ed acc)
-        (get_poly_vars med acc)
-        pat_ed_lst
+        let acc' = get_poly_vars med acc in
+        let acc'' =
+          List.fold_left
+            (fun acc (_, ed) -> get_poly_vars ed acc)
+            acc' pat_ed_lst
+        in
+        acc''
     | Let (_, ed1, ed2) ->
-        acc
-        ||> ed1
-        ||> ed2
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        acc''
     | LetWithType (_, ed1, ed2, ed3) ->
-        acc
-        ||> ed1
-        ||> ed2
-        ||> ed3
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        let acc''' = get_poly_vars ed3 acc'' in
+        acc'''
     | LetFun (fun_sig, ed) ->
-        acc
-        |> get_poly_vars_funsig fun_sig
-        ||> ed
+        let acc' = get_poly_vars_funsig fun_sig acc in
+        let acc'' = get_poly_vars ed acc' in
+        acc''
     | LetFunWithType (fun_sig, ed) ->
-        acc
-        |> get_poly_vars_typed_funsig fun_sig
-        ||> ed
+        let acc' = get_poly_vars_typed_funsig fun_sig acc in
+        let acc'' = get_poly_vars ed acc' in
+        acc''
     | LetRecFun (fun_sigs, ed) ->
-        List.fold_left
-          (fun acc f_sig -> get_poly_vars_funsig f_sig acc)
-          acc fun_sigs
-        ||> ed
+        let acc' =
+          List.fold_left
+            (fun acc f_sig -> get_poly_vars_funsig f_sig acc)
+            acc fun_sigs
+        in
+        let acc'' = get_poly_vars ed acc' in
+        acc''
     | LetRecFunWithType (fun_sigs, ed) ->
-        List.fold_left
-          (fun acc f_sig -> get_poly_vars_typed_funsig f_sig acc)
-          acc fun_sigs
-        ||> ed
+        let acc' =
+          List.fold_left
+            (fun acc f_sig -> get_poly_vars_typed_funsig f_sig acc)
+            acc fun_sigs
+        in
+        let acc'' = get_poly_vars ed acc' in
+        acc''
     | TypeArrowD ((_, ed1), ed2) ->
-        acc
-        ||> ed1
-        ||> ed2
+        let acc' = get_poly_vars ed1 acc in
+        let acc'' = get_poly_vars ed2 acc' in
+        acc''
     | TypeRecurse (_, ed) ->
-        acc ||> ed
+        let acc' = get_poly_vars ed acc in
+        acc'
   in
   List.unique ~eq:tagless_equal_expr_desc ret_lst
 
@@ -1917,35 +1938,40 @@ and get_poly_vars_typed_funsig (typed_fsig : 'a typed_funsig)
     (tv_lst : 'a expr_desc list) : 'a expr_desc list =
   match typed_fsig with
   | Typed_funsig (_, typed_params, (ret_type, f_body)) ->
-      List.fold_left
-        (fun acc (_, t) -> get_poly_vars t acc)
-        tv_lst typed_params
-      ||> ret_type
-      ||> f_body
+      let acc' =
+        List.fold_left
+          (fun acc (_, t) -> get_poly_vars t acc)
+          tv_lst typed_params
+      in
+      let acc'' = get_poly_vars ret_type acc' in
+      let acc''' = get_poly_vars f_body acc'' in
+      acc'''
   | DTyped_funsig (_, (_, pt), (ret_type, f_body)) ->
-      tv_lst
-      ||> pt
-      ||> ret_type
-      ||> f_body
+      let acc' = get_poly_vars pt tv_lst in
+      let acc'' = get_poly_vars ret_type acc' in
+      let acc''' = get_poly_vars f_body acc'' in
+      acc'''
   | PTyped_funsig (_, _tvars, typed_params, (ret_type, f_body)) ->
-      List.fold_left
-        (fun acc (_, t) -> get_poly_vars t acc)
-        tv_lst typed_params
-      ||> ret_type
-      ||> f_body
+      let acc' =
+        List.fold_left
+          (fun acc (_, t) -> get_poly_vars t acc)
+          tv_lst typed_params
+      in
+      let acc'' = get_poly_vars ret_type acc' in
+      let acc''' = get_poly_vars f_body acc'' in
+      acc'''
   | PDTyped_funsig (_, _tvars, (_, pt), (ret_type, f_body)) ->
-      tv_lst
-      ||> pt
-      ||> ret_type
-      ||> f_body
-
-and (||>) acc ed =
-  acc |> get_poly_vars ed
+      let acc' = get_poly_vars pt tv_lst in
+      let acc'' = get_poly_vars ret_type acc' in
+      let acc''' = get_poly_vars f_body acc'' in
+      acc'''
 
 (* Helper routines to transform external bluejay to internal bluejay *)
 
 let rec to_internal_expr_desc (e : Bluejay_ast.expr_desc) : syn_bluejay_edesc =
-  { tag = e.tag ; body = to_internal_expr e.body }
+  let tag' = e.tag in
+  let e' = to_internal_expr e.body in
+  { tag = tag'; body = e' }
 
 and to_internal_funsig (fun_sig : Bluejay_ast.funsig) : 'a funsig =
   let (Bluejay_ast.Funsig (f, args, f_body)) = fun_sig in

@@ -1,0 +1,10 @@
+# EXPECT-WELL-FORMED
+# EXPECT-EVALUATE
+# EXPECT-ANALYSIS-LOOKUP-FROM-END ~result {int}
+# EXPECT-ANALYSIS-NO-INCONSISTENCIES
+# EXPECT-NO-TYPE-ERRORS
+
+let x = 1 in
+let y = x + x + x - x in
+let z = 4 * 3 / 2 % 1 in
+y + z

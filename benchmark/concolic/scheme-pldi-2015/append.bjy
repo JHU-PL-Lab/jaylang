@@ -1,0 +1,17 @@
+# ill-typed when a and b are empty
+
+let is_nonempty ls =
+  match ls with
+  | [] -> false
+  | _ -> true
+  end
+in
+
+let rec append (a : List 'a) (b : List 'a) : {. List 'a | is_nonempty } =
+  match a with
+  | [] -> b
+  | hd :: tl -> hd :: append tl b
+  end
+in
+
+append

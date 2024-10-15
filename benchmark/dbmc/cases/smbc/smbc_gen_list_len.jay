@@ -1,0 +1,28 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [ 1, 1, 1, 0 ] !
+# EXPECT-REQUIRED-INPUT-SEQUENCE-GENERATION-STEPS 200000
+
+let dummy = 1 in
+let none = {last = true} in
+
+let rec gen_list acc = 
+  let t = input in
+  if 0 == t then
+    acc
+  else
+    let nacc = {elem = t, last = false, next = acc} in
+    gen_list nacc
+  in
+
+let rec len lst = 
+  if lst.last then
+    0
+  else
+    1 + (len (lst.next))
+  in
+
+let l0 = gen_list none in
+if len l0 == 3 then
+  let target = 1 in 1
+else
+  0

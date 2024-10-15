@@ -1,0 +1,11 @@
+(library
+  (name jayil_interpreter)
+  (public_name jay.jayil_interpreter)
+  (synopsis "Interpreter for Odefa")
+  (libraries
+    batteries
+    jhupllib
+    jayil
+    jay_utils
+  )
+)

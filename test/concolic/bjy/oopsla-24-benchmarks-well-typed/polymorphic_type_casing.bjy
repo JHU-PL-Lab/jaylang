@@ -1,0 +1,13 @@
+
+let t = (int -> int) && (bool -> bool)
+in
+
+let (f : t) = 
+  fun x ->
+    match x with
+    | int -> x + 1
+    | bool -> not x
+    end
+in
+
+f

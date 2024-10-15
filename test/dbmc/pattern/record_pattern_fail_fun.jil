@@ -1,0 +1,8 @@
+x = input;
+f = fun y -> (r = y);
+c = f ~ {a};
+z = c ? (
+      dummy = 0
+    ) : (
+      target = 1
+    )

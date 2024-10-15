@@ -271,7 +271,8 @@ module Make (Ctx : Finite_callstack.C) = struct
               | None -> Abs_result.empty)
           | _ -> Abs_result.empty)
       | Abort -> Abs_result.only (AAbort, store)
-      | Diverge -> Abs_result.only (ADiverge, store)
+      | Assume _x -> Abs_result.only (AVal.ABool true, store)
+      | Assert _x -> Abs_result.only (AVal.ABool true, store)
     in
 
     (F.lfp mk_aeval, visited)
@@ -359,8 +360,7 @@ module Make (Ctx : Finite_callstack.C) = struct
                                Some
                                  (Jayil.Ast.Ident_map.find x para_to_fun_def_map)
                            (* TODO: Check abort logic *)
-                           | AAbort -> None
-                           | ADiverge -> None))
+                           | AAbort -> None))
                     ~if_not_found:(fun _ -> [])
                 in
                 App dsts
@@ -412,8 +412,7 @@ module Make (Ctx : Finite_callstack.C) = struct
                      !block_map
                  in
                  block_map := block_map'
-             | AAbort -> () (* TODO: Again, check abort logic. *)
-             | ADiverge -> ())
+             | AAbort -> () (* TODO: Again, check abort logic. *))
     | Some (Clause (Var (xc, _), Conditional_body (Var (c, _), _, _))) ->
         let vs = Hashtbl.find_exn result_map c in
         let cond_both = find_cond_blocks xc !block_map in

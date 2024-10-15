@@ -1,0 +1,8 @@
+# expect error because forgot to map hd, i.e. it is `hd :: ` instead of `mf hd :: `
+
+let rec map (mf : 'a -> 'b) (l : List 'a) : List 'b =
+    match l with
+    | [] -> []
+    | hd :: tl -> hd :: (map mf tl)
+    end
+in map

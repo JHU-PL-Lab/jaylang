@@ -1,6 +1,7 @@
 open Core
 open Graph
 open Jhupllib
+open Dbmc
 open Jayil
 open Jayil.Ast
 open Jay_instrumentation.Jayil_instrumentation_maps
@@ -55,8 +56,8 @@ module type Sc_result = sig
   val get_errors :
     Sc_state.t ->
     Jayil.Ast.Ident.t ->
-    From_dbmc.Interpreter.session ->
-    From_dbmc.Interpreter.denv ->
+    Dbmc.Interpreter.session ->
+    Dbmc.Interpreter.denv ->
     int option list ->
     t
 
@@ -75,7 +76,7 @@ let get_abort_cond_clause_id
   | None -> failwith "Should have a corresponding clause here!"
 
 let get_odefa_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
-    (interp_session : From_dbmc.Interpreter.session) (final_env : From_dbmc.Interpreter.denv) :
+    (interp_session : Interpreter.session) (final_env : Interpreter.denv) :
     Ast.clause * Sc_error.Jayil_error.t list =
   let ab_mapping = sato_state.abort_mapping in
   let on_to_odefa_maps = sato_state.on_to_odefa_maps in
@@ -100,13 +101,13 @@ let get_odefa_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
     | Bool_type, Value_bool _ | Int_type, Value_int _ -> []
     | _ ->
         let match_aliases_raw =
-          Sato_tools.find_alias alias_graph (x, x_stk)
+          Sato.Sato_tools.find_alias alias_graph (x, x_stk)
         in
         let match_val_source =
           find_source_cls interp_session.val_def_map match_aliases_raw
         in
         let match_aliases = match_aliases_raw |> List.rev in
-        let actual_type = Sato_tools.get_value_type actual_val in
+        let actual_type = Sato.Sato_tools.get_value_type actual_val in
         let match_error =
           Sc_error.Jayil_error.Error_match
             {
@@ -119,7 +120,7 @@ let get_odefa_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
         [ match_error ]
   in
   let mk_value_error x x_stk =
-    let value_aliases_raw = Sato_tools.find_alias alias_graph (x, x_stk) in
+    let value_aliases_raw = Sato.Sato_tools.find_alias alias_graph (x, x_stk) in
     let val_source =
       find_source_cls interp_session.val_def_map value_aliases_raw
     in
@@ -136,12 +137,12 @@ let get_odefa_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
        the two operands must have taken the wrong type.
     *)
     | Binary_operation_body (Var (x1, _), _, Var (x2, _)) ->
-        let expected_type = Sato_tools.get_expected_type_from_cls cls in
+        let expected_type = Sato.Sato_tools.get_expected_type_from_cls cls in
         let (x1_val, x1_stk), (x2_val, x2_stk) =
           let dv1, stk1 = Ident_map.find x1 final_env in
           let dv2, stk2 = Ident_map.find x2 final_env in
           let v1, v2 =
-            (From_dbmc.Interpreter.value_of_dvalue dv1, From_dbmc.Interpreter.value_of_dvalue dv2)
+            (Interpreter.value_of_dvalue dv1, Interpreter.value_of_dvalue dv2)
           in
           ((v1, stk1), (v2, stk2))
         in
@@ -155,10 +156,10 @@ let get_odefa_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
     | Appl_body (Var (x, _), _)
     | Projection_body (Var (x, _), _)
     | Conditional_body (Var (x, _), _, _) ->
-        let expected_type = Sato_tools.get_expected_type_from_cls cls in
+        let expected_type = Sato.Sato_tools.get_expected_type_from_cls cls in
         let x_val, x_stk =
           let dv, stk = Ident_map.find x final_env in
-          let v = From_dbmc.Interpreter.value_of_dvalue dv in
+          let v = Interpreter.value_of_dvalue dv in
           (v, stk)
         in
         let error = mk_match_err expected_type x_val x x_stk in
@@ -189,8 +190,8 @@ module Jayil_type_errors : Sc_result with type t = odefa_error_record = struct
   let description = "error"
 
   let get_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
-      (interp_session : From_dbmc.Interpreter.session)
-      (final_env : From_dbmc.Interpreter.denv) (inputs : int option list) : t =
+      (interp_session : Dbmc.Interpreter.session)
+      (final_env : Dbmc.Interpreter.denv) (inputs : int option list) : t =
     let error_loc, odefa_errors =
       get_odefa_errors sato_state abort_var interp_session final_env
     in
@@ -241,8 +242,8 @@ module Jay_type_errors : Sc_result with type t = natodefa_error_record = struct
   let description = "natodefa type error"
 
   let get_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
-      (interp_session : From_dbmc.Interpreter.session)
-      (final_env : From_dbmc.Interpreter.denv) (inputs : int option list) =
+      (interp_session : Dbmc.Interpreter.session)
+      (final_env : Dbmc.Interpreter.denv) (inputs : int option list) =
     let open Jay in
     let (Clause (Var (err_id, _), _) as error_loc), odefa_errors =
       get_odefa_errors sato_state abort_var interp_session final_env
@@ -302,8 +303,8 @@ module Bluejay_type_errors : Sc_result with type t = ton_error_record = struct
   let description = "typed natodefa type error"
 
   let get_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
-      (interp_session : From_dbmc.Interpreter.session)
-      (final_env : From_dbmc.Interpreter.denv) (inputs : int option list) =
+      (interp_session : Dbmc.Interpreter.session)
+      (final_env : Dbmc.Interpreter.denv) (inputs : int option list) =
     let open Jay in
     let open Bluejay in
     let (Clause (Var (err_id, _), _) as error_loc), odefa_errors =

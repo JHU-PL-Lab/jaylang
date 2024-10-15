@@ -1,0 +1,30 @@
+x = input;
+
+f = fun fx -> (
+  g = fun gx -> (
+    one = 1;
+    cx = fx == one;
+    rf = cx ?
+      (
+        r1 = 6
+      ):
+      (
+        r2 = 7
+      )
+  )
+);
+
+a2 = 2;
+c1 = f x;
+c2 = c1 a2;
+
+a6 = 6;
+a7 = 7;
+ct = c2 == a6;
+rt = ct ?
+  (
+    target = 42
+  ) :
+  (
+    void = 0
+  )

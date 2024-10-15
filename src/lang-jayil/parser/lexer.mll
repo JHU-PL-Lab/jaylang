@@ -50,7 +50,8 @@ rule token = parse
   | "not"                            { KEYWORD_NOT }
   | "any"                            { KEYWORD_ANY }
   | "abort"                          { KEYWORD_ABORT }
-  | "diverge"                        { KEYWORD_DIVERGE }
+  | "assume"                         { KEYWORD_ASSUME }
+  | "assert"                         { KEYWORD_ASSERT }
   | "_"                              { UNDERSCORE }
   | "-"? digit+ as n                 { INT_LITERAL (int_of_string n) }
   | "+"                              { PLUS }

@@ -1,0 +1,26 @@
+# no apparent error
+
+let is_cons xs =
+  match xs with
+  | hd :: tl -> true
+  | _ -> false
+  end
+in
+
+let rec argmin_acc f a b xs =
+  match xs with
+  | [] -> a
+  | hd :: tl ->
+    if b < f hd
+    then argmin_acc f a b tl
+    else argmin_acc f hd (f hd) tl
+  end
+in
+
+let argmin (f : 'a -> int) (xs : {. List 'a | is_cons }) : 'a =
+  match xs with
+  | hd :: tl -> argmin_acc f hd (f hd) tl
+  end
+in
+
+argmin

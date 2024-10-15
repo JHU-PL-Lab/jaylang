@@ -29,7 +29,7 @@ let dump_program program filename dump_level =
   | _ -> ()
 
 let main_lwt ~(config : Global_config.t) program_full :
-    [ `Error of reported_error | `Type_mismatch | `No_error of [ `Conclusive | `Inconclusive ] ] Lwt.t =
+    (reported_error option * bool) Lwt.t =
   dump_program program_full config.filename config.dump_level ;
 
   let program = Convert.jil_ast_of_convert program_full in
@@ -43,9 +43,9 @@ let main_lwt ~(config : Global_config.t) program_full :
   in
   let res =
     match config.timeout with
-    | None -> Concolic.Driver.test_expr ~random:false program
+    | None -> Concolic.Driver.test_expr ~quit_on_abort:true ~random:false program
     | Some t ->
-        Concolic.Driver.test_expr
+        Concolic.Driver.test_expr ~quit_on_abort:true
           ~random:false
           ~global_timeout_sec:(Core_private.Span_float.to_sec t)
           program
@@ -60,12 +60,12 @@ let main_lwt ~(config : Global_config.t) program_full :
       in
       let session =
         {
-          (From_dbmc.Interpreter.make_default_session ()) with
+          (Dbmc.Interpreter.make_default_session ()) with
           input_feeder = Input_feeder.from_list inputs;
         }
       in
-      try From_dbmc.Interpreter.eval session program
-      with From_dbmc.Interpreter.Found_abort ab_clo -> (
+      try Dbmc.Interpreter.eval session program
+      with Dbmc.Interpreter.Found_abort ab_clo -> (
         match ab_clo with
         | AbortClosure final_env ->
             (* let pp_dvalue_with_stack oc (dv, _) =
@@ -83,46 +83,42 @@ let main_lwt ~(config : Global_config.t) program_full :
                     Sc_result.Bluejay_type_errors.get_errors init_sato_state
                       abort_var session final_env inputs
                   in
-                  `Error (Bluejay_error errors)
+                  (Some (Bluejay_error errors), false)
               | Jay ->
                   let errors =
                     Sc_result.Jay_type_errors.get_errors init_sato_state
                       abort_var session final_env inputs
                   in
-                  `Error (Jay_error errors)
+                  (Some (Jay_error errors), false)
               | Jayil ->
                   let errors =
                     Sc_result.Jayil_type_errors.get_errors init_sato_state
                       abort_var session final_env inputs
                   in
-                  `Error (Jayil_error errors)
+                  (Some (Jayil_error errors), false)
             in
             Lwt.return result
-        | _ -> failwith "Should have run into abort here!"))
-  | Type_mismatch _ -> Lwt.return `Type_mismatch
-  | Exhausted -> Lwt.return (`No_error `Conclusive)
-  | Exhausted_pruned_tree | Timeout -> Lwt.return (`No_error `Inconclusive)
+        | _ -> failwith "Shoud have run into abort here!"))
+  | Type_mismatch _ -> failwith "found type mismatch, but currently unhandled in sato-concolic"
+  | Exhausted -> Lwt.return (None, false)
+  | Exhausted_pruned_tree | Timeout -> Lwt.return (None, true)
 
 let main_commandline () =
   let config =
     Argparse.parse_commandline ~config:Global_config.default_sato_config ()
   in
   let program_full =
-    File_utils.read_source_full ~do_wrap:config.is_wrapped ~do_instrument:true (* NOTE: we would like to turn off instrument to improve performance, but it is currently not compatible with error reporting. *)
+    File_utils.read_source_full ~do_wrap:config.is_wrapped ~do_instrument:true (* NOTICE: Brandon changed do_instrument to false. It is typically true (but actually right now it's back to true) *)
       config.filename
   in
   let () =
     let errors_res = Lwt_main.run (main_lwt ~config program_full) in
     match errors_res with
-    | `No_error `Conclusive -> print_endline @@ "Program is error-free."
-    | `No_error `Inconclusive ->
+    | None, false -> print_endline @@ "No errors found."
+    | None, true ->
         print_endline
         @@ "Some search timed out; inconclusive result. Please run again with \
             longer timeout setting."
-    | `Type_mismatch ->
-        print_endline 
-        @@ "Some type mismatch was found. Error-reporting is currently not \
-            available. The input program is ill-typed."
-    | `Error errors -> print_endline @@ show_reported_error errors
+    | Some errors, _ -> print_endline @@ show_reported_error errors
   in
   Log.close ()

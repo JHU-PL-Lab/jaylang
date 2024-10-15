@@ -1,0 +1,14 @@
+a = 0;
+
+f1 = fun t1 -> (
+  r1 = 2
+);
+
+apply = fun s -> (
+  zero = 0;
+  ra = s zero
+);
+
+m1 = apply f1;
+
+target = m1

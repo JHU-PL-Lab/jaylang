@@ -12,28 +12,34 @@
   logs
   logs.lwt
   logs.fmt
-  from_dbmc
+  ocamlgraph
+  hashcons
+  dbmc
   jayil
   jay_translate
   jay_instrumentation
   jayil_parser
   bluejay
   dj_common
-  monadlib
+  ddpa_for_dj
+  jil_analysis
+  unroll
   sudu
-  psq) ; psq added for queue of target branches
+  psq) ; psq added for concolic queue of target branches
  (instrumentation
   (backend landmarks))
- (synopsis "concolic tester on jayil programs")
+ (synopsis "dbmc is demand-driven bounded model checking")
  (inline_tests)
  (preprocess
   (pps
-   ppx_sexp_conv
-   ppx_compare
-   ocaml-monadic
+   ppx_jane
    ppx_deriving.show
    lwt_ppx
    ; for profiling
    landmarks-ppx
    --auto)))
 
+(env
+ (dev
+  (flags
+   (:standard -w -33 -w -26 -w -27))))

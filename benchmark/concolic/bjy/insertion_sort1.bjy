@@ -1,0 +1,53 @@
+
+# The then/else cases in insert are switched, so it doesn't insert in a sorted matter
+
+let is_nonempty lst =
+  match lst with
+  | [] -> false
+  | _ -> true
+  end
+in
+
+let rec ne_sorted lst =
+  match lst with
+  | [] -> true
+  | a :: tl ->
+    match tl with
+    | [] -> true
+    | b :: tll -> a <= b and ne_sorted tl
+    end
+  end
+in
+
+let rec foldl f b l =
+  match l with
+  | [] -> b
+  | x :: xs -> foldl f (f x b) xs
+  end
+in
+
+let rec insert x l =
+  match l with
+  | [] -> [ x ]
+  | h :: t ->
+    if x <= h
+    then h :: (insert x t)
+    else x :: l
+  end
+in
+
+let ret_type xs =
+  {. List int | fun l ->
+    ne_sorted l
+    and
+      if is_nonempty xs
+      then is_nonempty l
+      else not (is_nonempty l)
+  }
+in
+
+letd sort (xs : List int) : ret_type xs =
+  foldl insert [] xs
+in
+
+sort

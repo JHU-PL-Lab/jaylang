@@ -1,0 +1,11 @@
+# EXPECT-WELL-FORMED
+# EXPECT-INPUT-SEQUENCES-REACH target [0]
+
+x = input;
+f = fun a -> ( 
+  two = 2;
+  r = 10;
+);
+one = 1;
+t1 = f one;
+target = t1;

@@ -1,9 +1,12 @@
 open Core
-open Options.Fun.Infix (* expose infix operators *)
+open Dbmc
+open Dj_common
 
 module CLog = Dj_common.Log.Export.CLog
 
+[@@@ocaml.warning "-32"]
 
+      
 module Test_result =
   struct
     type t =
@@ -31,20 +34,7 @@ module Test_result =
       | Timeout, _ | _, Timeout -> Timeout
       | Exhausted_pruned_tree, Exhausted_pruned_tree -> Exhausted_pruned_tree
 
-    let of_session_status = function
-      | Session.Status.Found_abort (branch, inputs) -> Found_abort (branch, inputs)
-      | Type_mismatch inputs -> Type_mismatch (Ident "placeholder branch name", inputs)
-      | Exhausted { pruned = true } -> Exhausted_pruned_tree
-      | Exhausted { pruned = false } -> Exhausted
-      | In_progress _ -> failwith "session status unfinished"
-
-    let is_error_found = function
-    | Timeout
-    | Exhausted_pruned_tree
-    | Exhausted -> false
-    | Found_abort _
-    | Type_mismatch _ -> true
-
+    let default : t = Exhausted_pruned_tree (* has the least information *)
   end
 
 (*
@@ -53,28 +43,65 @@ module Test_result =
   ----------------------
 *)
 
-let[@landmark] lwt_test_one : (Jayil.Ast.expr, Test_result.t Lwt.t) Options.Fun.a =
-  let open Lwt.Syntax in
-  Evaluator.lwt_eval
-  ^>> fun res_status_lwt ->
-    let t0 = Caml_unix.gettimeofday () in
-    let+ res_status = res_status_lwt in
-    CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
-    Test_result.of_session_status res_status
+let[@landmark] lwt_test_one : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fun.t =
+  let open Lwt.Infix in
+  Options.Fun.make
+  @@ fun (r : Options.t) ->
+      fun (e : Jayil.Ast.expr) ->
+        let t0 = Caml_unix.gettimeofday () in
+        Options.Fun.appl Evaluator.lwt_eval r e
+        >|= function res, has_pruned ->
+          CLog.app (fun m -> m "\nFinished concolic evaluation in %fs.\n" (Caml_unix.gettimeofday () -. t0));
+          Branch_info.find res ~f:(fun _ -> function Branch_info.Status.Found_abort _ | Type_mismatch _ -> true | _ -> false)
+          |> begin function
+            | Some (Branch.Or_global.Branch branch, Branch_info.Status.Found_abort inputs) -> Test_result.Found_abort (branch, List.rev inputs)
+            | Some (_, Branch_info.Status.Type_mismatch (id, inputs)) -> Test_result.Type_mismatch (id, List.rev inputs)
+            | None when not has_pruned -> Exhausted
+            | None -> Exhausted_pruned_tree
+            | _ -> failwith "impossible abort in global branch"
+            end
+        
+(* [test_incremental n] incrementally increases the max tree depth in [n] equal steps until it reaches the given max depth *)
+let[@landmark] test_incremental : (Jayil.Ast.expr -> Test_result.t Lwt.t) Options.Fun.t =
+  let open Lwt.Infix in
+  Options.Fun.make
+  @@ fun (r : Options.t) ->
+      fun (e : Jayil.Ast.expr) ->
+        Lwt_unix.with_timeout r.global_timeout_sec
+        @@ fun () ->
+          r.n_depth_increments
+          |> List.init ~f:(fun i -> (i + 1) * r.max_tree_depth / r.n_depth_increments)
+          |> List.fold
+            ~init:(Lwt.return Test_result.default)
+            ~f:(fun acc d ->
+                acc
+                >>= function
+                  | Test_result.Found_abort _ | Type_mismatch _ | Timeout | Exhausted -> acc
+                  | acc -> begin
+                    Options.Fun.appl lwt_test_one { r with max_tree_depth = d } e
+                    >|= Test_result.merge acc
+                  end
+              )
 
-(* runs [lwt_test_one] and catches lwt timeout *)
-let test_with_timeout : (Jayil.Ast.expr, Test_result.t) Options.Fun.a =
-  lwt_test_one
-  ^>> Options.Fun.make
-  @@ fun r tr -> 
-    try Lwt_main.run tr with
-    | Lwt_unix.Timeout ->
-      CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
-      Test_result.Timeout
+(* runs [test_incremental] and catches lwt timeout *)
+let test_with_timeout : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
+  Options.Fun.make
+  @@ fun (r : Options.t) ->
+      fun (e : Jayil.Ast.expr) ->
+        try
+          Lwt_main.run
+          (* @@ Options.Fun.appl test_incremental r e *)
+          @@ Options.Fun.appl lwt_test_one r e
+        with
+        | Lwt_unix.Timeout ->
+          CLog.app (fun m -> m "Quit due to total run timeout in %0.3f seconds.\n" r.global_timeout_sec);
+          Test_result.Timeout
 
-let[@landmark] test_expr : (Jayil.Ast.expr, Test_result.t) Options.Fun.a =
-  test_with_timeout
-  ^>> fun res -> Format.printf "\n%s\n" (Test_result.to_string res); res
+let[@landmark] test_expr : (Jayil.Ast.expr -> Test_result.t) Options.Fun.t =
+  Options.Fun.map
+    test_with_timeout
+    (fun r -> Format.printf "\n%s\n" (Test_result.to_string r); r)
+
 
 (*
   -------------------
@@ -82,22 +109,24 @@ let[@landmark] test_expr : (Jayil.Ast.expr, Test_result.t) Options.Fun.a =
   -------------------
 *)
 
-let test_jil : (string, Test_result.t) Options.Fun.a =
+let test_jil : (string -> Test_result.t) Options.Fun.t =
+  let open Options.Fun in
   test_expr
-  <<^ Dj_common.File_utils.read_source
+  @. Dj_common.File_utils.read_source
 
-let test_bjy : (string, Test_result.t) Options.Fun.a =
+let test_bjy : (string -> Test_result.t) Options.Fun.t =
+  let open Options.Fun in
   test_expr
-  <<^ fun filename ->
+  @. (fun filename ->
     filename
     |> Dj_common.File_utils.read_source_full ~do_instrument:false ~do_wrap:true
-    |> Dj_common.Convert.jil_ast_of_convert
+    |> Dj_common.Convert.jil_ast_of_convert)
 
-let test : (string, Test_result.t) Options.Fun.a =
+let test : (string -> Test_result.t) Options.Fun.t =
   Options.Fun.make
   @@ fun r ->
       fun filename ->
-        match Core.Filename.split_extension filename with 
-        | _, Some "jil" -> Options.Fun.appl test_jil r filename
-        | _, Some "bjy" -> Options.Fun.appl test_bjy r filename
-        | _ -> failwith "expected jil or bjy file"
+      match Core.Filename.split_extension filename with 
+      | _, Some "jil" -> Options.Fun.appl test_jil r filename
+      | _, Some "bjy" -> Options.Fun.appl test_bjy r filename
+      | _ -> failwith "expected jil or bjy file"

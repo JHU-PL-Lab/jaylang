@@ -1,0 +1,11 @@
+let x = input in
+let f t = 
+  let target = 1 in 1
+in
+let contra = 
+  if x < 1 then 
+    if 1 < x then f 0 else 1
+  else
+    f 1
+  in
+contra

@@ -1,0 +1,3 @@
+# x = input;
+x = 1;
+target = x;

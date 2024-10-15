@@ -1,0 +1,10 @@
+x = input;
+f = fun fx -> (rt = 2);
+one = 1;
+c = f ~ fun;
+z = c ? (
+      dummy = 0
+    ) : (
+      t = f one;
+      target = t      
+    )

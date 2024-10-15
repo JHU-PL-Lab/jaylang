@@ -1,0 +1,13 @@
+tt = true;
+ff = false;
+
+wrap = fun c -> (
+  f1 = fun y -> ( r1 = tt );
+  f2 = fun x -> ( rf = ff );
+  f = c ? ( ct = f1 ) : ( cf = f2 );
+);
+g1 = wrap ff;
+g = wrap tt;
+z = 0;
+t = g z;
+
