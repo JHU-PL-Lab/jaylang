@@ -36,7 +36,7 @@ val add_const_var : t -> Ast.var -> t
 
 val update_jayil_mappings : t -> Ast.var Ast.Var_map.t -> t
 
-val update_instrumented_tags : t -> int list -> t
+val update_instrumented_tags : t -> Batteries.ISet.t -> t
 
 val is_jay_instrumented : t -> int -> bool
 

@@ -1,4 +1,0 @@
-x = input;
-f = fun t -> (rt = 1);
-c = f ~ fun;
-z = c ? (target = 1) : (dummy = 0);

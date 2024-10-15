@@ -1,6 +1,0 @@
-a = 1;
-f = fun x -> (
-  t = input;
-  target = t
-);
-p = f a

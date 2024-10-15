@@ -1,9 +1,0 @@
-x = input;
-one = 1;
-c = x == one;
-r = { d = c };
-f = fun t -> (
-  rf = t.d
-);
-e = f r;
-z = e ? (target = 42) : (dummy = 0)

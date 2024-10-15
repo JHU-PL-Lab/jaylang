@@ -1,6 +1,0 @@
-target_in = input;
-target_const = 42;
-target_cond = target_in == target_const;
-target_r = target_cond ?
-  (target = 84) :
-  (target_fail = 21)

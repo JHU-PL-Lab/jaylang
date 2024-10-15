@@ -105,8 +105,7 @@ and check_scope_clause_body (bound : Ident_set.t) (site_x : ident)
   | Binary_operation_body (Var (x1, _), _, Var (x2, _)) ->
       _bind_filt bound site_x [ x1; x2 ]
   | Abort_body -> []
-  | Assume_body (Var (x, _)) -> _bind_filt bound site_x [ x ]
-  | Assert_body (Var (x, _)) -> _bind_filt bound site_x [ x ]
+  | Diverge_body -> []
 
 (** Returns a list of pairs of variables. The pair represents a violation on the
     concept of scope, i.e., a variable used that was not in scope. The first
@@ -151,8 +150,7 @@ and map_clause_body_ids (fn : ident -> ident) (b : clause_body) : clause_body =
   | Binary_operation_body (Var (x1, stk1), op, Var (x2, stk2)) ->
       Binary_operation_body (Var (fn x1, stk1), op, Var (fn x2, stk2))
   | Abort_body -> Abort_body
-  | Assume_body (Var (x, stk)) -> Assume_body (Var (fn x, stk))
-  | Assert_body (Var (x, stk)) -> Assert_body (Var (fn x, stk))
+  | Diverge_body -> Diverge_body
 
 and map_value_ids (fn : ident -> ident) (v : value) : value =
   match (v : value) with
@@ -201,8 +199,7 @@ and map_clause_body_vars (fn : Var.t -> Var.t) (b : clause_body) : clause_body =
   | Binary_operation_body (x1, op, x2) ->
       Binary_operation_body (fn x1, op, fn x2)
   | Abort_body -> Abort_body
-  | Assume_body x -> Assume_body (fn x)
-  | Assert_body x -> Assert_body (fn x)
+  | Diverge_body -> Diverge_body
 
 and map_value_vars (fn : Var.t -> Var.t) (v : value) : value =
   match (v : value) with
@@ -242,8 +239,7 @@ and transform_exprs_in_clause_body (fn : expr -> expr) (b : clause_body) :
   | Not_body _ -> b
   | Binary_operation_body (_, _, _) -> b
   | Abort_body -> b
-  | Assume_body _x -> b
-  | Assert_body _x -> b
+  | Diverge_body -> b
 
 and transform_exprs_in_value (fn : expr -> expr) (v : value) : value =
   match (v : value) with
@@ -282,8 +278,7 @@ and defined_vars_of_clause (c : clause) : Var_set.t =
 and defined_vars_of_clause_body (b : clause_body) : Var_set.t =
   match (b : clause_body) with
   | Var_body _ | Input_body | Appl_body _ | Match_body _ | Projection_body _
-  | Not_body _ | Binary_operation_body _ | Abort_body | Assert_body _
-  | Assume_body _ ->
+  | Not_body _ | Binary_operation_body _ | Abort_body | Diverge_body ->
       Var_set.empty
   | Value_body v -> defined_vars_of_value v
   | Conditional_body (_, e1, e2) ->

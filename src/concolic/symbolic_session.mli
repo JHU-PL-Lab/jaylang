@@ -1,4 +1,33 @@
-open Path_tree
+
+module Status :
+  sig
+    type t =
+      | Found_abort of (Branch.t * Jil_input.t list [@compare.ignore])
+      | Type_mismatch of (Jil_input.t list [@compare.ignore])
+      | Finished_interpretation of { pruned : bool }
+      [@@deriving compare, sexp]
+  end
+
+module Dead :
+  sig
+    type t
+    (** [t] is a symbolic session that can no longer be used during interpretation. *)
+
+    (*
+      ---------
+      ACCESSORS   
+      ---------
+    *)
+
+    val root : t -> Path_tree.t
+    (** [root t] is the root from the dead [t]. *)
+
+    val get_status : t -> Status.t
+    (** [get_status t] is the status of the (now finished) symbolic session. *)
+
+    val is_reach_max_step : t -> bool
+    (** [is_reach_max_step t] is true iff the interpretation of the dead [t] had hit the max step count. *)
+  end
 
 type t
 (** [t] tracks symbolic representations of the program during interpretation. *)
@@ -6,11 +35,14 @@ type t
 val empty : t
 (** [empty] is a default symbolic session. *)
 
-val get_key_depth : t -> int
-(** [get_key_depth t] is the depth of [t] used to make a concolic key. *)
-
-val with_options : (t -> t) Options.Fun.t
+val with_options : (t, t) Options.Fun.a
 (** [with_options t] is [t] configured with the optional arguments. *)
+
+val get_max_step : t -> int
+(** [get_max_step t] is the number of steps [t] expects interpretations to max out at. *)
+
+val get_feeder : t -> Concolic_feeder.t
+(** [get_feeder t] is the feeder for an interpretation alongside [t]. *)
 
 (*
   -----------
@@ -18,23 +50,23 @@ val with_options : (t -> t) Options.Fun.t
   -----------
 *)
 
-val add_key_eq_val : t -> Concolic_key.Lazy.t -> Jayil.Ast.value -> t
-(** [add_key_eq_val t k v] adds the formula that [k] has value [v] in [t]. *)
+val add_key_eq_int : Concolic_key.t -> int -> t -> t
+(** [add_key_eq_int k i t] adds the claim that [k = i] in [t]. *)
 
-val add_alias : t -> Concolic_key.Lazy.t -> Concolic_key.Lazy.t -> t
-(** [add_alias t k k'] adds the formula that [k] and [k'] hold the same value in [t]. *)
+val add_key_eq_bool : Concolic_key.t -> bool -> t -> t
+(** [add_key_eq_int k b t] adds the claim that [k = b] in [t]. *)
 
-val add_binop : t -> Concolic_key.Lazy.t -> Jayil.Ast.binary_operator -> Concolic_key.Lazy.t -> Concolic_key.Lazy.t -> t
-(** [add_binop t x op left right] adds the formula that [x = left op right] in [t]. *)
+val add_alias : Concolic_key.t -> Concolic_key.t -> t -> t
+(** [add_alias k k' t] adds the formula that [k = k'] in [t] where [k'] was defined first. *)
 
-val add_input : t -> Concolic_key.Lazy.t -> Dvalue.t -> t
-(** [add_input t x v] is [t] that knows input [x = v] was given. *)
+val add_binop : Concolic_key.t -> Expression.Untyped_binop.t -> Concolic_key.t -> Concolic_key.t -> t -> t
+(** [add_binop x op left right t] adds the formula that [x = left op right] in [t]. *) 
 
-val add_not : t -> Concolic_key.Lazy.t -> Concolic_key.Lazy.t -> t
-(** [add_not t x y] adds [x = not y] to [t]. *)
+val add_input : Concolic_key.t -> Dvalue.t -> t -> t
+(** [add_input x v t] is [t] that knows input [x = v] was given. *)
 
-val add_match : t -> Concolic_key.Lazy.t -> Concolic_key.Lazy.t -> Jayil.Ast.pattern -> t
-(** [add_match t x y pat] adds [x = y ~ pat] to [t]. *)
+val add_not : Concolic_key.t -> Concolic_key.t -> t -> t
+(** [add_not x y t] adds [x = not y] to [t]. *)
 
 (*
   -----------------
@@ -42,23 +74,17 @@ val add_match : t -> Concolic_key.Lazy.t -> Concolic_key.Lazy.t -> Jayil.Ast.pat
   -----------------
 *)
 
-val hit_branch : t -> Branch.Runtime.t -> t
-(** [hit_branch t branch] is [t] that knows [branch] has been hit during interpretation. *)
+val hit_branch : Branch.Runtime.t -> t -> t
+(** [hit_branch branch t] is [t] that knows [branch] has been hit during interpretation. *)
 
-val enter_fun : t -> t
-(** [enter_fun t] is [t] that knows function depth has increased by 1. *)
-
-val found_assume : t -> Concolic_key.Lazy.t -> t
-(** [found_assume t key] tells [t] that [key] is assumed to be true. *)
-
-val fail_assume : t -> t
-(** [fail_assume t] tells [t] that a recent assume/assert was false when it needs to be true. *)
+val found_diverge : t -> t
+(** [found_diverge t] tells [t] that the interpretation was forced to diverge, and it ended. *)
 
 val found_abort : t -> t
 (** [found_abort t] tells [t] that an abort was found in interpretation. *)
 
-val found_type_mismatch : t -> Jayil.Ast.Ident_new.t -> t
-(** [found_type_mismatch t id] tells [t] that there was a type mismatch at clause [id]. *)
+val found_type_mismatch : t -> t
+(** [found_type_mismatch t] tells [t] that there was a type mismatch in interpretation. *)
 
 val reach_max_step : t -> t
 (** [reach_max_step t] tells [t] that the max interpretation step was hit, and interpretation stopped. *)
@@ -69,29 +95,9 @@ val reach_max_step : t -> t
   -----------
 *)
 
-val finish : t -> Root.t -> t
+val finish : (t, Path_tree.t -> Dead.t) Options.Fun.a
 (** [finish t root] creates a finished session from [t] that merges info with the given [root].
     The merged result can be gotten with [root_exn @@ finish t root]. *)
 
-val make : Root.t -> Target.t -> t
-(** [make root target] makes an empty t that knows the given [root] and [target]. *)
-
-(*
-  ---------
-  ACCESSORS   
-  ---------
-*)
-
-val root_exn : t -> Root.t
-(** [root_exn t] is the root from the finished [t] or exn. *)
-
-val targets_exn : t -> Target.t list
-(** [targets_exn t] is the targets in finished [t] or exn. *)
-
-val branch_info : t -> Branch_info.t
-(** [branch_info t] is current branch info from [t]. *)
-
-val hit_max_depth : t -> bool
-(** [hit_max_depth t] is true iff [t] reached the max allowed tree depth. *)
-
-val is_reach_max_step : t -> bool
+val make : Target.t -> Expression.Cache.t -> Concolic_feeder.t -> t
+(** [make target feeder] makes an empty t that knows the given [target] and [feeder]. *)

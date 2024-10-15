@@ -1,8 +1,0 @@
-tt = true;
-f1 = fun y -> ( r1 = tt );
-ff = false;
-f2 = fun x -> ( rf = ff );
-c = true;
-f = c ? ( ct = f1 ) : ( cf = f2 );
-z = 0;
-t = f z;

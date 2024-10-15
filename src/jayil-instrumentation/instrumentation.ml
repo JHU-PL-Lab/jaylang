@@ -60,8 +60,8 @@ let rec instrument_clauses (c_list : clause list) : clause list m =
               (* Nothing to constrain *)
               let%bind new_clauses' = instrument_clauses clauses' in
               return @@ (clause :: new_clauses'))
-      | Var_body _ | Input_body | Assert_body _ (*TODO *) | Assume_body _
-      | Abort_body | Match_body _ ->
+      | Var_body _ | Input_body 
+      | Abort_body | Diverge_body | Match_body _ ->
           (* Nothing to constrain *)
           let%bind new_clauses' = instrument_clauses clauses' in
           return @@ (clause :: new_clauses')

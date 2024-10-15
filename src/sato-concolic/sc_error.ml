@@ -482,8 +482,8 @@ let jayil_to_jay_binop (jayil_binop : Ast.binary_operator) :
 
 let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
     (jayil_jay_maps : Jay_to_jayil_maps.t)
-    (interp_session : Dbmc.Interpreter.session)
-    (final_env : Dbmc.Interpreter.denv) (jayil_err : Jayil_error.t) :
+    (interp_session : From_dbmc.Interpreter.session)
+    (final_env : From_dbmc.Interpreter.denv) (jayil_err : Jayil_error.t) :
     On_error.t list =
   (* Helper functions *)
   let open Jay_ast in
@@ -598,19 +598,19 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                 | Some v -> (x, v))
           in
           let x, (dv1, stk) = loop jayil_vars in
-          let v = Dbmc.Interpreter.value_of_dvalue dv1 in
+          let v = From_dbmc.Interpreter.value_of_dvalue dv1 in
           let alias_graph = interp_session.alias_graph in
           let jayil_aliases_raw =
-            Sato.Sato_tools.find_alias alias_graph (x, stk)
+            Sato_tools.find_alias alias_graph (x, stk)
           in
           let jayil_aliases =
             jayil_aliases_raw |> List.map ~f:(fun (x, _) -> x) |> List.rev
           in
-          let actual_type = Sato.Sato_tools.get_value_type v in
+          let actual_type = Sato_tools.get_value_type v in
           let errors =
             let mapper (pat, _) =
               let expected_type =
-                Sato.Sato_tools.get_expected_type_from_pattern jayil_jay_maps
+                Sato_tools.get_expected_type_from_pattern jayil_jay_maps
                   pat
               in
               On_error.Error_match
@@ -637,8 +637,8 @@ let jayil_to_bluejay_error_simple
     (jayil_inst_maps : Jayil_instrumentation_maps.t)
     (jayil_jay_maps : Jay_to_jayil_maps.t)
     (bluejay_jay_maps : Bluejay_to_jay_maps.t)
-    (interp_session : Dbmc.Interpreter.session)
-    (final_env : Dbmc.Interpreter.denv) (jayil_err : Jayil_error.t) :
+    (interp_session : From_dbmc.Interpreter.session)
+    (final_env : From_dbmc.Interpreter.denv) (jayil_err : Jayil_error.t) :
     Bluejay_error.t list =
   let open Bluejay in
   (* let () = failwith "in jayil_to_bluejay_error_simple" in *)
@@ -753,7 +753,7 @@ let jayil_to_bluejay_error_simple
 let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
     (jayil_jay_maps : Jay_to_jayil_maps.t)
     (bluejay_jay_maps : Bluejay_to_jay_maps.t)
-    (interp_session : Dbmc.Interpreter.session)
+    (interp_session : From_dbmc.Interpreter.session)
     (err_source : Bluejay_ast.expr_desc) (jayil_err : Jayil_error.t) :
     Bluejay_error.t list =
   (* Helper functions *)
@@ -841,7 +841,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let jayil_vars_with_stack : Id_with_stack.t list =
         jayil_vars
         |> List.map ~f:(fun (Var (x, _)) -> x)
-        |> List.map ~f:(Sato.Sato_tools.find_alias_without_stack alias_graph)
+        |> List.map ~f:(Sato_tools.find_alias_without_stack alias_graph)
         |> List.concat |> List.concat
         (* TODO: This might be buggy; we're assuming that all values that might
            trigger the error must have an alias that is defined within the same
@@ -849,7 +849,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
            will have the same stack). *)
         (* |> List.filter ~f:(fun (_, stk) ->
                Concrete_stack.equal stk relevant_stk) *)
-        |> List.map ~f:(Sato.Sato_tools.find_alias alias_graph)
+        |> List.map ~f:(Sato_tools.find_alias alias_graph)
         |> List.concat
       in
       (* let () =
@@ -861,9 +861,9 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let rec find_val
           (vdef_mapping :
             ( Id_with_stack.t,
-              Ast.clause_body * Dbmc.Interpreter.dvalue )
+              Ast.clause_body * From_dbmc.Interpreter.dvalue )
             Hashtbl.t) (xs : Id_with_stack.t list) :
-          Dbmc.Interpreter.dvalue * Id_with_stack.t =
+          From_dbmc.Interpreter.dvalue * Id_with_stack.t =
         match xs with
         | [] -> failwith "Should at least find one value!"
         | hd :: tl -> (
@@ -880,7 +880,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let err_val, (err_val_var, _err_val_stk) =
         find_val interp_session.val_def_map jayil_vars_with_stack
       in
-      let v = Dbmc.Interpreter.value_of_dvalue err_val in
+      let v = From_dbmc.Interpreter.value_of_dvalue err_val in
       (* NOTE: The case where a variable might take on different types for
          different instances might be problematic here. *)
       let check_aliases_for_type (ed : Bluejay_ast_internal.syn_bluejay_edesc) :
@@ -898,12 +898,12 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
                jayil_jay_maps
           (* TODO: This is the problem here *)
           |> List.map ~f:(fun (Ast.Var (x, _)) ->
-                 Sato.Sato_tools.find_alias_without_stack alias_graph x)
+                 Sato_tools.find_alias_without_stack alias_graph x)
           |> List.concat |> List.concat
           (* TODO: Rethink the strategy here *)
           |> List.filter ~f:(fun (_, stk) ->
                  Concrete_stack.equal stk relevant_stk)
-          |> List.map ~f:(Sato.Sato_tools.find_alias alias_graph)
+          |> List.map ~f:(Sato_tools.find_alias alias_graph)
           |> List.concat
         in
         let val_exprs =

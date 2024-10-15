@@ -1,7 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-INPUT-SEQUENCES-REACH target [0]
-
-x = 0;
-y = fun a -> (r = 1);
-z = x x;
-target = z;

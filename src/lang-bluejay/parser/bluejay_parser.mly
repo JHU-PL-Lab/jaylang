@@ -373,7 +373,7 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
 %token CLOSE_BRACE
 %token COMMA
 %token BACKTICK
-%token APOSTROPHE
+// %token APOSTROPHE
 %token OPEN_PAREN
 %token CLOSE_PAREN
 %token OPEN_BRACKET
@@ -387,7 +387,7 @@ let rec build_recursive_type (t_var : ident) (ed : expr_desc) =
 %token PIPE
 %token DOUBLE_PIPE
 %token DOUBLE_AMPERSAND
-%token DOLLAR
+// %token DOLLAR
 // %token OPEN_OBRACKET
 // %token CLOSE_OBRACKET
 %token FUNCTION

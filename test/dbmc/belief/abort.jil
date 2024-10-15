@@ -1,4 +1,0 @@
-x = input;
-t = true;
-z = t ? (zt = 2) : (zf = abort);
-target = z;

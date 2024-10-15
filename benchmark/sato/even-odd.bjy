@@ -1,6 +1,0 @@
-let rec even (n : int) : bool = 
-  if n == 0 then true else odd (n-1)
-with odd (n : int) : bool = 
-  if n == 0 then false else even (n-1)
-in
-even

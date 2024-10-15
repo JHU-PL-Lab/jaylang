@@ -1,4 +1,0 @@
-x = input;
-b = false;
-c = b ~ bool;
-z = c ? (target = 1) : (dummy = 0);

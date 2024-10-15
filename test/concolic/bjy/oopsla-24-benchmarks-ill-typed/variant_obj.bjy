@@ -1,0 +1,21 @@
+
+let unit_type = {: unit : int :}
+in
+
+let unit = { unit = 00 }
+in
+
+let (obj : (((``A unit_type) -> int) && ((``B unit_type) -> int) && ((``C int) -> List int))) =
+  let ob =
+    fun self ->
+      fun arg ->
+        match arg with
+        | `A unit -> self self (`B unit) + 10
+        | `B unit -> 0
+        | `C i -> self self (`A unit) :: self (`B unit) :: [ i ] # ERROR: forgot to self-apply on `B call
+        end
+  in
+  ob ob
+in
+
+obj

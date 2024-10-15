@@ -61,8 +61,7 @@ module Make (B : Is_brief) = struct
     | Binary_operation_body (x1, op, x2) ->
         Fmt.pf oc "%a %a %a" var_ x1 binop op var_ x2
     | Abort_body -> Fmt.string oc "abort"
-    | Assume_body x -> Fmt.pf oc "assume %a" var_ x
-    | Assert_body x -> Fmt.pf oc "assert %a" var_ x
+    | Diverge_body -> Fmt.string oc "diverge"
 
   and fun_ oc (Function_value (x, e)) =
     (* '('  '@ '   @[            @] ')'

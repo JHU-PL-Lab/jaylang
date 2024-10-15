@@ -1,5 +1,6 @@
 open Batteries
 open Jayil
+open Monadlib
 
 type translation_context = {
   tc_fresh_suffix_separator : string;
@@ -30,7 +31,7 @@ let new_translation_context_from_jay ?(suffix = "_i_")
   }
 
 module TranslationMonad : sig
-  include Monad.Monad
+  include Monad.S
 
   val run : translation_context -> 'a m -> 'a
   (** Run the monad to completion *)

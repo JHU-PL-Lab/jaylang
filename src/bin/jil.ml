@@ -1,5 +1,5 @@
 open Core
-open Dbmc
+open From_dbmc
 
 let usage_msg = "jil -i <file> [<input_i>]"
 (* let source_file = ref "" *)
@@ -27,8 +27,3 @@ let () =
     List.iter inputs ~f:anon_fun;
     run_program source_file
   | _ -> Format.printf "error in parsing. Usage message: %s\n" usage_msg
-  (* Arg.parse
-    [ ("-i", Arg.Set_string source_file, "Iutput source file")
-    ; "-", String anon_fun, "anonymous arguments starting with -" ]
-    anon_fun usage_msg ;
-  run_program !source_file *)

@@ -53,7 +53,7 @@ type t = {
   error_to_rec_fun_type : ident Ident_map.t;
   error_to_value_expr : sem_bluejay_edesc Intermediate_expr_desc_map.t;
   syn_tags : int list;
-  instrumented_tags : int list;
+  instrumented_tags : ISet.t;
 }
 
 let empty =
@@ -66,7 +66,7 @@ let empty =
     error_to_rec_fun_type = Ident_map.empty;
     error_to_value_expr = Intermediate_expr_desc_map.empty;
     syn_tags = [];
-    instrumented_tags = [];
+    instrumented_tags = ISet.empty;
   }
 
 let add_error_bluejay_expr_mapping mappings x e =
@@ -264,9 +264,7 @@ let find_all_syn_tags bluejay_jay_maps (edesc : syn_bluejay_edesc) =
   { bluejay_jay_maps with syn_tags = all_syn_tags }
 
 let add_instrumented_tag mappings tag =
-  let instrumented_tags = mappings.instrumented_tags in
-  let instrumented_tags' = tag :: instrumented_tags in
-  { mappings with instrumented_tags = instrumented_tags' }
+  { mappings with instrumented_tags = ISet.add tag mappings.instrumented_tags }
 
 let rec syn_bluejay_from_sem_bluejay bluejay_jay_maps
     (sem_edesc : sem_bluejay_edesc) : syn_bluejay_edesc =
@@ -1112,5 +1110,4 @@ let sem_from_syn (bluejay_jay_maps : t) (syn_expr : syn_bluejay_edesc) :
       @@ "Doesn't have a mapping from this syntatic bluejay expression!"
 
 let is_instrumented (bluejay_jay_maps : t) (tag : int) : bool =
-  let instrumented_tags = bluejay_jay_maps.instrumented_tags in
-  List.mem tag instrumented_tags
+  ISet.mem tag bluejay_jay_maps.instrumented_tags

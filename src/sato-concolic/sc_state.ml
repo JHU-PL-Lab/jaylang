@@ -49,7 +49,8 @@ and enum_all_aborts_in_clause clause : (ident * abort_value) list =
       |> List.append (enum_ret_abort e2 false)
   | Value_body v -> enum_all_aborts_in_value v
   | Abort_body (* Aborts are enumerated in conditionals *)
-  | Assume_body _ | Assert_body _ | Var_body _ | Input_body
+  | Var_body _ | Input_body
+  | Diverge_body
   | Appl_body (_, _)
   | Binary_operation_body (_, _, _)
   | Not_body _

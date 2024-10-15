@@ -155,22 +155,21 @@ let test_one_file testname _switch () =
     File_utils.read_source_full ~do_wrap:config.is_wrapped
       ~do_instrument:config.is_instrumented config.filename
   in
-  let%lwt errors_opt, _ = Sato_concolic.Main.main_lwt ~config program_full in
+  let%lwt errors_opt = Sato_concolic.Main.main_lwt ~config program_full in
   let expectation = File_utils.load_expect_s testname in
   let test_result =
-    match expectation with
-    | None ->
+    match expectation, errors_opt with
+    | None, `No_error _ -> Alcotest.(check bool) "Expect no type errors" true true
+    | Some _, `Type_mismatch ->
+      Alcotest.(check bool)
+        "Type mismatch was found as expected, but no error messages are provided right now" true true
+    | Some expected, `Error error ->
         Alcotest.(check bool)
-          "Expect no type errors" true
-          (Option.is_none errors_opt)
-    | Some expected -> (
-        match errors_opt with
-        | None -> Alcotest.(check bool) "Expect type error!" true false
-        | Some error ->
-            Alcotest.(check bool)
-              "Type error matches expected" true
-              (is_error_expected error expected))
-  in
+        "Type error matches expected" true
+        (is_error_expected error expected)
+    | Some _, `No_error _ -> Alcotest.(check bool) "Expect type error!" true false
+    | None, _ -> Alcotest.(check bool) "Expect no type errors" true false
+in
   Lwt.return @@ test_result
 
 let main test_path =

@@ -1,7 +1,0 @@
-f = fun x -> (
-  target = 42
-);
-p = fun y -> (
-  one = 1;
-  rp = f one
-)

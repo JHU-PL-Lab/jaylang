@@ -137,8 +137,7 @@ and clause_body =
   | Not_body of var
   | Binary_operation_body of var * binary_operator * var
   | Abort_body
-  | Assume_body of var
-  | Assert_body of var (* TODO: delete this *)
+  | Diverge_body
 [@@deriving eq, ord, to_yojson]
 
 (** A type to represent clauses. *)
@@ -155,7 +154,7 @@ and pattern =
   | Rec_pattern of Ident_set.t
   | Strict_rec_pattern of Ident_set.t
   | Any_pattern
-[@@deriving eq, ord, yojson]
+[@@deriving eq, ord, to_yojson]
 
 module Value = struct
   type t = value
