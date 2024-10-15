@@ -123,24 +123,18 @@ let eval_exp
       in
       
       match cbody with
-      | Value_body (Value_function vf) ->
-        (* x = fun ... ; *)
+      | Value_body (Value_function vf) -> (** x = fun ... ; *)
         next (FunClosure (x, vf, env)) symb_session
-      | Value_body (Value_record r) ->
-        (* x = { ... } ; *)
+      | Value_body (Value_record r) -> (** x = { ... } ; *)
         next (RecordClosure (r, env)) symb_session
-      | Value_body (Value_int i as v) ->
-        (* x = <int> ; *)
+      | Value_body (Value_int i as v) -> (** x = <int> ; *)
         next (Direct v) @@ Session.Symbolic.add_key_eq_int x_key i symb_session
-      | Value_body (Value_bool b as v) ->
-        (* x = <bool> ; *)
+      | Value_body (Value_bool b as v) -> (** x = <bool> ; *)
         next (Direct v) @@ Session.Symbolic.add_key_eq_bool x_key b symb_session
-      | Var_body vx ->
-        (* x = y ; *)
+      | Var_body vx -> (** x = y ; *)
         let ret_val, ret_key = Denv.fetch env vx in
         next ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
-      | Conditional_body (cx, e1, e2) -> 
-        (* x = if y then e1 else e2 ; *)
+      | Conditional_body (cx, e1, e2) -> (** x = if y then e1 else e2 ; *)
         let cond_val, condition_key = Denv.fetch env cx in
         begin
           match cond_val with
@@ -156,12 +150,10 @@ let eval_exp
             )
           | _ -> type_mismatch symb_session
         end
-      | Input_body ->
-        (* x = input ; *)
+      | Input_body -> (** x = input ; *)
         let ret_val = Direct (Value_int (Session.Symbolic.get_feeder symb_session x_key)) in
         next ret_val @@ Session.Symbolic.add_input x_key ret_val symb_session
-      | Appl_body (vf, varg) -> begin 
-        (* x = f y ; *)
+      | Appl_body (vf, varg) -> (** x = f y ; *) begin
         match Denv.fetch_val env vf with
         | FunClosure (_, Function_value (Var (param, _), body), fenv) ->
           (* increment step count so that the key for the parameter gets an identifier different than the clause *)
@@ -169,7 +161,7 @@ let eval_exp
 
           (* varg is the argument that fills in param *)
           let arg_val, arg_key = Denv.fetch env varg in
-          let param_key = Concolic_key.create param step (*@@ Concolic_key.is_const arg_key*) in
+          let param_key = Concolic_key.create param step in
           let env' = Denv.add fenv param arg_val param_key in
 
           (* returned value of function *)
@@ -184,10 +176,8 @@ let eval_exp
           )
         | _ -> type_mismatch symb_session
         end
-      | Match_body (vy, p) ->
-        (* x = y ~ <pattern> ; *)
+      | Match_body (vy, p) -> (** x = y ~ <pattern> ; *)
         let b = check_pattern env vy p in
-        (* match is always constant because it is determined by a parent branch, so there are no formulas to add. But we do add so that instrumented version doesn't fail *)
         next (Direct (Value_bool b)) @@ Session.Symbolic.add_key_eq_bool x_key b symb_session
       | Projection_body (v, label) -> begin
         match Denv.fetch_val env v with
@@ -202,8 +192,7 @@ let eval_exp
           failwith "project should also have a closure"
         | _ -> type_mismatch symb_session
         end
-      | Not_body vy ->
-        (* x = not y ; *)
+      | Not_body vy -> (** x = not y ; *)
         let y_val, y_key = Denv.fetch env vy in
         begin
           match y_val with
@@ -211,8 +200,7 @@ let eval_exp
             next (Direct (Value_bool (not b))) @@ Session.Symbolic.add_not x_key y_key symb_session
           | _ -> type_mismatch symb_session
         end
-      | Binary_operation_body (vy, op, vz) -> begin
-        (* x = y op z *)
+      | Binary_operation_body (vy, op, vz) -> (** x = y op z *) begin
         let y, y_key = Denv.fetch env vy in
         let z, z_key = Denv.fetch env vz in
         match y, z with
