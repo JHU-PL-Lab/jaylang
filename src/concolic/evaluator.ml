@@ -191,10 +191,13 @@ let eval_exp
         next (Direct (Value_bool b)) @@ Session.Symbolic.add_key_eq_bool x_key b symb_session
       | Projection_body (v, label) -> begin
         match Denv.fetch_val env v with
-        | RecordClosure (Record_value r, denv) ->
-          let proj_var = Ident_map.find label r in
-          let ret_val, ret_key = Denv.fetch denv proj_var in
-          next ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+        | RecordClosure (Record_value r, denv) -> begin
+          match Ident_map.find_opt label r with
+          | Some proj_var ->
+              let ret_val, ret_key = Denv.fetch denv proj_var in
+              next ret_val @@ Session.Symbolic.add_alias x_key ret_key symb_session
+          | None -> type_mismatch symb_session
+        end
         | Direct (Value_record (Record_value _record)) ->
           failwith "project should also have a closure"
         | _ -> type_mismatch symb_session
