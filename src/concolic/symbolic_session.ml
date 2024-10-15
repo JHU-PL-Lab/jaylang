@@ -200,8 +200,7 @@ module Dead =
       x.prev.depth_tracker.is_max_step
   end
 
-(* Note that other side of all new targets are all the new hits *)
-let[@landmarks] finish : (t, Path_tree.t -> Dead.t) Options.Fun.a =
+let finish : (t, Path_tree.t -> Dead.t) Options.Fun.a =
   Dead.of_sym_session
 
 let make (target : Target.t) (cache : Expression.Cache.t) (input_feeder : Concolic_feeder.t) : t =
