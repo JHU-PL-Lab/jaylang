@@ -1,6 +1,4 @@
 
-(* TODO: update docstrings *)
-
 type t [@@deriving compare, equal, sexp]
 
 val create : Jayil.Ast.Ident_new.t -> int -> t

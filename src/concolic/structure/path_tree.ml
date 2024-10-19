@@ -120,7 +120,7 @@ module rec Node :
           let new_node, targets = node_of_stem target.path stem in
           finish ({ parent with children = Children.update parent.children last_dir @@ Child.make_hit_node new_node target.branch }, targets)
         | next_dir :: tl ->
-          let next_node, claim = child_node_exn parent next_dir in (* TODO: clean this up *)
+          let next_node, claim = child_node_exn parent next_dir in
           loop tl next_node (fun (node, targets) ->
             finish ({ parent with children = Children.update parent.children next_dir (Child.Hit { node ; constraint_ = claim }) }, targets)
           )
@@ -136,7 +136,7 @@ module rec Node :
         | [] -> failwith "setting target with no path"
         | last_dir :: [] -> finish { parent with children = Children.update parent.children last_dir new_child }
         | next_dir :: tl ->
-          let next_node, claim = child_node_exn parent next_dir in (* TODO: clean this up *)
+          let next_node, claim = child_node_exn parent next_dir in
           loop tl next_node (fun node ->
             finish { parent with children = Children.update parent.children next_dir (Child.Hit { node ; constraint_ = claim }) }
           )

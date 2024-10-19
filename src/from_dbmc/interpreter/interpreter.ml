@@ -58,7 +58,7 @@ type session = {
   (* book-keeping *)
   alias_graph : G.t;
   (* debug *)
-  is_debug : bool; (* TODO: get rid of this *)
+  is_debug : bool; 
   debug_mode : debug_mode;
   val_def_map : (Id_with_stack.t, clause_body * dvalue) Hashtbl.t;
   lookup_detail_map : (Lookup_key.t, Lookup_detail.t) Hashtbl.t;
@@ -244,7 +244,6 @@ and eval_clause ~session stk env clause : denv * dvalue =
         add_alias (x, stk) (ret_id, ret_stk) session ;
         ret_val
     | Input_body ->
-        (* TODO: the interpreter may propagate the dummy value (through the value should never be used in any control flow)  *)
         let n = session.input_feeder (x, stk) in
         let retv = Direct (Value_int n) in
         let () = add_val_def_mapping (x, stk) (cbody, retv) session in
