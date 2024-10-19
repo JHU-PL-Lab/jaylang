@@ -2,17 +2,17 @@ open Batteries
 open Dj_std.Translation_counter
 
 type label = Bluejay_ast.label = Label of string
-[@@deriving eq, ord, show, to_yojson]
+[@@unboxed][@@deriving eq, ord, show, to_yojson]
 
 type ident = Jayil.Ast.ident = Ident of string
-[@@deriving eq, ord, show, to_yojson]
+[@@unboxed][@@deriving eq, ord, show, to_yojson]
 
 module Ident = Jayil.Ast.Ident
 module Ident_set = Jayil.Ast.Ident_set
 module Ident_map = Jayil.Ast.Ident_map
 
 type variant_label = Bluejay_ast.variant_label = Variant_label of string
-[@@deriving eq, ord, show, to_yojson]
+[@@unboxed][@@deriving eq, ord, show, to_yojson]
 
 type syntactic_only = [ `Syntactic ]
 type semantic_only = [ `Semantic ]
@@ -45,7 +45,8 @@ type pattern = Bluejay_ast.pattern =
 [@@deriving eq, ord, show, to_yojson]
 
 type predicate = syntactic_only expr_desc
-and 'a funsig = Funsig of ident * ident list * 'a expr_desc
+and 'a funsig = Funsig of (ident * ident list * 'a expr_desc)
+[@@unboxed]
 
 and 'a typed_funsig =
   | Typed_funsig of

@@ -4,7 +4,8 @@ open Batteries
 open Jhupllib
 
 (** A data type for identifiers in the toy language. *)
-type ident = Ident of string [@@deriving eq, ord, show, to_yojson]
+type ident = Ident of string
+[@@unboxed][@@deriving eq, ord, show, to_yojson]
 
 module Ident = struct
   type t = ident
@@ -22,7 +23,7 @@ module Ident_new = struct
   open Base
 
   type t = ident = Ident of string
-  [@@deriving sexp, compare, equal, hash, show, to_yojson]
+  [@@unboxed][@@deriving sexp, compare, equal, hash, show, to_yojson]
 
   let hash = Hashtbl.hash
 end
@@ -51,11 +52,11 @@ end
     variable in question has not been instantiated (and remains within the body
     of a function). *)
 type freshening_stack = Freshening_stack of ident list
-[@@deriving show, eq, ord, to_yojson]
+[@@unboxed][@@deriving show, eq, ord, to_yojson]
 
 (** Variables in the AST. *)
-type var = Var of ident * freshening_stack option
-[@@deriving show, eq, ord, to_yojson]
+type var = Var of (ident * freshening_stack option)
+[@@unboxed][@@deriving show, eq, ord, to_yojson]
 
 module Var = struct
   type t = var
@@ -111,11 +112,11 @@ let binary_operator_to_yojson = function
 
 (** A type to express record values. *)
 type record_value = Record_value of var Ident_map.t
-[@@deriving eq, ord, to_yojson]
+[@@unboxed][@@deriving eq, ord, to_yojson]
 
 (** A type to express function values. *)
-and function_value = Function_value of var * expr
-[@@deriving eq, ord, to_yojson]
+and function_value = Function_value of (var * expr)
+[@@unboxed][@@deriving eq, ord, to_yojson]
 
 (** A type to represent values. *)
 and value =
@@ -141,10 +142,12 @@ and clause_body =
 [@@deriving eq, ord, to_yojson]
 
 (** A type to represent clauses. *)
-and clause = Clause of var * clause_body [@@deriving eq, ord, to_yojson]
+and clause = Clause of (var * clause_body)
+[@@unboxed][@@deriving eq, ord, to_yojson]
 
 (** A type to represent expressions. *)
-and expr = Expr of clause list [@@deriving eq, ord, to_yojson]
+and expr = Expr of clause list
+[@@unboxed][@@deriving eq, ord, to_yojson]
 
 (** A type representing conditional patterns. *)
 and pattern =

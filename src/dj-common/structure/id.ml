@@ -1,12 +1,7 @@
 open Core
 
-module T = struct
-  type t = Jayil.Ast.ident = Ident of string
-  [@@deriving sexp, compare, equal, hash]
-end
-
-include T
-include Comparator.Make (T)
+include Jayil.Ast.Ident_new
+include Comparator.Make (Jayil.Ast.Ident_new)
 
 let show (Ident s) = s
 let pp oc (Ident s) = Fmt.pf oc "%s" s

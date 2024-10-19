@@ -1,16 +1,17 @@
 open Dj_std.Translation_counter
 
-type label = Label of string [@@deriving eq, ord, show, to_yojson]
+type label = Label of string
+[@@unboxed][@@deriving eq, ord, show, to_yojson]
 
 type ident = Jayil.Ast.ident = Ident of string
-[@@deriving eq, ord, show, to_yojson]
+[@@unboxed][@@deriving eq, ord, show, to_yojson]
 
 module Ident = Jayil.Ast.Ident
 module Ident_set = Jayil.Ast.Ident_set
 module Ident_map = Jayil.Ast.Ident_map
 
 type variant_label = Variant_label of string
-[@@deriving eq, ord, show, to_yojson]
+[@@unboxed][@@deriving eq, ord, show, to_yojson]
 
 type type_sig =
   | TopType

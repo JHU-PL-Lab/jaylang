@@ -56,7 +56,7 @@ module R =
 *)
 module BFS =
   struct
-    type t = Bfs of Q.t
+    type t = Bfs of Q.t [@@unboxed]
 
     let return q = Bfs q
 

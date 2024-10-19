@@ -1,22 +1,6 @@
 open Jay_ast
 module P = Pp_std
 
-module Dummy = struct
-  let _x = 1 in
-  let _y =
-    let y = 2 in
-    y
-  in
-  let z =
-    let z =
-      let z = 3 in
-      z
-    in
-    z
-  in
-  z
-end
-
 let ss = Fmt.any
 let id : ident Fmt.t = Fmt.(using (fun (Ident s) -> s) string)
 let id_ = id
