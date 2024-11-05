@@ -35,7 +35,7 @@ module Refs :
 (* `Fun` for optional arguments on functions *)
 module Fun :
   sig
-    type ('a, 'b) a =
+    type (-'a, +'b) a =
       ?global_timeout_sec    : float
       -> ?solver_timeout_sec : float
       -> ?global_max_step    : int

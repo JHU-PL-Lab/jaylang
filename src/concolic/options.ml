@@ -49,7 +49,7 @@ module Fun =
 
     module type ARROW =
       sig
-        type ('b, 'c) a
+        type (-'b, +'c) a
         val arr : ('b -> 'c) -> ('b, 'c) a
         val first : ('b, 'c) a -> ('b * 'd, 'c * 'd) a
         val (>>>) : ('b, 'c) a -> ('c, 'd) a -> ('b, 'd) a
@@ -58,7 +58,7 @@ module Fun =
     module A = 
       struct
         (* a is an arrow. *)
-        type ('b, 'c) a =
+        type (-'b, +'c) a =
           ?global_timeout_sec    : float
           -> ?solver_timeout_sec : float
           -> ?global_max_step    : int
