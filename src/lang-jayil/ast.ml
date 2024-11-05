@@ -51,11 +51,11 @@ end
     list is the topmost element in the stack. If this stack is absent, then the
     variable in question has not been instantiated (and remains within the body
     of a function). *)
-type freshening_stack = Freshening_stack of ident list
-[@@unboxed][@@deriving show, eq, ord, to_yojson]
+(* type freshening_stack = Freshening_stack of ident list
+[@@unboxed][@@deriving show, eq, ord, to_yojson] *)
 
 (** Variables in the AST. *)
-type var = Var of (ident * freshening_stack option)
+type var = Var of (ident * unit option)
 [@@unboxed][@@deriving show, eq, ord, to_yojson]
 
 module Var = struct
@@ -159,7 +159,7 @@ and pattern =
   | Any_pattern
 [@@deriving eq, ord, to_yojson]
 
-module Value = struct
+(* module Value = struct
   type t = value
 
   let equal = equal_value
@@ -173,7 +173,7 @@ module Pattern = struct
   let equal = equal_pattern
   let compare = compare_pattern
   let to_yojson = pattern_to_yojson
-end
+end *)
 
 (** A type representing the types of the language. Note that subtyping rules
     apply to records. *)
@@ -221,6 +221,7 @@ type abort_value = {
 }
 [@@deriving eq, ord, show]
 
+(*
 let is_record_pattern = function
   | Rec_pattern _ | Strict_rec_pattern _ -> true
   | _ -> false
@@ -246,7 +247,7 @@ let pattern_match pat v =
   | Strict_rec_pattern _, Value_body _ -> Some false
   | Strict_rec_pattern _, Input_body -> Some false
   (* TODO: matching binop *)
-  | _ -> None
+  | _ -> None *)
 
 let bat_list_of_enum = List.of_enum
 let id_of_var (Var (x, _)) = x
