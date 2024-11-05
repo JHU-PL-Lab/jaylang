@@ -64,167 +64,102 @@ let pat_rename_vars (name_map : Jay_ast.Ident.t Jay_ast.Ident_map.t)
 
 (** Performs alpha substitution on a given expression. Doesn't create new
     subtrees -- should preserve the tags just fine *)
-let rec rename_variable (old_name : Jay_ast.ident) (new_name : Jay_ast.ident)
+let rename_variable (old_name : Jay_ast.ident) (new_name : Jay_ast.ident)
     (e_desc : Jay_ast.expr_desc) : Jay_ast.expr_desc =
   let open Jay_ast in
   (* NOTE: the generic homomorphism routine m_env_transform_expr does not allow
      us to change the environment of the homomorphism as we descend or to block
      descending into a given subtree, so we can't use it here. *)
-  let recurse = rename_variable old_name new_name in
-  let tag = e_desc.tag in
-  let e = e_desc.body in
-  let renamed_expr =
-    match e with
-    | Int _ | Bool _ | Input | Error _ -> e
-    | Var id -> if id = old_name then Var new_name else Var id
-    | Function (id_list, e') ->
-        if List.exists (Ident.equal old_name) id_list
-        then e
-        else
-          let e'' = recurse e' in
-          Function (id_list, e'')
-    | Let (id, e1, e2) ->
-        let new_e1 = recurse e1 in
-        if id = old_name
-        then Let (id, new_e1, e2)
-        else
-          let new_e2 = recurse e2 in
-          Let (id, new_e1, new_e2)
-    | LetFun (f_sig, e') ->
-        let (Funsig (id, id_list, fun_e)) = f_sig in
-        (* If old_name is same as the function name, then don't change anything *)
-        if id = old_name
-        then e
-        else if (* If old_name is same as one of the names of the params, then
-                    we only want to change the code outside of the function. *)
-                List.exists (Ident.equal old_name) id_list
-        then
-          let new_e' = recurse e' in
-          LetFun (f_sig, new_e')
-        else
-          (* change both the inside and the outside expressions *)
-          let new_inner_e = recurse fun_e in
-          let new_outer_e = recurse e' in
-          let new_funsig = Funsig (id, id_list, new_inner_e) in
-          LetFun (new_funsig, new_outer_e)
-    | LetRecFun (f_sigs, e') ->
-        let function_names =
-          f_sigs |> List.enum
-          |> Enum.map (fun (Funsig (name, _, _)) -> name)
-          |> Ident_set.of_enum
-        in
-        let f_sigs' =
-          if Ident_set.mem old_name function_names
-          then f_sigs
+  let rec visit e_desc =
+    let tag = e_desc.tag in
+    let e = e_desc.body in
+    let renamed_expr =
+      match e with
+      | Int _ | Bool _ | Input | Error _ -> e
+      | Var id -> if id = old_name then Var new_name else Var id
+      | Function (id_list, e') ->
+          if List.exists (Ident.equal old_name) id_list
+          then e
+          else Function (id_list, visit e')
+      | Let (id, e1, e2) ->
+          let new_e1 = visit e1 in
+          if id = old_name
+          then Let (id, new_e1, e2)
+          else Let (id, new_e1, visit e2)
+      | LetFun (f_sig, e') ->
+          let (Funsig (id, id_list, fun_e)) = f_sig in
+          (* If old_name is same as the function name, then don't change anything *)
+          if id = old_name
+          then e
+          else if (* If old_name is same as one of the names of the params, then
+                      we only want to change the code outside of the function. *)
+                  List.exists (Ident.equal old_name) id_list
+          then
+            LetFun (f_sig, visit e')
           else
+            (* change both the inside and the outside expressions *)
+            let new_funsig = Funsig (id, id_list, visit fun_e) in
+            LetFun (new_funsig, visit e')
+      | LetRecFun (f_sigs, e') ->
+          let function_names =
+            f_sigs
+            |> List.enum
+            |> Enum.map (fun (Funsig (name, _, _)) -> name)
+            |> Ident_set.of_enum
+          in
+          let f_sigs' =
+            if Ident_set.mem old_name function_names
+            then f_sigs
+            else
+              List.map
+                (fun (Funsig (name, params, body)) ->
+                  if List.exists (Ident.equal old_name) params
+                  then Funsig (name, params, body)
+                  else
+                    Funsig (name, params, visit body))
+                f_sigs
+          in
+          let e'' =
+            if Ident_set.mem old_name function_names then e' else visit e'
+          in
+          LetRecFun (f_sigs', e'')
+      | Match (e0, cases) ->
+          let cases' =
             List.map
-              (fun (Funsig (name, params, body)) ->
-                if List.exists (Ident.equal old_name) params
-                then Funsig (name, params, body)
-                else
-                  let new_body = recurse body in
-                  Funsig (name, params, new_body))
-              f_sigs
-        in
-        let e'' =
-          if Ident_set.mem old_name function_names then e' else recurse e'
-        in
-        LetRecFun (f_sigs', e'')
-    | Match (e0, cases) ->
-        let e0' = recurse e0 in
-        let cases' =
-          List.map
-            (fun (pattern, body) ->
-              if Ident_set.mem old_name (pat_vars pattern)
-              then (pattern, body)
-              else (pattern, recurse body))
-            cases
-        in
-        Match (e0', cases')
-    | Appl (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        Appl (e1', e2')
-    | Plus (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        Plus (e1', e2')
-    | Minus (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        Minus (e1', e2')
-    | Times (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        Times (e1', e2')
-    | Divide (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        Divide (e1', e2')
-    | Modulus (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        Modulus (e1', e2')
-    | Equal (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        Equal (e1', e2')
-    | Neq (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        Neq (e1', e2')
-    | LessThan (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        LessThan (e1', e2')
-    | Leq (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        Leq (e1', e2')
-    | GreaterThan (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        GreaterThan (e1', e2')
-    | Geq (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        Geq (e1', e2')
-    | And (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        And (e1', e2')
-    | Or (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        Or (e1', e2')
-    | Not e1 ->
-        let e1' = recurse e1 in
-        Not e1'
-    | If (e1, e2, e3) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        let e3' = recurse e3 in
-        If (e1', e2', e3')
-    | Record m -> Record (Ident_map.map (fun ed -> recurse ed) m)
-    | RecordProj (e1, lbl) ->
-        let e1' = recurse e1 in
-        RecordProj (e1', lbl)
-    | VariantExpr (lbl, e1) ->
-        let e1' = recurse e1 in
-        VariantExpr (lbl, e1')
-    | List es -> List (List.map (fun ed -> recurse ed) es)
-    | ListCons (e1, e2) ->
-        let e1' = recurse e1 in
-        let e2' = recurse e2 in
-        ListCons (e1', e2')
-    | Assert e ->
-        let e' = recurse e in
-        Assert e'
-    | Assume e ->
-        let e' = recurse e in
-        Assume e'
+              (fun (pattern, body) ->
+                if Ident_set.mem old_name (pat_vars pattern)
+                then (pattern, body)
+                else (pattern, visit body))
+              cases
+          in
+          Match (visit e0, cases')
+      | Appl (e1, e2)         -> Appl (visit e1, visit e2)
+      | Plus (e1, e2)         -> Plus (visit e1, visit e2)
+      | Minus (e1, e2)        -> Minus (visit e1, visit e2)
+      | Times (e1, e2)        -> Times (visit e1, visit e2)
+      | Divide (e1, e2)       -> Divide (visit e1, visit e2)
+      | Modulus (e1, e2)      -> Modulus (visit e1, visit e2)
+      | Equal (e1, e2)        -> Equal (visit e1, visit e2)
+      | Neq (e1, e2)          -> Neq (visit e1, visit e2)
+      | LessThan (e1, e2)     -> LessThan (visit e1, visit e2)
+      | Leq (e1, e2)          -> Leq (visit e1, visit e2)
+      | GreaterThan (e1, e2)  -> GreaterThan (visit e1, visit e2)
+      | Geq (e1, e2)          -> Geq (visit e1, visit e2)
+      | And (e1, e2)          -> And (visit e1, visit e2)
+      | Or (e1, e2)           -> Or (visit e1, visit e2)
+      | Not e1                -> Not (visit e1)
+      | If (e1, e2, e3)       -> If (visit e1, visit e2, visit e3)
+      | Record m              -> Record (Ident_map.map (fun ed -> visit ed) m)
+      | RecordProj (e1, lbl)  -> RecordProj (visit e1, lbl)
+      | VariantExpr (lbl, e1) -> VariantExpr (lbl, visit e1)
+      | List es               -> List (List.map (fun ed -> visit ed) es)
+      | ListCons (e1, e2)     -> ListCons (visit e1, visit e2)
+      | Assert e              -> Assert (visit e)
+      | Assume e              -> Assume (visit e)
+    in
+    { tag; body = renamed_expr }
   in
-  { tag; body = renamed_expr }
+  visit e_desc
 
 (** This function alphatizes an entire expression. If a variable is defined more
     than once in the given expression, all but one of the declarations will be
@@ -273,6 +208,15 @@ let alphatize (e : Jay_ast.expr_desc) : Jay_ast.expr_desc m =
     let zero () =
       raise @@ Jhupllib.Utils.Invariant_failure "list changed size"
     in
+    let walk_two (construct : expr_desc -> expr_desc -> expr) (e1 : expr_desc) (e2 : expr_desc) =
+      let%bind e1', seen_declared' = walk e1 seen_declared in
+      let%bind e2', seen_declared'' = walk e2 seen_declared' in
+      return @@ (construct e1' e2', seen_declared'')
+    in
+    let walk_one (construct : expr_desc -> expr) (e : expr_desc) =
+      let%bind e', seen_declared' = walk e seen_declared in
+      return @@ (construct e', seen_declared')
+    in
     let%bind expr', seen_declared' =
       let expr = expr_desc.body in
       match expr with
@@ -288,10 +232,7 @@ let alphatize (e : Jay_ast.expr_desc) : Jay_ast.expr_desc m =
             ensure_expr_unique_names params body' seen_declared'
           in
           return (Function (params', body''), seen_declared'')
-      | Appl (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return @@ (Appl (e1', e2'), seen_declared'')
+      | Appl (e1, e2) -> walk_two (fun e1 e2 -> Appl (e1, e2)) e1 e2
       | Let (x, e1, e2) ->
           let%bind e1', seen_declared' = walk e1 seen_declared in
           let%bind e2', seen_declared'' = walk e2 seen_declared' in
@@ -366,61 +307,21 @@ let alphatize (e : Jay_ast.expr_desc) : Jay_ast.expr_desc m =
           in
           return
             (LetFun (Funsig (name', params', body''), expr''), seen_declared'''')
-      | Plus (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (Plus (e1', e2'), seen_declared'')
-      | Minus (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (Minus (e1', e2'), seen_declared'')
-      | Times (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (Times (e1', e2'), seen_declared'')
-      | Divide (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (Divide (e1', e2'), seen_declared'')
-      | Modulus (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (Modulus (e1', e2'), seen_declared'')
-      | Equal (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (Equal (e1', e2'), seen_declared'')
-      | Neq (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (Neq (e1', e2'), seen_declared'')
-      | LessThan (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (LessThan (e1', e2'), seen_declared'')
-      | Leq (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (Leq (e1', e2'), seen_declared'')
-      | GreaterThan (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (GreaterThan (e1', e2'), seen_declared'')
-      | Geq (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (Geq (e1', e2'), seen_declared'')
-      | And (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (And (e1', e2'), seen_declared'')
-      | Or (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (Or (e1', e2'), seen_declared'')
-      | Not e1 ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          return (Not e1', seen_declared')
+      | Plus (e1, e2)        -> walk_two (fun e1 e2 -> Plus (e1, e2)) e1 e2
+      | Minus (e1, e2)       -> walk_two (fun e1 e2 -> Minus (e1, e2)) e1 e2
+      | Times (e1, e2)       -> walk_two (fun e1 e2 -> Times (e1, e2)) e1 e2
+      | Divide (e1, e2)      -> walk_two (fun e1 e2 -> Divide (e1, e2)) e1 e2
+      | Modulus (e1, e2)     -> walk_two (fun e1 e2 -> Modulus (e1, e2)) e1 e2
+      | Equal (e1, e2)       -> walk_two (fun e1 e2 -> Equal (e1, e2)) e1 e2
+      | Neq (e1, e2)         -> walk_two (fun e1 e2 -> Neq (e1, e2)) e1 e2
+      | LessThan (e1, e2)    -> walk_two (fun e1 e2 -> LessThan (e1, e2)) e1 e2
+      | Leq (e1, e2)         -> walk_two (fun e1 e2 -> Leq (e1, e2)) e1 e2
+      | GreaterThan (e1, e2) -> walk_two (fun e1 e2 -> GreaterThan (e1, e2)) e1 e2
+      | Geq (e1, e2)         -> walk_two (fun e1 e2 -> Geq (e1, e2)) e1 e2
+      | And (e1, e2)         -> walk_two (fun e1 e2 -> And (e1, e2)) e1 e2
+      | Or (e1, e2)          -> walk_two (fun e1 e2 -> Or (e1, e2)) e1 e2
+      | ListCons (e1, e2)    -> walk_two (fun e1 e2 -> ListCons (e1, e2)) e1 e2
+      | Not e1 -> walk_one (fun e -> Not e) e1
       | If (e1, e2, e3) ->
           let%bind e1', seen_declared' = walk e1 seen_declared in
           let%bind e2', seen_declared'' = walk e2 seen_declared' in
@@ -470,16 +371,8 @@ let alphatize (e : Jay_ast.expr_desc) : Jay_ast.expr_desc m =
                  ([], seen_declared)
           in
           return (List (List.rev es'rev), seen_declared')
-      | ListCons (e1, e2) ->
-          let%bind e1', seen_declared' = walk e1 seen_declared in
-          let%bind e2', seen_declared'' = walk e2 seen_declared' in
-          return (ListCons (e1', e2'), seen_declared'')
-      | Assert e ->
-          let%bind e', seen_declared' = walk e seen_declared in
-          return (Assert e', seen_declared')
-      | Assume e ->
-          let%bind e', seen_declared' = walk e seen_declared in
-          return (Assume e', seen_declared')
+      | Assert e -> walk_one (fun e -> Assert e) e
+      | Assume e -> walk_one (fun e -> Assume e) e
     in
     let expr_desc' = { tag = expr_desc.tag; body = expr' } in
     return (expr_desc', seen_declared')
