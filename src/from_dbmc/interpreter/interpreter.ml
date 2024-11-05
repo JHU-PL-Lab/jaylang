@@ -204,7 +204,7 @@ let rec eval_exp ~session stk env e : denv * dvalue =
 
 (* OB: once stack is to change, there must be an `eval_exp` *)
 and eval_clause ~session stk env clause : denv * dvalue =
-  let (Clause (Var (x, _), cbody)) = clause in
+  let (Clause (Var x, cbody)) = clause in
   (match session.max_step with
   | None -> ()
   | Some t ->
@@ -228,7 +228,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
         let () = add_val_def_mapping (x, stk) (cbody, retv) session in
         retv
     | Var_body vx ->
-        let (Var (v, _)) = vx in
+        let (Var v) = vx in
         let ret_val, ret_stk = fetch_val_with_stk ~session ~stk env vx in
         add_alias (x, stk) (v, ret_stk) session ;
         ret_val
@@ -239,7 +239,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
           else (e2, Concrete_stack.push (x, Id.cond_id false) stk)
         in
         let ret_env, ret_val = eval_exp ~session stk' env e in
-        let (Var (ret_id, _) as last_v) = Ast_tools.retv e in
+        let (Var ret_id as last_v) = Ast_tools.retv e in
         let _, ret_stk = fetch_val_with_stk ~session ~stk:stk' ret_env last_v in
         add_alias (x, stk) (ret_id, ret_stk) session ;
         ret_val
@@ -248,15 +248,15 @@ and eval_clause ~session stk env clause : denv * dvalue =
         let retv = Direct (Value_int n) in
         let () = add_val_def_mapping (x, stk) (cbody, retv) session in
         retv
-    | Appl_body (vx1, (Var (x2, _) as vx2)) -> (
+    | Appl_body (vx1, (Var x2 as vx2)) -> (
         match fetch_val ~session ~stk env vx1 with
-        | FunClosure (fid, Function_value (Var (arg, _), body), fenv) ->
+        | FunClosure (fid, Function_value (Var arg, body), fenv) ->
             let v2, v2_stk = fetch_val_with_stk ~session ~stk env vx2 in
             let stk2 = Concrete_stack.push (x, fid) stk in
             let env2 = Ident_map.add arg (v2, stk) fenv in
             add_alias (arg, stk) (x2, v2_stk) session ;
             let ret_env, ret_val = eval_exp ~session stk2 env2 body in
-            let (Var (ret_id, _) as last_v) = Ast_tools.retv body in
+            let (Var ret_id as last_v) = Ast_tools.retv body in
             let _, ret_stk =
               fetch_val_with_stk ~session ~stk:stk2 ret_env last_v
             in
@@ -270,7 +270,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
     | Projection_body (v, key) -> (
         match fetch_val ~session ~stk env v with
         | RecordClosure (Record_value r, denv) ->
-            let (Var (proj_x, _) as vv) = Ident_map.find key r in
+            let (Var proj_x as vv) = Ident_map.find key r in
             let dvv, vv_stk = fetch_val_with_stk ~session ~stk denv vv in
             add_alias (x, stk) (proj_x, vv_stk) session ;
             dvv
@@ -367,7 +367,7 @@ and eval_clause ~session stk env clause : denv * dvalue =
   debug_clause ~session x v stk ;
   (Ident_map.add x (v, stk) env, v)
 
-and fetch_val_with_stk ~session ~stk env (Var (x, _)) :
+and fetch_val_with_stk ~session ~stk env (Var x) :
     dvalue * Concrete_stack.t =
   let res = Ident_map.find x env in
   debug_update_read_node session x stk ;

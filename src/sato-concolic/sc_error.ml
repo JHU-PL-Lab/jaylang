@@ -437,12 +437,12 @@ let jayil_error_remove_instrument_vars
       let l_operand' =
         match left_aliases' with
         | [] -> err.err_binop_left_val
-        | (v, _) :: _ -> Ast.Var_body (Var (v, None))
+        | (v, _) :: _ -> Ast.Var_body (Var v)
       in
       let r_operand' =
         match right_aliases' with
         | [] -> err.err_binop_right_val
-        | (v, _) :: _ -> Ast.Var_body (Var (v, None))
+        | (v, _) :: _ -> Ast.Var_body (Var v)
       in
       Error_binop
         {
@@ -592,7 +592,7 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           let rec loop vars =
             match vars with
             | [] -> failwith "Should have associated jay exprs!"
-            | Ast.Var (x, _) :: tl -> (
+            | Ast.Var x :: tl -> (
                 match Ast.Ident_map.find_opt x final_env with
                 | None -> loop tl
                 | Some v -> (x, v))
@@ -840,7 +840,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
       let alias_graph = interp_session.alias_graph in
       let jayil_vars_with_stack : Id_with_stack.t list =
         jayil_vars
-        |> List.map ~f:(fun (Var (x, _)) -> x)
+        |> List.map ~f:(fun (Var x) -> x)
         |> List.map ~f:(Sato_tools.find_alias_without_stack alias_graph)
         |> List.concat |> List.concat
         (* TODO: This might be buggy; we're assuming that all values that might
@@ -897,7 +897,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
           |> Jay_translate.Jay_to_jayil_maps.get_jayil_vars_from_jay_expr
                jayil_jay_maps
           (* TODO: This is the problem here *)
-          |> List.map ~f:(fun (Ast.Var (x, _)) ->
+          |> List.map ~f:(fun (Ast.Var x) ->
                  Sato_tools.find_alias_without_stack alias_graph x)
           |> List.concat |> List.concat
           (* TODO: Rethink the strategy here *)
@@ -1384,7 +1384,7 @@ let jayil_to_bluejay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
             if is_untouched
             then
               let (Ident untouched_lbl) =
-                let (Var (lookup_var, _)) =
+                let (Var lookup_var) =
                   Ident_map.find (Ident "~untouched") r
                 in
                 let dv_poly =

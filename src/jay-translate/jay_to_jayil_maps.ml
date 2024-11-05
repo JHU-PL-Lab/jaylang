@@ -392,7 +392,7 @@ let get_jayil_vars_from_jay_expr mappings (expr : Jay_ast.expr_desc) =
     Ast.Ident_map.fold
       (fun jayil_var core_expr acc ->
         if Jay_ast.equal_expr_desc core_expr alphatized
-        then Ast.Var (jayil_var, None) :: acc
+        then Ast.Var jayil_var :: acc
         else acc)
       mappings.jayil_var_to_jay_expr []
   in
@@ -415,16 +415,16 @@ let update_jayil_mappings (mappings : t)
     let kept =
       mappings.jayil_var_to_jay_expr
       |> Ast.Ident_map.filter (fun k _ ->
-             not @@ Ast.Var_map.mem (Var (k, None)) replacement_map)
+             not @@ Ast.Var_map.mem (Var k) replacement_map)
     in
     let removed =
       mappings.jayil_var_to_jay_expr
       |> Ast.Ident_map.filter (fun k _ ->
-             Ast.Var_map.mem (Ast.Var (k, None)) replacement_map)
+             Ast.Var_map.mem (Ast.Var k) replacement_map)
       |> Ast.Ident_map.bindings
       |> List.map (fun (k, v) ->
-             let (Var (k', _)) =
-               Ast.Var_map.find (Ast.Var (k, None)) replacement_map
+             let (Var k') =
+               Ast.Var_map.find (Ast.Var k) replacement_map
              in
              (k', v))
     in
@@ -443,27 +443,27 @@ let update_jayil_mappings (mappings : t)
     let kept =
       mappings.jay_instrument_vars_map
       |> Ast.Ident_map.filter (fun k _ ->
-             Ast.Var_map.mem (Var (k, None)) replacement_map)
+             Ast.Var_map.mem (Var k) replacement_map)
     in
     let removed =
       mappings.jay_instrument_vars_map
       |> Ast.Ident_map.filter (fun k _ ->
-             not @@ Ast.Var_map.mem (Var (k, None)) replacement_map)
+             not @@ Ast.Var_map.mem (Var k) replacement_map)
       |> Ast.Ident_map.bindings
       |> List.map (fun (k, v_opt) ->
-             let (Var (k', _)) =
+             let (Var k') =
                Ast.Var_map.find_default
-                 (Ast.Var (k, None))
-                 (Var (k, None))
+                 (Ast.Var k)
+                 (Var k)
                  replacement_map
              in
              match v_opt with
              | None -> (k', v_opt)
              | Some v ->
-                 let (Var (v', _)) =
+                 let (Var v') =
                    Ast.Var_map.find_default
-                     (Ast.Var (v, None))
-                     (Var (v, None))
+                     (Ast.Var v)
+                     (Var v)
                      replacement_map
                  in
                  (k', Some v'))

@@ -85,7 +85,7 @@ let flatten_pattern (e_desc : Jay_ast.expr_desc) (pat_var : Ast.var)
                | Some v ->
                    let v' = jay_to_jayil_ident v in
                    let lbl' = jay_to_jayil_ident lbl in
-                   let ast_var = Ast.Var (v', None) in
+                   let ast_var = Ast.Var v' in
                    let%bind () = add_jayil_jay_mapping ast_var e_desc in
                    let%bind () = add_instrument_var ast_var in
                    let ast_body = Ast.Projection_body (pat_var, lbl') in
@@ -126,7 +126,7 @@ let flatten_pattern (e_desc : Jay_ast.expr_desc) (pat_var : Ast.var)
                | Some v ->
                    let v' = jay_to_jayil_ident v in
                    let lbl' = jay_to_jayil_ident lbl in
-                   let ast_var = Ast.Var (v', None) in
+                   let ast_var = Ast.Var v' in
                    let%bind () = add_jayil_jay_mapping ast_var e_desc in
                    let%bind () = add_instrument_var ast_var in
                    let ast_body = Ast.Projection_body (pat_var, lbl') in
@@ -137,7 +137,7 @@ let flatten_pattern (e_desc : Jay_ast.expr_desc) (pat_var : Ast.var)
       return (Ast.Strict_rec_pattern rec_pat', projections)
   | Jay_ast.VarPat var_pat ->
       let (Jay_ast.Ident var_id) = var_pat in
-      let ast_var = Ast.Var (Ident var_id, None) in
+      let ast_var = Ast.Var (Ident var_id) in
       let%bind () = add_jayil_jay_mapping ast_var e_desc in
       let ast_body = Ast.Var_body pat_var in
       let clause = Ast.Clause (ast_var, ast_body) in
@@ -164,7 +164,7 @@ let flatten_fun ?(binding_name = (None : Jay_ast.Ident.t option))
         | Some (Ident s) -> fresh_var s
       in
       let%bind () = add_jayil_jay_mapping new_var e_desc in
-      let fun_val = Ast.Value_function (Function_value (Var (id, None), e)) in
+      let fun_val = Ast.Value_function (Function_value (Var id, e)) in
       let fun_body = Ast.Value_body fun_val in
       let new_clause = Ast.Clause (new_var, fun_body) in
       let expr' : Ast.expr = Ast.Expr [ new_clause ] in
@@ -252,7 +252,7 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
   | Var id ->
       let%bind alias_var = fresh_var "var" in
       let (Ident i_string) = id in
-      let id_var = Ast.Var (Ident i_string, None) in
+      let id_var = Ast.Var (Ident i_string) in
       let%bind () = add_jayil_jay_mapping alias_var expr_desc in
       let%bind () = add_jayil_jay_mapping id_var expr_desc in
       return ([ Ast.Clause (alias_var, Var_body id_var) ], alias_var)
@@ -284,7 +284,7 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let%bind e1_clist, e1_var = recurse e1 in
       let%bind e2_clist, e2_var = recurse e2 in
       let (Ident var_name) = var_ident in
-      let lt_var = Ast.Var (Ident var_name, None) in
+      let lt_var = Ast.Var (Ident var_name) in
       let%bind () = add_jayil_jay_mapping lt_var e1 in
       let assignment_clause = Ast.Clause (lt_var, Var_body e1_var) in
       return (e1_clist @ [ assignment_clause ] @ e2_clist, e2_var)
@@ -300,7 +300,7 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let%bind e_clist, e_var = recurse e in
       (* Assigning the function to the given function name... *)
       let (Jay_ast.Ident var_name) = fun_name in
-      let lt_var = Ast.Var (Ident var_name, None) in
+      let lt_var = Ast.Var (Ident var_name) in
       let assignment_clause = Ast.Clause (lt_var, Var_body return_var) in
       return (fun_clauses @ [ assignment_clause ] @ e_clist, e_var)
   | LetRecFun (_, _) ->
@@ -500,7 +500,7 @@ and flatten_expr (expr_desc : Jay_ast.expr_desc) : (Ast.clause list * Ast.var) m
       let%bind is_instrumented = is_jay_instrumented tag in
       let%bind error_var = fresh_var "error_var" in
       let error_clause =
-        Ast.Clause (error_var, Ast.Var_body (Ast.Var (Ast.Ident x, None)))
+        Ast.Clause (error_var, Ast.Var_body (Ast.Var (Ast.Ident x)))
       in
       let%bind () = add_jayil_jay_mapping error_var expr_desc in
       (* Helper function *)

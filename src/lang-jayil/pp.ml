@@ -6,7 +6,7 @@ end
 
 module Make (B : Is_brief) = struct
   let id = Fmt.(using (fun (Ident s) -> s) string)
-  let var_ = Fmt.using (fun (Var (x, _)) -> x) id
+  let var_ = Fmt.using (fun (Var x) -> x) id
 
   let id_map pp_v oc map =
     let pp_entry oc (x, v) = Fmt.pf oc "%a = %a" id x pp_v v in

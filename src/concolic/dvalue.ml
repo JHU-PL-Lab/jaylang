@@ -66,7 +66,7 @@ and Denv :
     let add (env : t) (id : Ident_new.t) (dvalue : T.t) (key : Concolic_key.t) : t =
       Ident_map.add id (dvalue, key) env
 
-    let fetch (env : t) (Var (x, _) : var) : T.t * Concolic_key.t =
+    let fetch (env : t) (Var x : var) : T.t * Concolic_key.t =
       Ident_map.find x env (* find the variable and key in the environment *)
 
     let fetch_val (env : t) (x : var) : T.t =

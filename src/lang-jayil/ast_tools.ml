@@ -75,14 +75,14 @@ let rec check_scope_expr (bound : Ident_set.t) (e : expr) : (ident * ident) list
   @@ List.fold_left
        (fun (bound', result) clause ->
          let result' = result @ check_scope_clause bound' clause in
-         let (Clause (Var (x, _), _)) = clause in
+         let (Clause (Var x, _)) = clause in
          let bound'' = Ident_set.add x bound' in
          (bound'', result'))
        (bound, []) cls
 
 and check_scope_clause (bound : Ident_set.t) (c : clause) : (ident * ident) list
     =
-  let (Clause (Var (site_x, _), b)) = c in
+  let (Clause (Var site_x, b)) = c in
   check_scope_clause_body bound site_x b
 
 and check_scope_clause_body (bound : Ident_set.t) (site_x : ident)
@@ -90,19 +90,19 @@ and check_scope_clause_body (bound : Ident_set.t) (site_x : ident)
   match b with
   | Value_body v -> (
       match v with
-      | Value_function (Function_value (Var (x', _), e)) ->
+      | Value_function (Function_value (Var x', e)) ->
           check_scope_expr (Ident_set.add x' bound) e
       | _ -> [])
-  | Var_body (Var (x, _)) -> _bind_filt bound site_x [ x ]
+  | Var_body (Var x) -> _bind_filt bound site_x [ x ]
   | Input_body -> []
-  | Appl_body (Var (x1, _), Var (x2, _)) -> _bind_filt bound site_x [ x1; x2 ]
-  | Conditional_body (Var (x, _), e1, e2) ->
+  | Appl_body (Var x1, Var x2) -> _bind_filt bound site_x [ x1; x2 ]
+  | Conditional_body (Var x, e1, e2) ->
       _bind_filt bound site_x [ x ]
       @ check_scope_expr bound e1 @ check_scope_expr bound e2
-  | Match_body (Var (x, _), _) -> _bind_filt bound site_x [ x ]
-  | Projection_body (Var (x, _), _) -> _bind_filt bound site_x [ x ]
-  | Not_body (Var (x, _)) -> _bind_filt bound site_x [ x ]
-  | Binary_operation_body (Var (x1, _), _, Var (x2, _)) ->
+  | Match_body (Var x, _) -> _bind_filt bound site_x [ x ]
+  | Projection_body (Var x, _) -> _bind_filt bound site_x [ x ]
+  | Not_body (Var x) -> _bind_filt bound site_x [ x ]
+  | Binary_operation_body (Var x1, _, Var x2) ->
       _bind_filt bound site_x [ x1; x2 ]
   | Abort_body -> []
   | Diverge_body -> []
@@ -113,7 +113,7 @@ and check_scope_clause_body (bound : Ident_set.t) (site_x : ident)
     variable is the one that was not in scope. *)
 let scope_violations expression =
   check_scope_expr Ident_set.empty expression
-  |> List.map (fun (i1, i2) -> (Var (i1, None), Var (i2, None)))
+  |> List.map (fun (i1, i2) -> (Var i1, Var i2))
 
 (** Returns the last defined variable in a list of clauses. *)
 let rv (cs : clause list) : Var.t =
@@ -131,24 +131,24 @@ let rec map_expr_ids (fn : ident -> ident) (e : expr) : expr =
   Expr (List.map (map_clause_ids fn) cls)
 
 and map_clause_ids (fn : ident -> ident) (c : clause) : clause =
-  let (Clause (Var (x, stk), b)) = c in
-  Clause (Var (fn x, stk), map_clause_body_ids fn b)
+  let (Clause (Var x, b)) = c in
+  Clause (Var (fn x), map_clause_body_ids fn b)
 
 and map_clause_body_ids (fn : ident -> ident) (b : clause_body) : clause_body =
   match (b : clause_body) with
   | Value_body v -> Value_body (map_value_ids fn v)
-  | Var_body (Var (x, stk)) -> Var_body (Var (fn x, stk))
+  | Var_body (Var x) -> Var_body (Var (fn x))
   | Input_body -> Input_body
-  | Appl_body (Var (x1, stk1), Var (x2, stk2)) ->
-      Appl_body (Var (fn x1, stk1), Var (fn x2, stk2))
-  | Conditional_body (Var (x, stk), e1, e2) ->
-      Conditional_body (Var (fn x, stk), map_expr_ids fn e1, map_expr_ids fn e2)
-  | Match_body (Var (x, stk), p) ->
-      Match_body (Var (fn x, stk), map_pattern_ids fn p)
-  | Projection_body (Var (x, stk), l) -> Projection_body (Var (fn x, stk), fn l)
-  | Not_body (Var (x, stk)) -> Not_body (Var (fn x, stk))
-  | Binary_operation_body (Var (x1, stk1), op, Var (x2, stk2)) ->
-      Binary_operation_body (Var (fn x1, stk1), op, Var (fn x2, stk2))
+  | Appl_body (Var x1, Var x2) ->
+      Appl_body (Var (fn x1), Var (fn x2))
+  | Conditional_body (Var x, e1, e2) ->
+      Conditional_body (Var (fn x), map_expr_ids fn e1, map_expr_ids fn e2)
+  | Match_body (Var x, p) ->
+      Match_body (Var (fn x), map_pattern_ids fn p)
+  | Projection_body (Var x, l) -> Projection_body (Var (fn x), fn l)
+  | Not_body (Var x) -> Not_body (Var (fn x))
+  | Binary_operation_body (Var x1, op, Var x2) ->
+      Binary_operation_body (Var (fn x1), op, Var (fn x2))
   | Abort_body -> Abort_body
   | Diverge_body -> Diverge_body
 
@@ -157,7 +157,7 @@ and map_value_ids (fn : ident -> ident) (v : value) : value =
   | Value_record (Record_value m) ->
       let pairs = Ident_map.bindings m in
       let m' =
-        List.map (fun (k, Var (x, stk)) -> (fn k, Var (fn x, stk))) pairs
+        List.map (fun (k, Var x) -> (fn k, Var (fn x))) pairs
         |> List.to_seq |> Ident_map.of_seq
       in
       Value_record (Record_value m')
@@ -167,8 +167,8 @@ and map_value_ids (fn : ident -> ident) (v : value) : value =
 
 and map_function_ids (fn : ident -> ident) (f : function_value) : function_value
     =
-  let (Function_value (Var (x, stk), e)) = f in
-  Function_value (Var (fn x, stk), map_expr_ids fn e)
+  let (Function_value (Var x, e)) = f in
+  Function_value (Var (fn x), map_expr_ids fn e)
 
 and map_pattern_ids (fn : ident -> ident) (p : pattern) : pattern =
   match p with
@@ -254,7 +254,7 @@ and transform_exprs_in_function (fn : expr -> expr) (fv : function_value) :
   Function_value (x, transform_exprs_in_expr fn e)
 
 let first_id e =
-  e |> (fun (Expr cls) -> cls) |> List.first |> fun (Clause (Var (x, _), _)) ->
+  e |> (fun (Expr cls) -> cls) |> List.first |> fun (Clause (Var x, _)) ->
   x
 
 let label_sep = "~~~"
@@ -298,7 +298,7 @@ and defined_vars_of_function (f : function_value) : Var_set.t =
 let clause_mapping e =
   e |> flatten |> List.enum
   |> Enum.fold
-       (fun map (Clause (Var (x, _), _) as c) -> Ident_map.add x c map)
+       (fun map (Clause (Var x, _) as c) -> Ident_map.add x c map)
        Ident_map.empty
 
 let make_ret_to_fun_def_mapping e =
@@ -307,10 +307,10 @@ let make_ret_to_fun_def_mapping e =
     match clauses with
     | [] -> ()
     | Clause
-        ( Var (def_x, _),
+        ( Var def_x,
           Value_body (Value_function (Function_value (_, function_body))) )
       :: rest_clauses ->
-        let (Var (ret_id, _)) = retv function_body in
+        let (Var ret_id) = retv function_body in
         map := Ident_map.add ret_id def_x !map ;
         loop function_body ;
         loop (Expr rest_clauses) ;
@@ -329,31 +329,26 @@ let make_ret_to_fun_def_mapping e =
   !map
 
 let make_para_to_fun_def_mapping e =
-  let map = ref Ident_map.empty in
-  let rec loop (Expr clauses) =
+  let rec loop (Expr clauses) map =
     match clauses with
-    | [] -> ()
+    | [] -> map
     | Clause
-        ( Var (def_x, _),
+        ( Var def_x,
           Value_body
-            (Value_function (Function_value (Var (para, _), function_body))) )
+            (Value_function (Function_value (Var para, function_body))) )
       :: rest_clauses ->
-        map := Ident_map.add para def_x !map ;
-        loop function_body ;
-        loop (Expr rest_clauses) ;
-        ()
+        Ident_map.add para def_x map
+        |> loop function_body
+        |> loop (Expr rest_clauses)
     | Clause (_, Conditional_body (_, match_body, antimatch_body))
       :: rest_clauses ->
-        loop match_body ;
-        loop antimatch_body ;
-        loop (Expr rest_clauses) ;
-        ()
+        loop match_body map
+        |> loop antimatch_body
+        |> loop (Expr rest_clauses)
     | _clause :: rest_clauses ->
-        loop (Expr rest_clauses) ;
-        ()
+        loop (Expr rest_clauses) map
   in
-  loop e ;
-  !map
+  loop e Ident_map.empty
 
 let purge e =
   map_expr_ids

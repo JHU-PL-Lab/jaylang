@@ -56,7 +56,7 @@ let bluejay_ast_of_convert c = c.bluejay_ast
 let bluejay_edesc_to_consts bluejay_edesc =
   Bluejay.Bluejay_ast_tools.defined_vars_of_expr_desc bluejay_edesc
   |> Jay.Jay_ast.Ident_set.to_list
-  |> List.map ~f:(fun x -> Jayil.Ast.Var (x, None))
+  |> List.map ~f:(fun x -> Jayil.Ast.Var x)
   |> Jayil.Ast.Var_set.of_list
 
 let bluejay_edesc_to_core_ast ~do_wrap bluejay_edesc =

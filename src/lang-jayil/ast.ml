@@ -46,16 +46,8 @@ module Ident_map = struct
   let key_list map = keys map |> List.of_enum
 end
 
-(** A freshening stack of identifiers for variables produced at runtime. This
-    tracks the invocation stack of these variables. The first element in the
-    list is the topmost element in the stack. If this stack is absent, then the
-    variable in question has not been instantiated (and remains within the body
-    of a function). *)
-(* type freshening_stack = Freshening_stack of ident list
-[@@unboxed][@@deriving show, eq, ord, to_yojson] *)
-
 (** Variables in the AST. *)
-type var = Var of (ident * unit option)
+type var = Var of Ident_new.t
 [@@unboxed][@@deriving show, eq, ord, to_yojson]
 
 module Var = struct
@@ -250,4 +242,4 @@ let pattern_match pat v =
   | _ -> None *)
 
 let bat_list_of_enum = List.of_enum
-let id_of_var (Var (x, _)) = x
+let id_of_var (Var x) = x

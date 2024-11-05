@@ -345,7 +345,7 @@ module Make (Ctx : Finite_callstack.C) = struct
             | Direct, _ -> Direct
             | Fun, _ -> Fun
             | Cond, _ -> Cond
-            | App [], Clause (_, Appl_body (Var (f, _), _)) ->
+            | App [], Clause (_, Appl_body (Var f, _)) ->
                 let dsts =
                   (* `f` can be unreachable *)
                   Hashtbl.find_and_call result_map f
@@ -390,7 +390,7 @@ module Make (Ctx : Finite_callstack.C) = struct
     let open Jayil.Ast in
     let cl = Ident_map.find_opt x id_to_clause_map in
     match cl with
-    | Some (Clause (Var (xc, _), Appl_body (Var (f, _), Var _))) ->
+    | Some (Clause (Var xc, Appl_body (Var f, Var _))) ->
         Hashtbl.find_exn result_map f
         |> Set.to_list
         |> List.iter ~f:(function
@@ -414,7 +414,7 @@ module Make (Ctx : Finite_callstack.C) = struct
                  block_map := block_map'
              | AAbort -> () (* TODO: Again, check abort logic. *)
              | ADiverge -> ())
-    | Some (Clause (Var (xc, _), Conditional_body (Var (c, _), _, _))) ->
+    | Some (Clause (Var xc, Conditional_body (Var c, _, _))) ->
         let vs = Hashtbl.find_exn result_map c in
         let cond_both = find_cond_blocks xc !block_map in
         let may_be_true =

@@ -93,31 +93,31 @@ end = struct
 
   let fresh_var name ctx =
     let name' = fresh_name name ctx in
-    Ast.Var (Ast.Ident name', None)
+    Ast.Var (Ast.Ident name')
 
   let add_var_clause_pair v_key cls_val ctx =
-    let (Ast.Var (i_key, _)) = v_key in
+    let (Ast.Var i_key) = v_key in
     let odefa_inst_maps = ctx.tc_jayil_instrumentation_mappings in
     ctx.tc_jayil_instrumentation_mappings <-
       Jayil_instrumentation_maps.add_odefa_var_clause_mapping odefa_inst_maps
         i_key cls_val
 
   let add_instrument_var v ctx =
-    let (Ast.Var (i, _)) = v in
+    let (Ast.Var i) = v in
     let odefa_inst_maps = ctx.tc_jayil_instrumentation_mappings in
     ctx.tc_jayil_instrumentation_mappings <-
       Jayil_instrumentation_maps.add_odefa_instrument_var odefa_inst_maps i None
 
   let add_instrument_var_pair v_key v_val ctx =
-    let (Ast.Var (i_key, _)) = v_key in
-    let (Ast.Var (i_val, _)) = v_val in
+    let (Ast.Var i_key) = v_key in
+    let (Ast.Var i_val) = v_val in
     let odefa_inst_maps = ctx.tc_jayil_instrumentation_mappings in
     ctx.tc_jayil_instrumentation_mappings <-
       Jayil_instrumentation_maps.add_odefa_instrument_var odefa_inst_maps i_key
         (Some i_val)
 
   let is_instrument_var v ctx =
-    let (Ast.Var (i, _)) = v in
+    let (Ast.Var i) = v in
     let odefa_inst_maps = ctx.tc_jayil_instrumentation_mappings in
     Jayil_instrumentation_maps.is_var_instrumenting odefa_inst_maps i
 

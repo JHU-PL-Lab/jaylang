@@ -79,7 +79,7 @@ and Denv :
     let add (env : t) (x : Ident_new.t) (dv : Dvalue.t) : t =
       Ident_map.add x dv env
 
-    let fetch (env : t) (Var (x, _) : var) : Dvalue.t =
+    let fetch (env : t) (Var x : var) : Dvalue.t =
       Ident_map.find x env
 
     let fetch_to_val (env : t) (vx : var) : value =
@@ -156,7 +156,7 @@ and eval_clause
   (continue : Denv.t * Dvalue.t -> Denv.t * Dvalue.t)
   : Denv.t * Dvalue.t
   =
-  let Clause (Var (x, _), cbody) = clause in
+  let Clause (Var x, cbody) = clause in
   Session.incr_step session;
   if Session.is_max_step session
   then raise Exns.Reach_max_step;
@@ -183,7 +183,7 @@ and eval_clause
   | Input_body -> return @@ Direct (Value_int (session.input_feeder ()))
   | Appl_body (vf, varg) -> begin
     match Denv.fetch env vf with
-    | FunClosure (Function_value (Var (param, _), body), fenv) ->
+    | FunClosure (Function_value (Var param, body), fenv) ->
       (* varg is the argument that fills in param *)
       let arg = Denv.fetch env varg in
       let env' = Denv.add fenv param arg in

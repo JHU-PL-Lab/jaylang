@@ -91,7 +91,7 @@ clause:
 
 variable:
   | identifier
-      { Var($1,None) }
+      { Var($1) }
   ;
 
 identifier:

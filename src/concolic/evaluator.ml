@@ -107,7 +107,7 @@ let eval_exp
     ~(symb_session : Session.Symbolic.t)
     ~(step : int)
     (env : Denv.t)
-    (Clause (Var (x, _), cbody) : clause)
+    (Clause (Var x, cbody) : clause)
     (cont : k)
     : Cresult.t
     =
@@ -155,7 +155,7 @@ let eval_exp
         next ret_val @@ Session.Symbolic.add_input x_key ret_val symb_session
       | Appl_body (vf, varg) -> (** x = f y ; *) begin
         match Denv.fetch_val env vf with
-        | FunClosure (_, Function_value (Var (param, _), body), fenv) ->
+        | FunClosure (_, Function_value (Var param, body), fenv) ->
           (* increment step count so that the key for the parameter gets an identifier different than the clause *)
           let step = step + 1 in
 

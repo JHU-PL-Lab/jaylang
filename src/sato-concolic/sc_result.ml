@@ -135,7 +135,7 @@ let get_odefa_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
     (* If the point of error is a binary operation, we know that one of
        the two operands must have taken the wrong type.
     *)
-    | Binary_operation_body (Var (x1, _), _, Var (x2, _)) ->
+    | Binary_operation_body (Var x1, _, Var x2) ->
         let expected_type = Sato_tools.get_expected_type_from_cls cls in
         let (x1_val, x1_stk), (x2_val, x2_stk) =
           let dv1, stk1 = Ident_map.find x1 final_env in
@@ -151,10 +151,10 @@ let get_odefa_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
         errors
     (* The following operations are all potential candidates where type errors
         can occur. *)
-    | Not_body (Var (x, _))
-    | Appl_body (Var (x, _), _)
-    | Projection_body (Var (x, _), _)
-    | Conditional_body (Var (x, _), _, _) ->
+    | Not_body (Var x)
+    | Appl_body (Var x, _)
+    | Projection_body (Var x, _)
+    | Conditional_body (Var x, _, _) ->
         let expected_type = Sato_tools.get_expected_type_from_cls cls in
         let x_val, x_stk =
           let dv, stk = Ident_map.find x final_env in
@@ -244,7 +244,7 @@ module Jay_type_errors : Sc_result with type t = natodefa_error_record = struct
       (interp_session : From_dbmc.Interpreter.session)
       (final_env : From_dbmc.Interpreter.denv) (inputs : int option list) =
     let open Jay in
-    let (Clause (Var (err_id, _), _) as error_loc), odefa_errors =
+    let (Clause (Var err_id, _) as error_loc), odefa_errors =
       get_odefa_errors sato_state abort_var interp_session final_env
     in
     let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
@@ -306,7 +306,7 @@ module Bluejay_type_errors : Sc_result with type t = ton_error_record = struct
       (final_env : From_dbmc.Interpreter.denv) (inputs : int option list) =
     let open Jay in
     let open Bluejay in
-    let (Clause (Var (err_id, _), _) as error_loc), odefa_errors =
+    let (Clause (Var err_id, _) as error_loc), odefa_errors =
       get_odefa_errors sato_state abort_var interp_session final_env
     in
     let odefa_inst_maps = sato_state.odefa_instrumentation_maps in

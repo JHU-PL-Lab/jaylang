@@ -107,28 +107,28 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
       | { clause = Clause (_, Input_body); _ } ->
           let is_in_main = Ident.equal block.id Id.main_block in
           Input { is_in_main }
-      | { clause = Clause (_, Var_body (Var (ix', _))); _ } ->
+      | { clause = Clause (_, Var_body (Var ix')); _ } ->
           let x' = Lookup_key.with_x key ix' in
           Alias { x' }
       | { clause = Clause (_, Value_body v); _ } ->
           if Ident.equal block.id Id.main_block
           then Discovery_main { v }
           else Discovery_nonmain { v }
-      | { clause = Clause (_, Projection_body (Var (ir, _), lbl)); _ } ->
+      | { clause = Clause (_, Projection_body (Var ir, lbl)); _ } ->
           let r = Lookup_key.with_x key ir in
           Record_start { r; lbl }
-      | { clause = Clause (_, Not_body (Var (ix', _))); _ } ->
+      | { clause = Clause (_, Not_body (Var ix')); _ } ->
           let x' = Lookup_key.with_x key ix' in
           Not { x' }
       | {
        clause =
-         Clause (_, Binary_operation_body (Var (id1, _), bop, Var (id2, _)));
+         Clause (_, Binary_operation_body (Var id1, bop, Var id2));
        _;
       } ->
           let x1 = Lookup_key.with_x key id1 in
           let x2 = Lookup_key.with_x key id2 in
           Binop { bop; x1; x2 }
-      | { clause = Clause (_, Conditional_body (Var (ix', _), _, _)); _ } ->
+      | { clause = Clause (_, Conditional_body (Var ix', _, _)); _ } ->
           let cond_both = Cfg.find_cond_blocks x block_map in
           let x' = Lookup_key.with_x key ix' in
           let rets =
@@ -146,7 +146,7 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
           in
           Cond_btm { x'; cond_both; rets }
       | {
-       clause = Clause (_, Appl_body (Var (ixf, _), Var (_xv, _)));
+       clause = Clause (_, Appl_body (Var ixf, Var _xv));
        cat = App fids;
        _;
       } ->
@@ -161,7 +161,7 @@ let rule_of_runtime_status (key : Lookup_key.t) block_map target : t =
       | { clause = Clause (_, Diverge_body); _ } ->
           (* TODO: take care of direct `diverge` in the main block *)
           Diverge
-      | { clause = Clause (_, Match_body (Var (ix', _), pat)); _ } ->
+      | { clause = Clause (_, Match_body (Var ix', pat)); _ } ->
           let x' = Lookup_key.with_x key ix' in
           Pattern { x'; pat }
       | _ ->

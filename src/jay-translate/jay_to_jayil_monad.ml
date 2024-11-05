@@ -81,16 +81,16 @@ end = struct
 
   let fresh_var name ctx =
     let name' = fresh_name name ctx in
-    Ast.Var (Ast.Ident name', None)
+    Ast.Var (Ast.Ident name')
 
   let add_instrument_var v ctx =
-    let (Ast.Var (i, _)) = v in
+    let (Ast.Var i) = v in
     let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
     ctx.tc_jayil_jay_mappings <-
       Jay_to_jayil_maps.add_jay_instrument_var jayil_jay_maps i None
 
   let add_jayil_jay_mapping v_key e_val ctx =
-    let (Ast.Var (i_key, _)) = v_key in
+    let (Ast.Var i_key) = v_key in
     let jayil_jay_maps = ctx.tc_jayil_jay_mappings in
     ctx.tc_jayil_jay_mappings <-
       Jay_to_jayil_maps.add_jayil_var_jay_expr_mapping jayil_jay_maps i_key

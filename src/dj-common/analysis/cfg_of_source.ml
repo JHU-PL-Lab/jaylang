@@ -15,8 +15,8 @@ let block_map_of_expr e : t Ident_map.t =
     let (Expr clauses) = e in
     let handle_clause = function
       | Clause
-          ( Var (cid, _),
-            Value_body (Value_function (Function_value (Var (para, _), fbody)))
+          ( Var cid,
+            Value_body (Value_function (Function_value (Var para, fbody)))
           ) ->
           let clauses = clauses_of_expr fbody in
           let block =
@@ -24,7 +24,7 @@ let block_map_of_expr e : t Ident_map.t =
           in
           map := Ident_map.add cid block !map ;
           loop cid fbody
-      | Clause (Var (cid, _), Conditional_body (Var (cond, _), e1, e2)) ->
+      | Clause (Var cid, Conditional_body (Var cond, e1, e2)) ->
           let make_block e beta =
             let clauses = clauses_of_expr e in
             {

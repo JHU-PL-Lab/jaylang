@@ -159,11 +159,11 @@ let clauses_before_x block x =
 
 let clauses_of_expr e =
   let (Expr clauses) = e in
-  List.fold_left clauses ~init:[] ~f:(fun cs (Clause (Var (cid, _), b) as c) ->
+  List.fold_left clauses ~init:[] ~f:(fun cs (Clause (Var cid, b) as c) ->
       let c' =
         match b with
         | Appl_body (_, _) -> { id = cid; cat = App []; clause = c }
-        | Conditional_body (Var (_, _), _, _) ->
+        | Conditional_body (Var _, _, _) ->
             { id = cid; cat = Cond (* [] *); clause = c }
         | Value_body (Value_function _) -> { id = cid; cat = Fun; clause = c }
         | _ -> { id = cid; cat = Direct; clause = c }
@@ -184,13 +184,13 @@ let outer_block map block =
 let fun_info_of_callsite map callsite =
   let callsite_block = find_reachable_block callsite map in
   let tc = clause_of_x_exn callsite_block callsite in
-  let x', x'', x''' =
+  let x, y, z =
     match tc.clause with
-    | Clause (Var (x', _), Appl_body (Var (x'', _), Var (x''', _))) ->
-        (x', x'', x''')
+    | Clause (Var x, Appl_body (Var y, Var z)) ->
+        (x, y, z)
     | _ -> failwith "incorrect clause for callsite"
   in
-  (callsite_block, x', x'', x''')
+  (callsite_block, x, y, z)
 
 let is_before map x1 x2 =
   let open Continue_or_stop in

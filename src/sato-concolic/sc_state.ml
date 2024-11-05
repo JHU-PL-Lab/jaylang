@@ -22,16 +22,16 @@ let rec enum_all_aborts_in_expr expr : (ident * abort_value) list =
   List.concat @@ List.map ~f:enum_all_aborts_in_clause clauses
 
 and enum_all_aborts_in_clause clause : (ident * abort_value) list =
-  let (Clause (Var (cls_id, _), body)) = clause in
+  let (Clause (Var cls_id, body)) = clause in
   match body with
-  | Conditional_body (Var (pred_id, _), e1, e2) ->
+  | Conditional_body (Var pred_id, e1, e2) ->
       let enum_ret_abort e branch =
         let (Expr c_list) = e in
         match List.last c_list with
         | None -> []
         | Some cls -> (
             match cls with
-            | Clause (Var (abort_id, _), Abort_body) ->
+            | Clause (Var abort_id, Abort_body) ->
                 let abort_val =
                   {
                     abort_conditional_ident = cls_id;

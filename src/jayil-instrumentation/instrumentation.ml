@@ -274,7 +274,7 @@ let add_first_var (c_list : clause list) : clause list m =
   | Value_body (Value_function _) ->
       let%bind fresh_str = freshness_string in
       let unit_rec = Value_record (Record_value Ident_map.empty) in
-      let first_var = Var (Ident (fresh_str ^ "first"), None) in
+      let first_var = Var (Ident (fresh_str ^ "first")) in
       let first_cls = Clause (first_var, Value_body unit_rec) in
       return @@ (first_cls :: c_list)
   | _ -> return c_list
@@ -282,7 +282,7 @@ let add_first_var (c_list : clause list) : clause list m =
 let add_result_var (c_list : clause list) : clause list m =
   let (Clause (last_var, _)) = List.last_exn c_list in
   let%bind fresh_string = freshness_string in
-  let result_var = Var (Ident (fresh_string ^ "result"), None) in
+  let result_var = Var (Ident (fresh_string ^ "result")) in
   let result_cls = Clause (result_var, Var_body last_var) in
   return @@ c_list @ [ result_cls ]
 

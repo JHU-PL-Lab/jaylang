@@ -3,7 +3,7 @@ open Dj_common
 
 module Abs_exp = struct
   module T = struct
-    type var = Var of Id.t [@@deriving equal, compare, hash, sexp]
+    type var = Var of Id.t [@@unboxed][@@deriving equal, compare, hash, sexp]
 
     type binop = Jayil.Ast.binary_operator =
       | Binary_operator_plus
@@ -79,8 +79,8 @@ include Abs_exp
 
 (* Jayil_ast *)
 module For_jayil_ast = struct
-  let of_var (Jayil.Ast.Var (x, _)) = Var x
-  let id_of_jvar (Jayil.Ast.Var (x, _)) = x
+  let of_var (Jayil.Ast.Var x) = Var x
+  let id_of_jvar (Jayil.Ast.Var x) = x
 end
 
 open For_jayil_ast
