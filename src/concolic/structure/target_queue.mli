@@ -1,12 +1,12 @@
 module Pop_kind :
-  sig
-    type t =
-      | DFS
-      | BFS
-      | Uniform
-      | By_ast_branch (* prioritizes the targets whose AST branches have been hit the least *)
-      | Random
-  end
+sig
+  type t =
+    | DFS
+    | BFS
+    | Uniform
+    | By_ast_branch (* prioritizes the targets whose AST branches have been hit the least *)
+    | Random
+end
 
 type t
 (** [t] is a functional priority search queue of targets that can be popped according

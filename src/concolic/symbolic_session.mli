@@ -1,33 +1,33 @@
 
 module Status :
-  sig
-    type t =
-      | Found_abort of (Branch.t * Jil_input.t list [@compare.ignore])
-      | Type_mismatch of (Jil_input.t list [@compare.ignore])
-      | Finished_interpretation of { pruned : bool }
-      [@@deriving compare, sexp]
-  end
+sig
+  type t =
+    | Found_abort of (Branch.t * Jil_input.t list [@compare.ignore])
+    | Type_mismatch of (Jil_input.t list [@compare.ignore])
+    | Finished_interpretation of { pruned : bool }
+    [@@deriving compare, sexp]
+end
 
 module Dead :
-  sig
-    type t
-    (** [t] is a symbolic session that can no longer be used during interpretation. *)
+sig
+  type t
+  (** [t] is a symbolic session that can no longer be used during interpretation. *)
 
-    (*
-      ---------
-      ACCESSORS   
-      ---------
-    *)
+  (*
+    ---------
+    ACCESSORS   
+    ---------
+  *)
 
-    val root : t -> Path_tree.t
-    (** [root t] is the root from the dead [t]. *)
+  val root : t -> Path_tree.t
+  (** [root t] is the root from the dead [t]. *)
 
-    val get_status : t -> Status.t
-    (** [get_status t] is the status of the (now finished) symbolic session. *)
+  val get_status : t -> Status.t
+  (** [get_status t] is the status of the (now finished) symbolic session. *)
 
-    val is_reach_max_step : t -> bool
-    (** [is_reach_max_step t] is true iff the interpretation of the dead [t] had hit the max step count. *)
-  end
+  val is_reach_max_step : t -> bool
+  (** [is_reach_max_step t] is true iff the interpretation of the dead [t] had hit the max step count. *)
+end
 
 type t
 (** [t] tracks symbolic representations of the program during interpretation. *)

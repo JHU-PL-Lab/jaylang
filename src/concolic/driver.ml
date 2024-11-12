@@ -3,49 +3,48 @@ open Options.Fun.Infix (* expose infix operators *)
 
 module CLog = Dj_common.Log.Export.CLog
 
-
 module Test_result =
-  struct
-    type t =
-      | Found_abort of Branch.t * Jil_input.t list (* Found an abort at this branch using these inputs *)
-      | Type_mismatch of Jayil.Ast.Ident_new.t * Jil_input.t list (* Proposed addition for removing instrumentation *)
-      | Exhausted               (* Ran all possible tree paths, and no paths were too deep *)
-      | Exhausted_pruned_tree   (* Ran all possible tree paths up to the given max step *)
-      | Timeout                 (* total evaluation timeout *)
+struct
+  type t =
+    | Found_abort of Branch.t * Jil_input.t list (* Found an abort at this branch using these inputs *)
+    | Type_mismatch of Jayil.Ast.Ident_new.t * Jil_input.t list (* Proposed addition for removing instrumentation *)
+    | Exhausted               (* Ran all possible tree paths, and no paths were too deep *)
+    | Exhausted_pruned_tree   (* Ran all possible tree paths up to the given max step *)
+    | Timeout                 (* total evaluation timeout *)
 
-    let to_string = function
-      | Found_abort _ ->         "FOUND_ABORT"
-      | Type_mismatch _ ->       "TYPE_MISMATCH"
-      | Exhausted ->             "EXHAUSTED"
-      | Exhausted_pruned_tree -> "EXHAUSTED_PRUNED_TREE"
-      | Timeout ->               "TIMEOUT"
+  let to_string = function
+    | Found_abort _ ->         "FOUND_ABORT"
+    | Type_mismatch _ ->       "TYPE_MISMATCH"
+    | Exhausted ->             "EXHAUSTED"
+    | Exhausted_pruned_tree -> "EXHAUSTED_PRUNED_TREE"
+    | Timeout ->               "TIMEOUT"
 
-    let merge a b =
-      match a, b with
-      (* When abort and type mismatch are found, we can conclusively end *)
-      | (Found_abort _ as x), _ | _, (Found_abort _ as x)
-      | (Type_mismatch _ as x), _ | _, (Type_mismatch _ as x) -> x
-      (* Similarly, if we exhausted a tree, then we tried literally everything, so can end *)
-      | Exhausted,_  | _, Exhausted -> Exhausted
-      (* For the following results, we want to keep the one with the least information to be conservative *)
-      | Timeout, _ | _, Timeout -> Timeout
-      | Exhausted_pruned_tree, Exhausted_pruned_tree -> Exhausted_pruned_tree
+  let merge a b =
+    match a, b with
+    (* When abort and type mismatch are found, we can conclusively end *)
+    | (Found_abort _ as x), _ | _, (Found_abort _ as x)
+    | (Type_mismatch _ as x), _ | _, (Type_mismatch _ as x) -> x
+    (* Similarly, if we exhausted a tree, then we tried literally everything, so can end *)
+    | Exhausted,_  | _, Exhausted -> Exhausted
+    (* For the following results, we want to keep the one with the least information to be conservative *)
+    | Timeout, _ | _, Timeout -> Timeout
+    | Exhausted_pruned_tree, Exhausted_pruned_tree -> Exhausted_pruned_tree
 
-    let of_session_status = function
-      | Session.Status.Found_abort (branch, inputs) -> Found_abort (branch, inputs)
-      | Type_mismatch inputs -> Type_mismatch (Ident "placeholder branch name", inputs)
-      | Exhausted { pruned = true } -> Exhausted_pruned_tree
-      | Exhausted { pruned = false } -> Exhausted
-      | In_progress _ -> failwith "session status unfinished"
+  let of_session_status = function
+    | Session.Status.Found_abort (branch, inputs) -> Found_abort (branch, inputs)
+    | Type_mismatch inputs -> Type_mismatch (Ident "placeholder branch name", inputs)
+    | Exhausted { pruned = true } -> Exhausted_pruned_tree
+    | Exhausted { pruned = false } -> Exhausted
+    | In_progress _ -> failwith "session status unfinished"
 
-    let is_error_found = function
-      | Timeout
-      | Exhausted_pruned_tree
-      | Exhausted -> false
-      | Found_abort _
-      | Type_mismatch _ -> true
+  let is_error_found = function
+    | Timeout
+    | Exhausted_pruned_tree
+    | Exhausted -> false
+    | Found_abort _
+    | Type_mismatch _ -> true
 
-  end
+end
 
 (*
   ----------------------

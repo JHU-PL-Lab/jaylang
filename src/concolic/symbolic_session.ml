@@ -3,70 +3,70 @@ open Core
 open Options.Fun.Infix
 
 module Status =
-  struct
-    type t =
-      | Found_abort of (Branch.t * Jil_input.t list [@compare.ignore])
-      | Type_mismatch of (Jil_input.t list [@compare.ignore])
-      | Finished_interpretation of { pruned : bool }
-      [@@deriving compare, sexp]
+struct
+  type t =
+    | Found_abort of (Branch.t * Jil_input.t list [@compare.ignore])
+    | Type_mismatch of (Jil_input.t list [@compare.ignore])
+    | Finished_interpretation of { pruned : bool }
+    [@@deriving compare, sexp]
 
-    let prune (x : t) : t =
-      match x with
-      | Finished_interpretation _ -> Finished_interpretation { pruned = true }
-      | _ -> x
-  end
+  let prune (x : t) : t =
+    match x with
+    | Finished_interpretation _ -> Finished_interpretation { pruned = true }
+    | _ -> x
+end
 
 module Depth_tracker =
-  struct
-    type t =
-      { cur_depth    : int (* branch depth *)
-      ; max_depth    : int (* only for conditional branch depth *)
-      ; is_max_step  : bool
-      ; is_max_depth : bool } 
-      (** [t] helps track if we've reached the max tree depth and thus should stop creating formulas *)
+struct
+  type t =
+    { cur_depth    : int (* branch depth *)
+    ; max_depth    : int (* only for conditional branch depth *)
+    ; is_max_step  : bool
+    ; is_max_depth : bool } 
+    (** [t] helps track if we've reached the max tree depth and thus should stop creating formulas *)
 
-    let empty : t =
-      { cur_depth    = 0
-      ; max_depth    = Options.default.max_tree_depth
-      ; is_max_step  = false
-      ; is_max_depth = false }
+  let empty : t =
+    { cur_depth    = 0
+    ; max_depth    = Options.default.max_tree_depth
+    ; is_max_step  = false
+    ; is_max_depth = false }
 
-    let with_options : (t, t) Options.Fun.a =
-      Options.Fun.make
-      @@ fun (r : Options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth }
+  let with_options : (t, t) Options.Fun.a =
+    Options.Fun.make
+    @@ fun (r : Options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth }
 
-    let incr_branch (x : t) : t =
-      { x with cur_depth = x.cur_depth + 1 ; is_max_depth = x.max_depth <= x.cur_depth }
+  let incr_branch (x : t) : t =
+    { x with cur_depth = x.cur_depth + 1 ; is_max_depth = x.max_depth <= x.cur_depth }
 
-    let hit_max_step (x : t) : t =
-      { x with is_max_step = true }
-  end
+  let hit_max_step (x : t) : t =
+    { x with is_max_step = true }
+end
 
 (* These don't change during the session, so keep them in one record to avoid so much copying *)
 module Session_consts =
-  struct
-    type t =
-      { target       : Target.t option
-      ; input_feeder : Concolic_feeder.t
-      ; max_step     : int } 
+struct
+  type t =
+    { target       : Target.t option
+    ; input_feeder : Concolic_feeder.t
+    ; max_step     : int } 
 
-    let default : t =
-      { target       = None
-      ; input_feeder = Concolic_feeder.zero
-      ; max_step     = Options.default.global_max_step }
-  end
+  let default : t =
+    { target       = None
+    ; input_feeder = Concolic_feeder.zero
+    ; max_step     = Options.default.global_max_step }
+end
 
 module T =
-  struct
-    type t =
-      { stem           : Formulated_stem.t
-      ; consts         : Session_consts.t
-      ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch | `Diverged ]
-      ; rev_inputs     : Jil_input.t list
-      ; depth_tracker  : Depth_tracker.t 
-      ; latest_branch  : Branch.t option (* need to track the latest branch in order to report where an abort was found *)
-      ; solvable_hit_branches : Branch.t list } (* this is different from latest branch because these are only non-const branches *)
-  end
+struct
+  type t =
+    { stem           : Formulated_stem.t
+    ; consts         : Session_consts.t
+    ; status         : [ `In_progress | `Found_abort of Branch.t | `Type_mismatch | `Diverged ]
+    ; rev_inputs     : Jil_input.t list
+    ; depth_tracker  : Depth_tracker.t 
+    ; latest_branch  : Branch.t option (* need to track the latest branch in order to report where an abort was found *)
+    ; solvable_hit_branches : Branch.t list } (* this is different from latest branch because these are only non-const branches *)
+end
 
 include T
 
@@ -169,36 +169,36 @@ let add_not (key1 : Concolic_key.t) (key2 : Concolic_key.t) (x : t) : t =
 *)
 
 module Dead =
-  struct
-    type t =
-      { tree    : Path_tree.t
-      ; prev    : T.t }
+struct
+  type t =
+    { tree    : Path_tree.t
+    ; prev    : T.t }
 
-    let of_sym_session : (T.t, Path_tree.t -> t) Options.Fun.a =
-      Options.Fun.strong
-        (fun (s : T.t) (f : Branch.t list -> Path_tree.t) (tree : Path_tree.t) -> 
-          let tree = 
-            match s.consts.target with
-            | None -> f s.solvable_hit_branches (* use only solvable branches in path *)
-            | Some target -> Path_tree.add_stem tree target s.stem s.solvable_hit_branches
-          in
-          { tree ; prev = s })
-        (Path_tree.of_stem <<^ (fun (s : T.t) -> s.stem))
+  let of_sym_session : (T.t, Path_tree.t -> t) Options.Fun.a =
+    Options.Fun.strong
+      (fun (s : T.t) (f : Branch.t list -> Path_tree.t) (tree : Path_tree.t) -> 
+        let tree = 
+          match s.consts.target with
+          | None -> f s.solvable_hit_branches (* use only solvable branches in path *)
+          | Some target -> Path_tree.add_stem tree target s.stem s.solvable_hit_branches
+        in
+        { tree ; prev = s })
+      (Path_tree.of_stem <<^ (fun (s : T.t) -> s.stem))
 
-    let root (x : t) : Path_tree.t =
-      x.tree
+  let root (x : t) : Path_tree.t =
+    x.tree
 
-    let get_status (x : t) : Status.t =
-      match x.prev.status with
-      | `In_progress | `Diverged ->
-          let dt = x.prev.depth_tracker in
-          Finished_interpretation { pruned = dt.is_max_depth || dt.is_max_step }
-      | `Found_abort branch -> Found_abort (branch, List.rev x.prev.rev_inputs)
-      | `Type_mismatch -> Type_mismatch (List.rev x.prev.rev_inputs)
+  let get_status (x : t) : Status.t =
+    match x.prev.status with
+    | `In_progress | `Diverged ->
+        let dt = x.prev.depth_tracker in
+        Finished_interpretation { pruned = dt.is_max_depth || dt.is_max_step }
+    | `Found_abort branch -> Found_abort (branch, List.rev x.prev.rev_inputs)
+    | `Type_mismatch -> Type_mismatch (List.rev x.prev.rev_inputs)
 
-    let is_reach_max_step (x : t) : bool =
-      x.prev.depth_tracker.is_max_step
-  end
+  let is_reach_max_step (x : t) : bool =
+    x.prev.depth_tracker.is_max_step
+end
 
 let finish : (t, Path_tree.t -> Dead.t) Options.Fun.a =
   Dead.of_sym_session

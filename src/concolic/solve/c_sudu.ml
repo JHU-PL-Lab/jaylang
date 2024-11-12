@@ -8,12 +8,12 @@ end)
 include SuduZ3
 
 module Solve_status =
-  struct
-    type t =
-      | Sat of Z3.Model.model
-      | Unknown
-      | Unsat
-  end
+struct
+  type t =
+    | Sat of Z3.Model.model
+    | Unknown
+    | Unsat
+end
 
 let solver = Z3.Solver.mk_solver ctx None
 

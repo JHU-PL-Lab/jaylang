@@ -71,7 +71,6 @@ let rename_variable (old_name : Jay_ast.ident) (new_name : Jay_ast.ident)
      us to change the environment of the homomorphism as we descend or to block
      descending into a given subtree, so we can't use it here. *)
   let rec visit e_desc =
-    let tag = e_desc.tag in
     let e = e_desc.body in
     let renamed_expr =
       match e with
@@ -157,7 +156,7 @@ let rename_variable (old_name : Jay_ast.ident) (new_name : Jay_ast.ident)
       | Assert e              -> Assert (visit e)
       | Assume e              -> Assume (visit e)
     in
-    { tag; body = renamed_expr }
+    { e_desc with body = renamed_expr }
   in
   visit e_desc
 

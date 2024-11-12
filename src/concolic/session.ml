@@ -5,41 +5,41 @@ open Options.Fun.Infix
 module Symbolic = Symbolic_session
 
 module Status =
-  struct
-    type t =
-      | In_progress of { pruned : bool }
-      | Found_abort of (Branch.t * Jil_input.t list [@compare.ignore])
-      | Type_mismatch of (Jil_input.t list [@compare.ignore])
-      | Exhausted of { pruned : bool }
-      [@@deriving compare, sexp]
+struct
+  type t =
+    | In_progress of { pruned : bool }
+    | Found_abort of (Branch.t * Jil_input.t list [@compare.ignore])
+    | Type_mismatch of (Jil_input.t list [@compare.ignore])
+    | Exhausted of { pruned : bool }
+    [@@deriving compare, sexp]
 
-    let prune (x : t) : t =
-      match x with
-      | In_progress _ -> In_progress { pruned = true }
-      | Exhausted _ -> Exhausted { pruned = true }
-      | _ -> x
+  let prune (x : t) : t =
+    match x with
+    | In_progress _ -> In_progress { pruned = true }
+    | Exhausted _ -> Exhausted { pruned = true }
+    | _ -> x
 
-    let quit (x : t) : bool =
-      match x with
-      | Found_abort _
-      | Type_mismatch _
-      | Exhausted _ -> true
-      | In_progress _ -> false
+  let quit (x : t) : bool =
+    match x with
+    | Found_abort _
+    | Type_mismatch _
+    | Exhausted _ -> true
+    | In_progress _ -> false
 
-    let finish (x : t) : t =
-      match x with
-      | In_progress { pruned } -> Exhausted { pruned }
-      | _ -> x
+  let finish (x : t) : t =
+    match x with
+    | In_progress { pruned } -> Exhausted { pruned }
+    | _ -> x
 
-    let to_string (x : t) : string =
-      match x with
-      | Found_abort _                 -> "Found abort in interpretation"
-      | Type_mismatch _               -> "Found type mismatch in interpretation"
-      | In_progress { pruned = true } -> "In progress after interpretation (has pruned so far)"
-      | In_progress _                 -> "In progress after interpretation"
-      | Exhausted { pruned = true }   -> "Exhausted pruned true"
-      | Exhausted _                   -> "Exhausted full tree"
-  end
+  let to_string (x : t) : string =
+    match x with
+    | Found_abort _                 -> "Found abort in interpretation"
+    | Type_mismatch _               -> "Found type mismatch in interpretation"
+    | In_progress { pruned = true } -> "In progress after interpretation (has pruned so far)"
+    | In_progress _                 -> "In progress after interpretation"
+    | Exhausted { pruned = true }   -> "Exhausted pruned true"
+    | Exhausted _                   -> "Exhausted full tree"
+end
 
 (* ignore warning about last_sym not used because it depends on current code for pop kind *)
 type[@ocaml.warning "-69"] t =

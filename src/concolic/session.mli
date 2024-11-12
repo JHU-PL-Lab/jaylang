@@ -3,16 +3,16 @@ module Symbolic = Symbolic_session
 (** [Symbolic] is alias for [Symbolic_session]. *)
 
 module Status :
-  sig
-    type t =
-      | In_progress of { pruned : bool }
-      | Found_abort of (Branch.t * Jil_input.t list [@compare.ignore])
-      | Type_mismatch of (Jil_input.t list [@compare.ignore])
-      | Exhausted of { pruned : bool }
-      [@@deriving compare, sexp]
+sig
+  type t =
+    | In_progress of { pruned : bool }
+    | Found_abort of (Branch.t * Jil_input.t list [@compare.ignore])
+    | Type_mismatch of (Jil_input.t list [@compare.ignore])
+    | Exhausted of { pruned : bool }
+    [@@deriving compare, sexp]
 
-    val to_string : t -> string
-  end
+  val to_string : t -> string
+end
 
 type t
 (** [t] holds program info between interpretations and helps generate the symbolic session
