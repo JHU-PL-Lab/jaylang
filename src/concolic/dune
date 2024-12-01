@@ -22,8 +22,6 @@
   monadlib
   sudu
   psq) ; psq added for queue of target branches
- (instrumentation
-  (backend landmarks))
  (synopsis "concolic tester on jayil programs")
  (inline_tests)
  (preprocess
@@ -36,4 +34,3 @@
    ; for profiling
    landmarks-ppx
    --auto)))
-

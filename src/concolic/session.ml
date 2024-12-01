@@ -75,7 +75,7 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   ; status   = new_status
   ; last_sym = Some dead_sym }
 
-let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
+let[@landmark] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
   let pop_kind =
     match x.last_sym with
     | Some s when Symbolic.Dead.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)

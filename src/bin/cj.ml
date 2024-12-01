@@ -4,7 +4,7 @@ open Concolic
 (* This executable is to run the concolic evaluator. Think CJ = "concolic jil" *)
 let usage_msg =
   {|
-  cj -i <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-d <max_tree_depth>] [-n <n_depth_increments>] [-p] [-r]
+  cj <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-d <max_tree_depth>] [-n <n_depth_increments>] [-p] [-r]
   |}
 
 let source_file = ref "" 

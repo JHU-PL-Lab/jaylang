@@ -5,7 +5,7 @@ type t =
   | Int_equality of Concolic_key.t * int Expression.t
   | Bool_equality of Concolic_key.t * bool Expression.t
 
-let[@landmarks] get_formulas (claims : t list) (cache : Expression.Cache.t) : bool C_sudu.Gexpr.t list =
+let[@landmark] get_formulas (claims : t list) (cache : Expression.Cache.t) : bool C_sudu.Gexpr.t list =
   List.fold claims ~init:[] ~f:(fun acc claim ->
     let accum mk_key lookup key e acc =
       let key_expr = Expression.t_to_formula @@ mk_key key in

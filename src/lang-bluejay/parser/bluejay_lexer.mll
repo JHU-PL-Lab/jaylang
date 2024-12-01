@@ -22,6 +22,7 @@ let ident_cont = alpha | digit | '_'
 
 rule token = parse
 | eof                  { EOF }
+| "(*" ([^'*']|('*'[^')']))* ("*)"|"**)") {token lexbuf} (* OCaml-like comments *)
 | comment              { incr_lineno lexbuf; token lexbuf }
 | whitespace           { token lexbuf }
 | newline              { incr_lineno lexbuf; token lexbuf }
