@@ -1,0 +1,81 @@
+
+# In this program, we have a function to recursively generate a type (int -> int -> ... -> int)
+# depending on the size of the input.
+# Not only that, but we use a state monad to do it.
+
+let state_monad =
+  { m = fun a -> fun s ->
+      s -> {: res : a , new_state : s :}
+  , bind =
+      let impl x f =
+        fun s ->
+          match x s with
+          | { res = res , new_state = new_state } ->
+            f res new_state
+          end
+      in
+      impl
+  , return = 
+      let impl x = 
+        fun s -> 
+          { res = x , new_state = s }
+      in
+      impl
+  , modify =
+      let impl f =
+        fun s ->
+          let fs = f s in
+          { res = fs , new_state = fs }
+      in
+      impl
+  , read = fun s -> { res = s , new_state = s }
+  , run =
+      let impl x s =
+        (x s).res
+      in
+      impl
+  }
+in
+
+# We don't have polymorphic types that easily to type a record, so I do this little trick
+let confirm_type_of_state_monad (type a b s) (dummy : a) :
+  (let m = state_monad.m in 
+  {: read : m s s
+  ,  bind : m a s -> (a -> m b s) -> m b s
+  ,  return : a -> m a s
+  ,  modify : (s -> s) -> m s s
+  ,  run : m a s -> s -> a
+  :})
+  =
+    state_monad
+in
+
+let t n = 
+  int -> (
+    let rec loop acc_m =
+      state_monad.bind (state_monad.modify (fun i -> i - 1)) (fun i ->
+        if i <= 1 
+        then acc_m
+        else
+          state_monad.bind acc_m (fun acc ->
+            loop (state_monad.return (int -> acc))
+          )
+      )
+    in
+    state_monad.run (loop (state_monad.return (int))) n
+    # EXAMPLE ERROR: don't use run. Just apply state by self (and thereby forget to project the result from the record)
+    # But such an error is instant to catch just in the generation of a value with type t
+  )
+in
+
+letd main (n :  int) : t n -> (int -> int) =
+  fun f ->
+    let rec loop i = 
+      if i <= 0
+      then f
+      else (loop (i - 1)) i
+    in
+    loop (n - 2)
+in
+
+t

@@ -1,6 +1,0 @@
-x = input;
-one = 1;
-r1 = {a = one};
-t0 = r1.a;
-c = x == t0;
-z = c ? (target = 1) : (dummy = 0);

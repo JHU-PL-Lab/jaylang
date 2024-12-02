@@ -1,0 +1,69 @@
+
+# Assume that we concolically evaluate Bluejay, for simplicity. We may imagine some of the constraints that arise, e.g. from types.
+# We also must just imagine the generation of a type, assuming easy ADT generation with no types-as-expressions
+
+let t = Mu tt. 
+  (  ``Node {: left : tt
+            , right : tt
+            , item : int
+            :}
+  || ``Leaf int # arbitrary, ignored payload
+  )
+in
+
+(*
+let rec is_cheap_bst tree = 
+  match tree with
+  | `Leaf leaf -> true
+  | `Node node ->
+    match node.left with
+    | `Leaf leaf -> is_cheap_bst node.right   # No left child, so just check right
+    | `Node left_child ->
+      match node.right with
+      | `Leaf leaf -> is_cheap_bst node.left  # No right child, so just check left
+     | `Node right_child ->
+        left_child.item < right_child.item    # Make sure left is less than right
+        and is_cheap_bst node.left            # check left
+        and is_cheap_bst node.right           # check right
+      end
+    end
+  end
+in
+*)
+
+
+let size tree =
+  let rec loop tree acc =
+    match tree with
+    | `Leaf leaf -> acc
+    | `Node node -> loop node.left (loop node.right (acc + 1))
+    end
+  in
+  loop tree 0
+in
+
+let sized_tree n = {. t | fun tree -> size tree > n }
+in
+
+let failing_fun (tree : sized_tree 50) : int =
+  match tree with
+  | `Node node ->
+    match node.right with
+    | `Leaf leaf -> 0          # okay case
+    | `Node right_child ->
+      match right_child.left with
+      | `Leaf leaf -> false    # This is the failure case. The right child of root has no left child
+      | _ -> 0                 # okay
+      end
+    end
+  end
+in
+
+failing_fun
+
+(*
+  Maybe the problem in this example is that it works well, which is actually quite surprising.
+  It seems challenging to generate a large enough tree that happens to have this simple (I thought rare)
+  condition. No matter, though. We'll try to write up some sample formulas for how this work both
+  with and without Scott's unpinning.
+*)
