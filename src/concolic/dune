@@ -31,6 +31,7 @@
    ocaml-monadic
    ppx_deriving.show
    lwt_ppx
+   ;bisect_ppx ; should comment when not wanting report because it adds overhead
    ; for profiling
    landmarks-ppx
    --auto)))

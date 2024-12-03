@@ -23,6 +23,10 @@ _build
 # Dune intermediates
 /*.install
 
+# Coverage files
+_coverage
+*.coverage
+
 # Editor related
 .vscode
 

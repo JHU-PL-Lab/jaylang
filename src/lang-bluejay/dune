@@ -31,6 +31,7 @@
       ppx_deriving_yojson
       ocaml-monadic
       landmarks-ppx --auto
+      ;bisect_ppx
     )
   )
   (flags

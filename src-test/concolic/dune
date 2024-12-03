@@ -11,4 +11,9 @@
   concolic
   dj_common)
  (preprocess
-  (pps ppx_jane lwt_ppx ppx_deriving.std ppx_expect)))
+  (pps
+   ppx_jane
+   lwt_ppx
+   ppx_deriving.std
+   ;bisect_ppx ; should comment when not wanting the report because it adds overhead
+   ppx_expect)))
