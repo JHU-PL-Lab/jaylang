@@ -19,18 +19,44 @@ let triple =
   }
 in
 
+(*
+  let expr =
+    { t = 
+        Mu tt.
+        (  ``Int int
+        || ``If_then_else (triple.t tt tt tt)
+        || ``Function (pair.t ident.t tt)
+        || ``Var ident.t # unique var identifier
+        || ``Plus (pair.t tt tt)
+        || ``Minus (pair.t tt tt)
+        || ``Equal (pair.t tt tt)
+        || ``Appl (pair.t tt tt)
+        )
+    }
+  in
+*)
+
 let expr =
-  { t = 
-      Mu tt.
-      (  ``Int int
-      || ``If_then_else (triple.t tt tt tt)
-      || ``Function (pair.t ident.t tt)
-      || ``Var ident.t # unique var identifier
-      || ``Plus (pair.t tt tt)
-      || ``Minus (pair.t tt tt)
-      || ``Equal (pair.t tt tt)
-      || ``Appl (pair.t tt tt)
-      )
+  { t =
+      let tt =
+        fun self ->
+          fun n ->
+            if n <= 0
+            then (* leaves *)
+              ( ``Int int || ``Var ident.t )
+            else
+              let tt = self self (n - 1) in
+              (  ``Int int
+              || ``Var ident.t # unique var identifier
+              || ``Function (pair.t ident.t tt)
+              || ``If_then_else (triple.t tt tt tt)
+              || ``Plus (pair.t tt tt)
+              || ``Minus (pair.t tt tt)
+              || ``Equal (pair.t tt tt)
+              || ``Appl (pair.t tt tt)
+              )
+      in
+      tt tt input
   }
 in
 
@@ -111,14 +137,17 @@ in
 
 let specific_expr_type =
   {. expr.t | fun e ->
-    match e with
-    | `If_then_else trip ->
-      match trip.first with 
-      | `Function p -> true
+    if 
+      match e with
+      | `If_then_else trip ->
+        match trip.first with 
+        | `Function p -> true
+        | _ -> false
+        end
       | _ -> false
       end
-    | _ -> false
-    end
+    then is_closed e # THIS IS CAUSING IT TO TAKE TOO LONG! 20 seconds just to gen anything passing
+    else false
   }
 in
 

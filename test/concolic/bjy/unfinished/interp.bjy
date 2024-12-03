@@ -1,4 +1,7 @@
 
+# TODO: find where the abort is coming from so suddenly
+#   Refer to the difference with interp_refined, which should be very minimal
+
 let ident =
   { t = ``Id int
   , eq =
@@ -20,17 +23,27 @@ let triple =
 in
 
 let expr =
-  { t = 
-      Mu tt.
-      (  ``Int int
-      || ``Var ident.t # unique var identifier
-      || ``Plus (pair.t tt tt)
-      || ``Minus (pair.t tt tt)
-      || ``Equal (pair.t tt tt)
-      || ``Function (pair.t ident.t tt)
-      || ``Appl (pair.t tt tt)
-      || ``If_then_else (triple.t tt tt tt)
-      )
+  { t =
+      let tt =
+        fun self ->
+          fun n ->
+            if n <= 0
+            then (* leaves *)
+              ( ``Int int || ``Var ident.t )
+            else
+              let n_1 = n - 1 in
+              let tt = self self (n - 1) in (* TODO: DOES THIS TERMINATE OKAY? *)
+              (  ``Int int
+              || ``Var ident.t # unique var identifier
+              || ``Function (pair.t ident.t tt)
+              || ``If_then_else (triple.t tt tt tt)
+              || ``Plus (pair.t tt tt)
+              || ``Minus (pair.t tt tt)
+              || ``Equal (pair.t tt tt)
+              || ``Appl (pair.t tt tt)
+              )
+      in
+      tt tt input
   }
 in
 
@@ -105,6 +118,13 @@ let subst e id v =
   sub e
 in
 
+(*
+  This is to say that the input program is ill-typed.
+  We catch this at runtime and just diverge safely. If
+  our system was extremely performant, we might choose
+  to run a type-checker as a refinement. However, we are
+  not yet close to being able to do that.
+*)
 let ill_typed x =
   assume false
 in

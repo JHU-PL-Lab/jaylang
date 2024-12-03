@@ -1,0 +1,86 @@
+(*
+  The following type is a bounded tree because the input is
+  chosen at the start of the program, so all generated instances
+  of a tree are capped at the same size, but this size is flexible
+  and chosen by the concolic evaluator.
+
+  If we would like to allow different gens to be of different max
+  sizes, we would just freeze this and thaw at each use of the type.
+
+  The problem that we might encounter is that we now explore all of
+  the possible tree sizes, which, when we consider that a tree of size
+  at most n + 1 is a subset of a tree of size n, leads to duplicating
+  work.
+
+  This means the only time we want to do this is for a type where the
+  generation is unlikely to terminate without the bounded depth. If it
+  is likely to terminate, then we want to let the depth be unbounded to
+  avoid duplicate work.
+*)
+let t =
+  let tt = 
+    fun self ->
+      fun n -> 
+        if n <= 0
+        then  (* hit depth bound, so force a leaf *)
+          ``Leaf int
+        else  (* not yet at depth bound, so allow anything *)
+          let tt = self self (n - 1) in
+          (  ``Node_A {: left : tt
+                      , right : tt
+                      , item : int
+                      :}
+          || ``Node_B {: left : tt
+                      , right : tt
+                      , item : int
+                      :}
+          || ``Leaf int
+          )
+  in
+  tt tt input (* input bounds the depth to a fixed number for each run of the program *)
+in
+
+let t_unbounded =
+  let tt = 
+    fun self ->
+      (  ``Node_A {: left : self self
+                  , right : self self
+                  , item : int
+                  :}
+      || ``Node_B {: left : self self
+                  , right : self self
+                  , item : int
+                  :}
+      || ``Leaf int
+      )
+  in
+  tt tt
+in
+
+(* takes 8 seconds to find this error *)
+(*
+  let f (tree : t_unbounded) : t_unbounded =
+    match tree with
+    | `Node_A node ->
+      match node.left with
+      | `Node_B node -> 0 # ERROR HERE: just need a very simple tree to hit this
+      | _ -> tree
+      end
+    | _ -> tree
+    end
+  in
+*)
+
+(* This takes less than a tenth of a second to find the error *)
+let f (tree : t) : t =
+  match tree with
+  | `Node_A node ->
+    match node.left with
+    | `Node_B node -> 0
+    | _ -> tree
+    end
+  | _ -> tree
+  end
+in
+
+f
