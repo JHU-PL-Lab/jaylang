@@ -6,16 +6,43 @@
 
   If we would like to allow different gens to be of different max
   sizes, we would just freeze this and thaw at each use of the type.
+  However, this adds more branches to the code, so I imagine (without
+  evidence) that the version below is more efficient.
 
   The problem that we might encounter is that we now explore all of
   the possible tree sizes, which, when we consider that a tree of size
   at most n + 1 is a subset of a tree of size n, leads to duplicating
   work.
+  Potential solution: just adjust probabilities to encourage termination
+    of the gen, and then we get no duplicate work. In fact, we can have it
+    that it is VERY UNLIKELY to choose non-leaves with random chance, but
+    because concolic evaluation picks these unlikely choices without problem,
+    we get no downside.
+  Comment: among all of the test cases where this bounding was applicable but
+    not expected to be helpful, a few cases improved signficantly, and some
+    cases got a bit slower (at worst about 50ms slower, which is not even a 2x slowdown)
 
-  This means the only time we want to do this is for a type where the
+  Now back to the solution at hand...
+
+  This might suggest that the only time we want to do this is for a type where the
   generation is unlikely to terminate without the bounded depth. If it
   is likely to terminate, then we want to let the depth be unbounded to
   avoid duplicate work.
+
+  Note: We need separate gens and checks because we shouldn't check that 
+    the data is bounded (e.g. in the case of an insert function). I try
+    to code this into several examples, where the type we check against is
+    the unbounded version, but in the case that we insert and then have to
+    check against the wrap, it cannot be "well-typed" until I actually
+    affect the translation.
+
+  I've read the quickcheck source code, and roughly it seems like they split variant
+  constructors into those that are recursive and those that are not, and then when max
+  size is hit, they only pick from non-recursive constructors. We could maybe do a similar
+  simple variation and not try to read too much into the chances that a constructor ends
+  up recursive (because we have types as expressions) but instead just do a simple analysis
+  for paths to a recursive construction. i.e. do the simplest possible splitting into leaves
+  and non-leaves.
 *)
 let t =
   let tt = 
