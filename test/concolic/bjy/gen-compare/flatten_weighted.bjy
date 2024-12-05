@@ -1,8 +1,32 @@
 # flatten the input down to just a list of ints and bools
 
 (*
-  The well-typed version doesn't work here because we need a different gen
-  and check, but wrapping uses the type to check that we *want* to use to gen
+  I'm not sure how the well-typed version is actually correct here because
+  the type changes based on input, so the wrap should be raise a type error
+  because we can't really check against this.
+  To be clear, when we call `flatten a_ (`L tl)`, the `L tl does not necessarily
+  have the same type as the original input.
+
+  So either I am misunderstanding how this will work, or the concolic evaluator
+  is not good enough to find this error.
+
+  Here is an example input that should break it.
+
+  `L (
+    [ `A a , `L [ `A a ] ]
+  )
+
+  Then tl in the first call ends up as
+    [ `L [ `A a ] ]
+
+  so we call   
+    flatten a_ (`L [ `L [ `A a ] ])
+  
+  which has a different type than the original, so I thought that wrap would abort when checking it.
+
+  I have written a refinement that forces this input, and we get no error.
+
+  It seems I'm fighting an unimportant problem. This doesn't matter if it is baked into the gen during the translation.
 *)
 let any_type a =
   Mu tt.
