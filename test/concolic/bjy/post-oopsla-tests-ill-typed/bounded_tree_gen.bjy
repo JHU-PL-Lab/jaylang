@@ -106,7 +106,7 @@ let test =
       match tree with
       | `Node_A node ->
         match node.left with
-        | `Node_B node -> tree # ERROR HERE: just need a very simple tree to hit this
+        | `Node_B node -> 0 # ERROR HERE: just need a very simple tree to hit this
         | _ -> tree
         end
       | _ -> tree
