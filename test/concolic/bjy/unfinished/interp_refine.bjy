@@ -19,44 +19,21 @@ let triple =
   }
 in
 
-(*
-  let expr =
-    { t = 
-        Mu tt.
-        (  ``Int int
-        || ``If_then_else (triple.t tt tt tt)
-        || ``Function (pair.t ident.t tt)
-        || ``Var ident.t # unique var identifier
-        || ``Plus (pair.t tt tt)
-        || ``Minus (pair.t tt tt)
-        || ``Equal (pair.t tt tt)
-        || ``Appl (pair.t tt tt)
-        )
-    }
-  in
-*)
-
 let expr =
   { t =
-      let tt =
-        fun self ->
-          fun n ->
-            if n <= 0
-            then (* leaves *)
-              ( ``Int int || ``Var ident.t )
-            else
-              let tt = self self (n - 1) in
-              (  ``Int int
-              || ``Var ident.t # unique var identifier
-              || ``Function (pair.t ident.t tt)
-              || ``If_then_else (triple.t tt tt tt)
-              || ``Plus (pair.t tt tt)
-              || ``Minus (pair.t tt tt)
-              || ``Equal (pair.t tt tt)
-              || ``Appl (pair.t tt tt)
-              )
-      in
-      tt tt input
+      Mu tt.
+        let n = input in
+        if n == 123456789
+        then 
+          (  ``Function (pair.t ident.t tt)
+          || ``If_then_else (triple.t tt tt tt)
+          || ``Plus (pair.t tt tt)
+          || ``Minus (pair.t tt tt)
+          || ``Equal (pair.t tt tt)
+          || ``Appl (pair.t tt tt)
+          )
+        else
+          ( ``Int int || ``Var ident.t )
   }
 in
 
@@ -146,13 +123,13 @@ let specific_expr_type =
         end
       | _ -> false
       end
-    then is_closed e # THIS IS CAUSING IT TO TAKE TOO LONG! 20 seconds just to gen anything passing
+    then is_closed e # THIS IS CAUSING IT TO TAKE TOO LONG! 20 seconds just to gen anything passing (with the bounded version)
+        # ^ it is better with the probabilistic termination, though
     else false
   }
 in
 
 let rec eval (e : specific_expr_type) : value.t =
-  let ignore = 0 0 in
   let op_ints p op = 
     match eval p.left with 
     | `Int i1 ->
@@ -179,7 +156,7 @@ let rec eval (e : specific_expr_type) : value.t =
     | `Int i ->
       if i == 0
       then eval trip.second
-      else eval trip.trip
+      else eval trip.third
     #| _ -> ill_typed 00 # ERROR: forgot about ill-typed case
     end
   end

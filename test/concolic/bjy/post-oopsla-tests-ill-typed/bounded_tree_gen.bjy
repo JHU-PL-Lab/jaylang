@@ -43,6 +43,9 @@
   up recursive (because we have types as expressions) but instead just do a simple analysis
   for paths to a recursive construction. i.e. do the simplest possible splitting into leaves
   and non-leaves.
+
+  It seems like no matter if we choose to adjust probabilities or go with a size bound,
+  we need to figure out which are leaves and which are not.
 *)
 let t =
   let tt = 
@@ -67,47 +70,65 @@ let t =
   tt tt input (* input bounds the depth to a fixed number for each run of the program *)
 in
 
-let t_unbounded =
-  let tt = 
-    fun self ->
-      (  ``Node_A {: left : self self
-                  , right : self self
-                  , item : int
-                  :}
-      || ``Node_B {: left : self self
-                  , right : self self
-                  , item : int
-                  :}
-      || ``Leaf int
-      )
-  in
-  tt tt
+let t_unbounded = Mu tt.
+  (  ``Node_A {: left : tt
+              , right : tt
+              , item : int
+              :}
+  || ``Node_B {: left : tt
+              , right : tt
+              , item : int
+              :}
+  || ``Leaf int
+  )
 in
 
-(* takes 8 seconds to find this error *)
-(*
-  let f (tree : t_unbounded) : t_unbounded =
-    match tree with
-    | `Node_A node ->
-      match node.left with
-      | `Node_B node -> 0 # ERROR HERE: just need a very simple tree to hit this
+let t_weighted = Mu tt.
+  let x = input in
+  if x == 123456789
+  then (* chose unlikely number so pick a nonterminal *)
+    (  ``Node_A {: left : tt
+                , right : tt
+                , item : int
+                :}
+    || ``Node_B {: left : tt
+                , right : tt
+                , item : int
+                :}
+    )
+  else
+    ``Leaf int
+in
+
+let test =
+  fun tt ->
+    let f (tree : tt) : t_unbounded =
+      match tree with
+      | `Node_A node ->
+        match node.left with
+        | `Node_B node -> tree # ERROR HERE: just need a very simple tree to hit this
+        | _ -> tree
+        end
       | _ -> tree
       end
-    | _ -> tree
-    end
-  in
-*)
-
-(* This takes less than a tenth of a second to find the error *)
-let f (tree : t) : t =
-  match tree with
-  | `Node_A node ->
-    match node.left with
-    | `Node_B node -> 0
-    | _ -> tree
-    end
-  | _ -> tree
-  end
+    in
+    f
 in
 
-f
+test t_weighted
+
+(* takes several seconds to find this error *)
+(*
+f t_unbounded
+*)
+
+(* This takes a few hundredths of a second to find the error *)
+(*
+f t
+*)
+
+(* and same for this *)
+(*
+f t_weighted
+*)
+

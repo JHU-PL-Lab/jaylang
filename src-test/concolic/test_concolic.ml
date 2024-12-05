@@ -39,6 +39,8 @@ let () =
     (
       []
       (* @ make_tests_ill_typed "bjy/deep-type-error" *)
+
+      @ make_tests_ill_typed "bjy/gen-compare" (* presently (4 Dec) these are all ill-typed *)
       
       @ make_tests_ill_typed "bjy/post-oopsla-tests-ill-typed"
       @ make_tests_well_typed "bjy/post-oopsla-tests-well-typed"

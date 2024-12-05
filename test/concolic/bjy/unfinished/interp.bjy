@@ -23,35 +23,42 @@ let triple =
 in
 
 let expr =
-  { t =
-      let tt =
-        fun self ->
-          fun n ->
-            if n <= 0
-            then (* leaves *)
-              ( ``Int int || ``Var ident.t )
-            else
-              let n_1 = n - 1 in
-              let tt = self self (n - 1) in (* TODO: DOES THIS TERMINATE OKAY? *)
-              (  ``Int int
-              || ``Var ident.t # unique var identifier
-              || ``Function (pair.t ident.t tt)
-              || ``If_then_else (triple.t tt tt tt)
-              || ``Plus (pair.t tt tt)
-              || ``Minus (pair.t tt tt)
-              || ``Equal (pair.t tt tt)
-              || ``Appl (pair.t tt tt)
-              )
-      in
-      tt tt input
+  { t_gen =
+      Mu tt.
+        let n = input in
+        if n == 123456789
+        then 
+          (  ``Function (pair.t ident.t tt)
+          || ``If_then_else (triple.t tt tt tt)
+          || ``Plus (pair.t tt tt)
+          || ``Minus (pair.t tt tt)
+          || ``Equal (pair.t tt tt)
+          || ``Appl (pair.t tt tt)
+          )
+        else
+          ( ``Int int || ``Var ident.t )
+  , t_check =
+      Mu tt.
+        ( ``Int int
+        || ``Var ident.t
+        || ``Function (pair.t ident.t tt)
+        || ``If_then_else (triple.t tt tt tt)
+        || ``Plus (pair.t tt tt)
+        || ``Minus (pair.t tt tt)
+        || ``Equal (pair.t tt tt)
+        || ``Appl (pair.t tt tt)
+        )
   }
 in
 
 let value =
-  { t =
+  let t expr_t =
     ( ``Int int
-    || ``Function (pair.t ident.t expr.t)
+    || ``Function (pair.t ident.t expr_t)
     )
+  in
+  { t_gen = t expr.t_gen
+  , t_check = t expr.t_check
   }
 in
 
@@ -129,7 +136,8 @@ let ill_typed x =
   assume false
 in
 
-let rec eval (e : {. expr.t | is_closed }) : value.t =
+# It takes a while to find this error. I'm still unsure if there's a natural reason why other than "it's a hard problem"
+let rec eval (e : {. expr.t_gen | is_closed }) : value.t_check =
   let op_ints p op = 
     match eval p.left with 
     | `Int i1 ->
@@ -148,7 +156,7 @@ let rec eval (e : {. expr.t | is_closed }) : value.t =
   | `Equal p -> op_ints p (fun a -> fun b -> if a == b then 0 else 1)
   | `Appl p ->
     match eval p.left with
-    | `Function p2 -> eval (subst p2.right p2.left (eval p.right)) # ERROR idea : don't eval p.right
+    | `Function p2 -> eval (subst p2.right p2.left (eval p.right)) # ERROR idea : don't eval p.right (isn't caught--is it actually an error?)
     | _ -> ill_typed 00
     end
   | `If_then_else trip ->
@@ -156,7 +164,7 @@ let rec eval (e : {. expr.t | is_closed }) : value.t =
     | `Int i ->
       if i == 0
       then eval trip.second
-      else eval trip.trip
+      else eval trip.third # I had a bug here where I had trip.trip instead of trip.third. That's a (natural) error
     #| _ -> ill_typed 00 # ERROR: forgot about ill-typed case
     end
   end

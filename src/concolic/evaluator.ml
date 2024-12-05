@@ -232,8 +232,7 @@ let eval_exp
 
   get_session
   @@ eval_exp ~symb_session ~step:0 Denv.empty e (fun res ->
-      let s = Cresult.show res in
-      CLog.app (fun m -> m "Evaluated to: %s\n" s);
+      CLog.app (fun m -> m "Evaluated to: %s\n" @@ Cresult.show res);
       res
     )
 
