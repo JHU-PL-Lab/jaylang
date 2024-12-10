@@ -16,6 +16,7 @@ all: sc translator cj fuzzer
 
 sc:
 	dune build src/bin/sato_concolic.exe
+	cp ./sato_concolic.exe ./sc.exe
 
 translator:
 	dune build src/bin/translator.exe

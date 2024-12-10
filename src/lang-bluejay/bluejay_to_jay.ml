@@ -4,10 +4,10 @@ open Bluejay_ast_internal
 open Bluejay_to_jay_monad
 open BluejayTranslationMonad
 
-let rec mem (l : 'a list) (elm : 'a) (eq : 'a -> 'a -> bool) : bool =
+(* let rec mem (l : 'a list) (elm : 'a) (eq : 'a -> 'a -> bool) : bool =
   match l with
   | [] -> false
-  | hd :: tl -> if eq elm hd then true else mem tl elm eq
+  | hd :: tl -> if eq elm hd then true else mem tl elm eq *)
 
 let lazy_logger = Logger_utils.make_lazy_logger "Bluejay_to_jay"
 

@@ -1,7 +1,4 @@
 
-# TODO: find where the abort is coming from so suddenly
-#   Refer to the difference with interp_refined, which should be very minimal
-
 let ident =
   { t = ``Id int
   , eq =
@@ -165,7 +162,7 @@ let rec eval (e : {. expr.t_gen | is_closed }) : value.t_check =
       if i == 0
       then eval trip.second
       else eval trip.third # I had a bug here where I had trip.trip instead of trip.third. That's a (natural) error
-    #| _ -> ill_typed 00 # ERROR: forgot about ill-typed case
+    | _ -> ill_typed 00 # ERROR: forgot about ill-typed case
     end
   end
 in

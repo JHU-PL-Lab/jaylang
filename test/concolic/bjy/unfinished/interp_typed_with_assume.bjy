@@ -1,0 +1,279 @@
+
+let nil =
+  { t = int
+  , v = 00
+  }
+in
+
+let pair =
+  { t = fun a -> fun b -> {: left : a , right : b :}
+  }
+in
+
+let triple =
+  { t = fun a -> fun b -> fun c -> {: first : a , second : b , third : c :}
+  }
+in
+
+let ttype = 
+  let tint = `TInt nil.v in
+  let rec eq a b =
+    match a with
+    | `TArrow p1 ->
+      match b with
+      | `TArrow p2 ->
+        # ERROR idea: I previously had first and second, but it should be left and right
+        eq p1.left p2.left
+        and eq p1.right p2.right
+      | _ -> false
+      end
+    | `TInt ignore ->
+      match b with
+      | `TInt ignore -> true
+      | _ -> false
+      end
+    end
+  in
+  { t_gen =
+      Mu tt.
+        if input == 123456789
+        then
+          ``TArrow (pair.t tt tt)
+        else
+          ``TInt nil.t
+  , t_check =
+      Mu tt.
+        (  ``TArrow (pair.t tt tt)
+        || ``TInt nil.t
+        )
+  , tint = tint
+  , eq = eq
+  , is_int = eq tint
+  }
+in
+
+let ident =
+  { t = ``Id int
+  , eq =
+      fun a -> fun b -> 
+        let x = match a with | `Id i -> i end in
+        let y = match b with | `Id i -> i end in
+        x == y
+  }
+in
+
+let expr =
+  { t_gen =
+      Mu tt.
+        let n = input in
+        if n == 123456789
+        then 
+          (  ``Function (triple.t ident.t ttype.t_gen tt)
+          || ``If_then_else (triple.t tt tt tt)
+          || ``Plus (pair.t tt tt)
+          || ``Minus (pair.t tt tt)
+          || ``Equal (pair.t tt tt)
+          || ``Appl (pair.t tt tt)
+          )
+        else
+          ( ``Int int || ``Var ident.t )
+  , t_check =
+      Mu tt.
+        ( ``Int int
+        || ``Var ident.t
+        || ``Function (triple.t ident.t ttype.t_check tt)
+        || ``If_then_else (triple.t tt tt tt)
+        || ``Plus (pair.t tt tt)
+        || ``Minus (pair.t tt tt)
+        || ``Equal (pair.t tt tt)
+        || ``Appl (pair.t tt tt)
+        )
+  }
+in
+
+let value =
+  let t expr_t ttype_t =
+    ( ``Int int
+    || ``Function (triple.t ident.t ttype_t expr_t)
+    )
+  in
+  { t_gen = t expr.t_gen ttype.t_gen
+  , t_check = t expr.t_check ttype.t_check
+  }
+in
+
+let rec mem ls a eq =
+  match ls with
+  | [] -> false
+  | hd :: tl ->
+      if eq a hd
+      then true
+      else mem tl a eq
+  end
+in
+
+(*
+  This is to say that the input program is ill-typed.
+  We catch this at runtime and just diverge safely. If
+  our system was extremely performant, we might choose
+  to run type-inference as a refinement. However, we are
+  not yet close to being able to do that.
+*)
+let ill_typed x =
+  assume false
+in
+
+# Either produces a type or assumes false
+let typecheck e =
+  let add_to_env gamma id tau =
+    fun id_ ->
+      if ident.eq id_ id
+      then tau
+      else gamma id_
+  in
+  let rec typecheck e gamma =
+    let tc e =
+      typecheck e gamma
+    in
+    match e with
+    # Axioms
+    | `Var id -> gamma id
+    | `Int i -> ttype.tint
+    # Functions
+    | `Function trip ->
+      let tau = typecheck trip.third (add_to_env gamma trip.first trip.second) in
+      `TArrow { left = trip.second , right = tau } # ERROR idea: I accidentally had the `a` in "arrow" as lowercase
+    | `Appl p ->
+      match tc p.left with # ERROR idea: I had p.first and p.second, when really it is left and right
+      | `TArrow p_arrow ->
+        let tau_arg = tc p.right in
+        if ttype.eq p_arrow.left tau_arg
+        then p_arrow.right
+        else ill_typed nil.v
+      | _ -> ill_typed nil.v
+      end
+    # Conditions
+    | `If_then_else trip -> 
+      let tau_cond = tc trip.first in
+      if ttype.is_int tau_cond
+      then
+        let tau_left = tc trip.second in
+        let tau_right = tc trip.third in
+        if ttype.eq tau_left tau_right
+        then tau_left
+        else ill_typed nil.v
+      else ill_typed nil.v
+    # Simple expressions
+    | _ ->
+      let p =
+        match e with
+        | `Plus p -> p
+        | `Minus p -> p
+        | `Equal p -> p
+        end
+      in
+      if
+        ttype.is_int (tc p.left)
+        and ttype.is_int (tc p.right)
+      then ttype.tint
+      else ill_typed nil.v
+    | _ -> assume false
+    end
+  in
+  typecheck e (fun ignore -> assume false)
+in
+
+# TODO: do I even need to check if it's closed when I am already typechecking?
+let is_closed e =
+  let rec is_closed_rec idents e =
+    match e with
+    | `Var id -> mem idents id ident.eq
+    | `Int i -> true
+    | `Function trip -> is_closed_rec (trip.first :: idents) trip.third # ERROR idea: I had trip.first.left instead of just trip.first
+    | `If_then_else trip ->
+      is_closed_rec idents trip.first
+      and is_closed_rec idents trip.second
+      and is_closed_rec idents trip.third
+    | _ ->
+      let p =
+        match e with
+        | `Plus p -> p
+        | `Minus p -> p
+        | `Equal p -> p
+        | `Appl p -> p
+        end
+      in
+        is_closed_rec idents p.left
+        and is_closed_rec idents p.right
+    end
+  in
+  is_closed_rec [] e
+in
+
+let is_closed_and_well_typed e =
+  match typecheck e with
+  | _ -> is_closed e
+  end
+in
+
+#let subst (e : expr.t) (id : ident.t) (v : value.t) : expr.t =
+let subst e id v =
+  let rec sub e =
+    let sub_pair p =
+      { left = sub p.left
+      , right = sub p.right }
+    in
+    match e with
+    | `Var var_id ->
+        if ident.eq var_id id
+        then v
+        else e
+    | `Int i -> e
+    | `Function trip ->
+        if ident.eq trip.first id
+        then e
+        else `Function { first = trip.first , second = trip.second ,  third = sub trip.third }
+    | `Plus p -> `Plus (sub_pair p)
+    | `Minus p -> `Minus (sub_pair p)
+    | `Equal p -> `Equal (sub_pair p)
+    | `Appl p -> `Appl (sub_pair p)
+    | `If_then_else trip -> `If_then_else { first = sub trip.first , second = sub trip.second , third = sub trip.third }
+    end
+  in
+  sub e
+in
+
+let int_exn e =
+  match e with
+  | `Int i -> i
+  end
+in
+
+# It takes a while to find this error. I'm still unsure if there's a natural reason why other than "it's a hard problem"
+let rec eval (e : {. expr.t_gen | is_closed_and_well_typed }) : value.t_check =
+  let op_ints p op = 
+    let i1 = int_exn (eval p.left) in
+    let i2 = int_exn (eval p.right) in
+    `Int (op i1 i2)
+  in
+  match e with
+  | `Int i -> e
+  | `Function trip -> e
+  | `Plus p -> op_ints p (fun a -> fun b -> a + b)
+  | `Minus p -> op_ints p (fun a -> fun b -> a - b)
+  | `Equal p -> op_ints p (fun a -> fun b -> if a == b then 1 else 0)
+  | `Appl p ->
+    match eval p.left with
+    | `Function trip -> eval (subst trip.third trip.first (eval p.right))
+    end
+  | `If_then_else trip ->
+    match eval trip.first with
+    | `Int i ->
+      if i <> 0 # non-zero int is true, like in C
+      then eval trip.second
+      else eval trip.third # I had a bug here where I had trip.trip instead of trip.third. That's a (natural) error
+    end
+  end
+in
+
+eval
