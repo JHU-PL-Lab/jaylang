@@ -29,7 +29,7 @@ let dir = "test/concolic/"
 
 let make_tests e s t = group_tests (dir ^ s) t (test_for_abort e)
 
-let make_tests_well_typed s = make_tests false s `Slow
+let[@ocaml.warning "-32"] make_tests_well_typed s = make_tests false s `Slow
 let make_tests_ill_typed s = make_tests true s `Quick
 
 let () =
@@ -39,6 +39,8 @@ let () =
     (
       []
       (* @ make_tests_ill_typed "bjy/deep-type-error" *)
+
+      (* @ make_tests_ill_typed "bjy/ill-typed-interpreter" *)
 
       @ make_tests_ill_typed "bjy/gen-compare" (* presently (4 Dec) these are all ill-typed *)
       
