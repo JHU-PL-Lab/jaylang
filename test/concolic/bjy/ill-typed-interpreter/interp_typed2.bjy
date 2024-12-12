@@ -1,3 +1,4 @@
+# Time to find error: almost instant, 57 ms
 
 let nil =
   { t = int

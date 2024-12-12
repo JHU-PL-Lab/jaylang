@@ -1,3 +1,6 @@
+# Time to find error:
+# About 41 seconds with nil as int
+# About 18 seconds with nil as bool (I think this is just lucky. There is no explanation or positive pattern in other tests)
 
 let nil =
   { t = int

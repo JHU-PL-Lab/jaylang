@@ -1,3 +1,6 @@
+# Time to find error:
+# With nil as int: 4.5 minutes
+# With nil as bool: 4.6 minutes
 
 let nil =
   { t = int
@@ -248,7 +251,7 @@ let rec eval (e : {. expr.t_gen | is_closed_and_well_typed }) : value.t_check =
   | `Equal p -> op_ints p (fun a -> fun b -> if a == b then 1 else 0)
   | `Appl p ->
     match eval p.left with
-    | `Function trip -> eval (subst trip.third trip.first (eval p.right))
+    #| `Function trip -> eval (subst trip.third trip.first (eval p.right))
     | `Function trip -> eval (subst trip.third trip.first p.right) # ERROR: forgot to eval right, which gets checked by wrap if we had types on subst (but I have a value checker in subst, so it is effectively on). This is caught in 4 1/2 minutes
     # With such an error, something as simple as (Fun x : int -> x) (0 + 0) would do it, and many others also work. It's too bad that it is so hard to generate this
     end

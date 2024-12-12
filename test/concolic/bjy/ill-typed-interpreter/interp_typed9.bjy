@@ -1,3 +1,6 @@
+# Time to find error:
+# With nil as int: .25s
+# With nil as bool: .23s
 
 let nil =
   { t = int

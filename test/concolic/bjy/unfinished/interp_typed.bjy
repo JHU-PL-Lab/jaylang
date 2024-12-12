@@ -4,8 +4,8 @@
 #   From some quick fitting, it seems I'd need at least 10 days to exhaust 30 branches deep. That ain't happening
 
 let nil =
-  { t = int
-  , v = 00
+  { t = bool
+  , v = true
   }
 in
 
