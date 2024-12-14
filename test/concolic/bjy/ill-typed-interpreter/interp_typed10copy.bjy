@@ -93,14 +93,62 @@ let expr =
   }
 in
 
+let rec mem ls a eq =
+  match ls with
+  | [] -> false
+  | hd :: tl ->
+      if eq a hd
+      then true
+      else mem tl a eq
+  end
+in
+
+let free_vars e =
+  let rec loop e bound_ids acc =
+    match e with
+    | `Var var_id ->
+      if mem bound_ids var_id ident.eq
+      then acc
+      else var_id :: acc
+    | `Int i -> acc
+    | `Function trip -> loop trip.third (trip.first :: bound_ids) acc
+    | `If_then_else trip ->
+      let acc1 = loop trip.first bound_ids acc in
+      let acc2 = loop trip.second bound_ids acc1 in
+      let acc3 = loop trip.third bound_ids acc2 in
+      acc3
+    | _ -> 
+      let p = 
+        match e with
+        | `Plus p -> p
+        | `Minus p -> p
+        | `Equal p -> p
+        | `Appl p -> p
+        end
+      in
+      let acc1 = loop p.left bound_ids acc in
+      let acc2 = loop p.right bound_ids acc1 in
+      acc2
+    end
+  in
+  loop e [] []
+in
+
+let is_closed e = 
+  match free_vars e with
+  | [] -> true
+  | _ -> false
+  end
+in
+
 let value =
   let t expr_t ttype_t =
     ( ``Int int
     || ``Function (triple.t ident.t ttype_t expr_t)
     )
   in
-  { t_gen = t expr.t_gen ttype.t_gen
-  , t_check = t expr.t_check ttype.t_check
+  { t_gen = t ({. expr.t_gen | is_closed }) ttype.t_gen
+  , t_check = t ({. expr.t_check | is_closed }) ttype.t_check
   }
 in
 
@@ -203,9 +251,70 @@ let is_closed_and_well_typed e =
   # Note we don't actually have to check for closed because that would be an unbound variable when typechecking
 in
 
-#let subst (e : expr.t) (id : ident.t) (v : value.t) : expr.t =
+let rec list_remove ls a eq =
+  match ls with
+  | [] -> []
+  | hd :: tl ->
+      if eq a hd
+      then list_remove tl a eq
+      else hd :: list_remove tl a eq
+  end
+in
+
+let set_eq ls1 ls2 eq =
+  let rec is_subset subset superset =
+    match subset with
+    | [] -> true
+    | hd :: tl ->
+      if mem superset hd eq
+      then is_subset tl superset
+      else false
+    end
+  in
+  is_subset ls1 ls2
+  and is_subset ls2 ls1
+in
+
+(*
+let free_vars e =
+  let rec loop e bound_ids acc k =
+    match e with
+    | `Var var_id ->
+      if mem bound_ids var_id ident.eq
+      then k acc
+      else k (var_id :: acc)
+    | `Int i -> k acc
+    | `Function trip -> loop trip.third (trip.first :: bound_ids) acc k
+    | `If_then_else trip ->
+        loop trip.first bound_ids acc (fun res ->
+          loop trip.second bound_ids res (fun res ->
+            loop trip.third bound_ids res k
+          )
+        )
+    | _ -> 
+      let p = 
+        match e with
+        | `Plus p -> p
+        | `Minus p -> p
+        | `Equal p -> p
+        | `Appl p -> p
+        end
+      in
+      loop p.left bound_ids acc (fun res ->
+        loop p.right bound_ids res k # previous ERROR: I had trip.right but should be p.right, I also had acc instead of res (failing to propogate)
+      )
+    end
+  in
+  loop e [] [] (fun res -> res)
+in
+*)
+
 # after subst, the expression has the same free variables as e, minus id
-let subst e id v =
+letd subst (e : expr.t_gen) : (id : ident.t) -> value.t_gen -> {. expr.t_check | fun new_expr ->
+  let new_free_vars = free_vars new_expr in
+  let old_free_vars = free_vars e in
+  set_eq new_free_vars (list_remove old_free_vars id ident.eq) ident.eq
+  } = fun id -> fun v ->
   let rec sub e =
     let sub_pair p =
       { left = sub p.left
@@ -225,14 +334,19 @@ let subst e id v =
     | `Minus p -> `Minus (sub_pair p)
     | `Equal p -> `Equal (sub_pair p)
     | `Appl p -> `Appl (sub_pair p)
+    #| `If_then_else trip -> `If_then_else { first = sub trip.first , second = sub trip.second , third = sub trip.third } # well-typed
     | `If_then_else trip -> `If_then_else { first = sub trip.second , second = sub trip.second , third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label
-      # This error is very difficult because we need something like
-      #    (fun x : int -> if x then fun y : int -> y else fun y : int -> y) 0
-      # So that the condition evaluates to a non-int after the substitution
+    # This gets caught nearly instantly with types on subst
     end
   in
   sub e
 in
+
+# Archive this error
+    #| `If_then_else trip -> `If_then_else { first = sub trip.second , second = sub trip.second , third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label
+      # Without types on subst, this error is very difficult because we need something like
+      #    (fun x : int -> if x then fun y : int -> y else fun y : int -> y) 0
+      # So that the condition evaluates to a non-int after the substitution
 
 let int_exn e =
   match e with
@@ -240,7 +354,8 @@ let int_exn e =
   end
 in
 
-let rec eval (e : {. expr.t_gen | is_closed_and_well_typed }) : value.t_check =
+#let rec eval (e : {. expr.t_gen | is_closed_and_well_typed }) : value.t_check =
+let rec eval e =
   let op_ints p op = 
     let i1 = int_exn (eval p.left) in
     let i2 = int_exn (eval p.right) in
