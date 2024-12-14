@@ -88,7 +88,7 @@ module Make (Ctx : Finite_callstack.C) = struct
     let visited = Hashtbl.create (module Quadruple_as_key) in
     let store_saved = ref None in
     let depth = ref 0 in
-    let max_depth = ref 0 in
+    (* let max_depth = ref 0 in *)
 
     let probe (store, aenv, ctx, e) =
       Hashtbl.update visited (store, aenv, ctx, e) ~f:(function
@@ -121,7 +121,7 @@ module Make (Ctx : Finite_callstack.C) = struct
           let e_set = Hash_set.create (module Abs_exp) in
           Hashtbl.fold visited ~init:(0, 0, 0, 0)
             ~f:(fun ~key ~data (store_n, aenv_n, ctx_n, e_n) ->
-              let key = (store, aenv, ctx, e) in
+              (* let key = (store, aenv, ctx, e) in *)
               let store_n =
                 match Hash_set.strict_add astore_set store with
                 | Ok _ -> store_n + 1
@@ -288,7 +288,7 @@ module Make (Ctx : Finite_callstack.C) = struct
       let same_e_in_quadruple (_, _, _, e1) (_, _, _, e2) =
         Abs_exp.compare e1 e2
       in
-      let pp_e_in_q fmt (_, _, _, e) = Abs_exp.pp fmt e in
+      (* let pp_e_in_q fmt (_, _, _, e) = Abs_exp.pp fmt e in *)
       visited |> Hashtbl.keys
       |> List.sort_and_group ~compare:same_e_in_quadruple
       |> List.map ~f:(fun es ->

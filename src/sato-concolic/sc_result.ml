@@ -77,8 +77,8 @@ let get_abort_cond_clause_id
 let get_odefa_errors (sato_state : Sc_state.t) (abort_var : Jayil.Ast.Ident.t)
     (interp_session : From_dbmc.Interpreter.session) (final_env : From_dbmc.Interpreter.denv) :
     Ast.clause * Sc_error.Jayil_error.t list =
-  let ab_mapping = sato_state.abort_mapping in
-  let on_to_odefa_maps = sato_state.on_to_odefa_maps in
+  (* let ab_mapping = sato_state.abort_mapping in *)
+  (* let on_to_odefa_maps = sato_state.on_to_odefa_maps in *)
   let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
   let abort_cond_var = abort_var in
   let (Clause (_, cls) as error_loc) =
@@ -244,7 +244,7 @@ module Jay_type_errors : Sc_result with type t = natodefa_error_record = struct
       (interp_session : From_dbmc.Interpreter.session)
       (final_env : From_dbmc.Interpreter.denv) (inputs : int option list) =
     let open Jay in
-    let (Clause (Var err_id, _) as error_loc), odefa_errors =
+    let (Clause (Var err_id, _)), odefa_errors =
       get_odefa_errors sato_state abort_var interp_session final_env
     in
     let odefa_inst_maps = sato_state.odefa_instrumentation_maps in
@@ -306,7 +306,7 @@ module Bluejay_type_errors : Sc_result with type t = ton_error_record = struct
       (final_env : From_dbmc.Interpreter.denv) (inputs : int option list) =
     let open Jay in
     let open Bluejay in
-    let (Clause (Var err_id, _) as error_loc), odefa_errors =
+    let (Clause (Var err_id, _)), odefa_errors =
       get_odefa_errors sato_state abort_var interp_session final_env
     in
     let odefa_inst_maps = sato_state.odefa_instrumentation_maps in

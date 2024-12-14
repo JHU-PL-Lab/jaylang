@@ -1,6 +1,3 @@
-# Time to find error:
-# With nil as int: unsure
-# With nil as bool: unsure
 
 let nil =
   { t = int

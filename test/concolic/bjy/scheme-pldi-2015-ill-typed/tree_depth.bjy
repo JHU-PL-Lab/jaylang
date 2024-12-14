@@ -1,5 +1,9 @@
 
-let t = Mu tt. (``Node {: left : tt , right : tt :} || ``Leaf {: leaf : bool :}) in
+let t = Mu tt.
+  if input == 123456789
+  then ``Node {: left : tt , right : tt :}
+  else ``Leaf {: leaf : bool :}
+in
 
 let max x y =
   if x > y

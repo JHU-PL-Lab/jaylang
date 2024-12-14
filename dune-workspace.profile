@@ -2,6 +2,12 @@
 
 (profile dev)
 
+(env
+ ; (dev
+ ;  (ocamlopt_flags (:standard -O3)))
+ (release
+  (ocamlopt_flags (:standard -O3))))
+
 (context
  (default
   (name profile)

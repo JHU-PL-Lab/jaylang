@@ -497,7 +497,7 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
   let jayil_to_jay_aliases aliases =
     aliases
     |> List.filter_map ~f:(fun alias ->
-           let show_expr_desc = Jay_ast_pp.show_expr_desc in
+           (* let show_expr_desc = Jay_ast_pp.show_expr_desc in *)
            let alias' = get_pre_inst_id alias in
            let e_desc = jayil_to_jay_expr alias' in
            match e_desc.body with
@@ -507,11 +507,11 @@ let jayil_to_jay_error (jayil_inst_maps : Jayil_instrumentation_maps.t)
            | _ -> None)
     |> Batteries.List.unique
   in
-  let get_idents_from_aliases (aliases : expr_desc list) =
+  (* let get_idents_from_aliases (aliases : expr_desc list) =
     aliases
     |> List.filter_map ~f:(fun ed ->
            match ed.body with Var x -> Some x | _ -> None)
-  in
+  in *)
   let jayil_to_jay_value (aliases : Ast.ident list) : expr_desc =
     let last_var =
       try List.last_exn aliases

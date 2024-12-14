@@ -62,7 +62,7 @@ test-concolic:
 # benchmark
 
 cbenchmark:
-	dune exec $(BENCH_C)/cbenchmark.exe
+	dune exec --profile=release $(BENCH_C)/cbenchmark.exe
 
 # legacy
 
