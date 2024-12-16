@@ -1,0 +1,8 @@
+
+let rec f (x : {. int | fun i -> i == 0}) : int =
+  if x == 0
+  then f (x - 1) # this should be an error caught by wrap
+  else x
+in
+
+f
