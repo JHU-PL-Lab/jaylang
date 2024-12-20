@@ -1,0 +1,265 @@
+
+
+# OCaml code for snapshottable stores
+#
+# type node = data ref
+# and data =
+#   | Mem
+#   | Diff : 'a Ref.t * 'a * int * node -> data
+#
+# let create () = { root = ref Mem ; gen = 0 }
+#
+# module Ref = struct
+#   type 'a t = { mutable v : 'a ; mutable g : int }
+#   let make v = { v ; g = 0 }
+#   let get _s r = r.v
+#   let set s r v =
+#     if r.g = s.gen 
+#     then r.v <- v
+#     else
+#       let root = ref Mem in
+#       s.root := Diff (r, r.v, r.g, root) ;
+#       s.root <- root ;
+#       r.v <- v ;
+#       r.g <- s.gen
+# end
+#
+# type store = { mutable root : node ; mutable gen : int }
+# type snapshot = { root : node ; gen : int }
+#
+# let rec reroot n =
+#   match !n with
+#   | Mem -> ()
+#   | Diff (r, v, g, n') ->
+#     reroot n' ;
+#     n := Mem ;
+#     n' := Diff (r, r.v, r.g, n) ; 
+#     r.v <- v ;
+#     r.g <- g ;
+#
+# let capture ({ root ; gen } as store) = 
+#   let snap = { root ; gen } in
+#   store.gen <- store.gen + 1 ;
+#   snap
+#
+# let restore s snap =
+#   reroot snap.root ;
+#   s.root <- snap.root
+#   s.gen <- snap.gen + 1
+#
+#
+# Now I need to encode this with the ref monad
+
+
+let unit = {: terminal : int :}
+in
+
+let u = { terminal = 00 }
+in
+
+# We don't actually have an "any" type, so this is an attempt to enumerate a few types we might use
+let any = Mu t.
+  ``U unit
+  || ``I int 
+  || ``B bool
+  || ``L (List t)
+in
+
+let id = 
+  let get =
+    fun x ->
+      match x with
+      | `Id i -> i
+      end
+  in
+  { t = ``Id int
+  , get = get
+  , make =
+      fun i ->
+        `Id i
+  , eq = 
+      fun i1 -> fun i2 ->
+        get i1 == get i2
+  , initial = `Id 0
+  }
+in
+
+# Suppose this usually is polymorphic. 
+let a = ``A int
+in
+
+let data =
+  ``Diff
+      {: cell : id.t     # the id for the ref cell that this diff corresponds to
+        , val  : a       # the value that got assigned to the ref cell during this diff
+        , gen  : int     # the generation the diff was done in
+        , next : id.t    # the id for the ref cell of the child of this node
+      :}
+  || ``Mem unit          # this node is what is currently stored in memory
+in
+
+let poly_map =
+  { t =
+      List
+        {: key : id.t
+        , data : any
+        :}
+  , empty = []
+  , set = 
+      fun t -> fun key -> fun data ->
+        let rec insert ls =
+          match ls with
+          | [] -> [ { key = key , data = data } ]
+          | hd :: tl ->
+            if id.eq key hd.key
+            then { key = key , data = data } :: tl
+            else hd :: insert tl
+          end
+        in
+        insert t
+  , find = 
+      fun t -> fun key ->
+        let rec look ls =
+          match ls with
+          | [] -> assume false
+          | hd :: tl ->
+            if id.eq key hd.key # ERROR idea: forgot to project key out of hd
+            then hd.data
+            else look tl
+          end
+        in
+        look t
+  , size =
+      fun t ->
+        let rec length ls =
+          match ls with
+          | [] -> 0
+          | hd :: tl -> 1 + length tl
+          end
+        in
+        length t
+  }
+in
+
+let state = 
+  let size =
+    fun t ->
+      poly_map.size t.map
+  in
+  { t =
+    {: map    : poly_map.t
+    , next_id : id.t
+    :}
+  , size = size
+  , is_progression =
+      fun t1 -> fun t2 ->
+        id.get t2.next_id >= id.get t1.next_id
+        and size t2 >= size t1 # ERROR idea: I had accidentally switched the order of t1 and t2 in this
+  , incr_id =
+      fun t ->
+        { map = t.map , next_id = id.make (id.get t.next_id + 1) }
+  , set_map =
+      fun t -> fun pm ->
+        { map = pm , next_id = t.next_id }
+  , initial = { map = poly_map.empty , next_id = id.initial }
+  }
+in
+
+let m a = 
+  (s : state.t) ->
+    {: new_state : {. state.t | state.is_progression s }
+     , value     : a
+    :}
+in
+
+#let bind (type a b) (x : m a) (f : a -> m b) : m b = 
+let bind x f =
+  fun s ->
+    match x s with
+    | { new_state = ss , value = a } -> f a ss
+    end
+in
+
+let return a =
+  fun s ->
+    { new_state = s , value = a }
+in
+
+let fmap x f = bind x (fun a -> return (f a))
+in
+
+#let (read : m state.t) =
+let read =
+  fun s ->
+    { new_state = s , value = s }
+in
+
+let run x = (x state.initial).value
+in
+
+let modify f =
+  fun s ->
+    { new_state = f s , value = u }
+in
+
+#let deref (ref_id : id.t) : m any =
+let deref ref_id =
+  bind read (fun s ->
+    return (poly_map.find s.map ref_id)
+  )
+in
+
+let set_ref ref_id v =
+  modify (fun s ->
+    state.set_map 
+      s
+      (poly_map.set s.map ref_id v)
+  )
+in
+
+let new_ref x =
+  fun s ->
+    let new_id = s.next_id in
+    { value     = new_id
+    , new_state =
+        state.set_map
+          (state.incr_id s)
+          (poly_map.set s.map new_id x)
+    }
+in
+
+let res =
+  match run (
+    let ref0_m = new_ref (`I 2) in
+    let ref1_m = new_ref (`I 3) in
+
+    bind ref0_m          (fun ref0_id ->
+    bind ref1_m          (fun ref1_id -> 
+    bind (deref ref0_id) (fun ref0_v ->
+
+    match ref0_v with
+    | `I ref0_i ->
+      let new_v = `I (ref0_i * 3 + 1) in
+      let ref0_m = set_ref ref0_id new_v in
+
+      bind ref0_m          (fun ignore_unit  ->
+      bind (deref ref1_id) (fun ref1_v ->       # reading the value from the other cell, should be 3
+      bind (deref ref0_id) (fun ref0_v ->       # getting the (previously ignored) value, should be 7
+
+      match ref1_v with
+      | `I ref1_i ->
+        match ref0_v with
+        | `I ref0_i ->
+          return (`I (ref0_i + ref1_i))
+        end
+      end )))
+    end )))
+  ) with
+  | `I i ->
+    if i <> 10
+    then assert false
+    else assume true
+  end
+in
+
+bind

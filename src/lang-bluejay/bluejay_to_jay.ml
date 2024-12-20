@@ -3262,18 +3262,11 @@ let[@landmarks] transform_bluejay ?(do_wrap = true) (e : syn_type_bluejay) :
            Bluejay_ast_internal_pp.pp_expr_desc_with_tag (new_expr_desc e)
        in *)
     let%bind e' =
-      if do_wrap
-      then
-        return (new_expr_desc e)
-        >>= debug_transform_bluejay "initial" (fun e -> return e)
-        >>= debug_transform_bluejay "bluejay wrap" wrap
-        >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
-        >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
-      else
-        return (new_expr_desc e)
-        >>= debug_transform_bluejay "initial" (fun e -> return e)
-        >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
-        >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
+       return (new_expr_desc e)
+      >>= debug_transform_bluejay "initial" (fun e -> return e)
+      >>= begin if do_wrap then debug_transform_bluejay "bluejay wrap" wrap else (fun e -> return e) end
+      >>= debug_transform_bluejay "typed bluejay phase one" semantic_type_of
+      >>= debug_transform_bluejay "typed bluejay phase two" bluejay_to_jay
     in
     let%bind bluejay_jay_map = bluejay_to_jay_maps in
     return (e', bluejay_jay_map)
