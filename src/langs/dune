@@ -1,0 +1,27 @@
+(copy_files# parse-bluejay/*.{ml,mli})
+(copy_files parse-bluejay/*.{mll,mly})
+
+(ocamllex
+  lexer
+)
+(menhir
+  (flags --explain)
+  (modules
+    parser
+  )
+)
+
+(library
+ (name langs)
+ (public_name jay.langs)
+ (synopsis "Languages in Jaylang")
+ (libraries
+  core
+  batteries
+  ; bluejay
+  fmt)
+ (preprocess
+  (pps ppx_jane))
+ (flags
+  (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
+  ))

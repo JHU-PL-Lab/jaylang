@@ -174,10 +174,19 @@ let encode_match_exprs recurse (match_expr : expr_desc)
 
 (** Transform a let rec expression into one that uses functions. E.g. let rec f
     n = ... in f 10 becomes let f = fun f' a -> let f = f' f' in ... in let f''
-    = f f in f'' 10 E.g. let rec f a = ... with g b = ... in f 10 becomes let f
-    = fun f' g' a -> let f'' = f' f' g' in let g'' = g' f' g' in ... in let g =
-    fun f' g' b -> let f'' = f' f' g' in let g'' = g' f' g' in ... in let f''' =
-    f'' f'' g'' in let g''' = g'' f'' g'' in f''' 10 *)
+    = f f in f'' 10 E.g. let rec f a = ... with g b = ... in f 10 becomes
+      let f = fun f' g' a ->
+        let f'' = f' f' g' in
+        let g'' = g' f' g' in
+        ...
+      in let g = fun f' g' b ->
+        let f'' = f' f' g' in
+        let g'' = g' f' g' in
+        ...
+      in
+      let f''' = f'' f'' g'' in
+      let g''' = g'' f'' g'' in
+      f''' 10 *)
 let letrec_expr_to_fun recurse fun_sig_list rec_e_desc =
   (* Translate inner expression *)
   let%bind transformed_rec_expr = recurse rec_e_desc in

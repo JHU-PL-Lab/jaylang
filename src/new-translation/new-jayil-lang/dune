@@ -1,0 +1,13 @@
+(library
+ (name new_jayil_lang)
+ (public_name jay.new_jayil_lang.ast)
+ (synopsis "New AST for JayIL")
+ (libraries
+  core
+  ppx_deriving_yojson.runtime
+  fmt)
+ (preprocess
+  (pps ppx_jane ppx_deriving.std ppx_deriving_yojson))
+ (flags
+  (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
+  ))

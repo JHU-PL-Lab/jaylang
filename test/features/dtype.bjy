@@ -1,0 +1,5 @@
+
+let (f : (x : int) -> {. int | fun y -> y == x }) = fun x -> x
+in
+
+f

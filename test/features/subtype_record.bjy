@@ -1,0 +1,43 @@
+
+
+#letd f (x : int) : (
+#  if x == 0
+#  then {: a : int :}
+#  else {: a : int , b : bool :}
+#) -> (
+#  if x == 0
+#  then {: a : int :}
+#  else {: a : int , b : bool :}
+#) =
+#  fun r ->
+#    r
+#in
+#
+#(f 1 { a = 0 , b = true }).b
+
+
+let f (r : {: a : int :}) : {: a : int :} =
+  match r with
+  | { a = a , b = b } -> r
+  | { a = a } -> r
+  end
+in
+
+(f { a = 10, b = true}).b
+
+if (f { a = 10 , b = true }) == 0
+then assert false
+else 0
+
+#let g (r : {: a : int , b : bool :}) : {: a : int , b : bool :} =
+#  r
+#in
+
+#(g (f { a = 10 , b = true })).b
+
+#if (g (f { a = 10 , b = true })).a == 0
+#then assert false
+#else f
+
+#(f { a = 0 , b = true }).b # in the current translation, we must evaluate this application twice, which is dumb
+

@@ -1,0 +1,36 @@
+
+let unit =
+  { t = {: unit : int :}
+  , inst = { unit = 0 } }
+in
+
+let super =
+  Mu t.
+    {: get_x : unit.t -> int 
+    , get_self : unit.t -> t
+    :}
+in
+
+let obj y = 
+  let ob =
+    fun self ->
+      { get_y = fun ignore -> y
+      , get_x = fun ignore ->
+          (self self).get_y unit.inst + 3
+      , get_self = fun ignore -> self self
+      }
+  in
+  ob ob
+in
+
+let rec f (ob : super) : int =
+  match ob with
+  | { get_y = get_y , get_x = get_x , _ } -> true
+  | { get_x = get_x , get_self = get_self } ->
+      if get_x unit.inst == 100
+      then f (get_self unit.inst)
+      else get_x unit.inst
+  end
+in
+
+f (obj 100)

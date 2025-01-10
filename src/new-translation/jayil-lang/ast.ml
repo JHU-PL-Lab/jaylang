@@ -65,7 +65,7 @@ module Binary_operator = struct
 end
 
 (** A type to express record values. *)
-type record_value = Record_value of Ident.t Ident_map.t
+type record_value = Record_value of value Ident_map.t
 [@@unboxed][@@deriving eq, ord, to_yojson]
 
 (** A type to express function values. *)
