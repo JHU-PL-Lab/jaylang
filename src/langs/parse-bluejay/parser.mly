@@ -1,6 +1,8 @@
 
 %{
   open Ast
+  open Expr
+  open Parsing_tools
 %}
 
 %token <string> IDENTIFIER
@@ -106,13 +108,8 @@ delim_expr:
 
 expr:
   | appl_expr /* Includes primary expressions */
-      { $1 : bjy }
-  | ASSERT expr
-      { EAssert $2 }
-  | ASSUME expr
-      { EAssume $2 }
-  | variant_label expr %prec prec_variant
-      { EVariant { label = $1 ; payload = $2 } }
+      { $1 }
+  // Binary operations
   | expr ASTERISK expr
       { EBinop { left = $1 ; binop = BTimes ; right = $3 } }
   | expr SLASH expr
@@ -137,16 +134,33 @@ expr:
       { EBinop { left = $1 ; binop = BLessThan ; right = $3 } }
   | expr LESS_EQUAL expr
       { EBinop { left = $1 ; binop = BLeq ; right = $3 } }
-  | NOT expr
-      { ENot $2 }
   | expr AND expr
       { EBinop { left = $1 ; binop = BAnd ; right = $3 } }
   | expr OR expr
       { EBinop { left = $1 ; binop = BOr ; right = $3 } }
+  // Simple non-function-let stuff
+  | NOT expr
+      { ENot $2 }
   | IF expr THEN expr ELSE expr %prec prec_if
       { EIf { cond = $2 ; true_body = $4 ; false_body = $6 } }
   | FUNCTION param_list ARROW expr %prec prec_fun
       { EMultiArgFunction { params = $2 ; body = $4 } }
+  | FUNCTION ident_decl ARROW expr %prec prec_fun // TODO does this clash with the above function where there are specifically multiple arguments ? 
+      { EFunction { param = $2 ; body = $4 } }
+  | MATCH expr WITH PIPE? match_expr_list END
+      { EMatch { subject = $2 ; patterns = $5 } }
+  | ASSERT expr
+      { EAssert $2 }
+  | ASSUME expr
+      { EAssume $2 }
+  | variant_label expr %prec prec_variant
+      { EVariant { label = $1 ; payload = $2 } }
+  // Let
+  | LET ident_decl EQUALS expr IN expr %prec prec_let
+      { ELet { var = $2 ; body = $4 ; cont = $6 }}
+  | LET OPEN_PAREN ident_decl COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
+      { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 ; cont = $10 } }
+  // Functions TODO
   | LET REC fun_sig_list IN expr %prec prec_fun
       { ELetFunRec { funcs = $3 ; cont = $5 } } // TODO 
       // { LetRecFun($3, new_expr_desc $5) }
@@ -158,10 +172,6 @@ expr:
       { LetRecFunWithType ($3, new_expr_desc $5) }
   | LET_D REC fun_sig_poly_dep_list IN expr %prec prec_let 
       { LetRecFunWithType ($3, new_expr_desc $5) }
-  | LET ident_decl EQUALS expr IN expr %prec prec_let
-      { Let($2, new_expr_desc $4, new_expr_desc $6) }
-  | LET OPEN_PAREN ident_decl COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
-      { LetWithType($3, new_expr_desc $8, new_expr_desc $10, new_expr_desc $5) }
   | LET fun_sig IN expr %prec prec_fun
       { LetFun($2, new_expr_desc $4) }
   | LET fun_sig_with_type IN expr %prec prec_fun
@@ -172,46 +182,57 @@ expr:
       { LetFunWithType ($2, new_expr_desc $4) }
   | LET_D fun_sig_poly_dep IN expr %prec prec_fun
       { LetFunWithType ($2, new_expr_desc $4) }
-  | MATCH expr WITH PIPE? match_expr_list END
-      { Match(new_expr_desc $2, $5) }
   // Types expressions
-  | basic_types { $1 }
+  | basic_types
+      { $1 }
   // | type_parameter { $1 }
   | MU ident_decl DOT expr 
-    { TypeRecurse ($2, build_recursive_type $2 (new_expr_desc $4)) }
-  | expr ARROW expr { TypeArrow (new_expr_desc $1, new_expr_desc $3) }
-  | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr { TypeArrowD (($2, new_expr_desc $4), new_expr_desc $7) }
-  // TODO: Change this to fancy curly
-  | OPEN_BRACE DOT expr PIPE expr CLOSE_BRACE { TypeSet (new_expr_desc $3, new_expr_desc $5) } 
-  | expr DOUBLE_AMPERSAND expr { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
-  | variant_type_body { TypeVariant $1 }
+      { TypeMu { var = $2 ; body = $4 }}
+    // { TypeRecurse ($2, build_recursive_type $2 (new_expr_desc $4)) }
+    // I think all this used to do is replace Var with TypeVar wherever the Mu type showed up
+  | expr ARROW expr
+      { ETypeArrow { domain = $1 ; codomain = $3 } }
+      // { TypeArrow (new_expr_desc $1, new_expr_desc $3) }
+  | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr
+      { ETypeArrowD { binding = $2 ; domain = $4 ; codomain = $7 } }
+      // { TypeArrowD (($2, new_expr_desc $4), new_expr_desc $7) }
+  | OPEN_BRACE DOT expr PIPE expr CLOSE_BRACE
+      { ETypeRefinement { tau = $3 ; predicate = $5 } }
+      // { TypeSet (new_expr_desc $3, new_expr_desc $5) } 
+  | expr DOUBLE_AMPERSAND expr
+      { ETypeIntersect ($1, $3) } 
+      // { TypeIntersect (new_expr_desc $1, new_expr_desc $3) }
+  | variant_type_body
+      { ETypeVariant $1 }
+      // { TypeVariant $1 }
 ;
 
 // type_parameter:
 //   | APOSTROPHE IDENTIFIER { TypeUntouched $2 }
 
 variant_type_body:
-  | variant_type_label expr { [($1, new_expr_desc $2)] }
-  | variant_type_label expr DOUBLE_PIPE variant_type_body { ($1, new_expr_desc $2) :: $4 }
+  | variant_type_label expr { [($1, $2)] }
+  | variant_type_label expr DOUBLE_PIPE variant_type_body { ($1, $2) :: $4 }
 
 record_type:
-  | OPEN_BRACE_TYPE record_type_body CLOSE_BRACE_TYPE
-      { TypeRecord $2 }
+  | OPEN_BRACE_TYPE record_body CLOSE_BRACE_TYPE
+      { ETypeRecord $2 }
   | OPEN_BRACE_TYPE CLOSE_BRACE_TYPE
-      { TypeRecord (Ident_map.empty) }
+      { ETypeRecord empty_record }
 
-record_type_body:
-  | label COLON expr
-      { new_record $1 (new_expr_desc $3) }
-  | label COLON expr COMMA record_type_body
-      { add_record_entry $1 (new_expr_desc $3) $5 }
-;
+// This is identical to record_body, so we just use record_body
+// record_type_body:
+//   | label COLON expr
+//       { new_record $1 $3 }
+//   | label COLON expr COMMA record_type_body
+//       { add_record_entry $1 $3 $5 }
+// ;
 
 basic_types:
-  | INT { TypeInt }
-  | BOOL_KEYWORD { TypeBool }
+  | INT { ETypeInt }
+  | BOOL_KEYWORD { ETypeBool }
   | record_type { $1 }
-  | LIST expr { TypeList (new_expr_desc $2) }
+  | LIST expr { ETypeList $2 }
 
 /* let foo x = ... */
 fun_sig:
@@ -265,7 +286,7 @@ fun_sig_poly_dep_list:
 
 /* (fun x -> x) y */
 appl_expr:
-  | appl_expr primary_expr { Appl((new_expr_desc $1), (new_expr_desc $2)) }
+  | appl_expr primary_expr { EAppl { func = $1 ; arg = $2 } }
   | primary_expr { $1 }
 ;
 
@@ -273,25 +294,25 @@ appl_expr:
    surrounding parentheses. */
 primary_expr:
   | INT_LITERAL
-      { Int $1 }
+      { EInt $1 }
   | BOOL
-      { Bool $1 }
+      { EBool $1 }
   | INPUT
-      { Input }
+      { EPick_i }
   | ident_usage
       { $1 }
   | OPEN_BRACE record_body CLOSE_BRACE
-      { Record $2 }
+      { ERecord $2 }
   | OPEN_BRACE CLOSE_BRACE
-      { Record Ident_map.empty }
+      { ERecord empty_record }
   | OPEN_BRACKET list_body CLOSE_BRACKET
-      { List $2 }
+      { EList $2 }
   | OPEN_BRACKET CLOSE_BRACKET
-      { List [] }
+      { EList [] }
   | OPEN_PAREN expr CLOSE_PAREN
       { $2 }
   | primary_expr DOT label
-      { RecordProj((new_expr_desc $1), $3) }
+      { EProject { record = $1 ; label = $3} }
 ;
 
 /* **** Idents + labels **** */
@@ -315,7 +336,7 @@ label:
 ;
 
 ident_usage:
-  | ident_decl { Var $1 }
+  | ident_decl { EVar $1 }
 ;
 
 ident_decl:
@@ -327,21 +348,24 @@ ident_decl:
 /* {x = 1, y = 2, z = 3} */
 record_body:
   | label EQUALS expr
-      { new_record $1 (new_expr_desc $3) }
+      { new_record $1 $3 }
   | label EQUALS expr COMMA record_body
-      { add_record_entry $1 (new_expr_desc $3) $5 }
+      { add_record_entry $1 $3 $5 }
 ;
 
-/* [1, 2, true] (Unlike ocaml, bluejay lists can be heterogenous) */
+/* [1, 2, true] (Unlike OCaml, Bluejay lists can be heterogenous) */
 list_body:
-  | expr COMMA list_body { (new_expr_desc $1) :: $3 }
-  | expr { [new_expr_desc $1] }
+  | expr COMMA list_body
+      { $1 :: $3 }
+  | expr
+      { [$1] }
 ;
 
-/* `Variant 2 */
+/* e.g. `Variant 0 */
 variant_label:
   | BACKTICK IDENTIFIER { VariantLabel.VariantLabel (Ident.Ident $2) }
 
+/* e.g. ``Variant int */ 
 variant_type_label:
   | BACKTICK BACKTICK IDENTIFIER { VariantLabel.VariantLabel (Ident.Ident $3) }
 
@@ -356,16 +380,16 @@ match_expr_list:
 
 match_expr:
   | pattern ARROW expr
-      { ($1, (new_expr_desc $3)) }
+      { ($1, $3) }
 
 pattern:
-  | UNDERSCORE { AnyPat }
-  | INT { IntPat }
-  | BOOL_KEYWORD { BoolPat }
-  | FUNCTION { FunPat }
-  | IDENTIFIER { VarPat(Ident($1)) }
-  | variant_label ident_decl { VariantPat($1, $2) }
-  | variant_label OPEN_PAREN ident_decl CLOSE_PAREN { VariantPat($1, $3) }
+  | UNDERSCORE { PAny }
+  | INT { PInt }
+  | BOOL_KEYWORD { PBool }
+  | FUNCTION { PFun }
+  | IDENTIFIER { PVariable (Ident.Ident $1) }
+  | variant_label ident_decl { VariantPat ($1, $2) }
+  | variant_label OPEN_PAREN ident_decl CLOSE_PAREN { PVariant ($1, $3) }
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE { StrictRecPat (record_from_list $2) }
   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) UNDERSCORE CLOSE_BRACE { RecPat (record_from_list $2) }
   | OPEN_BRACE CLOSE_BRACE { StrictRecPat (Ident_map.empty) }
@@ -385,4 +409,4 @@ separated_nonempty_trailing_list(separator, rule):
       { $1 }
   | separated_nonempty_list(separator,rule)
       { $1 }
-  ;
+;
