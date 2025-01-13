@@ -80,6 +80,8 @@
  */
 %nonassoc prec_let prec_fun   /* Let-ins and functions */
 %nonassoc prec_if             /* Conditionals */
+%nonassoc prec_mu             /* mu types */
+%nonassoc prec_list_type      /* list types */
 %left OR                      /* Or */
 %left AND                     /* And */
 %right NOT                    /* Not */
@@ -90,6 +92,7 @@
 %left ASTERISK SLASH PERCENT  /* * / % */
 %right ASSERT ASSUME prec_variant    /* Asserts, Assumes, and variants */
 %right ARROW                  /* -> for type declaration */
+%right DOUBLE_AMPERSAND      /* && for type intersection */
 
 %start <Bluejay.t> prog
 %start <Bluejay.t option> delim_expr
@@ -113,28 +116,48 @@ delim_expr:
 expr:
   | appl_expr /* Includes primary expressions */
       { $1 : Bluejay.t }
-  // Binary operations
-  | expr binop expr
-      { EBinop { left = $1 ; binop = $2 ; right = $3 } : Bluejay.t }
-  // Simple non-function-let stuff
-  | NOT expr
-      { ENot $2 : Bluejay.t }
-  | expr DOUBLE_COLON expr
-      { EListCons ($1, $3) : Bluejay.t }
-  | IF expr THEN expr ELSE expr %prec prec_if
-      { EIf { cond = $2 ; true_body = $4 ; false_body = $6 } : Bluejay.t }
-  | FUNCTION ident_decl ARROW expr %prec prec_fun // TODO does this clash with the below function where there are specifically multiple arguments ? 
-      { EFunction { param = $2 ; body = $4 } : Bluejay.t }
-  | FUNCTION param_list ARROW expr %prec prec_fun
-      { EMultiArgFunction { params = $2 ; body = $4 } : Bluejay.t }
-  | MATCH expr WITH PIPE? separated_nonempty_list(PIPE, match_expr) END
-      { EMatch { subject = $2 ; patterns = $5 } : Bluejay.t }
   | ASSERT expr
       { EAssert $2 : Bluejay.t }
   | ASSUME expr
       { EAssume $2 : Bluejay.t }
   | variant_label expr %prec prec_variant
       { EVariant { label = $1 ; payload = $2 } : Bluejay.t }
+  | expr ASTERISK expr
+      { EBinop { left = $1 ; binop = BTimes ; right = $3 } : Bluejay.t }
+  | expr SLASH expr
+      { EBinop { left = $1 ; binop = BDivide ; right = $3 } : Bluejay.t }
+  | expr PERCENT expr
+      { EBinop { left = $1 ; binop = BModulus ; right = $3 } : Bluejay.t }
+  | expr PLUS expr
+      { EBinop { left = $1 ; binop = BPlus ; right = $3 } : Bluejay.t }
+  | expr MINUS expr
+      { EBinop { left = $1 ; binop = BMinus ; right = $3 } : Bluejay.t }
+  | expr DOUBLE_COLON expr
+      { EListCons ($1, $3) : Bluejay.t }
+  | expr EQUAL_EQUAL expr
+      { EBinop { left = $1 ; binop = BEqual ; right = $3 } : Bluejay.t }
+  | expr NOT_EQUAL expr
+      { EBinop { left = $1 ; binop = BNeq ; right = $3 } : Bluejay.t }
+  | expr GREATER expr
+      { EBinop { left = $1 ; binop = BGreaterThan ; right = $3 } : Bluejay.t }
+  | expr GREATER_EQUAL expr
+      { EBinop { left = $1 ; binop = BGeq ; right = $3 } : Bluejay.t }
+  | expr LESS expr
+      { EBinop { left = $1 ; binop = BLessThan ; right = $3 } : Bluejay.t }
+  | expr LESS_EQUAL expr
+      { EBinop { left = $1 ; binop = BLeq ; right = $3 } : Bluejay.t }
+  | NOT expr
+      { ENot $2 : Bluejay.t }
+  | expr AND expr
+      { EBinop { left = $1 ; binop = BAnd ; right = $3 } : Bluejay.t }
+  | expr OR expr
+      { EBinop { left = $1 ; binop = BOr ; right = $3 } : Bluejay.t }
+  | IF expr THEN expr ELSE expr %prec prec_if
+      { EIf { cond = $2 ; true_body = $4 ; false_body = $6 } : Bluejay.t }
+  | FUNCTION ident_decl ARROW expr %prec prec_fun 
+      { EFunction { param = $2 ; body = $4 } : Bluejay.t }
+  | FUNCTION param_list ARROW expr %prec prec_fun
+      { EMultiArgFunction { params = $2 ; body = $4 } : Bluejay.t }
   // Let
   | LET ident_decl EQUALS expr IN expr %prec prec_let
       { ELet { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
@@ -145,10 +168,13 @@ expr:
       { ELetFunRec { funcs = $1 ; cont = $3 } : Bluejay.t }
   | letfun IN expr %prec prec_fun
       { ELetFun { func = $1 ; cont = $3 } : Bluejay.t }
+  // Match
+  | MATCH expr WITH PIPE? separated_nonempty_list(PIPE, match_expr) END
+      { EMatch { subject = $2 ; patterns = $5 } : Bluejay.t }
   // Types expressions
   | basic_types
       { $1 : Bluejay.t }
-  | MU ident_decl DOT expr 
+  | MU ident_decl DOT expr %prec prec_mu
       { ETypeMu { var = $2 ; body = $4 } : Bluejay.t}
     // I think all this used to do is replace Var with TypeVar wherever the Mu type showed up
   | expr ARROW expr
@@ -183,22 +209,7 @@ basic_types:
   | INT { ETypeInt : Bluejay.t }
   | BOOL_KEYWORD { ETypeBool : Bluejay.t }
   | record_type { $1 : Bluejay.t }
-  | LIST expr { ETypeList $2 : Bluejay.t }
-
-binop:
-  | PLUS { BPlus }
-  | MINUS { BMinus }
-  | ASTERISK { BTimes }
-  | SLASH { BDivide }
-  | PERCENT { BModulus }
-  | EQUAL_EQUAL { BEqual }
-  | NOT_EQUAL { BNeq }
-  | LESS { BLessThan }
-  | LESS_EQUAL { BLeq }
-  | GREATER { BGreaterThan }
-  | GREATER_EQUAL { BGeq }
-  | AND { BAnd }
-  | OR { BOr }
+  | LIST expr { ETypeList $2 : Bluejay.t } %prec prec_list_type
 
 letfun:
   | LET fun_sig
