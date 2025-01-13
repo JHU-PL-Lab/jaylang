@@ -46,6 +46,8 @@ module Constraints = struct
 
   (* all languages *)
   (* type universe = [ `Bluejay | `Desugared | `Embedded ] *)
+
+  type bluejay = [ `Bluejay ]
 end
 
 open Constraints
@@ -63,12 +65,27 @@ module Ident = struct
 end
 
 module RecordLabel = struct
-  type t = RecordLabel of Ident.t
-    [@@unboxed] [@@deriving equal, compare, sexp, hash]
+  module T = struct
+    type t = RecordLabel of Ident.t
+      [@@unboxed] [@@deriving equal, compare, sexp, hash]
+  end
+
+  include T
+  module Map = Map.Make (T)
+end
+
+module RecordPatternBody = struct
+  type t = Ident.t RecordLabel.Map.t
 end
 
 module VariantLabel = struct
   type t = VariantLabel of Ident.t
+    [@@unboxed] [@@deriving equal, compare, sexp, hash]
+end
+
+(* TODO: consider joining this with variant label for ease-of-use but less type safety *)
+module VariantTypeLabel = struct
+  type t = VariantTypeLabel of Ident.t
     [@@unboxed] [@@deriving equal, compare, sexp, hash]
 end
 
@@ -92,17 +109,17 @@ end
 module Pattern = struct
   type _ t =
     (* all languages *)
-    | PFun : 'a t
+    | PAny : 'a t
     | PInt : 'a t
     | PBool : 'a t
-    | PRecord : Ident.Set.t -> 'a t
-    | PStrictReord : Ident.Set.t -> 'a t
-    | PAny : 'a t
+    | PFun : 'a t
+    | PVariable : Ident.t -> 'a t
+    | PStrictRecord : RecordPatternBody.t -> 'a t
+    | PRecord : RecordPatternBody.t -> 'a t
     (* only Bluejay *)
-    | PVariant : VariantLabel.t -> 'a bluejay_only t
-    | PVariable : Ident.t -> 'a bluejay_only t
+    | PVariant : { variant_label : VariantLabel.t ; payload_id : Ident.t } -> 'a bluejay_only t
     | PEmptyList : 'a bluejay_only t
-    | PDestructList : 'a bluejay_only t
+    | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_only t
 end
 
 (* Length-encoded lists, originally used for type safety of function arguments *)
@@ -138,7 +155,7 @@ module Expr = struct
     | EAppl : { func : 'a t ; arg : 'a t } -> 'a t
     | EMatch : { subject : 'a t ; patterns : ('a Pattern.t * 'a t) list } -> 'a t
     | EProject : { record : 'a t ; label : RecordLabel.t } -> 'a t
-    | ERecord : 'a t Ident.Map.t -> 'a t
+    | ERecord : 'a t RecordLabel.Map.t -> 'a t
     | ENot : 'a t -> 'a t 
     | EPick_i : 'a t (* is parsed as "input", but we can immediately make it pick_i *)
     | EFunction : { param : Ident.t ; body : 'a t } -> 'a t (* note bluejay also has multi-arg function, which generalizes this *)
@@ -155,14 +172,14 @@ module Expr = struct
     (* these exist in the bluejay and desugared languages *)
     | ETypeInt : 'a bluejay_or_desugared t
     | ETypeBool : 'a bluejay_or_desugared t
-    | ETypeRecord : 'a t Ident.Map.t -> 'a bluejay_or_desugared t
+    | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
     | ETypeList : 'a t -> 'a bluejay_or_desugared t
     | ETypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
     | ETypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
-    | ETypeRefinment : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
+    | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
     | ETypeIntersect : 'a t * 'a t -> 'a bluejay_or_desugared t (* TODO: maybe make this more like variant type *)
     | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
-    | ETypeVariant : (VariantLabel.t * 'a t) list -> 'a bluejay_or_desugared t
+    | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
     | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } -> 'a bluejay_or_desugared t
     (* bluejay only *)
     | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a bluejay_only t
@@ -173,7 +190,7 @@ module Expr = struct
     | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_only t
     | ETypeForall : { type_variables : Ident.t list ; tau : 'a t } -> 'a bluejay_only t
     | ELetFun : { func : 'a funsig ; cont : 'a t } -> 'a bluejay_only t
-    | ELetFunRec : { funcs : 'a funsig list ; cont : 'a t } -> 'a bluejay_only t
+    | ELetFunRec : { funcs : 'a funsig list ; cont : 'a t } -> 'a bluejay_only t (* TODO: I think I can make these any combo of typedness, but for now I don't *)
 
   (* the let-function signatures *)
   and _ funsig =
@@ -259,7 +276,7 @@ module Desugared = struct
     | ETypeList _
     | ETypeArrow _
     | ETypeArrowD _
-    | ETypeRefinment _
+    | ETypeRefinement _
     | ETypeIntersect _
     | ETypeMu _
     | EPick_i
@@ -268,7 +285,10 @@ module Desugared = struct
 end
 
 module Bluejay = struct
-  type t = [ `Bluejay ] Expr.t
+  type t = bluejay Expr.t
+  type pattern = bluejay Pattern.t
+  type funsig = bluejay Expr.funsig
+  type typed_var = bluejay Expr.typed_var
 
   let f (e : t) : t =
     match e with
@@ -290,7 +310,7 @@ module Bluejay = struct
     | ETypeList _
     | ETypeArrow _
     | ETypeArrowD _
-    | ETypeRefinment _
+    | ETypeRefinement _
     | ETypeIntersect _
     | ETypeMu _
     | ETypeVariant _ 
@@ -351,13 +371,15 @@ module Bluejay = struct
 end
 
 module Parsing_tools = struct
-  let empty_record = Ident.Map.empty
+  let empty_record = RecordLabel.Map.empty
 
-  let new_record (RecordLabel.RecordLabel k) value =
-    Ident.Map.singleton k value
+  let new_record = RecordLabel.Map.singleton
 
-  let add_record_entry (RecordLabel.RecordLabel k) value old_record =
+  let add_record_entry k value old_record =
     match Map.add old_record ~key:k ~data:value with
     | `Duplicate -> failwith "Parse error: duplicate record label"
     | `Ok m -> m
+
+  let record_of_list ls =
+    List.fold ls ~init:empty_record ~f:(fun acc (k, v) -> add_record_entry k v acc)
 end

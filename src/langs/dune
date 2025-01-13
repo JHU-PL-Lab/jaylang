@@ -22,6 +22,7 @@
   fmt)
  (preprocess
   (pps ppx_jane))
- (flags
-  (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
-  ))
+;  (flags
+;   (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
+;   )
+)
