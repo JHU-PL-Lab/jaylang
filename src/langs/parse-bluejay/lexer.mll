@@ -52,7 +52,7 @@ rule token = parse
 | "and"                { AND }
 | "or"                 { OR }
 | "not"                { NOT }
-| "int"                { INT }
+| "int"                { INT_KEYWORD }
 | "bool"               { BOOL_KEYWORD }
 | "fun"                { FUNCTION }
 | "function"           { FUNCTION }
@@ -87,7 +87,7 @@ rule token = parse
 | "<="                 { LESS_EQUAL }
 | ">"                  { GREATER }
 | ">="                 { GREATER_EQUAL }
-| digit+ as n          { INT_LITERAL (int_of_string n) }
+| digit+ as n          { INT (int_of_string n) }
 | ident_start ident_cont* as s     { IDENTIFIER s }
 
 {}

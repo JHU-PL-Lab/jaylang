@@ -10,7 +10,7 @@
 %}
 
 %token <string> IDENTIFIER
-%token <int> INT_LITERAL
+%token <int> INT
 %token <bool> BOOL
 %token EOF
 %token OPEN_BRACE
@@ -47,7 +47,7 @@
 %token AND
 %token OR
 %token NOT
-%token INT
+%token INT_KEYWORD
 %token BOOL_KEYWORD
 %token INPUT
 %token MATCH
@@ -172,8 +172,14 @@ expr:
   | MATCH expr WITH PIPE? separated_nonempty_list(PIPE, match_expr) END
       { EMatch { subject = $2 ; patterns = $5 } : Bluejay.t }
   // Types expressions
-  | basic_types
+  | INT_KEYWORD
+      { ETypeInt : Bluejay.t }
+  | BOOL_KEYWORD
+      { ETypeBool : Bluejay.t }
+  | record_type
       { $1 : Bluejay.t }
+  | LIST expr %prec prec_list_type
+      { ETypeList $2 : Bluejay.t } 
   | MU ident_decl DOT expr %prec prec_mu
       { ETypeMu { var = $2 ; body = $4 } : Bluejay.t}
     // I think all this used to do is replace Var with TypeVar wherever the Mu type showed up
@@ -205,11 +211,9 @@ record_type_body:
   | record_label COLON expr COMMA record_type_body
       { add_record_entry $1 $3 $5 }
 
-basic_types:
-  | INT { ETypeInt : Bluejay.t }
-  | BOOL_KEYWORD { ETypeBool : Bluejay.t }
-  | record_type { $1 : Bluejay.t }
-  | LIST expr { ETypeList $2 : Bluejay.t } %prec prec_list_type
+// basic_types:
+
+/* **** Functions **** */
 
 letfun:
   | LET fun_sig
@@ -250,6 +254,8 @@ fun_sig_poly_dep:
    ident_decl OPEN_PAREN TYPE param_list CLOSE_PAREN param_with_type COLON expr EQUALS expr
       { FPolyDepTyped { func = { func_id = $1 ; params = $6 ; ret_type = $8 ; body = $10 } ; type_vars = $4 } : Bluejay.funsig }
 
+/* **** Primary expressions **** */
+
 /* (fun x -> x) y */
 appl_expr:
   | appl_expr primary_expr { EAppl { func = $1 ; arg = $2 } : Bluejay.t }
@@ -259,7 +265,7 @@ appl_expr:
 /* In a primary_expr, only primitives, vars, records, and lists do not need
    surrounding parentheses. */
 primary_expr:
-  | INT_LITERAL
+  | INT
       { EInt $1 : Bluejay.t }
   | BOOL
       { EBool $1 : Bluejay.t }
@@ -336,7 +342,7 @@ match_expr:
 
 pattern:
   | UNDERSCORE { PAny }
-  | INT { PInt }
+  | INT_KEYWORD { PInt }
   | BOOL_KEYWORD { PBool }
   | FUNCTION { PFun }
   | ident_decl { PVariable $1 }

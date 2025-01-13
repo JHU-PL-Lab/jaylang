@@ -325,7 +325,7 @@ module Bluejay = struct
     | EAssert _
     | EPick_i
     | EAssume _ -> e
-
+(* 
   let (e : t) =
     let open Expr in
     let fsig = 
@@ -337,37 +337,7 @@ module Bluejay = struct
           ; body = EVar (Ident "x") }
         ; type_vars = [ Ident "a"] }
     in
-    ELetFun { func = fsig ; cont = EVar (Ident "f") }
-
-  (* let rec of_old_bluejay (e : Bluejay.Bluejay_ast.expr) : t =
-    let open Expr in
-    match e with
-    | Int i -> EInt i
-    | LetFunWithType (fsig, cont) -> begin
-      match fsig with
-      | Typed_funsig (Ident f_id, arg_type_list, (body, ret_type)) ->
-        ELetFun
-          { func = FTyped
-            { func_id = Ident f_id
-            ; body = of_old_bluejay body.body
-            ; ret_type = of_old_bluejay ret_type.body
-            ; params =
-              let rec loop (ls : (Bluejay.Bluejay_ast.ident * Bluejay.Bluejay_ast.expr_desc) list) =
-                (* let open List in *)
-                match ls with
-                | [] -> []
-                | (Bluejay.Bluejay_ast.Ident id, type_) :: tl ->
-                  let open L in
-                  L.({var = Ident id ; tau = of_old_bluejay type_.body} :: loop tl)
-              in
-              loop arg_type_list
-            }
-          ; cont = of_old_bluejay cont.body }
-
-      | _ -> failwith "unimplemented"
-
-    end
-    | _ -> failwith "unimplemented" *)
+    ELetFun { func = fsig ; cont = EVar (Ident "f") } *)
 end
 
 module Parsing_tools = struct
