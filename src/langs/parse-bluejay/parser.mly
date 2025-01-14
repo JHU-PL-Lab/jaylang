@@ -342,25 +342,25 @@ match_expr:
 
 pattern:
   | UNDERSCORE { PAny }
-  | INT_KEYWORD { PInt }
-  | BOOL_KEYWORD { PBool }
-  | FUNCTION { PFun }
+//   | INT_KEYWORD { PInt }
+//   | BOOL_KEYWORD { PBool }
+//   | FUNCTION { PFun }
   | ident_decl { PVariable $1 }
   | variant_label ident_decl { PVariant { variant_label = $1 ; payload_id = $2 } }
   | variant_label OPEN_PAREN ident_decl CLOSE_PAREN { PVariant { variant_label = $1 ; payload_id = $3 } }
-  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE { PStrictRecord (record_of_list $2) }
-  | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) UNDERSCORE CLOSE_BRACE { PRecord (record_of_list $2) }
-  | OPEN_BRACE CLOSE_BRACE { PStrictRecord empty_record }
-  | OPEN_BRACE UNDERSCORE CLOSE_BRACE { PRecord empty_record }
+//   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE { PStrictRecord (record_of_list $2) }
+//   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) UNDERSCORE CLOSE_BRACE { PRecord (record_of_list $2) }
+//   | OPEN_BRACE CLOSE_BRACE { PStrictRecord empty_record }
+//   | OPEN_BRACE UNDERSCORE CLOSE_BRACE { PRecord empty_record }
   | OPEN_BRACKET CLOSE_BRACKET { PEmptyList }
   | ident_decl DOUBLE_COLON ident_decl { PDestructList { hd_id = $1 ; tl_id = $3 } }
   | OPEN_PAREN pattern CLOSE_PAREN { $2 }
 ;
 
-record_pattern_element:
-  | record_label EQUALS ident_decl
-      { ($1, $3) }
-;
+// record_pattern_element:
+//   | record_label EQUALS ident_decl
+//       { ($1, $3) }
+// ;
 
 separated_nonempty_trailing_list(separator, rule):
   | nonempty_list(terminated(rule, separator))

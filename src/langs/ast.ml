@@ -74,9 +74,9 @@ module RecordLabel = struct
   module Map = Map.Make (T)
 end
 
-module RecordPatternBody = struct
+(* module RecordPatternBody = struct
   type t = Ident.t RecordLabel.Map.t
-end
+end *)
 
 module VariantLabel = struct
   type t = VariantLabel of Ident.t
@@ -110,14 +110,14 @@ module Pattern = struct
   type _ t =
     (* all languages *)
     | PAny : 'a t
-    | PInt : 'a t
+    (* | PInt : 'a t
     | PBool : 'a t
-    | PFun : 'a t
+    | PFun : 'a t *)
     | PVariable : Ident.t -> 'a t
-    | PStrictRecord : RecordPatternBody.t -> 'a t
-    | PRecord : RecordPatternBody.t -> 'a t
+    | PVariant : { variant_label : VariantLabel.t ; payload_id : Ident.t } -> 'a t
+    (* | PStrictRecord : RecordPatternBody.t -> 'a t
+    | PRecord : RecordPatternBody.t -> 'a t *)
     (* only Bluejay *)
-    | PVariant : { variant_label : VariantLabel.t ; payload_id : Ident.t } -> 'a bluejay_only t
     | PEmptyList : 'a bluejay_only t
     | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_only t
 end
@@ -159,6 +159,7 @@ module Expr = struct
     | ENot : 'a t -> 'a t 
     | EPick_i : 'a t (* is parsed as "input", but we can immediately make it pick_i *)
     | EFunction : { param : Ident.t ; body : 'a t } -> 'a t (* note bluejay also has multi-arg function, which generalizes this *)
+    | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
     (* embedded only, so constrain 'a to only be `Embedded *)
     | EPick_b : 'a embedded_only t
     | ECase : { subject : 'a t ; cases : (int * 'a t) list } -> 'a embedded_only t
@@ -182,7 +183,6 @@ module Expr = struct
     | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
     | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } -> 'a bluejay_or_desugared t
     (* bluejay only *)
-    | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a bluejay_only t
     | EList : 'a t list -> 'a bluejay_only t
     | EListCons : 'a t * 'a t -> 'a bluejay_only t
     | EAssert : 'a t -> 'a bluejay_only t
@@ -246,6 +246,7 @@ module Embedded = struct
     | ECase _
     | EFreeze _
     | EThaw _
+    | EVariant _
     | EAbort
     | EDiverge -> e
 end
@@ -266,6 +267,7 @@ module Desugared = struct
     | EMatch _
     | EProject _
     | ERecord _
+    | EVariant _
     | ENot _
     | EAbort
     | EDiverge
@@ -350,6 +352,6 @@ module Parsing_tools = struct
     | `Duplicate -> failwith "Parse error: duplicate record label"
     | `Ok m -> m
 
-  let record_of_list ls =
-    List.fold ls ~init:empty_record ~f:(fun acc (k, v) -> add_record_entry k v acc)
+  (* let record_of_list ls =
+    List.fold ls ~init:empty_record ~f:(fun acc (k, v) -> add_record_entry k v acc) *)
 end
