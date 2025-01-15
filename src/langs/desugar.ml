@@ -109,7 +109,7 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
           match pat with
           | PAny
           | PVariable _ ->
-            Stop (
+            Stop (List.rev @@
               desugar_pattern pat e
               :: (PVariant
                   { variant_label = Reserved_labels.Variants.untouched
