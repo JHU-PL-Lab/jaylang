@@ -20,6 +20,9 @@ open Core
     "either" <-> "or", so I use this wording as it aligns well with the code.
 *)
 module Constraints = struct
+  type bluejay = [ `Bluejay ]
+  type desugared = [ `Desugared ]
+
   (*
     Constrains 'a to be exactly `Bluejay.
     i.e. constructors in the GADT below with this constraint are only in the Bluejay language.
@@ -46,8 +49,6 @@ module Constraints = struct
 
   (* all languages *)
   (* type universe = [ `Bluejay | `Desugared | `Embedded ] *)
-
-  type bluejay = [ `Bluejay ]
 end
 
 open Constraints
@@ -83,7 +84,6 @@ module VariantLabel = struct
     [@@unboxed] [@@deriving equal, compare, sexp, hash]
 end
 
-(* TODO: consider joining this with variant label for ease-of-use but less type safety *)
 module VariantTypeLabel = struct
   type t = VariantTypeLabel of Ident.t
     [@@unboxed] [@@deriving equal, compare, sexp, hash]
@@ -122,27 +122,6 @@ module Pattern = struct
     | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_only t
 end
 
-(* Length-encoded lists, originally used for type safety of function arguments *)
-(* module L = struct
-  module Peano = struct
-    type zero = private Zero
-    type 'a succ = private Succ
-
-    type _ nat =
-      | Zero : zero nat
-      | Succ : 'a nat -> 'a succ nat
-  end
-
-  open Peano
-
-  type _ t =
-    | [] : < elt : 'a ; len : zero > t
-    | ( :: ) : 'a * < elt : 'a ; len : 'b > t -> < elt : 'a ; len : 'b succ > t
-
-  type ('a, 'b) nonempty = < elt : 'a ; len : 'b succ > t
-  type 'a singleton = < elt : 'a ; len : zero succ > t
-end *)
-
 module Expr = struct
   type _ t =
     (* all languages. 'a is unconstrained *)
@@ -162,19 +141,19 @@ module Expr = struct
     | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
     (* embedded only, so constrain 'a to only be `Embedded *)
     | EPick_b : 'a embedded_only t
-    | ECase : { subject : 'a t ; cases : (int * 'a t) list } -> 'a embedded_only t
+    | ECase : { subject : 'a t ; cases : (int * 'a t) list } -> 'a embedded_only t (* simply sugar for nested conditionals *)
     | EFreeze : 'a t -> 'a embedded_only t
     | EThaw : 'a t -> 'a embedded_only t 
     (* these exist in the desugared and embedded languages (these are the only spots that "desugaring" introduces new language) *)
     | EAbort : 'a desugared_or_embedded t
     | EDiverge : 'a desugared_or_embedded t
     (* desugared only *)
+    | ELetWrap : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t} -> 'a desugared_only t
     | EKind : 'a desugared_only t
     (* these exist in the bluejay and desugared languages *)
     | ETypeInt : 'a bluejay_or_desugared t
     | ETypeBool : 'a bluejay_or_desugared t
     | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
-    | ETypeList : 'a t -> 'a bluejay_or_desugared t
     | ETypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
     | ETypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
     | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
@@ -183,6 +162,7 @@ module Expr = struct
     | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
     | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } -> 'a bluejay_or_desugared t
     (* bluejay only *)
+    | ETypeList : 'a t -> 'a bluejay_only t
     | EList : 'a t list -> 'a bluejay_only t
     | EListCons : 'a t * 'a t -> 'a bluejay_only t
     | EAssert : 'a t -> 'a bluejay_only t
@@ -206,13 +186,6 @@ module Expr = struct
   (* the common parts of typed let-function signature *)
   and ('a, 'p) typed_fun = { func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
 
-  (* archive the old length-encoded stuff *)
-  (* and ('a, 'l) typed_fun = { func_id : Ident.t ; params : 'l ; ret_type : 'a t ; body : 'a t }
-    constraint 'l = < elt : 'a typed_var ; len : _ > L.t *)
-    (* | FTyped : ('a, ('a typed_var, _) L.nonempty) typed_fun -> 'a funsig
-    | FPolyTyped : { func : ('a, ('a typed_var, _) L.nonempty) typed_fun ; type_vars : Ident.t list } -> 'a funsig
-    | FDepTyped : ('a, ('a typed_var) L.singleton) typed_fun -> 'a funsig
-    | FPolyDepTyped : { func : ('a, ('a typed_var) L.singleton) typed_fun ; type_vars : Ident.t list } -> 'a funsig *)
 end
 
 (*
@@ -252,7 +225,8 @@ module Embedded = struct
 end
 
 module Desugared = struct
-  type t = [ `Desugared ] Expr.t
+  type t = desugared Expr.t
+  type pattern = desugared Pattern.t
 
   let f (e : t) : t =
     match e with
@@ -275,7 +249,6 @@ module Desugared = struct
     | ETypeInt
     | ETypeBool 
     | ETypeRecord _
-    | ETypeList _
     | ETypeArrow _
     | ETypeArrowD _
     | ETypeRefinement _
@@ -283,6 +256,7 @@ module Desugared = struct
     | ETypeMu _
     | EPick_i
     | ETypeVariant _
+    | ELetWrap _
     | EKind -> e
 end
 
@@ -327,19 +301,6 @@ module Bluejay = struct
     | EAssert _
     | EPick_i
     | EAssume _ -> e
-(* 
-  let (e : t) =
-    let open Expr in
-    let fsig = 
-      FPolyDepTyped
-        { func =
-          { func_id = (Ident "f")
-          ; params = { var = Ident "x" ; tau = ETypeInt }
-          ; ret_type = ETypeInt
-          ; body = EVar (Ident "x") }
-        ; type_vars = [ Ident "a"] }
-    in
-    ELetFun { func = fsig ; cont = EVar (Ident "f") } *)
 end
 
 module Parsing_tools = struct

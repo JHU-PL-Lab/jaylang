@@ -18,10 +18,12 @@
  (libraries
   core
   batteries
+  preface
+  monadlib
   ; bluejay
   fmt)
  (preprocess
-  (pps ppx_jane))
+  (pps ocaml-monadic ppx_sexp_conv ppx_compare ppx_hash)) ; todo ppx for hash, equal
 ;  (flags
 ;   (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
 ;   )
