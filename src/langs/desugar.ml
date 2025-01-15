@@ -53,12 +53,7 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
   let rec desugar (expr : Bluejay.t) : Desugared.t =
     match expr with
     (* Base cases *)
-    | EInt i -> EInt i
-    | EBool b -> EBool b
-    | EVar id -> EVar id
-    | EPick_i -> EPick_i
-    | ETypeInt -> ETypeInt
-    | ETypeBool -> ETypeBool
+    | (EInt _ | EBool _ | EVar _ | EPick_i | ETypeInt | ETypeBool) as e -> e
     (* Simple propogation *)
     | EBinop { left ; binop ; right } ->
       EBinop { left = desugar left ; binop ; right = desugar right }
@@ -93,7 +88,7 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
     | ETypeVariant ls_e ->
       ETypeVariant (List.map ls_e ~f:(fun (label, e) -> label, desugar e))
     | ELetTyped { typed_var = { var ; tau } ; body ; cont } ->
-      ELetTyped { typed_var = { var = var ; tau = desugar tau } ; body = desugar body ; cont = desugar cont }
+      ELetTyped { typed_var = { var ; tau = desugar tau } ; body = desugar body ; cont = desugar cont }
     (* Assert/assume *)
     | EAssert assert_expr ->
       EIf
@@ -220,7 +215,6 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
       ; cont = desugar cont
       }
 
-  (* TODO: handle untouched by adding it above any -- this should be done when desugaring a whole match *)
   and desugar_pattern (pat : Bluejay.pattern) (e : Bluejay.t) : Desugared.pattern * Desugared.t =
     match pat with
     | PEmptyList ->
@@ -239,10 +233,7 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
         let%bind () = assign hd_id (EProject { record = EVar r ; label = Reserved_labels.Records.hd }) in
         let%bind () = assign tl_id (EProject { record = EVar r ; label = Reserved_labels.Records.tl }) in
         return (desugar e)
-    | (PAny as p)
-    | (PVariable _ as p)
-    | (PVariant _ as p) ->
-      p, desugar e
+    | (PAny | PVariable _ | PVariant _) as p -> p, desugar e
   in
 
   desugar expr
