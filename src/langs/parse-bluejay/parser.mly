@@ -189,10 +189,18 @@ expr:
       { ETypeArrowD { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
   | OPEN_BRACE DOT expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $3 ; predicate = $5 } : Bluejay.t }
-  | expr DOUBLE_AMPERSAND expr
-      { ETypeIntersect ($1, $3) : Bluejay.t } 
   | variant_type_body
       { ETypeVariant $1 : Bluejay.t }
+  | intersection_type_body
+      { ETypeIntersect $1 : Bluejay.t } 
+;
+
+(* TODO: doesn't *really* need parens, but without them we would never get a meaningful intersection type *)
+intersection_type_body:
+  | OPEN_PAREN OPEN_PAREN variant_type_label expr CLOSE_PAREN ARROW expr CLOSE_PAREN
+      { [ ($3, $4, $7) ] }
+  | OPEN_PAREN OPEN_PAREN variant_type_label expr CLOSE_PAREN ARROW expr CLOSE_PAREN DOUBLE_AMPERSAND intersection_type_body
+      { ($3, $4, $7) :: $10 }
 ;
 
 variant_type_body:

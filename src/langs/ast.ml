@@ -149,7 +149,7 @@ module Expr = struct
     | EFreeze : 'a t -> 'a embedded_only t
     | EThaw : 'a t -> 'a embedded_only t 
     | EId : 'a embedded_only t
-    (* these exist in the desugared and embedded languages (these are the only spots that "desugaring" introduces new language) *)
+    (* these exist in the desugared and embedded languages *)
     | EAbort : 'a desugared_or_embedded t
     | EDiverge : 'a desugared_or_embedded t
     (* desugared only *)
@@ -162,7 +162,7 @@ module Expr = struct
     | ETypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
     | ETypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
     | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
-    | ETypeIntersect : 'a t * 'a t -> 'a bluejay_or_desugared t (* TODO: maybe make this more like variant type *)
+    | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_or_desugared t
     | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
     | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
     | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } -> 'a bluejay_or_desugared t

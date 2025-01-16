@@ -216,7 +216,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
         )
     | ETypeRecord m ->
       Embedded_type.make
-        ~gen:(ERecord (Map.map m ~f:(fun tau -> gen tau)))
+        ~gen:(ERecord (Map.map m ~f:gen))
         ~check:(
           fresh_abstraction (fun e ->
             build @@
@@ -369,8 +369,83 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
             }  
           )
         )
-    | ETypeMu _
-    | ETypeIntersect _ -> failwith "unimplemented type embedding"
+    | ETypeMu { var = b ; body = tau } ->
+      apply (
+        apply Embedded_functions.y_comb (
+          fresh_abstraction (fun self ->
+            fresh_abstraction (fun _dummy ->
+              let appl_self_0 = apply (EVar self) (EInt 0) in
+              Embedded_type.make
+                ~gen:(
+                  apply (EFunction { param = b ; body = gen tau }) appl_self_0
+                )
+                ~check:(
+                  fresh_abstraction (fun e ->
+                    apply (EFunction { param = b ; body = check tau (EVar e) }) appl_self_0
+                  )
+                )
+                ~wrap:(
+                  fresh_abstraction (fun e ->
+                    apply (EFunction { param = b ; body = wrap tau (EVar e) }) appl_self_0
+                  )
+                )
+            )
+          )
+        )
+      ) (EInt 0)
+    | ETypeIntersect e_intersect_type ->
+      let e_intersect_ls = 
+        List.map e_intersect_type ~f:(fun (type_label, tau, tau') ->
+          VariantTypeLabel.to_variant_label type_label, tau, tau'
+        )
+      in
+      Embedded_type.make
+        ~gen:(
+          fresh_abstraction (fun arg ->
+            EMatch { subject = EVar arg ; patterns =
+              let v = Names.fresh_id () in (* can use the same name in each pattern *)
+              List.map e_intersect_ls ~f:(fun (label, tau, tau') ->
+                PVariant { variant_label = label ; payload_id = v }
+                , EIf
+                    { cond = check tau (EVar v)
+                    ; true_body = gen tau'
+                    ; false_body = EAbort
+                    }
+                
+              )
+            }
+          )
+        )
+        ~check:(
+          fresh_abstraction (fun e ->
+            ECase { subject = EPick_i ; cases =
+              List.mapi e_intersect_type ~f:(fun i (label, tau, tau') ->
+                i
+                , check (
+                  ETypeArrow { domain = ETypeVariant [ (label, tau) ] ; codomain = tau' }
+                ) (EVar e) 
+              )
+            }
+          )
+        )
+        ~wrap:(
+          fresh_abstraction (fun e ->
+            fresh_abstraction (fun arg ->
+              EMatch { subject = EVar arg ; patterns = 
+                let v = Names.fresh_id () in (* can use the same name in each pattern *)
+                List.map e_intersect_ls ~f:(fun (label, tau, tau') ->
+                  PVariant { variant_label = label ; payload_id = v }
+                  , EIf
+                      { cond = check tau (EVar v)
+                      ; true_body = wrap tau' (apply (EVar e) (EVariant { label ; payload = wrap tau (EVar v) }))
+                      ; false_body = EAbort
+                      }
+                )
+              }
+            )
+          )
+        )
+
 
     and embed_pattern (pat : Desugared.pattern) : Embedded.pattern =
       match pat with

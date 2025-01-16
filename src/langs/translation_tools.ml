@@ -71,6 +71,47 @@ module Desugared_functions = struct
     }
 end
 
+module Embedded_functions = struct
+  (*
+    Y-combinator for Mu types: 
+
+      fun f ->
+        (fun x -> fun dummy -> f (x x) dummy)
+        (fun x -> fun dummy -> f (x x) dummy)
+    
+    Notes:
+    * f is a function, so it has be captured with a closure, so there is nothing
+      wrong about using any names here. However, I use tildes to be safe and make
+      sure they're fresh.
+  *)
+  let y_comb =
+    let open Ident in
+    let open Expr in
+    let f = Ident "~f" in
+    let body =
+      let x = Ident "~x" in
+      let dummy = Ident "~dummy" in
+      EFunction { param = x ; body =
+        EFunction { param = dummy ; body =
+          EAppl
+            { func =
+              EAppl
+                { func = EVar f
+                ; arg = EAppl { func = EVar x ; arg = EVar x }
+                }
+            ; arg = EVar dummy
+            }
+        }
+      }
+    in
+    EFunction { param = f ; body =
+      EAppl
+        { func = body
+        ; arg  = body
+        }
+    }
+end 
+
 module Function_components = struct
   type 'a t =
     { func_id : Ident.t

@@ -126,8 +126,8 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
       ETypeRecord (Map.map m ~f:desugar)
     | ETypeRefinement { tau ; predicate } ->
       ETypeRefinement { tau = desugar tau ; predicate = desugar predicate }
-    | ETypeIntersect (e, e') ->
-      ETypeIntersect (desugar e, desugar e')
+    | ETypeIntersect ls_e ->
+      ETypeIntersect (List.map ls_e ~f:(fun (label, e_tau1, e_tau2) -> label, desugar e_tau1, desugar e_tau2))
     | ETypeMu { var ; body } ->
       ETypeMu { var ; body = desugar body }
     | ETypeVariant ls_e ->
