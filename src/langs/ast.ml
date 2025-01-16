@@ -193,78 +193,14 @@ module Expr = struct
 
 end
 
-(*
-  -------------
-  SANITY CHECKS
-  -------------
-
-  We'll create a type for each language and match on an expression in that language
-  to make sure that the OCaml typechecker agrees we have done it properly.
-*)
-
 module Embedded = struct
   type t = embedded Expr.t
   type pattern = embedded Pattern.t
-
-  let f (e : t) : t =
-    match e with
-    | EInt _ 
-    | EBool _ 
-    | EVar _ 
-    | EBinop _
-    | EIf _
-    | ELet _
-    | EFunction _
-    | EAppl _
-    | EMatch _
-    | EProject _
-    | ERecord _
-    | ENot _
-    | EPick_i
-    | EPick_b
-    | ECase _
-    | EFreeze _
-    | EThaw _
-    | EVariant _
-    | EAbort
-    | EDiverge
-    | EId -> e
 end
 
 module Desugared = struct
   type t = desugared Expr.t
   type pattern = desugared Pattern.t
-
-  let f (e : t) : t =
-    match e with
-    | EInt _ 
-    | EBool _ 
-    | EVar _ 
-    | EBinop _
-    | EIf _
-    | ELet _
-    | EFunction _
-    | EAppl _
-    | EMatch _
-    | EProject _
-    | ERecord _
-    | EVariant _
-    | ENot _
-    | EAbort
-    | EDiverge
-    | ELetTyped _
-    | ETypeInt
-    | ETypeBool 
-    | ETypeRecord _
-    | ETypeArrow _
-    | ETypeArrowD _
-    | ETypeRefinement _
-    | ETypeIntersect _
-    | ETypeMu _
-    | EPick_i
-    | ETypeVariant _
-    | ELetWrap _
-    | EKind -> e
 end
 
 module Bluejay = struct
@@ -272,42 +208,6 @@ module Bluejay = struct
   type pattern = bluejay Pattern.t
   type funsig = bluejay Expr.funsig
   type typed_var = bluejay Expr.typed_var
-
-  let f (e : t) : t =
-    match e with
-    | EInt _ 
-    | EBool _ 
-    | EVar _ 
-    | EBinop _
-    | EIf _
-    | ELet _
-    | EAppl _
-    | EMatch _
-    | EProject _
-    | ERecord _
-    | ENot _
-    | EFunction _
-    | ETypeInt
-    | ETypeBool 
-    | ETypeRecord _
-    | ETypeList _
-    | ETypeArrow _
-    | ETypeArrowD _
-    | ETypeRefinement _
-    | ETypeIntersect _
-    | ETypeMu _
-    | ETypeVariant _ 
-    | EMultiArgFunction _
-    | ETypeForall _
-    | ELetTyped _
-    | ELetFun _
-    | ELetFunRec _
-    | EList _
-    | EListCons _
-    | EVariant _
-    | EAssert _
-    | EPick_i
-    | EAssume _ -> e
 end
 
 module Parsing_tools = struct
