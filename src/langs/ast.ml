@@ -22,6 +22,7 @@ open Core
 module Constraints = struct
   type bluejay = [ `Bluejay ]
   type desugared = [ `Desugared ]
+  type embedded = [ `Embedded ]
 
   (*
     Constrains 'a to be exactly `Bluejay.
@@ -87,6 +88,9 @@ end
 module VariantTypeLabel = struct
   type t = VariantTypeLabel of Ident.t
     [@@unboxed] [@@deriving equal, compare, sexp, hash]
+
+  let to_variant_label (VariantTypeLabel l) =
+    VariantLabel.VariantLabel l
 end
 
 module Binop = struct
@@ -144,6 +148,7 @@ module Expr = struct
     | ECase : { subject : 'a t ; cases : (int * 'a t) list } -> 'a embedded_only t (* simply sugar for nested conditionals *)
     | EFreeze : 'a t -> 'a embedded_only t
     | EThaw : 'a t -> 'a embedded_only t 
+    | EId : 'a embedded_only t
     (* these exist in the desugared and embedded languages (these are the only spots that "desugaring" introduces new language) *)
     | EAbort : 'a desugared_or_embedded t
     | EDiverge : 'a desugared_or_embedded t
@@ -198,7 +203,8 @@ end
 *)
 
 module Embedded = struct
-  type t = [ `Embedded ] Expr.t
+  type t = embedded Expr.t
+  type pattern = embedded Pattern.t
 
   let f (e : t) : t =
     match e with
@@ -221,7 +227,8 @@ module Embedded = struct
     | EThaw _
     | EVariant _
     | EAbort
-    | EDiverge -> e
+    | EDiverge
+    | EId -> e
 end
 
 module Desugared = struct
@@ -313,6 +320,6 @@ module Parsing_tools = struct
     | `Duplicate -> failwith "Parse error: duplicate record label"
     | `Ok m -> m
 
-  (* let record_of_list ls =
-    List.fold ls ~init:empty_record ~f:(fun acc (k, v) -> add_record_entry k v acc) *)
+  let record_of_list ls =
+    List.fold ls ~init:empty_record ~f:(fun acc (k, v) -> add_record_entry k v acc)
 end

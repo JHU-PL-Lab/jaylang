@@ -1,6 +1,7 @@
 
 open Core
 open Ast
+open Constraints
 open Expr
 open Pattern
 open Translation_tools
@@ -9,33 +10,65 @@ module Names = Fresh_names ()
 
 module LetMonad = struct
   module Binding = struct
-    type s = (Ident.t * Desugared.t) list
+    module Kind = struct
+      type t = 
+        | Untyped
+        | Wrap_only_typed of Desugared.t
+        | Typed of Desugared.t
+
+      let wrap_of_tau_opt (tau_opt : Desugared.t option) : t =
+        match tau_opt with
+        | Some tau -> Wrap_only_typed tau
+        | None -> Untyped
+
+      let typed_of_tau_opt (tau_opt : Desugared.t option) : t =
+        match tau_opt with
+        | Some tau -> Typed tau
+        | None -> Untyped
+    end
+    type t = (Kind.t * Ident.t * Desugared.t)
   end
 
-  include Monadlib.State.Make (Binding)
+  module State = struct
+    type s = Binding.t list
+  end
+
+  include Monadlib.State.Make (State)
 
   let capture ?(prefix : string option) (e : Desugared.t) : Ident.t m =
     let v = Names.fresh_id ?prefix () in
-    let%bind () = modify (List.cons (v, e)) in
+    let%bind () = modify (List.cons (Binding.Kind.Untyped, v, e)) in
     return v
 
-  let assign (id : Ident.t) (e : Desugared.t) : unit m =
-    modify (List.cons (id, e))
+  let assign ?(kind : Binding.Kind.t = Untyped) (id : Ident.t) (e : Desugared.t) : unit m =
+    modify (List.cons (kind, id, e))
+
+  let iter (ls : 'a list) ~(f : 'a -> unit m) : unit m =
+    List.fold ls ~init:(return ()) ~f:(fun acc_m a ->
+      let%bind () = acc_m in
+      f a
+    )
 
   let ignore (e : Desugared.t) : unit m =
     assign Reserved_labels.Idents.catchall e
 
   let build (m : Desugared.t m) : Desugared.t =
     let resulting_bindings, cont = run m [] in
-    List.fold resulting_bindings ~init:cont ~f:(fun cont (id, body) ->
-      ELet { var = id ; body ; cont }
+    List.fold resulting_bindings ~init:cont ~f:(fun cont (kind, id, body) ->
+      match kind with
+      | Untyped ->
+        ELet { var = id ; body ; cont }
+      | Wrap_only_typed tau ->
+        ELetWrap { typed_var = { var = id ; tau } ; body ; cont }
+      | Typed tau ->
+        ELetTyped { typed_var = { var = id ; tau } ; body ; cont }
     )
 end
 
 open LetMonad
 
 (*
-  ([x1 ; ... ; xn], e) |->
+  [ x1 ; ... ; xn ], e |->
     fun x1 -> ... -> fun xn -> e
 *)
 let abstract_over_ids (type a) (ids : Ident.t list) (body : a Expr.t) : a Expr.t =
@@ -43,11 +76,23 @@ let abstract_over_ids (type a) (ids : Ident.t list) (body : a Expr.t) : a Expr.t
     Expr.EFunction { param ; body }
   )
 
-(* 'a is not fully abstract. It is constrained to be bluejay or desugared. I just don't feel like writing all that *)
-let tau_list_to_arrow_type (taus : 'a Expr.t list) (codomain : 'a Expr.t) : 'a Expr.t =
+(*
+  [ tau1 ; ... ; taun ], tau |->
+    tau1 -> ..> taun -> tau
+*)
+let tau_list_to_arrow_type (taus : 'a Expr.t list) (codomain : 'a Expr.t) : 'a Constraints.bluejay_or_desugared Expr.t =
   List.fold_right taus ~init:codomain ~f:(fun domain codomain ->
     Expr.ETypeArrow { domain ; codomain }
-    )
+  )
+
+(*
+  f, [ x1 ; ... ; xn ] |->
+    f x1 ... xn
+*)
+let appl_list (type a) (f : a Expr.t) (args : a Expr.t list) : a Expr.t =
+  List.fold args ~init:f ~f:(fun func arg ->
+    EAppl { func ; arg }
+  )
 
 let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
   let rec desugar (expr : Bluejay.t) : Desugared.t =
@@ -71,12 +116,12 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
       EFunction { param ; body = desugar body }
     | EVariant { label ; payload } ->
       EVariant { label ; payload = desugar payload }
+    | ERecord m ->
+      ERecord (Map.map m ~f:desugar)
     | ETypeArrow { domain ; codomain } ->
       ETypeArrow { domain = desugar domain ; codomain = desugar codomain }
     | ETypeArrowD { binding ; domain ; codomain } ->
       ETypeArrowD { binding ; domain = desugar domain ; codomain = desugar codomain }
-    | ERecord m ->
-      ERecord (Map.map m ~f:desugar)
     | ETypeRecord m ->
       ETypeRecord (Map.map m ~f:desugar)
     | ETypeRefinement { tau ; predicate } ->
@@ -130,14 +175,15 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
       )
     | EListCons (e_hd, e_tl) ->
       EVariant { label = Reserved_labels.Variants.cons ; payload =
-        ERecord (
-          Parsing_tools.new_record Reserved_labels.Records.hd (desugar e_hd)
-          |> Parsing_tools.add_record_entry Reserved_labels.Records.hd (
-              build @@
-                let%bind v = capture ~prefix:"tl" @@ desugar e_tl in
-                let%bind () = ignore @@ EAppl { func = Desugared_functions.assert_list ; arg = EVar v } in
-                return (EVar v)
+        ERecord (Parsing_tools.record_of_list
+          [ (Reserved_labels.Records.hd, desugar e_hd)
+          ; (Reserved_labels.Records.tl, 
+            build @@
+              let%bind v = capture ~prefix:"tl" @@ desugar e_tl in
+              let%bind () = ignore @@ EAppl { func = Desugared_functions.assert_list ; arg = EVar v } in
+              return (EVar v)
           )
+          ]
         )
       }
     | ETypeList e_tau ->
@@ -145,10 +191,13 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
       ETypeMu { var = t ; body =
         ETypeVariant
           [ (Reserved_labels.VariantTypes.nil, ETypeInt)
-          ; (Reserved_labels.VariantTypes.cons, ETypeRecord (
-              Parsing_tools.new_record Reserved_labels.Records.hd (desugar e_tau)
-              |> Parsing_tools.add_record_entry Reserved_labels.Records.tl (EVar t)
-            ))
+          ; (Reserved_labels.VariantTypes.cons,
+            ETypeRecord (Parsing_tools.record_of_list
+              [ (Reserved_labels.Records.hd, desugar e_tau)
+              ; (Reserved_labels.Records.tl, EVar t)
+              ]
+            )
+          )
           ]
       }
     (* Forall *)
@@ -160,60 +209,85 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
     | EMultiArgFunction { params ; body } ->
       abstract_over_ids params (desugar body)
     | ELetFun { func ; cont } -> begin
-      match func with
-      | FUntyped { func_id ; params ; body } ->
-        ELet
-          { var = func_id
-          ; body = abstract_over_ids params (desugar body)
-          ; cont = desugar cont
-          }
-      | FTyped { func_id ; params ; body ; ret_type } ->
-        let param_ids, param_taus = List.unzip @@ List.map params ~f:(fun { var ; tau } -> var, tau) in
-        desugar_funsig
-          ~func_id ~body ~cont
-          ~func_tau:(tau_list_to_arrow_type param_taus ret_type)
-          ~parameters:param_ids
-      | FPolyTyped { func = { func_id ; params ; ret_type ; body } ; type_vars } ->
-        let param_ids, param_taus = List.unzip @@ List.map params ~f:(fun { var ; tau } -> var, tau) in
-        desugar_funsig
-          ~func_id ~body ~cont
-          ~func_tau:(ETypeForall { type_variables = type_vars ; tau = tau_list_to_arrow_type param_taus ret_type })
-          ~parameters:(type_vars @ param_ids)
-      | FDepTyped { func_id ; params ; ret_type ; body } ->
-        desugar_funsig
-          ~func_id ~body ~cont
-          ~func_tau:(ETypeArrowD { binding = params.var ; domain = params.tau ; codomain = ret_type })
-          ~parameters:[ params.var ]
-      | FPolyDepTyped { func = { func_id ; params ; ret_type ; body } ; type_vars } ->
-        desugar_funsig
-          ~func_id ~body ~cont
-          ~func_tau:(
-            ETypeForall
-              { type_variables = type_vars
-              ; tau = ETypeArrowD { binding = params.var ; domain = params.tau ; codomain = ret_type } }
+      let { func_id ; body ; params ; tau_opt } : desugared Function_components.t = funsig_to_components func in
+      build @@
+        let%bind () =
+          assign ~kind:(Binding.Kind.typed_of_tau_opt tau_opt) func_id (
+            abstract_over_ids params body
           )
-          ~parameters:(type_vars @ [ params.var ])
+        in
+        return (desugar cont)
     end
-    | ELetFunRec _ -> failwith "unimplemented let fun rec"
+    | ELetFunRec { funcs ; cont } ->
+      let func_comps = List.map funcs ~f:funsig_to_components in
+      let f_names = List.map func_comps ~f:(fun r -> r.func_id) in
+      let tmp_name_of_name =
+        let m =
+          List.fold f_names ~init:Ident.Map.empty ~f:(fun acc func_id ->
+            Map.set acc ~key:func_id ~data:(let Ident prefix = func_id in Names.fresh_id ~prefix ())
+            )
+        in
+        Map.find_exn m 
+      in
+      let tmp_names = List.map f_names ~f:tmp_name_of_name in
+      (*
+        Creates
+          let f1 = $f1 $f1 $f2 ... $fn in
+          ...
+          let fn = $fn $f1 $f2 ... $fn in
+      *)
+      let create_functions (binding_fun : Desugared.t option -> Binding.Kind.t) : unit m =
+        iter func_comps ~f:(fun { func_id ; tau_opt ; _ } ->
+          assign ~kind:(binding_fun tau_opt) func_id (
+            appl_list
+              (EVar (tmp_name_of_name func_id))
+              (List.map tmp_names ~f:(fun id -> EVar id))
+          )
+        )
+      in
+      build @@
+        let%bind () =
+          iter func_comps ~f:(fun { func_id ; params ; body ; _ } ->
+            assign (tmp_name_of_name func_id) (
+              abstract_over_ids tmp_names (
+                abstract_over_ids params (
+                  build @@ 
+                    let%bind () = create_functions Binding.Kind.wrap_of_tau_opt in
+                    return body
+                )
+              )
+            )
+          )
+        in
+        let%bind () = create_functions Binding.Kind.typed_of_tau_opt in
+        return (desugar cont)
 
   (*
-    Makes abstracted typed let-expression:
-
-      let (func_id : [| func_tau |]) =
-        fun [| parameters |] -> [| body |]
-      in
-      [| cont ||]
-
-    This is used when desugaring let-funs into let-expressions of anonymous functions
+    Breaks a function signature into its id, type (optional), parameter names, and function body, all desugared.
   *)
-  and desugar_funsig ~(func_id : Ident.t) ~(func_tau : Bluejay.t) ~(parameters : Ident.t list) ~(body : Bluejay.t) ~(cont : Bluejay.t) : Desugared.t =
-    ELetTyped
-      { typed_var = 
-        { var = func_id
-        ; tau = desugar func_tau }
-      ; body = abstract_over_ids parameters @@ desugar body
-      ; cont = desugar cont
-      }
+  and funsig_to_components (fsig : Bluejay.funsig) : desugared Function_components.t =
+    Function_components.map ~f:desugar @@
+    match fsig with
+    | FUntyped { func_id ; params ; body } ->
+      { func_id ; tau_opt = None ; params ; body }
+    | FTyped { func_id ; params ; body ; ret_type } ->
+      let param_ids, param_taus = List.unzip @@ List.map params ~f:(fun { var ; tau } -> var, tau) in
+      { func_id ;  body ; params = param_ids
+      ; tau_opt = Some (tau_list_to_arrow_type param_taus ret_type) }
+    | FPolyTyped { func = { func_id ; params ; ret_type ; body } ; type_vars } ->
+      let param_ids, param_taus = List.unzip @@ List.map params ~f:(fun { var ; tau } -> var, tau) in
+      { func_id ; body ; params = type_vars @ param_ids
+      ; tau_opt = Some (ETypeForall { type_variables = type_vars ; tau = tau_list_to_arrow_type param_taus ret_type }) }
+    | FDepTyped { func_id ; params ; ret_type ; body } ->
+      { func_id ; body ; params = [ params.var ]
+      ; tau_opt = Some (ETypeArrowD { binding = params.var ; domain = params.tau ; codomain = ret_type }) }
+    | FPolyDepTyped { func = { func_id ; params ; ret_type ; body } ; type_vars } ->
+      { func_id ; body ; params = type_vars @ [ params.var ]
+      ; tau_opt = Some (
+          ETypeForall
+            { type_variables = type_vars
+            ; tau = ETypeArrowD { binding = params.var ; domain = params.tau ; codomain = ret_type } }
+      )}
 
   and desugar_pattern (pat : Bluejay.pattern) (e : Bluejay.t) : Desugared.pattern * Desugared.t =
     match pat with
