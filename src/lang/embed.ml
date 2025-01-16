@@ -411,7 +411,6 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
                     ; true_body = gen tau'
                     ; false_body = EAbort
                     }
-                
               )
             }
           )

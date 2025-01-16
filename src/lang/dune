@@ -12,18 +12,16 @@
 )
 
 (library
- (name langs)
- (public_name jay.langs)
+ (name lang)
+ (public_name jay.lang)
  (synopsis "Languages in Jaylang")
  (libraries
   core
   batteries
-  preface
   monadlib
-  ; bluejay
   fmt)
  (preprocess
-  (pps ocaml-monadic ppx_sexp_conv ppx_compare ppx_hash)) ; todo ppx for hash, equal
+  (pps ocaml-monadic ppx_sexp_conv ppx_compare ppx_hash))
 ;  (flags
 ;   (:standard -w -39) ;for ppx_deriving_yojson, which generates extra rec flags
 ;   )
