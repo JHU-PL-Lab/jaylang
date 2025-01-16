@@ -49,9 +49,6 @@ module LetMonad = struct
       f a
     )
 
-  let ignore (e : Desugared.t) : unit m =
-    assign Reserved_labels.Idents.catchall e
-
   let build (m : Desugared.t m) : Desugared.t =
     let resulting_bindings, cont = run m [] in
     List.fold resulting_bindings ~init:cont ~f:(fun cont (kind, id, body) ->
@@ -177,12 +174,7 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
       EVariant { label = Reserved_labels.Variants.cons ; payload =
         ERecord (Parsing_tools.record_of_list
           [ (Reserved_labels.Records.hd, desugar e_hd)
-          ; (Reserved_labels.Records.tl, 
-            build @@
-              let%bind v = capture ~prefix:"tl" @@ desugar e_tl in
-              let%bind () = ignore @@ EAppl { func = Desugared_functions.assert_list ; arg = EVar v } in
-              return (EVar v)
-          )
+          ; (Reserved_labels.Records.tl, EAppl { func = Desugared_functions.filter_list ; arg = desugar e_tl })
           ]
         )
       }

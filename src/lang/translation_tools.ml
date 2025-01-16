@@ -48,24 +48,24 @@ end
 
 module Desugared_functions = struct
   (*
-    let assert_list x =
+    let filter_list x =
       match x with 
-      | `Nil _ -> true
-      | `Cons _ -> true
+      | `Nil _ -> x
+      | `Cons _ -> x
       end
   *)
-  let assert_list : Desugared.t =
+  let filter_list : Desugared.t =
     let x = Ident.Ident "x" in
     EFunction { param = x ; body =
       EMatch { subject = EVar x ; patterns =
         [ (PVariant
             { variant_label = Reserved_labels.Variants.nil
             ; payload_id = Reserved_labels.Idents.catchall }
-          , EBool true)
+          , EVar x)
         ; (PVariant
             { variant_label = Reserved_labels.Variants.cons
             ; payload_id = Reserved_labels.Idents.catchall }
-          , EBool true)
+          , EVar x)
         ]
       }
     }
