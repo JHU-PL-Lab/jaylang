@@ -149,6 +149,7 @@ module Expr = struct
     | EFreeze : 'a t -> 'a embedded_only t
     | EThaw : 'a t -> 'a embedded_only t 
     | EId : 'a embedded_only t
+    | EIgnore : { ignored : 'a t ; cont : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in cont` but is more efficient *)
     (* these exist in the desugared and embedded languages *)
     | EAbort : 'a desugared_or_embedded t
     | EDiverge : 'a desugared_or_embedded t

@@ -9,7 +9,9 @@ module Names = Desugar.Names (* TODO: get the actual state from desugaring *)
 
 module LetMonad = struct
   module Binding = struct
-    type t = (Ident.t * Embedded.t)
+    type t =
+      | Bind of Ident.t * Embedded.t
+      | Ignore of Embedded.t
   end
 
   module State = struct
@@ -18,13 +20,15 @@ module LetMonad = struct
 
   include Monadlib.State.Make (State)
 
+  open Binding
+
   let capture ?(prefix : string option) (e : Embedded.t) : Ident.t m =
     let v = Names.fresh_id ?prefix () in
-    let%bind () = modify (List.cons (v, e)) in
+    let%bind () = modify (List.cons (Bind (v, e))) in
     return v
 
   let assign (id : Ident.t) (e : Embedded.t) : unit m =
-    modify (List.cons (id, e))
+    modify (List.cons (Bind (id, e)))
 
   let iter (ls : 'a list) ~(f : 'a -> unit m) : unit m =
     List.fold ls ~init:(return ()) ~f:(fun acc_m a ->
@@ -33,12 +37,15 @@ module LetMonad = struct
     )
 
   let ignore (e : Embedded.t) : unit m =
-    assign Reserved_labels.Idents.catchall e
+    modify (List.cons (Ignore e))
 
   let build (m : Embedded.t m) : Embedded.t =
     let resulting_bindings, cont = run m [] in
-    List.fold resulting_bindings ~init:cont ~f:(fun cont (id, body) ->
-      ELet { var = id ; body ; cont }
+    List.fold resulting_bindings ~init:cont ~f:(fun cont -> function
+      | Bind (id, body) ->
+        ELet { var = id ; body ; cont }
+      | Ignore ignored ->
+        EIgnore { ignored ; cont }
     )
 end
 
