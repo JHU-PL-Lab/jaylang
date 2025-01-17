@@ -343,22 +343,29 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
         )
     | ETypeVariant e_variant_type ->
       let e_variant_ls =
-        List.map e_variant_type ~f:(fun (type_label, tau) -> VariantTypeLabel.to_variant_label type_label, tau)
+        List.map e_variant_type ~f:(fun (type_label, tau) ->
+          VariantTypeLabel.to_variant_label type_label, tau
+        )
       in
       Embedded_type.make
         ~gen:(
-          ECase { subject = EPick_i ; cases =
-            List.mapi e_variant_ls ~f:(fun i (label, tau) ->
-              i, EVariant { label ; payload = gen tau }
-            )
-          }
-          (* TODO: handle when input is not in case, i.e. have wildcard per the spec *)
+          ECase
+            { subject = EPick_i
+            ; cases =
+              List.drop_last_exn e_variant_ls
+              |> List.mapi ~f:(fun i (label, tau) ->
+                i, EVariant { label ; payload = gen tau }
+              )
+            ; default = 
+              let (last_label, last_tau) = List.last_exn e_variant_ls in
+              EVariant { label = last_label ; payload = gen last_tau }
+            }
         )
         ~check:(
           fresh_abstraction (fun e ->
             EMatch { subject = EVar e ; patterns =
+              let v = Names.fresh_id () in
               List.map e_variant_ls ~f:(fun (variant_label, tau) ->
-                let v = Names.fresh_id () in
                 PVariant { variant_label ; payload_id = v }
                 , check tau (EVar v)
                 )
@@ -368,8 +375,8 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
         ~wrap:(
           fresh_abstraction (fun e ->
             EMatch { subject = EVar e ; patterns = 
+              let v = Names.fresh_id () in
               List.map e_variant_ls ~f:(fun (variant_label, tau) ->
-                let v = Names.fresh_id () in
                 PVariant { variant_label ; payload_id = v }
                 , EVariant { label = variant_label ; payload = wrap tau (EVar v) }
                 )
@@ -410,7 +417,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
         ~gen:(
           fresh_abstraction (fun arg ->
             EMatch { subject = EVar arg ; patterns =
-              let v = Names.fresh_id () in (* can use the same name in each pattern *)
+              let v = Names.fresh_id () in
               List.map e_intersect_ls ~f:(fun (label, tau, tau') ->
                 PVariant { variant_label = label ; payload_id = v }
                 , EIf
@@ -424,21 +431,28 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
         )
         ~check:(
           fresh_abstraction (fun e ->
-            ECase { subject = EPick_i ; cases =
-              List.mapi e_intersect_type ~f:(fun i (label, tau, tau') ->
-                i
-                , check (
-                  ETypeArrow { domain = ETypeVariant [ (label, tau) ] ; codomain = tau' }
+            ECase
+              { subject = EPick_i
+              ; cases =
+                List.drop_last_exn e_intersect_type
+                |> List.mapi ~f:(fun i (label, tau, tau') ->
+                  i, check (
+                    ETypeArrow { domain = ETypeVariant [ (label, tau) ] ; codomain = tau' }
                 ) (EVar e) 
               )
-            }
+              ; default =
+                let (last_label, last_tau, last_tau') = List.last_exn e_intersect_type in
+                check (
+                  ETypeArrow { domain = ETypeVariant [ (last_label, last_tau) ] ; codomain = last_tau' }
+                ) (EVar e)
+              }
           )
         )
         ~wrap:(
           fresh_abstraction (fun e ->
             fresh_abstraction (fun arg ->
               EMatch { subject = EVar arg ; patterns = 
-                let v = Names.fresh_id () in (* can use the same name in each pattern *)
+                let v = Names.fresh_id () in
                 List.map e_intersect_ls ~f:(fun (label, tau, tau') ->
                   PVariant { variant_label = label ; payload_id = v }
                   , EIf

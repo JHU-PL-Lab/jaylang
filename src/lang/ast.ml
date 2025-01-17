@@ -145,7 +145,7 @@ module Expr = struct
     | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
     (* embedded only, so constrain 'a to only be `Embedded *)
     | EPick_b : 'a embedded_only t
-    | ECase : { subject : 'a t ; cases : (int * 'a t) list } -> 'a embedded_only t (* simply sugar for nested conditionals *)
+    | ECase : { subject : 'a t ; cases : (int * 'a t) list ; default : 'a t } -> 'a embedded_only t (* simply sugar for nested conditionals *)
     | EFreeze : 'a t -> 'a embedded_only t
     | EThaw : 'a t -> 'a embedded_only t 
     | EId : 'a embedded_only t
