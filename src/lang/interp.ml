@@ -3,6 +3,8 @@ open Core
 open Ast
 open Expr
 
+exception InvariantFailure of string
+
 module Value = struct
   open Constraints
 
@@ -37,8 +39,10 @@ module Value = struct
     (* types in bluejay only *)
     | VTypeList : 'a t -> 'a bluejay_only t
     | VTypeForall : { type_variables : Ident.t list ; tau : 'a Expr.t } -> 'a bluejay_only t
+    (* recursive function stub for bluejay *)
+    | VRecStub : 'a bluejay_only t
 
-  and 'a env = 'a t Ident.Map.t
+  and 'a env = 'a t ref Ident.Map.t (* ref is to handle recursion *)
 
   let check_pattern (type a) (v : a t) (p : a Pattern.t) : bool =
     match p with
@@ -69,10 +73,14 @@ module Env = struct
   let empty : 'a t = Ident.Map.empty
 
   let add (env : 'a t) (id : Ident.t) (v : 'a Value.t) : 'a t =
-    Map.set env ~key:id ~data:v
+    Map.set env ~key:id ~data:(ref v)
 
   let fetch (env : 'a t) (id : Ident.t) : 'a Value.t =
-    Map.find_exn env id
+    !(Map.find_exn env id)
+
+  let add_stub (env : 'a Constraints.bluejay_only t) (id : Ident.t) : 'a Value.t ref * 'a t =
+    let v_ref = ref Value.VRecStub in
+    v_ref, Map.set env ~key:id ~data:v_ref
 end
 
 (* TODO: benchmark the performance of this *)
@@ -264,13 +272,58 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
       let%orzero (Some v) = Map.find record_body label in
       return v
     (* casing *)
-    | EMatch _ -> failwith "unimplemented match"
-      (* let%bind v = eval subject env in
-      List.find patterns ~f:(fun ()) *)
-    | ECase _ -> failwith "unimplemented case"
+    | EMatch { subject ; patterns } -> 
+      let%bind v = eval subject env in
+      let%orzero Some (e, env) =
+        List.find_map patterns ~f:(fun (pat, body) ->
+          match pat, v with
+          | PAny, _ -> Some (body, env)
+          | PVariable id, _ -> Some (body, Env.add env id v)
+          | PVariant { variant_label ; payload_id }, VVariant { label ; payload } 
+              when VariantLabel.equal variant_label label -> 
+            Some (body, Env.add env payload_id payload)
+          | PEmptyList, VList [] -> Some (body, env)
+          | PDestructList { hd_id ; tl_id }, VList (v_hd :: v_tl) ->
+            Some (body, Env.add (Env.add env hd_id v_hd) tl_id (VList v_tl))
+          | _ -> None
+        )
+      in
+      eval e env
+    | ECase { subject ; cases ; default } -> begin
+      let%bind v = eval subject env in
+      let%orzero VInt i = v in
+      List.find_map cases ~f:(fun (case_i, body) ->
+        Option.some_if (i = case_i) body
+      )
+      |> function
+        | Some body -> eval body env
+        | None -> eval default env
+    end
     (* let funs *)
-    | ELetFunRec _ -> failwith "unimplemented let fun rec"
-    | ELetFun _ -> failwith "unimplemented let fun"
+    | ELetFunRec { funcs ; cont } -> begin
+      let stub_and_comps_ls, env =
+        List.fold funcs ~init:([], env) ~f:(fun (acc, env) fsig ->
+          let comps = Ast_tools.Funsig.to_components fsig in
+          let stub_ref, env = Env.add_stub env comps.func_id in
+          (stub_ref, comps) :: acc
+          , env
+          )
+      in
+      List.iter stub_and_comps_ls ~f:(fun (stub_ref, comps) ->
+        match Ast_tools.Utils.abstract_over_ids comps.params comps.body with
+        | EFunction { param ; body } -> stub_ref := VFunClosure { param ; body ; env }
+        | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
+      );
+      eval cont env
+    end
+    | ELetFun { func ; cont } ->
+      let comps = Ast_tools.Funsig.to_components func in
+      Ast_tools.Utils.abstract_over_ids comps.params comps.body
+      |> function
+        | EFunction { param ; body } ->
+          eval cont
+          @@ Env.add env comps.func_id (VFunClosure { param ; body ; env })
+        | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
 
     and eval_let (var : Ident.t) ~(body : a Expr.t) ~(cont : a Expr.t) (env : a Env.t) : a Value.t m =
       let%bind v = eval body env in

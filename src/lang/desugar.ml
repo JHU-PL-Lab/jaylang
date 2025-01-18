@@ -5,6 +5,8 @@ open Constraints
 open Expr
 open Pattern
 open Translation_tools
+open Ast_tools
+open Ast_tools.Utils
 
 module Names = Fresh_names ()
 
@@ -63,33 +65,6 @@ module LetMonad = struct
 end
 
 open LetMonad
-
-(*
-  [ x1 ; ... ; xn ], e |->
-    fun x1 -> ... -> fun xn -> e
-*)
-let abstract_over_ids (type a) (ids : Ident.t list) (body : a Expr.t) : a Expr.t =
-  List.fold_right ids ~init:body ~f:(fun param body ->
-    Expr.EFunction { param ; body }
-  )
-
-(*
-  [ tau1 ; ... ; taun ], tau |->
-    tau1 -> ..> taun -> tau
-*)
-let tau_list_to_arrow_type (taus : 'a Expr.t list) (codomain : 'a Expr.t) : 'a Constraints.bluejay_or_desugared Expr.t =
-  List.fold_right taus ~init:codomain ~f:(fun domain codomain ->
-    Expr.ETypeArrow { domain ; codomain }
-  )
-
-(*
-  f, [ x1 ; ... ; xn ] |->
-    f x1 ... xn
-*)
-let appl_list (type a) (f : a Expr.t) (args : a Expr.t list) : a Expr.t =
-  List.fold args ~init:f ~f:(fun func arg ->
-    EAppl { func ; arg }
-  )
 
 let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
   let rec desugar (expr : Bluejay.t) : Desugared.t =
@@ -164,7 +139,7 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
       }
     (* Lists *)
     | EList [] ->
-      EVariant { label = Reserved_labels.Variants.nil ; payload = Values.dummy }
+      EVariant { label = Reserved_labels.Variants.nil ; payload = Utils.dummy_value }
     | EList ls_e ->
       desugar
       @@ List.fold_right ls_e ~init:(EList []) ~f:(fun e acc ->
@@ -258,28 +233,8 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
     Breaks a function signature into its id, type (optional), parameter names, and function body, all desugared.
   *)
   and funsig_to_components (fsig : Bluejay.funsig) : desugared Function_components.t =
-    Function_components.map ~f:desugar @@
-    match fsig with
-    | FUntyped { func_id ; params ; body } ->
-      { func_id ; tau_opt = None ; params ; body }
-    | FTyped { func_id ; params ; body ; ret_type } ->
-      let param_ids, param_taus = List.unzip @@ List.map params ~f:(fun { var ; tau } -> var, tau) in
-      { func_id ;  body ; params = param_ids
-      ; tau_opt = Some (tau_list_to_arrow_type param_taus ret_type) }
-    | FPolyTyped { func = { func_id ; params ; ret_type ; body } ; type_vars } ->
-      let param_ids, param_taus = List.unzip @@ List.map params ~f:(fun { var ; tau } -> var, tau) in
-      { func_id ; body ; params = type_vars @ param_ids
-      ; tau_opt = Some (ETypeForall { type_variables = type_vars ; tau = tau_list_to_arrow_type param_taus ret_type }) }
-    | FDepTyped { func_id ; params ; ret_type ; body } ->
-      { func_id ; body ; params = [ params.var ]
-      ; tau_opt = Some (ETypeArrowD { binding = params.var ; domain = params.tau ; codomain = ret_type }) }
-    | FPolyDepTyped { func = { func_id ; params ; ret_type ; body } ; type_vars } ->
-      { func_id ; body ; params = type_vars @ [ params.var ]
-      ; tau_opt = Some (
-          ETypeForall
-            { type_variables = type_vars
-            ; tau = ETypeArrowD { binding = params.var ; domain = params.tau ; codomain = ret_type } }
-      )}
+    Function_components.map ~f:desugar
+    @@ Funsig.to_components fsig
 
   and desugar_pattern (pat : Bluejay.pattern) (e : Bluejay.t) : Desugared.pattern * Desugared.t =
     match pat with

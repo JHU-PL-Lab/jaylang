@@ -172,8 +172,9 @@ let rec insert (tree : avl_tree) (i : int) : avl_tree =
   match tree with
   | `Leaf l -> create_node i empty empty
   | `Node node ->
-    match node with
-   | { item = item , left = left , right = right , _ } ->
+    #match node with
+    #| { item = item , left = left , right = right , _ } ->
+    let item = node.item in let left = node.left in let right = node.right in
       let new_node =
         if i < item 
         then create_node item (insert left i) right

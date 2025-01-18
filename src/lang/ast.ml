@@ -191,7 +191,6 @@ module Expr = struct
 
   (* the common parts of typed let-function signature *)
   and ('a, 'p) typed_fun = { func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
-
 end
 
 module Embedded = struct

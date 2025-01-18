@@ -1,35 +1,7 @@
 
 open Core
 open Ast
-
-module Reserved_labels = struct
-  module Records = struct
-    let gen : RecordLabel.t = RecordLabel (Ident "~gen")
-    let check : RecordLabel.t = RecordLabel (Ident "~check")
-    let wrap : RecordLabel.t = RecordLabel (Ident "~wrap")
-    let hd : RecordLabel.t = RecordLabel (Ident "~hd")
-    let tl : RecordLabel.t = RecordLabel (Ident "~tl")
-  end
-
-  module Variants = struct
-    let cons : VariantLabel.t = VariantLabel (Ident "~Cons") 
-    let nil : VariantLabel.t = VariantLabel (Ident "~Nil") 
-    let untouched : VariantLabel.t = VariantLabel (Ident "~Untouched")
-  end
-
-  module VariantTypes = struct
-    let cons : VariantTypeLabel.t = VariantTypeLabel (Ident "~Cons") 
-    let nil : VariantTypeLabel.t = VariantTypeLabel (Ident "~Nil") 
-  end
-
-  module Idents = struct
-    let catchall : Ident.t = Ident "_"
-  end
-end
-
-module Values = struct
-  let dummy : type a. a Expr.t = EInt 0
-end
+open Ast_tools
 
 module Fresh_names () = struct
   (* prefixes are strictly for readability of target code *)
@@ -111,19 +83,3 @@ module Embedded_functions = struct
         }
     }
 end 
-
-module Function_components = struct
-  type 'a t =
-    { func_id : Ident.t
-    ; tau_opt : 'a Constraints.bluejay_or_desugared Expr.t option
-    ; params  : Ident.t list
-    ; body    : 'a Constraints.bluejay_or_desugared Expr.t
-    } 
-
-  let map (x : 'a t) ~(f : 'a Expr.t -> 'b Expr.t) : 'b t =
-    { func_id = x.func_id
-    ; tau_opt = Option.map x.tau_opt ~f
-    ; params  = x.params
-    ; body    = f x.body
-    }
-end

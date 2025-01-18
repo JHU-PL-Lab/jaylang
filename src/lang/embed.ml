@@ -4,6 +4,8 @@ open Ast
 open Pattern
 open Expr
 open Translation_tools
+open Ast_tools
+open Ast_tools.Utils
 
 module Names = Desugar.Names (* TODO: get the actual state from desugaring *)
 
@@ -51,38 +53,9 @@ end
 
 open LetMonad
 
-(*
-  Is a partially-evaluating apply, where the function is checked against the identity function.
-*)
-let apply (type a) (func : a Expr.t) (arg : a Expr.t) : a Expr.t =
-  match func with
-  | EId -> arg
-  | _ -> EAppl { func ; arg }
-
-(*
-  Is a partially-evaluating record projection, which is safe because we have no side effects coming
-  from the evaluation of the non-projected fields.
-*)
-let proj (type a) (tau : a Expr.t) (label : RecordLabel.t) : a Expr.t =
-  match tau with
-  | ERecord m when Map.mem m label ->
-    Map.find_exn m label
-  | _ -> EProject { record = tau ; label }
-
 let fresh_abstraction (type a) ?(prefix : string option) (e : Ident.t -> a Expr.t) : a Expr.t =
   let id = Names.fresh_id ?prefix () in
   EFunction { param = id ; body = e id }
-
-(*
-  TODO: move this to common place because I have it in both desugar and embed
-
-  f, [ x1 ; ... ; xn ] |->
-    f x1 ... xn
-*)
-let appl_list (type a) (f : a Expr.t) (args : a Expr.t list) : a Expr.t =
-  List.fold args ~init:f ~f:(fun func arg ->
-    apply func arg
-  )
 
 module Embedded_type = struct
   (*
@@ -466,7 +439,6 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
           )
         )
 
-
     and embed_pattern (pat : Desugared.pattern) : Embedded.pattern =
       match pat with
       | (PAny | PVariable _ | PVariant _) as p -> p
@@ -479,9 +451,6 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
 
     and wrap (tau : Desugared.t) (x : Embedded.t) : Embedded.t =
       Embedded_type.wrap ~tau:(embed tau) x
-
-
-
   in
   embed expr
 
