@@ -4,6 +4,7 @@ open Ast
 open Expr
 
 exception InvariantFailure of string
+exception UnboundVariable of Ident.t
 
 module Value = struct
   open Constraints
@@ -20,7 +21,7 @@ module Value = struct
     | VDiverge : 'a t (* this results from `EDiverge` or `EAssume (EBool false)` *)
     (* embedded only *)
     | VId : 'a embedded_only t
-    | VFrozen : 'a Expr.t -> 'a embedded_only t
+    | VFrozen : { body : 'a Expr.t ; env : 'a env }-> 'a embedded_only t
     (* desugared only *)
     | VKind : 'a desugared_only t
     (* bluejay only *)
@@ -76,7 +77,9 @@ module Env = struct
     Map.set env ~key:id ~data:(ref v)
 
   let fetch (env : 'a t) (id : Ident.t) : 'a Value.t =
-    !(Map.find_exn env id)
+    match Map.find env id with
+    | None -> raise @@ UnboundVariable id
+    | Some r -> !r
 
   let add_stub (env : 'a Constraints.bluejay_only t) (id : Ident.t) : 'a Value.t ref * 'a t =
     let v_ref = ref Value.VRecStub in
@@ -141,10 +144,12 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
     | EDiverge -> diverge ()
     | EFunction { param ; body } -> return (VFunClosure { param ; body ; env })
     | EMultiArgFunction { params ; body } -> return (VMultiArgFunClosure { params ; body ; env })
-    | EFreeze e -> return (VFrozen e)
+    | EFreeze e -> return (VFrozen { body = e ; env })
     | EId -> return VId
     (* inputs *) (* TODO: make this not random but instead from an input stream *)
-    | EPick_i -> return (VInt (Random.int_incl Int.min_value Int.max_value))
+    | EPick_i -> 
+      (* return (VInt (Random.int_incl Int.min_value Int.max_value)) *)
+      return (VInt 0)
     | EPick_b -> return (VBool (Random.bool ()))
     (* simple propogation *)
     | EVariant { label ; payload } ->
@@ -190,7 +195,7 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
       return (VTypeRecord new_record)
     | EThaw e ->
       let%bind v_frozen = eval e env in
-      let%orzero (VFrozen e_frozen) = v_frozen in
+      let%orzero (VFrozen { body = e_frozen ; env }) = v_frozen in
       eval e_frozen env
     (* bindings *)
     | EAppl { func ; arg } -> begin

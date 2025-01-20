@@ -24,8 +24,8 @@ module LetMonad = struct
 
   open Binding
 
-  let capture ?(prefix : string option) (e : Embedded.t) : Ident.t m =
-    let v = Names.fresh_id ?prefix () in
+  let capture ?(suffix : string option) (e : Embedded.t) : Ident.t m =
+    let v = Names.fresh_id ?suffix () in
     let%bind () = modify (List.cons (Bind (v, e))) in
     return v
 
@@ -53,8 +53,8 @@ end
 
 open LetMonad
 
-let fresh_abstraction (type a) ?(prefix : string option) (e : Ident.t -> a Expr.t) : a Expr.t =
-  let id = Names.fresh_id ?prefix () in
+let fresh_abstraction (type a) (suffix : string) (e : Ident.t -> a Expr.t) : a Expr.t =
+  let id = Names.fresh_id ~suffix () in
   EFunction { param = id ; body = e id }
 
 module Embedded_type = struct
@@ -127,8 +127,8 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
         let%bind () =
           assign x (
             build @@
-              let%bind r = capture ~prefix:"r" @@ embed tau in
-              let%bind v = capture ~prefix:"v" @@ embed e in
+              let%bind r = capture ~suffix:"r" @@ embed tau in
+              let%bind v = capture ~suffix:"v" @@ embed e in
               let%bind () = ignore @@ Embedded_type.check ~tau:(EVar r) (EVar v) in
               return @@ Embedded_type.wrap ~tau:(EVar r) (EVar v)
           )
@@ -144,7 +144,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
       Embedded_type.make
         ~gen:EPick_i
         ~check:(
-          fresh_abstraction (fun e ->
+          fresh_abstraction "e_int_check" (fun e ->
             build @@
               let%bind () = ignore (EBinop { left = EVar e ; binop = BPlus ; right = EInt 0 }) in
               return (EBool true)
@@ -155,7 +155,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
       Embedded_type.make
         ~gen:EPick_b
         ~check:(
-          fresh_abstraction (fun e ->
+          fresh_abstraction "e_bool_check" (fun e ->
             build @@
               let%bind () = ignore (ENot (EVar e)) in
               return (EBool true)
@@ -166,7 +166,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
     | ETypeArrow { domain = tau1 ; codomain = tau2 } ->
       Embedded_type.make
         ~gen:(
-          fresh_abstraction ~prefix:"arg" (fun arg ->
+          fresh_abstraction "arg_arrow_gen" (fun arg ->
             EIf
               { cond = check tau1 (EVar arg)
               ; true_body = gen tau2
@@ -175,15 +175,15 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
           )
         )
         ~check:(
-          fresh_abstraction (fun e ->
+          fresh_abstraction "e_arrow_check" (fun e ->
             check tau2 (
               apply (EVar e) (gen tau1)
             )
           )
         )
         ~wrap:(
-          fresh_abstraction (fun e ->
-            fresh_abstraction (fun x ->
+          fresh_abstraction "e_arrow_wrap" (fun e ->
+            fresh_abstraction "x_arrow_wrap" (fun x ->
               EIf
                 { cond = check tau1 (EVar x)
                 ; true_body = wrap tau2 (
@@ -198,7 +198,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
       Embedded_type.make
         ~gen:(ERecord (Map.map m ~f:gen))
         ~check:(
-          fresh_abstraction (fun e ->
+          fresh_abstraction "e_rec_check" (fun e ->
             build @@
               let%bind () =
                 iter (Map.to_alist m) ~f:(fun (label, tau) ->
@@ -209,7 +209,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
           )
         )
         ~wrap:(
-          fresh_abstraction (fun e ->
+          fresh_abstraction "e_rec_wrap" (fun e ->
             ERecord (
               Map.mapi m ~f:(fun ~key:label ~data:tau ->
                 wrap tau (proj (EVar e) label)
@@ -224,9 +224,9 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
           Embedded_type.make
             ~gen:(EVariant { label = Reserved_labels.Variants.untouched ; payload = EInt a })
             ~check:(
-              fresh_abstraction (fun e ->
+              fresh_abstraction "e_alpha_check" (fun e ->
                 EMatch { subject = EVar e ; patterns =
-                  let v = Names.fresh_id ~prefix:"v" () in
+                  let v = Names.fresh_id ~suffix:"v" () in
                   [ (PVariant { variant_label = Reserved_labels.Variants.untouched ; payload_id = v }
                     , EIf
                         { cond = EBinop { left = EVar v ; binop = BEqual ; right = EInt a }
@@ -240,7 +240,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
             ~wrap:EId
         )
         ~check:(
-          fresh_abstraction (fun e ->
+          fresh_abstraction "e_kind_check" (fun e ->
             build @@  
               let e = EVar e in
               let%bind () = ignore @@ proj e Reserved_labels.Records.gen in
@@ -253,7 +253,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
     | ETypeArrowD { binding = x ; domain = tau1 ; codomain = tau2 } ->
       Embedded_type.make
         ~gen:(
-          fresh_abstraction (fun x' ->
+          fresh_abstraction "xp_arrowd_gen" (fun x' ->
             EIf
               { cond = check tau1 (EVar x')
               ; true_body = apply (EFunction { param = x ; body = gen tau2}) (EVar x')
@@ -262,7 +262,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
           )
         )
         ~check:(
-          fresh_abstraction (fun e ->
+          fresh_abstraction "e_arrowd_check"( fun e ->
             build @@
               let%bind arg = capture @@ gen tau1 in
               return
@@ -272,8 +272,8 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
           )
         )
         ~wrap:(
-          fresh_abstraction (fun e ->
-            fresh_abstraction (fun x' ->
+          fresh_abstraction "e_arrowd_wrap" (fun e ->
+            fresh_abstraction "xp_arrowd_wrap" (fun x' ->
               EIf
                 { cond = check tau1 (EVar x')
                 ; true_body = 
@@ -298,7 +298,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
             )
         )
         ~check:(
-          fresh_abstraction (fun e ->
+          fresh_abstraction "e_ref_check" (fun e ->
             build @@
               let%bind () = ignore @@ check tau (EVar e) in
               return (EIf
@@ -310,7 +310,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
           )
         )
         ~wrap:(
-          fresh_abstraction (fun e ->
+          fresh_abstraction "e_ref_wrap" (fun e ->
             wrap tau (EVar e)
           )
         )
@@ -335,7 +335,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
             }
         )
         ~check:(
-          fresh_abstraction (fun e ->
+          fresh_abstraction "e_var_check" (fun e ->
             EMatch { subject = EVar e ; patterns =
               let v = Names.fresh_id () in
               List.map e_variant_ls ~f:(fun (variant_label, tau) ->
@@ -346,7 +346,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
           )
         )
         ~wrap:(
-          fresh_abstraction (fun e ->
+          fresh_abstraction "e_var_wrap" (fun e ->
             EMatch { subject = EVar e ; patterns = 
               let v = Names.fresh_id () in
               List.map e_variant_ls ~f:(fun (variant_label, tau) ->
@@ -359,20 +359,20 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
     | ETypeMu { var = b ; body = tau } ->
       apply (
         apply Embedded_functions.y_comb (
-          fresh_abstraction (fun self ->
-            fresh_abstraction (fun _dummy ->
+          fresh_abstraction "self_mu" (fun self ->
+            fresh_abstraction "dummy_mu" (fun _dummy ->
               let appl_self_0 = apply (EVar self) (EInt 0) in
               Embedded_type.make
                 ~gen:(
                   apply (EFunction { param = b ; body = gen tau }) appl_self_0
                 )
                 ~check:(
-                  fresh_abstraction (fun e ->
+                  fresh_abstraction "e_mu_check" (fun e ->
                     apply (EFunction { param = b ; body = check tau (EVar e) }) appl_self_0
                   )
                 )
                 ~wrap:(
-                  fresh_abstraction (fun e ->
+                  fresh_abstraction "e_mu_wrap" (fun e ->
                     apply (EFunction { param = b ; body = wrap tau (EVar e) }) appl_self_0
                   )
                 )
@@ -388,7 +388,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
       in
       Embedded_type.make
         ~gen:(
-          fresh_abstraction (fun arg ->
+          fresh_abstraction "arg_inter_gen" (fun arg ->
             EMatch { subject = EVar arg ; patterns =
               let v = Names.fresh_id () in
               List.map e_intersect_ls ~f:(fun (label, tau, tau') ->
@@ -403,7 +403,7 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
           )
         )
         ~check:(
-          fresh_abstraction (fun e ->
+          fresh_abstraction "e_inter_check" (fun e ->
             ECase
               { subject = EPick_i
               ; cases =
@@ -422,8 +422,8 @@ let embed_desugared (expr : Desugared.t) : Embedded.t =
           )
         )
         ~wrap:(
-          fresh_abstraction (fun e ->
-            fresh_abstraction (fun arg ->
+          fresh_abstraction "e_inter_wrap" (fun e ->
+            fresh_abstraction "arg_inter_wrap" (fun arg ->
               EMatch { subject = EVar arg ; patterns = 
                 let v = Names.fresh_id () in
                 List.map e_intersect_ls ~f:(fun (label, tau, tau') ->

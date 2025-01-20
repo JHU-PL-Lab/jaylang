@@ -37,8 +37,8 @@ module LetMonad = struct
 
   include Monadlib.State.Make (State)
 
-  let capture ?(prefix : string option) (e : Desugared.t) : Ident.t m =
-    let v = Names.fresh_id ?prefix () in
+  let capture ?(suffix : string option) (e : Desugared.t) : Ident.t m =
+    let v = Names.fresh_id ?suffix () in
     let%bind () = modify (List.cons (Binding.Kind.Untyped, v, e)) in
     return v
 
@@ -154,7 +154,7 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
         )
       }
     | ETypeList e_tau ->
-      let t = Names.fresh_id ~prefix:"list_t" () in
+      let t = Names.fresh_id ~suffix:"list_t" () in
       ETypeMu { var = t ; body =
         ETypeVariant
           [ (Reserved_labels.VariantTypes.nil, ETypeInt)
@@ -191,7 +191,7 @@ let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
       let tmp_name_of_name =
         let m =
           List.fold f_names ~init:Ident.Map.empty ~f:(fun acc func_id ->
-            Map.set acc ~key:func_id ~data:(let Ident prefix = func_id in Names.fresh_id ~prefix ())
+            Map.set acc ~key:func_id ~data:(let Ident suffix = func_id in Names.fresh_id ~suffix ())
             )
         in
         Map.find_exn m 

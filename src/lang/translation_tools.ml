@@ -4,12 +4,12 @@ open Ast
 open Ast_tools
 
 module Fresh_names () = struct
-  (* prefixes are strictly for readability of target code *)
-  let fresh_id : ?prefix : string -> unit -> Ident.t = 
+  (* suffixes are strictly for readability of target code *)
+  let fresh_id : ?suffix : string -> unit -> Ident.t = 
     let count = ref 0 in
-    fun ?(prefix : string = "") () ->
+    fun ?(suffix : string = "") () ->
       incr count;
-      Ident (Format.sprintf "~%s%d" prefix !count)
+      Ident (Format.sprintf "~%d%s" !count suffix)
 
   let fresh_poly_value : unit -> int =
     let count = ref 0 in
