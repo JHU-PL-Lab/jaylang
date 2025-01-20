@@ -44,26 +44,6 @@ module Value = struct
     | VRecStub : 'a bluejay_only t
 
   and 'a env = 'a t ref Ident.Map.t (* ref is to handle recursion *)
-
-  let check_pattern (type a) (v : a t) (p : a Pattern.t) : bool =
-    match p with
-    | PAny | PVariable _ -> true
-    | PVariant { variant_label ; _ } -> begin
-      match v with
-      | VVariant { label ; _ } ->
-        VariantLabel.equal variant_label label
-      | _ -> false
-    end
-    | PEmptyList -> begin
-      match v with
-      | VList [] -> true
-      | _ -> false
-    end
-    | PDestructList _ -> begin
-      match v with
-      | VList (_ :: _) -> true
-      | _ -> false
-    end
 end
 
 open Value
