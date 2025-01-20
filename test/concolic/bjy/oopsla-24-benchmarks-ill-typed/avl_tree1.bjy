@@ -184,7 +184,7 @@ let rec insert (tree : avl_tree) (i : int) : avl_tree =
           else tree
       in
       rebalance i new_node
-    end
+    #end
   end
 in
 
