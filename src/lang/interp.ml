@@ -328,10 +328,10 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
       )
   in
   (eval e Env.empty) (function
-    | Ok r -> r
-    | Error Type_mismatch -> VTypeMismatch
-    | Error Abort -> VAbort
-    | Error Diverge -> VDiverge
+    | Ok r -> Format.printf "OK"; r
+    | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
+    | Error Abort -> Format.printf "FOUND ABORT"; VAbort
+    | Error Diverge -> Format.printf "DIVERGE"; VDiverge
   )
 
 
