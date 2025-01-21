@@ -1,5 +1,6 @@
 
 open Core
+open Lang
 open Ast
 open Constraints
 open Expr
@@ -8,9 +9,7 @@ open Translation_tools
 open Ast_tools
 open Ast_tools.Utils
 
-module Names = Fresh_names ()
-
-module LetMonad = struct
+module LetMonad (Names : Fresh_names.S) = struct
   module Binding = struct
     module Kind = struct
       type t = 
@@ -64,9 +63,10 @@ module LetMonad = struct
     )
 end
 
-open LetMonad
+let desugar_bluejay (names : (module Fresh_names.S)) (expr : Bluejay.t) : Desugared.t =
+  let module Names = (val names) in
+  let open LetMonad (Names) in
 
-let desugar_bluejay (expr : Bluejay.t) : Desugared.t =
   let rec desugar (expr : Bluejay.t) : Desugared.t =
     match expr with
     (* Base cases *)

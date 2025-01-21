@@ -1,9 +1,12 @@
+
+
 (copy_files# parse-bluejay/*.{ml,mli})
 (copy_files parse-bluejay/*.{mll,mly})
 
 (ocamllex
   lexer
 )
+
 (menhir
   (flags --explain)
   (modules
@@ -15,6 +18,7 @@
  (name lang)
  (public_name jay.lang)
  (synopsis "Languages in Jaylang")
+ (modules (:standard))
  (libraries
   core
   batteries

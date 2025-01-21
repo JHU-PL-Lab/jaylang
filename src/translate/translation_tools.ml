@@ -1,21 +1,29 @@
 
 open Core
+open Lang
 open Ast
 open Ast_tools
 
-module Fresh_names () = struct
-  (* suffixes are strictly for readability of target code *)
-  let fresh_id : ?suffix : string -> unit -> Ident.t = 
-    let count = ref 0 in
-    fun ?(suffix : string = "") () ->
-      incr count;
-      Ident (Format.sprintf "~%d%s" !count suffix)
+module Fresh_names = struct
+  module type S = sig
+    val fresh_id : ?suffix:string -> unit -> Ident.t
+    val fresh_poly_value : unit -> int
+  end
 
-  let fresh_poly_value : unit -> int =
-    let count = ref 0 in
-    fun () ->
-      incr count;
-      !count
+  module Make () : S = struct
+    (* suffixes are strictly for readability of target code *)
+    let fresh_id : ?suffix : string -> unit -> Ident.t = 
+      let count = ref 0 in
+      fun ?(suffix : string = "") () ->
+        incr count;
+        Ident (Format.sprintf "~%d%s" !count suffix)
+
+    let fresh_poly_value : unit -> int =
+      let count = ref 0 in
+      fun () ->
+        incr count;
+        !count
+  end
 end
 
 module Desugared_functions = struct
@@ -59,10 +67,10 @@ module Embedded_functions = struct
   let y_comb =
     let open Ident in
     let open Expr in
-    let f = Ident "~f" in
+    let f = Ident "~f_y_comb" in
     let body =
-      let x = Ident "~x" in
-      let dummy = Ident "~dummy" in
+      let x = Ident "~x_y_comb" in
+      let dummy = Ident "~dummy_y_comb" in
       EFunction { param = x ; body =
         EFunction { param = dummy ; body =
           EAppl

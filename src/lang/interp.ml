@@ -66,7 +66,13 @@ module Env = struct
     v_ref, Map.set env ~key:id ~data:v_ref
 end
 
-(* TODO: benchmark the performance of this *)
+(* 
+  TODO: benchmark the performance of this
+  Notes:
+    * With CPS is definitely much faster on very long computations
+    * However, on somewhat small computations on the order of ms and tens of ms, non-CPS is faster by the same order
+      * With inline_always, most of that performance gap goes away, so CPS is generally a fine choice
+ *)
 module CPS_Error_M (R : sig type t end) = struct
   module Err = struct
     type t = Abort | Diverge | Type_mismatch
@@ -78,13 +84,13 @@ module CPS_Error_M (R : sig type t end) = struct
   module T = struct
     type 'a m = ('a, Err.t) result C.m
 
-    let bind (x : 'a m) (f : 'a -> 'b m) : 'b m = 
+    let[@inline_always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m = 
       C.bind x (function
         | Ok r -> f r
         | Error e -> C.return (Error e)
       )
 
-    let return (a : 'a) : 'a m =
+    let[@inline_always] return (a : 'a) : 'a m =
       C.return
       @@ Result.return a
   end

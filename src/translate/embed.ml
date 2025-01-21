@@ -1,5 +1,6 @@
 
 open Core
+open Lang
 open Ast
 open Pattern
 open Expr
@@ -7,9 +8,7 @@ open Translation_tools
 open Ast_tools
 open Ast_tools.Utils
 
-module Names = Desugar.Names (* TODO: get the actual state from desugaring *)
-
-module LetMonad = struct
+module LetMonad (Names : Fresh_names.S)= struct
   module Binding = struct
     type t =
       | Bind of Ident.t * Embedded.t
@@ -51,12 +50,6 @@ module LetMonad = struct
     )
 end
 
-open LetMonad
-
-let fresh_abstraction (type a) (suffix : string) (e : Ident.t -> a Expr.t) : a Expr.t =
-  let id = Names.fresh_id ~suffix () in
-  EFunction { param = id ; body = e id }
-
 module Embedded_type = struct
   (*
     Note: then gen body gets frozen
@@ -93,7 +86,15 @@ module Embedded_type = struct
       x
 end
 
-let embed_desugared (expr : Desugared.t) : Embedded.t =
+let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embedded.t =
+  let module Names = (val names) in
+  let open LetMonad (Names) in
+
+  let fresh_abstraction (type a) (suffix : string) (e : Ident.t -> a Expr.t) : a Expr.t =
+    let id = Names.fresh_id ~suffix () in
+    EFunction { param = id ; body = e id }
+  in
+
   let rec embed (expr : Desugared.t) : Embedded.t =
     match expr with
     (* base cases *)
