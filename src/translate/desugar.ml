@@ -9,7 +9,7 @@ open Translation_tools
 open Ast_tools
 open Ast_tools.Utils
 
-module LetMonad (Names : Fresh_names.S) = struct
+module LetMonad = struct
   module Binding = struct
     module Kind = struct
       type t = 
@@ -35,14 +35,6 @@ module LetMonad (Names : Fresh_names.S) = struct
   end
 
   include Monadlib.State.Make (State)
-
-  (*
-    Capture the expression under a fresh name, and return that name.
-  *)
-  let capture ?(suffix : string option) (e : Desugared.t) : Ident.t m =
-    let v = Names.fresh_id ?suffix () in
-    let%bind () = modify (List.cons (Binding.Kind.Untyped, v, e)) in
-    return v
 
   (*
     Assign the expression the given name with optional typing.
@@ -75,7 +67,7 @@ end
 
 let desugar_bluejay (names : (module Fresh_names.S)) (expr : Bluejay.t) : Desugared.t =
   let module Names = (val names) in
-  let open LetMonad (Names) in
+  let open LetMonad in
 
   let rec desugar (expr : Bluejay.t) : Desugared.t =
     match expr with
