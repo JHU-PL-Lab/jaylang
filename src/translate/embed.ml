@@ -23,11 +23,17 @@ module LetMonad (Names : Fresh_names.S)= struct
 
   open Binding
 
+  (*
+    Capture the expression under a fresh name and return that name.
+  *)
   let capture ?(suffix : string option) (e : Embedded.t) : Ident.t m =
     let v = Names.fresh_id ?suffix () in
     let%bind () = modify (List.cons (Bind (v, e))) in
     return v
 
+  (*
+    Assign the expression the given name.
+  *)
   let assign (id : Ident.t) (e : Embedded.t) : unit m =
     modify (List.cons (Bind (id, e)))
 
@@ -37,9 +43,16 @@ module LetMonad (Names : Fresh_names.S)= struct
       f a
     )
 
+  (*
+    Compute the value of the expression but ignore it.
+  *)
   let ignore (e : Embedded.t) : unit m =
     modify (List.cons (Ignore e))
 
+  (*
+    Build the expression (of many nested let-expressions or ignore-expressions) using
+    the monad's state.
+  *)
   let build (m : Embedded.t m) : Embedded.t =
     let resulting_bindings, cont = run m [] in
     List.fold resulting_bindings ~init:cont ~f:(fun cont -> function

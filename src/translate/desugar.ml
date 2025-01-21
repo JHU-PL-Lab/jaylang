@@ -36,11 +36,17 @@ module LetMonad (Names : Fresh_names.S) = struct
 
   include Monadlib.State.Make (State)
 
+  (*
+    Capture the expression under a fresh name, and return that name.
+  *)
   let capture ?(suffix : string option) (e : Desugared.t) : Ident.t m =
     let v = Names.fresh_id ?suffix () in
     let%bind () = modify (List.cons (Binding.Kind.Untyped, v, e)) in
     return v
 
+  (*
+    Assign the expression the given name with optional typing.
+  *)
   let assign ?(kind : Binding.Kind.t = Untyped) (id : Ident.t) (e : Desugared.t) : unit m =
     modify (List.cons (kind, id, e))
 
@@ -50,6 +56,10 @@ module LetMonad (Names : Fresh_names.S) = struct
       f a
     )
 
+  (*
+    Build an expression (of many nested let-expressions) using the assignments
+    in the monad's state.
+  *)
   let build (m : Desugared.t m) : Desugared.t =
     let resulting_bindings, cont = run m [] in
     List.fold resulting_bindings ~init:cont ~f:(fun cont (kind, id, body) ->

@@ -3,7 +3,7 @@
  (name translate)
  (public_name jay.translate)
  (modules convert desugar embed translation_tools)
- (private_modules translation_tools)
+ (private_modules desugar embed translation_tools)
  (libraries core lang monadlib)
  (preprocess (pps ocaml-monadic))
  )

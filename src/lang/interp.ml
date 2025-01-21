@@ -13,7 +13,7 @@ module Value = struct
     (* all languages *)
     | VInt : int -> 'a t
     | VBool : bool -> 'a t
-    | VFunClosure : { param : Ident.t ; body : 'a Expr.t ; env : 'a env } -> 'a t
+    | VFunClosure : { param : Ident.t ; body : 'a closure } -> 'a t
     | VVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
     | VRecord : 'a t RecordLabel.Map.t -> 'a t
     | VTypeMismatch : 'a t
@@ -21,29 +21,31 @@ module Value = struct
     | VDiverge : 'a t (* this results from `EDiverge` or `EAssume (EBool false)` *)
     (* embedded only *)
     | VId : 'a embedded_only t
-    | VFrozen : { body : 'a Expr.t ; env : 'a env }-> 'a embedded_only t
+    | VFrozen : 'a closure -> 'a embedded_only t
     (* desugared only *)
     | VKind : 'a desugared_only t
     (* bluejay only *)
     | VList : 'a t list -> 'a bluejay_only t
-    | VMultiArgFunClosure : { params : Ident.t list ; body : 'a Expr.t ; env : 'a env } -> 'a bluejay_only t
+    | VMultiArgFunClosure : { params : Ident.t list ; body : 'a closure } -> 'a bluejay_only t
     (* types in desugared and embedded *)
     | VTypeInt : 'a bluejay_or_desugared t
     | VTypeBool : 'a bluejay_or_desugared t
     | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
     | VTypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
-    | VTypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a Expr.t } -> 'a bluejay_or_desugared t
+    | VTypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure } -> 'a bluejay_or_desugared t
     | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
     | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_or_desugared t
-    | VTypeMu : { var : Ident.t ; body : 'a Expr.t } -> 'a bluejay_or_desugared t
+    | VTypeMu : { var : Ident.t ; body : 'a closure } -> 'a bluejay_or_desugared t
     | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
     (* types in bluejay only *)
     | VTypeList : 'a t -> 'a bluejay_only t
-    | VTypeForall : { type_variables : Ident.t list ; tau : 'a Expr.t } -> 'a bluejay_only t
-    (* recursive function stub for bluejay *)
-    | VRecStub : 'a bluejay_only t
+    | VTypeForall : { type_variables : Ident.t list ; tau : 'a closure } -> 'a bluejay_only t
+    (* recursive function stub for bluejay and mu type for desugared *)
+    | VRecStub : 'a bluejay_or_desugared t
 
   and 'a env = 'a t ref Ident.Map.t (* ref is to handle recursion *)
+
+  and 'a closure = { expr : 'a Expr.t ; env : 'a env } (* an expression to be evaluated in an environment *)
 end
 
 open Value
@@ -61,13 +63,12 @@ module Env = struct
     | None -> raise @@ UnboundVariable id
     | Some r -> !r
 
-  let add_stub (env : 'a Constraints.bluejay_only t) (id : Ident.t) : 'a Value.t ref * 'a t =
+  let add_stub (env : 'a Constraints.bluejay_or_desugared t) (id : Ident.t) : 'a Value.t ref * 'a t =
     let v_ref = ref Value.VRecStub in
     v_ref, Map.set env ~key:id ~data:v_ref
 end
 
 (* 
-  TODO: benchmark the performance of this
   Notes:
     * With CPS is definitely much faster on very long computations
     * However, on somewhat small computations on the order of ms and tens of ms, non-CPS is faster by the same order
@@ -123,20 +124,17 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
     | EVar id -> return @@ Env.fetch env id
     | ETypeInt -> return VTypeInt
     | ETypeBool -> return VTypeBool
-    | ETypeMu { var ; body } -> return (VTypeMu { var ; body })
-    | ETypeForall { type_variables ; tau } -> return (VTypeForall { type_variables ; tau })
+    | ETypeForall { type_variables ; tau } -> return (VTypeForall { type_variables ; tau = { expr = tau ; env } })
     | EKind -> return VKind
     | EAbort -> abort ()
     | EDiverge -> diverge ()
-    | EFunction { param ; body } -> return (VFunClosure { param ; body ; env })
-    | EMultiArgFunction { params ; body } -> return (VMultiArgFunClosure { params ; body ; env })
-    | EFreeze e -> return (VFrozen { body = e ; env })
+    | EFunction { param ; body } -> return (VFunClosure { param ; body = { expr = body ; env } })
+    | EMultiArgFunction { params ; body } -> return (VMultiArgFunClosure { params ; body = { expr = body ; env } })
+    | EFreeze expr -> return (VFrozen { expr ; env })
     | EId -> return VId
-    (* inputs *) (* TODO: make this not random but instead from an input stream *)
-    | EPick_i -> 
-      (* return (VInt (Random.int_incl Int.min_value Int.max_value)) *)
-      return (VInt 0)
-    | EPick_b -> return (VBool (Random.bool ()))
+    (* inputs *) (* TODO: use an input stream to determine inputs *)
+    | EPick_i -> return (VInt 0)
+    | EPick_b -> return (VBool false)
     (* simple propogation *)
     | EVariant { label ; payload } ->
       let%bind payload = eval payload env in
@@ -151,9 +149,9 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
       let%bind domain = eval domain env in
       let%bind codomain = eval codomain env in
       return (VTypeArrow { domain ; codomain })
-    | ETypeArrowD { binding ; domain ; codomain } -> (* TODO: is this right? *)
+    | ETypeArrowD { binding ; domain ; codomain } ->
       let%bind domain = eval domain env in
-      return (VTypeArrowD { binding ; domain ; codomain })
+      return (VTypeArrowD { binding ; domain ; codomain = { expr = codomain ; env } })
     | ETypeRefinement { tau ; predicate } ->
       let%bind tau = eval tau env in
       let%bind predicate = eval predicate env in
@@ -181,23 +179,23 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
       return (VTypeRecord new_record)
     | EThaw e ->
       let%bind v_frozen = eval e env in
-      let%orzero (VFrozen { body = e_frozen ; env }) = v_frozen in
+      let%orzero (VFrozen { expr = e_frozen ; env }) = v_frozen in
       eval e_frozen env
     (* bindings *)
     | EAppl { func ; arg } -> begin
       let%bind vfunc = eval func env in
       let%bind arg = eval arg env in
       match vfunc with
-      | VFunClosure { param ; body ; env } ->
-        eval body (Env.add env param arg)
+      | VFunClosure { param ; body } ->
+        eval body.expr (Env.add body.env param arg)
       | VId -> return arg
-      | VMultiArgFunClosure { params ; body ; env } -> begin
+      | VMultiArgFunClosure { params ; body } -> begin
         match params with
         | [] -> type_mismatch ()
         | [ param ] ->
-          eval body (Env.add env param arg)
+          eval body.expr (Env.add body.env param arg)
         | param :: params ->
-          eval (EMultiArgFunction { params ; body }) (Env.add env param arg)
+          eval (EMultiArgFunction { params ; body = body.expr }) (Env.add body.env param arg)
         end
       | _ -> type_mismatch ()
     end
@@ -207,6 +205,11 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
     | EIgnore { ignored ; cont } ->
       let%bind _ = eval ignored env in
       eval cont env
+    | ETypeMu { var ; body } ->
+        let stub_ref, env = Env.add_stub env var in
+        let v = VTypeMu { var ; body = { expr = body ; env } } in
+        stub_ref := v;
+        return v
     (* operations *)
     | EListCons (e_hd, e_tl) -> begin
       let%bind hd = eval e_hd env in
@@ -302,7 +305,7 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
       in
       List.iter stub_and_comps_ls ~f:(fun (stub_ref, comps) ->
         match Ast_tools.Utils.abstract_over_ids comps.params comps.body with
-        | EFunction { param ; body } -> stub_ref := VFunClosure { param ; body ; env }
+        | EFunction { param ; body } -> stub_ref := VFunClosure { param ; body = { expr = body ; env } }
         | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
       );
       eval cont env
@@ -313,7 +316,7 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
       |> function
         | EFunction { param ; body } ->
           eval cont
-          @@ Env.add env comps.func_id (VFunClosure { param ; body ; env })
+          @@ Env.add env comps.func_id (VFunClosure { param ; body = { expr = body ; env } })
         | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
 
     and eval_let (var : Ident.t) ~(body : a Expr.t) ~(cont : a Expr.t) (env : a Env.t) : a Value.t m =
