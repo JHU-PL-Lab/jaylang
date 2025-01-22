@@ -47,12 +47,22 @@ module Make_common_builders (C : Context) = struct
     Big_int_Z.int_of_big_int
     @@ Arithmetic.Integer.get_big_int e
 
-  (* use variable expression to query model for int input *)
-  let int_of_expr model (Int_expr e) =
+  let unbox_bool e =
+    match Boolean.get_bool_value e with
+    | L_FALSE -> false
+    | L_TRUE -> true
+    | L_UNDEF -> failwith "bad unbox bool"
+
+  (* use variable expression to query model for a concrete value associated with the expression *)
+  let a_of_expr model expr unbox =
     let open Option.Let_syntax in
-    Model.get_const_interp_e model e (* check if the expression exists in the model *)
+    Model.get_const_interp_e model expr (* check if the expression exists in the model *)
     >>= fun expr -> Model.eval model expr false (* find the value of that int within the model *)
-    >>| unbox_int (* get into an ocaml int *)
+    >>| unbox (* unbox into ocaml value *)
+
+  (* use variable expression to query model for input *)
+  let int_of_expr model (Int_expr e) = a_of_expr model e unbox_int
+  let bool_of_expr model (Bool_expr e) = a_of_expr model e unbox_bool
 end
 
 module Make_datatype_builders (C : Context) = struct
