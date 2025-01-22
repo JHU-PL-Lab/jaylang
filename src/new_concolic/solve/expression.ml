@@ -18,22 +18,23 @@ module Typed_binop = struct
     | And : (bool * bool * bool) t
     | Or : (bool * bool * bool) t
 
-  let to_arithmetic (type a b) (binop : (a * a * b) t) : a -> a -> b =
+  let to_arithmetic (type a b) (binop : (a * a * b) t) : (a -> a -> b) * b C_sudu.box =
+    let open C_sudu in
     match binop with
-    | Plus -> ( + )
-    | Minus -> ( - )
-    | Times -> ( * )
-    | Divide -> ( / )
-    | Modulus -> ( mod )
-    | Less_than -> ( < )
-    | Less_than_eq -> ( <= )
-    | Greater_than -> ( > )
-    | Greater_than_eq -> ( >= )
-    | Equal_int -> ( = )
-    | Equal_bool -> Bool.( = )
-    | Not_equal -> ( <> )
-    | And -> ( && )
-    | Or -> ( || )
+    | Plus -> ( + ), box_int
+    | Minus -> ( - ), box_int
+    | Times -> ( * ), box_int
+    | Divide -> ( / ), box_int
+    | Modulus -> ( mod ), box_int
+    | Less_than -> ( < ), box_bool
+    | Less_than_eq -> ( <= ), box_bool
+    | Greater_than -> ( > ), box_bool
+    | Greater_than_eq -> ( >= ), box_bool
+    | Equal_int -> ( = ), box_bool
+    | Equal_bool -> Bool.( = ), box_bool
+    | Not_equal -> ( <> ), box_bool
+    | And -> ( && ), box_bool
+    | Or -> ( || ), box_bool
 
   let to_z3_expr (type a b) (binop : (a * a * b) t) : a C_sudu.Gexpr.t -> a C_sudu.Gexpr.t -> b C_sudu.Gexpr.t =
     match binop with
@@ -54,7 +55,7 @@ module Typed_binop = struct
 end
 
 type _ t =
-  | Const : 'a -> 'a t
+  | Const : 'a * ('a -> 'a C_sudu.Gexpr.t) -> 'a t
   | Abstract : 'a e -> 'a t
 
 (* abstract expressions only *)
@@ -68,20 +69,20 @@ let is_const : type a. a t -> bool = function
   | Const _ -> true
   | _ -> false
 
-let true_ = Const true
-let const_bool b = Const b
-let const_int i = Const i
+let const_bool b = Const (b, C_sudu.box_bool)
+let true_ = const_bool true
+let const_int i = Const (i, C_sudu.box_int)
 let bool_key key = Abstract (Bool_key key)
 let int_key key = Abstract (Int_key key)
 
 let not_ (x : bool t) : bool t = 
   match x with 
-  | Const b -> Const (not b) 
+  | Const (b, box) -> Const (not b, box)
   | _ -> Abstract (Not x)
 
 let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t) : b t =
   match left, right with
-  | Const cx, Const cy -> Const (Typed_binop.to_arithmetic binop cx cy)
+  | Const (cx, _), Const (cy, _) -> let f, box = Typed_binop.to_arithmetic binop in Const (f cx cy, box)
   | _ -> Abstract (Binop (binop, left, right))
 
 module Resolve = struct
@@ -109,7 +110,7 @@ module Resolve = struct
     Because of issues with mutual recursion and locally abstract types, I have to do this
     weird hack where I pass in each "t_to_formula" converter.
   *)
-  let e_to_formula (type a) (i : int conv) (b : bool conv) (x : a e) : a C_sudu.Gexpr.t =
+  let e_to_formula (type a b) (i : int conv) (b : bool conv) (x : a e) : a C_sudu.Gexpr.t =
     match x with
     | Int_key key -> C_sudu.int_var @@ Concolic_key.uniq_id key
     | Bool_key key -> C_sudu.bool_var @@ Concolic_key.uniq_id key
@@ -118,17 +119,9 @@ module Resolve = struct
       let to_formula = binop_opkind_to_converter i b binop in
       Typed_binop.to_z3_expr binop (to_formula e1) (to_formula e2)
 
-  let rec int_t_to_formula : int conv = function
-    | Const i -> C_sudu.box_int i
-    | Abstract ex -> int_e_to_formula ex
-
-  and bool_t_to_formula : bool conv = function
-    | Const b -> C_sudu.box_bool b
-    | Abstract ex -> bool_e_to_formula ex
-
-  and int_e_to_formula e = e_to_formula int_t_to_formula bool_t_to_formula e
-  
-  and bool_e_to_formula e = e_to_formula int_t_to_formula bool_t_to_formula e
+  let rec t_to_formula : type a. a conv = function
+    | Const (c, f_box) -> f_box c
+    | Abstract ex -> e_to_formula t_to_formula t_to_formula ex
 end
 
 include Resolve

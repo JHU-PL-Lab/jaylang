@@ -7,7 +7,7 @@ open Core
 
 module T = struct
   (* Branches at the top of the tree are first *)
-  type t = { forward_path : Branch.t list }
+  type t = { forward_path : Direction.Packed.t list }
     [@@unboxed][@@deriving compare]
 end
 
@@ -16,7 +16,7 @@ include T
 module Reverse =
 struct
   (* Branches at the front are the leaves of the tree *)
-  type t = { backward_path : Branch.t list }
+  type t = { backward_path : Direction.Packed.t list }
     [@@unboxed][@@deriving compare]
 
   let empty : t = { backward_path = [] }

@@ -7,6 +7,8 @@ end)
 
 include SuduZ3
 
+type 'a box = 'a -> 'a Gexpr.t
+
 module Solve_status = struct
   type t =
     | Sat of Z3.Model.model

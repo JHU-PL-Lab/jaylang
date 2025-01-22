@@ -1,6 +1,6 @@
 
-type t = 
-  | Int_equality of int Expression.t * int
-  | Bool_equality of bool Expression.t * bool
+type 'a t = Equality : 'a Expression.t * 'a Direction.t -> 'a t
 
-val to_formulas : t list -> bool C_sudu.Gexpr.t list
+val to_formula : 'a t -> bool C_sudu.Gexpr.t
+
+val direction : 'a t -> 'a Direction.t

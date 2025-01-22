@@ -181,8 +181,6 @@ let eval_exp (expr : Embedded.t) : Value.t =
     | EAbort
     | EDiverge -> failwith "unimplemented"
 
-
-
   in
   eval expr Value.Env.empty (function
     | Ok r -> r

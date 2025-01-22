@@ -1,13 +1,13 @@
 
 module T : sig 
-  type t = { forward_path : Branch.t list }
+  type t = { forward_path : Direction.Packed.t list }
     [@@unboxed][@@deriving compare]
 end
 
 type t = T.t
 
 module Reverse : sig 
-  type t = { backward_path : Branch.t list }
+  type t = { backward_path : Direction.Packed.t list }
     [@@unboxed][@@deriving compare]
 
   val compare : t -> t -> int
@@ -15,10 +15,10 @@ module Reverse : sig
   val empty : t
   (** [empty] is a path with no directions. *)
 
-  val return : Branch.t list -> t
+  val return : Direction.Packed.t list -> t
   (** [return ls] is a path of the reverse direction list [ls]. *)
 
-  val cons : Branch.t -> t -> t
+  val cons : Direction.Packed.t -> t -> t
   (** [cons dir t] is a path with [dir] put on the front of [t.backward_path]. *)
 
   val concat : t -> t -> t
