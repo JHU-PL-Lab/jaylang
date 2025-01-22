@@ -85,16 +85,10 @@ let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t)
   | _ -> Abstract (Binop (binop, left, right))
 
 module Resolve = struct
-  (*
-    I can't seem to get the type checker to like when I use polymorphic t to formula,
-    but it works okay when I separately handle the int and bool cases.
-
-    But because we need to know how to box the Const anyways, this is fine.
-  *)
   type 'a conv = 'a t -> 'a C_sudu.Gexpr.t
 
   (* It's dumb how I cannot combine cases here *)
-  let binop_opkind_to_formula (type a b) (i : int conv) (b : bool conv) (binop : (a * a * b) Typed_binop.t) : a conv =
+  let binop_opkind_to_converter (type a b) (i : int conv) (b : bool conv) (binop : (a * a * b) Typed_binop.t) : a conv =
     match binop with
     | Plus -> i
     | Minus -> i
@@ -121,7 +115,7 @@ module Resolve = struct
     | Bool_key key -> C_sudu.bool_var @@ Concolic_key.uniq_id key
     | Not y -> C_sudu.not_ (b y)
     | Binop (binop, e1, e2) ->
-      let to_formula = binop_opkind_to_formula i b binop in
+      let to_formula = binop_opkind_to_converter i b binop in
       Typed_binop.to_z3_expr binop (to_formula e1) (to_formula e2)
 
   let rec int_t_to_formula : int conv = function
