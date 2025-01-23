@@ -82,11 +82,6 @@ let[@landmark] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] 
     | Some (Finished_interpretation { reached_max_step ; _ }) when reached_max_step -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
     | _ -> Random
   in
-
-  let done_ (x : t) =
-    Lwt.return @@ `Done (Status.finish x.status)
-  in
-
   let%lwt res = Path_tree.pop_sat_target ~kind:pop_kind x.tree in
   match res with
   | Some (tree, target, input_feeder) ->
@@ -96,7 +91,9 @@ let[@landmark] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] 
       , Symbolic.make target input_feeder
         |> Options.Fun.appl Symbolic.with_options x.options
     )
-  | None -> done_ x
+  | None -> 
+    Lwt.return 
+    @@ `Done (Status.finish x.status)
 
   (* let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
     let%lwt () = Lwt.pause () in

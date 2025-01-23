@@ -172,7 +172,7 @@ let desugar_bluejay (names : (module Fresh_names.S)) (expr : Bluejay.t) : Desuga
     (* Forall *)
     | ETypeForall { type_variables ; tau } ->
       List.fold_right type_variables ~init:(desugar tau) ~f:(fun alpha acc ->
-        ETypeArrowD { binding = alpha ; domain = EKind ; codomain = acc }
+        ETypeArrowD { binding = alpha ; domain = EStar ; codomain = acc }
       )
     (* Functions *)
     | EMultiArgFunction { params ; body } ->

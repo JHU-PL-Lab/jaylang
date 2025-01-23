@@ -13,6 +13,8 @@ end
 
 include T
 
+let empty : t = { forward_path = [] }
+
 module Reverse =
 struct
   (* Branches at the front are the leaves of the tree *)
@@ -37,5 +39,8 @@ struct
 
   let to_forward_path x =
     { forward_path = List.rev x.backward_path }
+
+  let of_forward_path x =
+    { backward_path = List.rev x.forward_path }
   
 end

@@ -155,7 +155,7 @@ module Expr = struct
     | EDiverge : 'a desugared_or_embedded t
     (* desugared only *)
     | ELetWrap : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t} -> 'a desugared_only t
-    | EKind : 'a desugared_only t
+    | EStar : 'a desugared_only t
     (* these exist in the bluejay and desugared languages *)
     | ETypeInt : 'a bluejay_or_desugared t
     | ETypeBool : 'a bluejay_or_desugared t

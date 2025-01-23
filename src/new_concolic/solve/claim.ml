@@ -14,5 +14,10 @@ let to_formula (type a) (Equality (expr, dir) : a t) : bool C_sudu.Gexpr.t =
       C_sudu.and_ acc (C_sudu.neq z3_expr (C_sudu.box_int i))
     )
 
+let flip (Equality (e, dir) : bool t) : bool t =
+  match dir with
+  | True_direction -> Equality (e, False_direction)
+  | False_direction -> Equality (e, True_direction)
+
 let direction (type a) (Equality (_, dir) : a t) : a Direction.t =
   dir

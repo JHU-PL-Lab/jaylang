@@ -6,6 +6,8 @@ end
 
 type t = T.t
 
+val empty : t
+
 module Reverse : sig 
   type t = { backward_path : Direction.Packed.t list }
     [@@unboxed][@@deriving compare]
@@ -29,4 +31,6 @@ module Reverse : sig
 
   val to_forward_path : t -> T.t
   (** [to_forward_path t] is the reversed list in [t] as a forward path. *)
+
+  val of_forward_path : T.t -> t
 end

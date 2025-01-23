@@ -231,7 +231,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
             )
           )
         )
-    | EKind ->
+    | EStar ->
       Embedded_type.make
         ~gen:(
           let a = Names.fresh_poly_value () in
@@ -254,7 +254,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
             ~wrap:EId
         )
         ~check:(
-          fresh_abstraction "e_kind_check" (fun e ->
+          fresh_abstraction "e_star_check" (fun e ->
             build @@  
               let e = EVar e in
               let%bind () = ignore @@ proj e Reserved_labels.Records.gen in
