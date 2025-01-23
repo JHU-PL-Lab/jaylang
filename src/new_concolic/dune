@@ -17,6 +17,7 @@
   translate
   sudu
   new_utils
+  core_unix
   psq) ; psq added for queue of target branches
  (synopsis "Concolic evaluator on embedded-type programs")
  (inline_tests)

@@ -10,6 +10,9 @@ let reset () : unit =
 let int : int -> int = 
   Random.int
 
+let bool : unit -> bool =
+  Random.bool
+
 let int_incl : int -> int -> int = 
   Random.int_incl
 

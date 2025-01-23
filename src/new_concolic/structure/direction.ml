@@ -24,6 +24,11 @@ end
 
 include T
 
+let of_bool (b : bool) : bool t =
+  if b
+  then True_direction
+  else False_direction
+
 module Packed = struct
   type t = 
     | Dir_bool of bool T.t

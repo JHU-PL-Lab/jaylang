@@ -3,9 +3,15 @@ open Core
 
 (* Items earlier in the cons are those that are deeper in the path tree *)
 type t =
-  | Root of { beginning_at : Target.t }
+  | Root
+  | Beginning_from of Target.t
   | Bool_branch of { claim : bool Claim.t ; tail : t } (* it's easy to derive the other direction *)
   | Int_branch of { claim : int Claim.t ; other_cases : int Claim.t list ; tail : t }
+
+let empty : t = Root
+
+let of_target (target : Target.t) : t =
+  Beginning_from target
 
 let push_branch (stem : t) (dir : bool Direction.t) (e : bool Expression.t) : t =
   Bool_branch { claim = Equality (e, dir) ; tail = stem }

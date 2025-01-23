@@ -6,6 +6,9 @@ val reset : unit -> unit
 val int : int -> int
 (** [int i] is a random positive integer less than [i]. *)
 
+val bool : unit -> bool
+(** [bool ()] is a random bool. *)
+
 val int_incl : int -> int -> int
 (** [int_incl a b] is an integer between [a] and [b] inclusive, or exception
     if [a > b]. *)

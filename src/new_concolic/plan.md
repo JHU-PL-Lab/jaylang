@@ -39,3 +39,8 @@ Resolutions:
   * Therefore, to compare targets, we only use the directions in the path
 
 
+TODO:
+* Just path tree and session, I think
+  * I may not need session, or at least I don't need to complicate it.
+  * The path tree can recurse to find a target, updating the unsat ones itself
+  * To spawn up a symbolic session, I only need a target and a model (which I pass in underneath an input feeder). The current session just does some tracking in general (like if we have pruned anything). These may still be valuable to have, and I wonder if they are not well-put under path tree.
