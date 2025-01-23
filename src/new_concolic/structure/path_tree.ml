@@ -71,25 +71,45 @@ module rec Node : NODE with type 'a edge := 'a Edge.t = struct
     * This also doesn't handle the root case as nicely..
   *)
   let add_stem (_tree : t) (stem : Stem.t) : t * Target.t list =
-    let rec make_tree (acc_node : Node.t) (acc_targets : Target.t list) (stem : Stem.t) =
+
+    let target_of_claim (type a) (claim : a Claim.t) (path_until_claim : Path.Reverse.t) : Target.t =
+      Claim.direction claim
+      |> Direction.pack
+      |> fun p -> Path.Reverse.cons p path_until_claim
+      |> Target.make
+    in
+
+    let rec make_tree (acc_node : Node.t) (acc_targets : Target.t list) (stem : Stem.t) (path : Path.Reverse.t) =
       match stem with
       | Root -> acc_node, acc_targets, Path.empty
-      | Beginning_from target -> acc_node, acc_targets, Target.to_path target (* TODO: map the targets to append this one *)
+      | Beginning_from target -> acc_node, acc_targets, Target.to_path target
       | Bool_branch { claim ; tail } -> begin
         (* Story of evaluation: We stepped down a bool branch to hit acc after taking the tail *)
+        let path_to_here = Path.Reverse.drop_hd_exn path in
         let this_edge : bool Edge.t = { constraint_ = claim ; goes_to = acc_node } in
         let target_edge : bool Edge.t = { constraint_ = Claim.flip claim ; goes_to = Target } in
+        let new_target = target_of_claim target_edge.constraint_ path_to_here in
         make_tree
           (match claim with
            | Equality (_, True_direction) -> Hit_with_bool_children { true_ = this_edge ; false_ = target_edge }
            | Equality (_, False_direction) -> Hit_with_bool_children { true_ = target_edge ; false_ = this_edge }
           )
-          acc_targets
+          (new_target :: acc_targets)
           tail
+          path_to_here
       end
-      | Int_branch _ -> failwith "u"
+      | Int_branch { claim ; other_cases ; tail } ->
+        let path_to_here = Path.Reverse.drop_hd_exn path in
+        let this_edge : int Edge.t = { constraint_ = claim ; goes_to = acc_node } in
+        let other_edges : int Edge.t list = List.map other_cases ~f:(fun constraint_ -> Edge.{ constraint_ ; goes_to = Target }) in
+        let new_targets = List.map other_edges ~f:(fun { constraint_ ; _ } -> target_of_claim constraint_ path_to_here) in
+        make_tree
+          (Hit_with_int_children (this_edge :: other_edges))
+          (new_targets @ acc_targets)
+          tail
+          path_to_here
     in
-    let _new_tree, _targets, _path_to_new_tree = make_tree Leaf [] stem in
+    let _new_tree, _targets, _path_to_new_tree = make_tree Leaf [] stem (Stem.to_rev_path stem) in
     failwith "unim"
 
   let formulas_of_target = fun _ -> failwith "unimplemented"

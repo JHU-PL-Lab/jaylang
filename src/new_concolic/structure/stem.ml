@@ -31,3 +31,24 @@ let push_case (stem : t) (dir : int Direction.t) (e : int Expression.t) (other_i
       ; other_cases = other_claims
       ; tail = stem }
 
+(* let to_path (stem : t) : Path.t =
+  let rec loop acc = function
+    | Root -> acc
+    | Beginning_from target ->
+      List.rev (target.dir :: target.path.backward_path) @ acc
+    | Bool_branch { claim = Equality (_, dir) ; tail } ->
+      loop (Direction.Packed.Dir_bool dir :: acc) tail
+    | Int_branch { claim = Equality (_, dir) ; tail ; _ } ->
+      loop (Direction.Packed.Dir_int dir :: acc) tail
+  in
+  { forward_path = loop [] stem } *)
+
+let to_rev_path (stem : t) : Path.Reverse.t =
+  let rec loop = function
+    | Root -> []
+    | Beginning_from target -> target.dir :: target.path.backward_path
+    | Bool_branch { claim = Equality (_, dir) ; tail } -> Direction.pack dir :: loop tail
+    | Int_branch { claim = Equality (_, dir) ; tail ; _ } -> Direction.pack dir :: loop tail
+  in
+  { backward_path = loop stem }
+

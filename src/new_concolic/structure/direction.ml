@@ -35,3 +35,8 @@ module Packed = struct
     | Dir_int of int T.t
     [@@deriving compare]
 end
+
+let pack (type a) (dir : a t) : Packed.t =
+  match dir with
+  | (True_direction | False_direction) as d -> Dir_bool d
+  | (Case_int _ | Case_default _) as d -> Dir_int d
