@@ -15,10 +15,7 @@ in
 let rec size n = 
   match n with
   | `Leaf l -> 0
-  | `Node node ->
-    match node with
-    | { v = v , l = l , r = r } -> 1 + size l + size r
-    end
+  | `Node node -> 1 + size node.l + size node.r
   end
 in
 
@@ -26,12 +23,9 @@ let rec is_braun_tree x =
   match x with
   | `Leaf l -> true
   | `Node node ->
-    match node with
-    | { v = v , l = l , r = r } ->
-      is_braun_tree l
-      and is_braun_tree r
-      and (size l == size r or size l == size r + 1)
-    end
+    is_braun_tree node.l
+    and is_braun_tree node.r
+    and (size node.l == size node.r or size node.l == size node.r + 1)
   end
 in
 
@@ -42,9 +36,7 @@ let rec insert (type a_) (tree : bt_gen a_) (x : a_) : bt_check a_ =
   match tree with
   | `Leaf l -> `Node { v = x , l = `Leaf { leaf = true } , r = `Leaf { leaf = true } }
   | `Node node ->
-    match node with
-    | { v = v , l = l , r = r } -> `Node { l = insert a_ l x , r = r , v = v } # ERROR: only inserts to left, so won't be balanced
-    end
+    `Node { l = insert a_ node.l x , r = node.r , v = node.v } # ERROR: only inserts to left, so won't be balanced
   end
 in
 

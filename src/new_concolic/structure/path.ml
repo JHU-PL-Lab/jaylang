@@ -27,7 +27,7 @@ struct
 
   let cons front path =
     return
-    @@ front :: path.backward_path
+    @@ (front :: path.backward_path)
 
   let concat path1 path2 = 
     return 

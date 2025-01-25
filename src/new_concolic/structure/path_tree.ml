@@ -50,35 +50,46 @@ module rec Node : NODE with type 'a edge := 'a Edge.t = struct
 
   let empty : t = Leaf
 
-  (*
-    First, make a tree out of the stem. We get a complete tree that potentially starts from a target.
-    If there is no target, then we just get the tree. Done.
-    If there is a target, then we have to trace that target down, and when we step onto the last direction,
-    then we replace that child (which is Target of { claim }) with the tree we just made.
+  let rec set_at_path (tree : t) (path : Path.t) ~(to_add : t) : t =
+    match path.forward_path with
+    | [] -> to_add
+    | dir :: tl ->
+      let go t = set_at_path t { forward_path = tl } ~to_add in
+      match dir, tree with
+      | Dir_bool True_direction, Hit_with_bool_children r -> 
+        Hit_with_bool_children
+          { r with true_ = { r.true_ with goes_to = go r.true_.goes_to } }
+      | Dir_bool False_direction, Hit_with_bool_children r -> 
+        Hit_with_bool_children
+          { r with false_ = { r.false_ with goes_to = go r.false_.goes_to } }
+      | Dir_int Case_int i, Hit_with_int_children ls ->
+        Hit_with_int_children (
+          List.map ls ~f:(fun edge ->
+            match edge.constraint_ with
+            | Equality (_, Case_int i') when i' = i ->
+              { edge with goes_to = go edge.goes_to }
+            | _ -> edge
+            )
+        )
+      | Dir_int Case_default { not_in }, Hit_with_int_children ls ->
+        Hit_with_int_children (
+          List.map ls ~f:(fun edge ->
+            match edge.constraint_ with
+            | Equality (_, Case_default { not_in = not_in' })
+              when Int.Set.equal (Int.Set.of_list not_in) (Int.Set.of_list not_in') -> (* this is a little slow tbh *)
+              { edge with goes_to = go edge.goes_to }
+            | _ -> edge
+            )
+        )
+      | _ -> failwith "Wrong type of branching in path tree; path is not compatible with the tree"
 
-    Process:
-    * Make tree of stem:
-      * Step up the stem (because we start at the bottom), at each step creating targets for each neighbor.
-        * The node we just made (which has a child pointing to the previous node) is higher in the tree than the previous node
-      * When we hit the root, then we know where this new tree begins from the old one
-
-    I have confirmed the `make_tree` code with an example on bool paths. It is the correct order.
-
-    TODO:
-    * It may be more intuitive to have an Edge module where edges are just claims.
-    * Then the children are a list of edges each with a child, where a child is Unsat, SolverTimeout, etc.
-    * If the child is Hit, then it has children. But we would also need a Leaf or Pruned for when interp ended.
-    * This also doesn't handle the root case as nicely..
-  *)
-  let add_stem (_tree : t) (stem : Stem.t) : t * Target.t list =
-
+  let add_stem (tree : t) (stem : Stem.t) : t * Target.t list =
     let target_of_claim (type a) (claim : a Claim.t) (path_until_claim : Path.Reverse.t) : Target.t =
       Claim.direction claim
       |> Direction.pack
       |> fun p -> Path.Reverse.cons p path_until_claim
       |> Target.make
     in
-
     let rec make_tree (acc_node : Node.t) (acc_targets : Target.t list) (stem : Stem.t) (path : Path.Reverse.t) =
       match stem with
       | Root -> acc_node, acc_targets, Path.empty
@@ -109,12 +120,53 @@ module rec Node : NODE with type 'a edge := 'a Edge.t = struct
           tail
           path_to_here
     in
-    let _new_tree, _targets, _path_to_new_tree = make_tree Leaf [] stem (Stem.to_rev_path stem) in
-    failwith "unim"
+    let new_tree, targets, path_to_new_tree = make_tree Leaf [] stem (Stem.to_rev_path stem) in
+    set_at_path tree path_to_new_tree ~to_add:new_tree, targets
 
-  let formulas_of_target = fun _ -> failwith "unimplemented"
+  (*
+    It is obviously a common pattern to trace a path and act on the edge, but it is not intuitive
+    IMO to abstract this because of the number of captured parameters during the tracing of the
+    path, and it is not a simple "map".
+  *)
+  let formulas_of_target (tree : t) (target : Target.t) : bool C_sudu.Gexpr.t list =
+    let rec loop (tree : t) (path : Path.t) =
+      match path.forward_path with
+      | [] -> []
+      | dir :: tl ->
+        let tl_path : Path.t = { forward_path = tl } in
+        let edge =
+          match dir, tree with
+          | Dir_bool True_direction, Hit_with_bool_children r -> `B r.true_
+          | Dir_bool False_direction, Hit_with_bool_children r -> `B r.false_
+          | Dir_int Case_int i, Hit_with_int_children ls ->
+            `I (List.find_exn ls ~f:(fun edge ->
+                match edge.constraint_ with
+                | Equality (_, Case_int i') when i' = i -> true
+                | _ -> false
+                )
+              )
+          | Dir_int Case_default { not_in }, Hit_with_int_children ls ->
+            `I (List.find_exn ls ~f:(fun edge ->
+                match edge.constraint_ with
+                | Equality (_, Case_default { not_in = not_in' })
+                  when Int.Set.equal (Int.Set.of_list not_in) (Int.Set.of_list not_in') -> (* this is a little slow tbh *)
+                  true
+                | _ -> false
+                )
+              )
+          | _ -> failwith "Wrong type of branching in path tree; path is not compatible with the tree"
+        in
+        match edge with
+        | `B e -> (Claim.to_formula e.constraint_) :: loop e.goes_to tl_path
+        | `I e -> (Claim.to_formula e.constraint_) :: loop e.goes_to tl_path
+    in
+    loop tree
+    @@ Target.to_path target
 
-  let set_unsat_target = fun _ -> failwith "unimplemented"
+
+  let set_unsat_target (tree : t) (target : Target.t) : t =
+    set_at_path tree ~to_add:Unsat
+    @@ Target.to_path target
 end
 
 and Edge : EDGE with type node := Node.t = struct
@@ -122,115 +174,6 @@ and Edge : EDGE with type node := Node.t = struct
     { constraint_ : 'a Claim.t
     ; goes_to     : Node.t }
 end
-
-(* module type NODE = sig
-  type 'a child
-
-  type t = 
-    | Int_children of int child list
-    | Bool_children of { true_child : bool child ; false_child : bool child }
-    | Leaf
-
-  val empty : t
-
-  val add_stem : t -> Stem.t -> t * Target.t list
-
-  (* val set_timeout_target : t -> Target.t -> t *)
-
-  val set_unsat_target : t -> Target.t -> t
-
-  val formulas_of_target : t -> Target.t -> bool C_sudu.Gexpr.t list
-end
-
-module type CHILD = sig
-  type node
-
-  type 'a t =
-    | Hit of { claim : 'a Claim.t ; node : node }
-    | Target of { claim : 'a Claim.t }
-    | Unsatisfiable
-    | Solver_timeout
-end
-
-module rec Node :
-  NODE with 
-  type 'a child := 'a Child.t 
-  = struct
-  type t = 
-    | Int_children of int Child.t list
-    | Bool_children of { true_child : bool Child.t ; false_child : bool Child.t }
-    | Leaf
-
-  let empty : t = Leaf
-
-
-  (* let of_stem (stem : Stem.t) : t * Target.t list =
-    failwith "unimplemented" *)
-    (* let rec make_node acc_node stem acc_targets path =
-      match stem with
-      | Stem.Root { beginning_at = initial_target } ->
-        acc_node, acc_targets TODO: concat the initial path *)
-
-  let replace_child (type a) (tree : t) (dir : a Direction.t) (new_child : a Child.t) : t =
-    failwith "unimpl"
-
-
-
-
-    (* let tree_of_stem (stem : Stem.t) : t * Target.t list * Path.t =
-      let rec loop = function
-      (* THIS IS TOTALLY WRONG *)
-        | Stem.Root -> Leaf, [], Path.empty
-        | Beginning_from target -> Leaf, [], Target.to_path target
-        | Bool_branch { claim ; tail } -> begin
-          let node, targets, p = loop tail in
-          let hit_child = Child.Hit { claim ; node } in
-          match claim with
-          | Equality (e, True_direction) ->
-            Bool_children { true_child = hit_child ; false_child = Target { claim = Equality (e, False_direction) } }, targets, p (* TODO: add target here and below *)
-          | Equality (e, False_direction) ->
-            Bool_children { true_child = Target { claim = Equality (e, True_direction)} ; false_child = hit_child }, targets, p
-        end
-        | Int_branch { claim ; other_cases ; tail } ->
-          let node, targets, p = loop tail in
-          let hit_child = Child.Hit { claim ; node } in
-          failwith "unimple"
-        in
-      loop stem
-    in
-    let new_tree, targets, path_to_new_tree = tree_of_stem stem in
-    let rec place_at_path t = function
-      | [] -> new_tree
-      | dir :: tl -> failwith "unimpl" 
-    in
-    place_at_path tree path_to_new_tree.forward_path, targets *)
-
-
-
-
-
-
-  let set_unsat_target (_tree : t) (_target : Target.t) : t =
-    failwith "unimplemented"
-
-  (* let set_timeout_target (_tree : t) (_target : Target.t) : t =
-    failwith "unimplemented" *)
-
-  let formulas_of_target (_tree : t) (_target : Target.t) : bool C_sudu.Gexpr.t list =
-    failwith "unimplemented"
-
-end
-
-and Child : 
-  CHILD with 
-  type node := Node.t
-  = struct
-  type 'a t =
-    | Hit of { claim : 'a Claim.t ; node : Node.t }
-    | Target of { claim : 'a Claim.t }
-    | Unsatisfiable
-    | Solver_timeout
-end *)
 
 type t = 
   { root : Node.t

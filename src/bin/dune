@@ -36,6 +36,14 @@
   (into "../..")))
 
 (executable
+ (name ceval)
+ (modules ceval)
+ (libraries core lang new_concolic translate)
+ (promote
+  (until-clean)
+  (into "../..")))
+
+(executable
  (name cj)
  (modules cj)
  (libraries core fmt dj_common concolic jayil landmarks)

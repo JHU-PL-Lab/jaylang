@@ -39,6 +39,7 @@ let set_timeout time =
 
 let solve bool_formulas =
   Z3.Solver.add solver (SuduZ3.Gexpr.extract_list bool_formulas);
+  (* Format.printf "Model is %s\n" (Z3.Solver.to_string solver); *)
   let res = Z3.Solver.check solver [] in
   match res with
   | Z3.Solver.SATISFIABLE ->

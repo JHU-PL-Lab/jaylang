@@ -205,7 +205,25 @@ let eval_exp
           next ~step ~session res
         | _ -> type_mismatch session
       end
-      | ECase _ -> failwith "unimplemented"
+      | ECase { subject ; cases ; default } -> begin
+        let%bind { v ; step ; session } = eval ~step ~session subject env in
+        let int_cases = List.map cases ~f:Tuple2.get1 in
+        match v with
+        | VInt (i, e) -> begin
+          let body = List.find cases ~f:(fun (i', _) -> i' = i) in
+          match body with
+          | Some (_, body) -> (* found a matching case *)
+            let other_cases = List.filter int_cases ~f:((<>) i) in
+            let new_session = Symbolic_session.hit_case (Direction.of_int i) e ~other_cases session in
+            let%bind { v = res ; step ; session } = eval ~step ~session:new_session body env in
+            next ~step ~session res
+          | None -> (* no matching case, so take default case *)
+            let new_session = Symbolic_session.hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases session in
+            let%bind { v = res ; step ; session } = eval ~step ~session:new_session default env in
+            next ~step ~session res
+        end
+        | _ -> type_mismatch session
+      end
       (* Inputs *)
       | EPick_i ->
         let key = Concolic_key.create step in

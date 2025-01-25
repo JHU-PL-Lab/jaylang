@@ -29,6 +29,9 @@ let of_bool (b : bool) : bool t =
   then True_direction
   else False_direction
 
+let of_int (i : int) : int t =
+  Case_int i
+
 module Packed = struct
   type t = 
     | Dir_bool of bool T.t

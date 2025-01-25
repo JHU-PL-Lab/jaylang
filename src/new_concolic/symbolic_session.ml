@@ -101,14 +101,14 @@ let has_reached_target (s : t) : bool =
 
 let set_lazy_stem (s : t) (e : 'a Expression.t) (lazy_stem : Stem.t Lazy.t) : t =
   if Expression.is_const e
-  then s (* nothing to do if the branch cannot be solved for *)
+  then (Format.printf "skipping const branch\n"; s) (* nothing to do if the branch cannot be solved for *)
   else
     let after_incr =
       { s with depth_tracker = Depth_tracker.incr_branch s.depth_tracker }
     in
-    if after_incr.depth_tracker.is_max_depth || Fn.non has_reached_target s
-    then after_incr (* we're too deep to track formulas, so don't bother to push the branch *)
-    else { after_incr with stem = force lazy_stem }
+    if not after_incr.depth_tracker.is_max_depth && has_reached_target s
+    then { after_incr with stem = force lazy_stem }
+    else after_incr (* we're too deep to track formulas, so don't bother to push the branch *)
 
 let hit_branch (dir : bool Direction.t) (e : bool Expression.t) (s : t) : t =
   set_lazy_stem s e @@ lazy (Stem.push_branch s.stem dir e)
