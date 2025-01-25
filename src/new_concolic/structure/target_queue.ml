@@ -10,10 +10,11 @@ module Pop_kind = struct
     | Random (* randomly choose one of the above pop kinds *)
 
   let random () =
-    match C_random.int 3 with
+    BFS
+    (* match C_random.int 3 with
     | 0 -> DFS
     | 1 -> BFS
-    | _ -> Uniform
+    | _ -> Uniform *)
   end
 
 (*

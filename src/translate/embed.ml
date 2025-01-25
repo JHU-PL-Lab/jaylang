@@ -339,12 +339,12 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
           ECase
             { subject = EPick_i
             ; cases =
-              List.drop_last_exn e_variant_ls
+              List.tl_exn e_variant_ls
               |> List.mapi ~f:(fun i (label, tau) ->
-                i, EVariant { label ; payload = gen tau }
+                i + 1, EVariant { label ; payload = gen tau }
               )
             ; default = 
-              let (last_label, last_tau) = List.last_exn e_variant_ls in
+              let (last_label, last_tau) = List.hd_exn e_variant_ls in
               EVariant { label = last_label ; payload = gen last_tau }
             }
         )

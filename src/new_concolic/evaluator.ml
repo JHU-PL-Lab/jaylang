@@ -101,6 +101,7 @@ let eval_exp
       | EFreeze e_freeze_body -> 
         next @@ VFrozen { expr = e_freeze_body ; env }
       | EVariant { label ; payload = e_payload } -> 
+        Format.printf "Chose label %s\n" (let VariantLabel Ident s = label in s);
         let%bind { v = payload ; step ; session } = eval ~session ~step e_payload env in
         next ~step ~session @@ VVariant { label ; payload }
       | EProject { record = e_record ; label } -> begin
@@ -210,9 +211,9 @@ let eval_exp
         let int_cases = List.map cases ~f:Tuple2.get1 in
         match v with
         | VInt (i, e) -> begin
-          let body = List.find cases ~f:(fun (i', _) -> i' = i) in
-          match body with
-          | Some (_, body) -> (* found a matching case *)
+          let body_opt = List.find_map cases ~f:(fun (i', body) -> if i = i' then Some body else None) in
+          match body_opt with
+          | Some body -> (* found a matching case *)
             let other_cases = List.filter int_cases ~f:((<>) i) in
             let new_session = Symbolic_session.hit_case (Direction.of_int i) e ~other_cases session in
             let%bind { v = res ; step ; session } = eval ~step ~session:new_session body env in

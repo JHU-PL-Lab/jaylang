@@ -78,6 +78,14 @@ let with_options : (t, t) Options.Fun.a =
     ; consts = { x.consts with max_step = r.global_max_step } }
 
 let make (target : Target.t) (input_feeder : Input_feeder.t) : t =
+  Format.printf "Making session where target is %s\n" (
+    List.to_string (Target.to_path target).forward_path ~f:(function
+      | Direction.Packed.Dir_bool True_direction -> "true"
+      | Dir_bool False_direction -> "false"
+      | Dir_int Case_int i -> string_of_int i
+      | Dir_int Case_default _ -> "default"
+    )
+  );
   { empty with consts = { empty.consts with target = Some target ; input_feeder }
   ; stem = Stem.of_target target }
 

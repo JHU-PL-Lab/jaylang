@@ -7,8 +7,8 @@ let t_gen a = Mu tt.
 in
 
 let t_check a = Mu tt.
-  ( ``Node {: v : a , l : tt , r : tt :}
-  || ``Leaf {: leaf : bool :}
+  (``Leaf {: leaf : bool :}
+  || ``Node {: v : a , l : tt , r : tt :}
   )
 in
 
