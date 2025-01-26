@@ -5,5 +5,5 @@
  (modules convert desugar embed translation_tools)
  (private_modules desugar embed translation_tools)
  (libraries core lang monadlib)
- (preprocess (pps ocaml-monadic))
+ (preprocess (pps ocaml-monadic landmarks-ppx --auto))
  )

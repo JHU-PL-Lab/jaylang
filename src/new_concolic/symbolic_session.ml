@@ -78,14 +78,6 @@ let with_options : (t, t) Options.Fun.a =
     ; consts = { x.consts with max_step = r.global_max_step } }
 
 let make (target : Target.t) (input_feeder : Input_feeder.t) : t =
-  Format.printf "Making session where target is %s\n" (
-    List.to_string (Target.to_path target).forward_path ~f:(function
-      | Direction.Packed.Dir_bool True_direction -> "true"
-      | Dir_bool False_direction -> "false"
-      | Dir_int Case_int i -> string_of_int i
-      | Dir_int Case_default _ -> "default"
-    )
-  );
   { empty with consts = { empty.consts with target = Some target ; input_feeder }
   ; stem = Stem.of_target target }
 
@@ -109,7 +101,7 @@ let has_reached_target (s : t) : bool =
 
 let set_lazy_stem (s : t) (e : 'a Expression.t) (lazy_stem : Stem.t Lazy.t) : t =
   if Expression.is_const e
-  then (Format.printf "skipping const branch\n"; s) (* nothing to do if the branch cannot be solved for *)
+  then s (* nothing to do if the branch cannot be solved for *)
   else
     let after_incr =
       { s with depth_tracker = Depth_tracker.incr_branch s.depth_tracker }

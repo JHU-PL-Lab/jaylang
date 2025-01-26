@@ -11,6 +11,10 @@ let t = Mu tt.
             :}
   || ``Leaf int
   )
+  #(``Leaf int ||  ``Node {: left : tt
+  #          , right : tt
+  #          , item : int
+  #          :})
 in
 
 let empty = `Leaf 00

@@ -74,8 +74,12 @@ let desugar_bluejay (names : (module Fresh_names.S)) (expr : Bluejay.t) : Desuga
     (* Base cases *)
     | (EInt _ | EBool _ | EVar _ | EPick_i | ETypeInt | ETypeBool) as e -> e
     (* Simple propogation *)
-    | EBinop { left ; binop ; right } ->
-      EBinop { left = desugar left ; binop ; right = desugar right }
+    | EBinop { left ; binop ; right } -> begin
+      match binop with
+      | BAnd -> EIf { cond = desugar left ; true_body = desugar right ; false_body = EBool false }
+      | BOr -> EIf { cond = desugar left ; true_body = EBool true ; false_body = desugar right }
+      | _ -> EBinop { left = desugar left ; binop ; right = desugar right }
+    end
     | EIf { cond ; true_body ; false_body } ->
       EIf { cond = desugar cond ; true_body = desugar true_body ; false_body = desugar false_body }
     | ELet { var ; body ; cont } ->

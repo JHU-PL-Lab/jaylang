@@ -22,6 +22,11 @@ module CPS_Result_M = struct
   end
 
   module C = Monadlib.Continuation.Make (struct type r = Symbolic_session.t end)
+  (* module C = struct
+    type 'a m = 'a
+    let bind x f = f x
+    let return x = x
+  end *)
 
   module T = struct
     type 'a m = ('a, Err.t * Symbolic_session.t) result C.m
@@ -101,7 +106,6 @@ let eval_exp
       | EFreeze e_freeze_body -> 
         next @@ VFrozen { expr = e_freeze_body ; env }
       | EVariant { label ; payload = e_payload } -> 
-        Format.printf "Chose label %s\n" (let VariantLabel Ident s = label in s);
         let%bind { v = payload ; step ; session } = eval ~session ~step e_payload env in
         next ~step ~session @@ VVariant { label ; payload }
       | EProject { record = e_record ; label } -> begin

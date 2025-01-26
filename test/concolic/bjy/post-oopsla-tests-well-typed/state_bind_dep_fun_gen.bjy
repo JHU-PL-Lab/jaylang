@@ -9,10 +9,8 @@ let state_monad =
   , bind =
       let impl x f =
         fun s ->
-          match x s with
-          | { res = res , new_state = new_state } ->
-            f res new_state
-          end
+          let xs = x s in
+          f xs.res xs.new_state
       in
       impl
   , return = 

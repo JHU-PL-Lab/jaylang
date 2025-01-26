@@ -7,7 +7,7 @@ let coord =
 in
 
 let t = Mu tt.
-  {: parent : (``Some tt || ``None int)
+  {: parent : (``None int || ``Some tt) #(``Some tt || ``None int)
    , relative_coord : coord :}
 in
 

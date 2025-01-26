@@ -26,8 +26,8 @@ let ttype =
       match b with
       | `TArrow p2 ->
         # ERROR: these are first and second, but they should be left and right
-        eq p1.first p2.second
-        and eq p1.first p2.second
+        eq p1.first p2.first
+        and eq p1.second p2.second
       | _ -> false
       end
     | `TInt ignore ->
