@@ -36,10 +36,7 @@ let colored_point =
 in
 
 let get_color p =
-  match p with
-  | { flyweight = fw } -> fw.c
-  end
-  #p.flyweight.c # This is the old, usual implementation if we didn't have to overcome the buggy record projection
+  p.flyweight.c
 in
 
 let make_obj (cs : common_state.t) (x : int) (y : int) : colored_point.t =

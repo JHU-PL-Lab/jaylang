@@ -1,7 +1,5 @@
 
 open Core
-open Lang
-
 open New_concolic
 
 let usage_msg =

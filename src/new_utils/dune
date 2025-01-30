@@ -1,6 +1,0 @@
-
-(library
- (name new_utils)
- (public_name jay.new_utils)
- (modules pack)
- )

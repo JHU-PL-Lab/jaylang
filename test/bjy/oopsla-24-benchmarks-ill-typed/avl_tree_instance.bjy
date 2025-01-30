@@ -1,20 +1,12 @@
-# This is an avl tree program, where insert on balanced tree returns a balanced tree
-# There is a type error in `insert`. See the comment
-# Other ways to introduce a type error:
-# 1. Don't rotate at all
-# 2. Rotate left only on left insert, and right only on right insert (this was my first bug)
+# This is an avl tree program, where insert on balanced tree returns a balanced tree.
+# We check that the insert works on some tree instance. It doesn't ... 
 
 let t = Mu tt. 
-  (  ``Node {: left : tt
+  ``Leaf int
+  || ``Node {: left : tt
             , right : tt
             , item : int
             :}
-  || ``Leaf int
-  )
-  #(``Leaf int ||  ``Node {: left : tt
-  #          , right : tt
-  #          , item : int
-  #          :})
 in
 
 let empty = `Leaf 00
@@ -93,6 +85,7 @@ let is_balanced x =
   (check_balanced x).b
 in
 
+# Check search tree property
 let is_bst x = 
   let rec to_list x acc =
     match x with
@@ -156,7 +149,7 @@ let rotate_right_left x =
   end
 in
 
-let rec insert (tree : avl_tree) (i : int) : avl_tree =
+let rec insert tree i =
   let rebalance i node =
     let bf = balance_factor node in
     if bf > 1
@@ -176,20 +169,31 @@ let rec insert (tree : avl_tree) (i : int) : avl_tree =
   match tree with
   | `Leaf l -> create_node i empty empty
   | `Node node ->
-    #match node with
-    #| { item = item , left = left , right = right , _ } ->
-    let item = node.item in let left = node.left in let right = node.right in
-      let new_node =
-        if i < item 
-        then create_node item (insert left i) right
-        else
-          if i > item
-          then create_node item left (insert right i)
-          else tree
-      in
-      rebalance i new_node
-    #end
+    let new_node =
+      if i < node.item 
+      then create_node node.item (insert node.left i) node.right
+      else
+        if i > node.item
+        then create_node node.item node.left (insert node.right i)
+        else tree
+    in
+    rebalance i new_node
   end
 in
 
+# This on a correct `insert` gets exhausted between 600 and 700 branches in 18 seconds
+let (res : avl_tree) =
+  let a =
+    `Node {
+      left = `Node
+        { left = empty , right = empty 
+        , item = 10 }
+    , right = empty
+    , item = 100
+    }
+  in
+  insert a 0
+in
+
 insert
+

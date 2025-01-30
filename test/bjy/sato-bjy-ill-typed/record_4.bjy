@@ -1,11 +1,6 @@
 
 let record_constraint re = 
-  match re with
-  | {a = x, b = y, _} -> 
-    match y with
-    | {c = z, _} -> x + z >= 0
-    end  
-  end
+  re.a + (re.b).c >= 0
 in
 
 let isTrue b = b

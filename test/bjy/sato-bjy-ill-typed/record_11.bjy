@@ -2,6 +2,4 @@
 let (r : {: a : int :}) = {a = 1, b = 2}
 in
 
-match r with
-| {b = x} -> x
-end
+r.b

@@ -34,7 +34,6 @@ let get_color p =
   p.flyweight.c
 in
 
-# ERROR: deg may have divide by zero
 let make_obj (cs : common_state.t) (x : int) (y : int) : colored_point.t =
 #let make_obj cs x y =
   let ob =
@@ -46,7 +45,7 @@ let make_obj (cs : common_state.t) (x : int) (y : int) : colored_point.t =
         , get_deg = 
             fun ignore_unit ->
               let s = (self self) in
-              if s.intrinsic.x == 0 then 0 else # ERROR: projecting label `x` when first need to project `intrinsic`
+              if s.intrinsic.x == 0 then 0 else
               let tan = s.intrinsic.y / s.intrinsic.x in
               tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 # approx arctan with taylor expansion
         }
@@ -63,7 +62,7 @@ let dark_color =
   ob ob
 in
 
-let result = get_color (make_obj dark_color 10 20) # ERROR: forgot to apply coordinates
+let result = get_color (make_obj dark_color 10 20)
 in
 
 result

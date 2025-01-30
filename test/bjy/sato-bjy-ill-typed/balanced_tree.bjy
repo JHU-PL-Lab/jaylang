@@ -9,11 +9,7 @@ in
 
 let rec get_height t = 
   match t with
-  | `Node node ->
-      match node with
-      | { left = l , right = r } ->
-        max (get_height l) (get_height r) + 1
-      end
+  | `Node node -> max (get_height node.left) (get_height node.right) + 1
   | `Leaf leaf -> 1
   end
 in
@@ -21,12 +17,9 @@ in
 let rec is_balanced t = 
   match t with
   | `Node node ->
-    match node with
-    | { left = l , right = r } ->
-      is_balanced l
-      and is_balanced r
-      and abs (get_height l - get_height r) <= 1
-    end
+    is_balanced node.left
+    and is_balanced node.right
+    and abs (get_height node.left - get_height node.right) <= 1
   | `Leaf leaf -> true
   end
 in

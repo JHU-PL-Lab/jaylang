@@ -1,16 +1,15 @@
 # This is an avl tree program, where insert on balanced tree returns a balanced tree
-# There is a type error in `insert`. See the comment
+# There is a type error in `rotate_right_left`. See the comment
 # Other ways to introduce a type error:
 # 1. Don't rotate at all
 # 2. Rotate left only on left insert, and right only on right insert (this was my first bug)
 
 let t = Mu tt. 
-  (  ``Node {: left : tt
+  ``Leaf
+  || ``Node {: left : tt
             , right : tt
             , item : int
             :}
-  || ``Leaf int
-  )
 in
 
 let empty = `Leaf 00
@@ -142,13 +141,13 @@ in
 
 let rotate_left_right x =
   match x with
-  | `Node node -> rotate_right (create_node node.item (rotate_left node.left) node.right)
+  | `Node node -> rotate_right (create_node node.item (rotate_left node.left) node.right) 
   end
 in
 
 let rotate_right_left x =
   match x with
-  | `Node node -> rotate_left (create_node node.item node.left (rotate_right node.right))
+  | `Node node -> rotate_left (create_node node.left node.left (rotate_right node.right))     # ERROR HERE! `create_node node.left ...` should be `create_node node.item ...`
   end
 in
 
@@ -172,18 +171,15 @@ let rec insert (tree : avl_tree) (i : int) : avl_tree =
   match tree with
   | `Leaf l -> create_node i empty empty
   | `Node node ->
-    match node with
-   | { item = item , left = left , right = right , _ } ->
-      let new_node =
-        if i < item 
-        then create_node item (insert left i) right
-        else
-          if i > item
-          then create_node item left (insert right i)
-          else tree
-      in
-      rebalance i new_node
-    end
+    let new_node =
+      if i < node.item 
+      then create_node node.item (insert node.left i) node.right
+      else
+        if i > node.item
+        then create_node node.item node.left (insert node.right i)
+        else tree
+    in
+    rebalance i new_node
   end
 in
 

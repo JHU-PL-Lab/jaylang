@@ -1,3 +1,0 @@
-let test (f : (int -> int) && (bool -> bool)) : int = 
-  f true
-in test

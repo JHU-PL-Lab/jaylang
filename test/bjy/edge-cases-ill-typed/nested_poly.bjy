@@ -1,0 +1,9 @@
+
+let f (type a) (x : a) : a = 
+  let g (type a) (y : a) : a =
+    x
+  in
+  x
+in
+
+f
