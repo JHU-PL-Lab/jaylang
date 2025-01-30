@@ -26,6 +26,7 @@ let ttype =
       match b with
       | `TArrow p2 ->
         # ERROR: these are first and second, but they should be left and right
+        # This error is realized when a condition has a function as both the "then" and "else" bodies, which is a deep error.
         eq p1.first p2.first
         and eq p1.second p2.second
       | _ -> false

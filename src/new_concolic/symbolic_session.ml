@@ -84,7 +84,18 @@ let make (target : Target.t) (input_feeder : Input_feeder.t) : t =
 let get_max_step (s : t) : int =
   s.consts.max_step
 
-let get_int_input (key : Concolic_key.t) (s : t) : t * Value.t =
+let get_input (type a) (key : a Concolic_key.t) (s : t) : t * Value.t =
+  let v = s.consts.input_feeder.get key in
+  match key with
+  | Int_key _ ->
+    { s with rev_inputs = Int v :: s.rev_inputs }
+    , Value.VInt (v, Expression.key key)
+  | Bool_key _ ->
+    { s with rev_inputs = Bool v :: s.rev_inputs }
+    , Value.VBool (v, Expression.key key)
+
+
+(* let get_int_input (key : Concolic_key.t) (s : t) : t * Value.t =
   let i = s.consts.input_feeder.get_int key in
   { s with rev_inputs = Int i :: s.rev_inputs }
   , Value.VInt (i, Expression.int_key key)
@@ -92,7 +103,7 @@ let get_int_input (key : Concolic_key.t) (s : t) : t * Value.t =
 let get_bool_input (key : Concolic_key.t) (s : t) : t * Value.t =
   let b = s.consts.input_feeder.get_bool key in
   { s with rev_inputs = Bool b :: s.rev_inputs }
-  , Value.VBool (b, Expression.bool_key key)
+  , Value.VBool (b, Expression.bool_key key) *)
 
 let has_reached_target (s : t) : bool =
   match s.consts.target with

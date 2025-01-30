@@ -8,26 +8,34 @@ module Input = struct
     [@@deriving compare, sexp]
 end
 
-type t = 
-  { get_int : Concolic_key.t -> int
-  ; get_bool : Concolic_key.t -> bool }
+type t = { get : 'a. 'a Concolic_key.t -> 'a } [@@unboxed]
 
 let zero : t =
-  { get_int = (fun _ -> 0)
-  ; get_bool = fun _ -> false }
+  { get = 
+    let f (type a) (key : a Concolic_key.t) : a =
+      match key with
+      | Int_key _ -> 0
+      | Bool_key _ -> false
+    in
+    f
+  }
 
 let default : t =
-  { get_int = (fun _ -> C_random.int_incl (-10) 10)
-  ; get_bool = fun _ -> C_random.bool () }
+  { get = 
+    let f (type a) (key : a Concolic_key.t) : a =
+      match key with
+      | Int_key _ -> C_random.int_incl (-10) 10
+      | Bool_key _ -> C_random.bool ()
+    in
+    f
+  }
 
 let from_model (model : Z3.Model.model) : t =
-  { get_int = (fun key ->
-      match C_sudu.get_int_expr model key with
+  { get = 
+    let f (type a) (key : a Concolic_key.t) : a =
+      match C_sudu.get_expr model key with
       | Some i -> i
-      | None -> default.get_int key
-    )
-  ; get_bool = fun key -> 
-      match C_sudu.get_bool_expr model key with
-      | Some b-> b
-      | None -> default.get_bool key
-    }
+      | None -> default.get key
+    in
+    f
+  }

@@ -6,9 +6,7 @@ module Input : sig
     [@@deriving compare, sexp]
 end
 
-type t =
-  { get_int : Concolic_key.t -> int
-  ; get_bool : Concolic_key.t -> bool }
+type t = { get : 'a. 'a Concolic_key.t -> 'a } [@@unboxed]
 (** [t] gets an input to go for the clause with the provided key. *)
 
 val zero : t

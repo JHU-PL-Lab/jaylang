@@ -42,9 +42,9 @@ val get_max_step : t -> int
   -----------
 *)
 
-val get_int_input : Concolic_key.t -> t -> t * Value.t
+val get_input : 'a Concolic_key.t -> t -> t * Value.t
 
-val get_bool_input : Concolic_key.t -> t -> t * Value.t
+(* val get_bool_input : Concolic_key.t -> t -> t * Value.t *)
 
 (*
   -----------------

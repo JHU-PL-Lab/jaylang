@@ -1,21 +1,26 @@
 
 open Core
 
-(* TODO: make key an int key or bool key *)
-type t = { uniq_id : int }
-  [@@unboxed][@@deriving sexp]
+type _ t =
+  | Int_key : int -> int t
+  | Bool_key : int -> bool t
 
-let compare (a : t) (b : t) : int =
-  Int.compare a.uniq_id b.uniq_id
+let compare (type a) (x : a t) (y : a t) : int =
+  match x, y with
+  | Int_key xi, Int_key yi
+  | Bool_key xi, Bool_key yi -> Int.compare xi yi
 
-let equal (a : t) (b : t) : bool =
-  Int.(a.uniq_id = b.uniq_id)
+let equal (type a) (x : a t) (y : a t) : bool =
+  match x, y with
+  | Int_key xi, Int_key yi
+  | Bool_key xi, Bool_key yi -> Int.equal xi yi
 
-let create uniq_id =
-  { uniq_id }
+let to_string (type a) (x : a t) : string =
+  match x with
+  | Int_key i -> Format.sprintf "i_stepkey_$%d" i
+  | Bool_key i -> Format.sprintf "b_stepkey_$%d" i
 
-let to_string ({ uniq_id } : t) : string =
-  Format.sprintf "stepkey_$%d" uniq_id
-
-let uniq_id ({ uniq_id } : t) : int =
-  uniq_id
+let uniq_id (type a) (x : a t) : int =
+  match x with
+  | Int_key i
+  | Bool_key i -> i

@@ -60,8 +60,7 @@ type _ t =
 
 (* abstract expressions only *)
 and _ e =
-  | Bool_key : Concolic_key.t -> bool e
-  | Int_key : Concolic_key.t -> int e
+  | Key : 'a Concolic_key.t -> 'a e
   | Not : bool t -> bool e
   | Binop : ('a * 'a * 'b) Typed_binop.t * 'a t * 'a t -> 'b e
 
@@ -72,8 +71,7 @@ let is_const : type a. a t -> bool = function
 let const_bool b = Const (b, C_sudu.box_bool)
 let true_ = const_bool true
 let const_int i = Const (i, C_sudu.box_int)
-let bool_key key = Abstract (Bool_key key)
-let int_key key = Abstract (Int_key key)
+let key key = Abstract (Key key)
 
 let not_ (x : bool t) : bool t = 
   match x with 
@@ -112,8 +110,11 @@ module Resolve = struct
   *)
   let e_to_formula (type a b) (i : int conv) (b : bool conv) (x : a e) : a C_sudu.Gexpr.t =
     match x with
-    | Int_key key -> C_sudu.int_var @@ Concolic_key.uniq_id key
-    | Bool_key key -> C_sudu.bool_var @@ Concolic_key.uniq_id key
+    | Key key -> begin
+      match key with
+      | Int_key id -> C_sudu.int_var id
+      | Bool_key id -> C_sudu.bool_var id
+    end
     | Not y -> C_sudu.not_ (b y)
     | Binop (binop, e1, e2) ->
       let to_formula = binop_opkind_to_converter i b binop in

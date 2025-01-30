@@ -145,7 +145,7 @@ let typecheck e =
     # Functions
     | `Function trip ->
       result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
-        result.return (`Tarrow { left = trip.second , right = tau }) # ERROR idea: The 'a' in Arrow is lowercase and should be uppercase
+        result.return (`Tarrow { left = trip.second , right = tau }) # ERROR: The 'a' in Arrow is lowercase and should be uppercase
       )
     | `Appl p ->
       result.bind (tc p.left) (fun res ->

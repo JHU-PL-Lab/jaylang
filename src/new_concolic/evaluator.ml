@@ -55,8 +55,9 @@ module CPS_Result_M = struct
   let diverge (session : Symbolic_session.t) : 'a m =
     fail (Err.Diverge, Symbolic_session.diverge session)
 
-  let type_mismatch (session : Symbolic_session.t) : 'a m =
-    fail (Err.Type_mismatch, Symbolic_session.type_mismatch session)
+  let type_mismatch (_session : Symbolic_session.t) (reason : string) : 'a m =
+    failwith reason
+    (* fail (Err.Type_mismatch, Symbolic_session.type_mismatch session) *)
 
   let reach_max_step (session : Symbolic_session.t) : 'a m =
     fail (Err.Reach_max_step, Symbolic_session.reach_max_step session)
@@ -114,15 +115,15 @@ let eval_exp
         | VRecord record_body -> begin
           match Map.find record_body label with
           | Some v -> next ~step ~session v
-          | None -> type_mismatch session
+          | None -> type_mismatch session "label not found in record"
         end
-        | _ -> type_mismatch session
+        | _ -> type_mismatch session "project non reocrd"
       end
       | EThaw e_frozen -> begin
         let%bind { v ; step ; session } = eval ~session ~step e_frozen env in
         match v with
         | VFrozen { expr ; env } -> eval ~step ~session expr env
-        | _ -> type_mismatch session
+        | _ -> type_mismatch session "thaw non frozen"
       end
       | ERecord record_body ->
         let%bind C_result.{ v = value_record_body ; step ; session } = 
@@ -151,7 +152,21 @@ let eval_exp
             )
         with
         | Some (e, env) -> eval ~step ~session e env
-        | None -> type_mismatch session
+        | None -> type_mismatch session (
+          Format.sprintf "expression not in pattern list. Patterns were %s and expression label was %s\n" (
+            List.to_string patterns ~f:(fun (pat, _) ->
+              match pat with
+              | Pattern.PAny -> "any"
+              | PVariable (Ident x) -> "var:" ^ x
+              | PVariant { variant_label = VariantLabel.VariantLabel (Ident x) ; _} -> "label:"^x
+              | _ -> "ocamltypecheckerwrong"
+              )
+          ) (
+            match v with
+            | VVariant { label = VariantLabel.VariantLabel (Ident x) ; _ } -> x
+            | _ -> "nonlabel"
+          )
+        )
       end
       | ELet { var ; body ; cont } ->
         let%bind { v ; step ; session } = eval ~step ~session body env in
@@ -163,7 +178,7 @@ let eval_exp
         | VId -> next ~step ~session varg
         | VFunClosure { param ; body } ->
           eval ~step ~session body.expr (Env.add body.env param varg)
-        | _ -> type_mismatch session
+        | _ -> type_mismatch session "apply non fun"
       end
       (* Operations -- build new expressions *)
       | EBinop { left ; binop ; right } -> begin
@@ -190,14 +205,14 @@ let eval_exp
         | BGeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 >= n2)) e1 e2 Greater_than_eq
         | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 && b2)) e1 e2 And
         | BOr          , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 || b2)) e1 e2 And
-        | _ -> type_mismatch session (* includes mod or divide by 0 *)
+        | _ -> type_mismatch session "bad binop" (* includes mod or divide by 0 *)
       end
       | ENot e_not_body -> begin
         let%bind { v ; step ; session } = eval ~step ~session e_not_body env in
         match v with
         | VBool (b, e_b) ->
           next ~step ~session @@ VBool (not b, Expression.not_ e_b) 
-        | _ -> type_mismatch session
+        | _ -> type_mismatch session "not non bool"
       end
       (* Branching *)
       | EIf { cond ; true_body ; false_body } -> begin
@@ -208,7 +223,7 @@ let eval_exp
           let new_session = Symbolic_session.hit_branch (Direction.of_bool b) e session in
           let%bind { v = res ; step ; session } = eval ~step ~session:new_session body env in
           next ~step ~session res
-        | _ -> type_mismatch session
+        | _ -> type_mismatch session "non bool condition"
       end
       | ECase { subject ; cases ; default } -> begin
         let%bind { v ; step ; session } = eval ~step ~session subject env in
@@ -227,16 +242,16 @@ let eval_exp
             let%bind { v = res ; step ; session } = eval ~step ~session:new_session default env in
             next ~step ~session res
         end
-        | _ -> type_mismatch session
+        | _ -> type_mismatch session "non int case"
       end
       (* Inputs *)
       | EPick_i ->
-        let key = Concolic_key.create step in
-        let session, v = Symbolic_session.get_int_input key session in
+        let key = Concolic_key.Int_key step in
+        let session, v = Symbolic_session.get_input key session in
         next ~session v
       | EPick_b ->
-        let key = Concolic_key.create step in
-        let session, v = Symbolic_session.get_bool_input key session in
+        let key = Concolic_key.Bool_key step in
+        let session, v = Symbolic_session.get_input key session in
         next ~session v
       (* Failure cases *)
       | EAbort -> abort session

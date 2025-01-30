@@ -18,17 +18,15 @@ end
 
 let solver = Z3.Solver.mk_solver ctx None
 
-let get_int_expr model key =
-  key
-  |> Concolic_key.uniq_id
-  |> int_var
-  |> int_of_expr model
+let var_of_key (type a) (key : a Concolic_key.t) : a Gexpr.t =
+  match key with
+  | Int_key id -> int_var id
+  | Bool_key id -> bool_var id
 
-let get_bool_expr model key =
+let get_expr model key =
   key
-  |> Concolic_key.uniq_id
-  |> bool_var
-  |> bool_of_expr model
+  |> var_of_key
+  |> value_of_expr model
 
 let set_timeout time =
   time

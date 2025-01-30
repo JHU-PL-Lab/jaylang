@@ -2,7 +2,8 @@
 type t =
   { dir    : Direction.Packed.t
   ; path_n : int
-  ; path   : Path.Reverse.t }
+  ; path   : Path.Reverse.t } (* TODO: use hashcons on this. Might need to be creative and somehow get hashconsing inside of path tree so we have to compute fewer hashes *)
+  (* Probably better is to make an int of each path (in base whatever the max n-ary branch is) and compare ints. Only issue is overload with long paths *)
 
 let make (rev_path : Path.Reverse.t) : t =
   match rev_path.backward_path with

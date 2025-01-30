@@ -58,8 +58,9 @@ module LetMonad = struct
       match kind with
       | Untyped ->
         ELet { var = id ; body ; cont }
-      | Wrap_only_typed tau ->
-        ELetWrap { typed_var = { var = id ; tau } ; body ; cont }
+      | Wrap_only_typed _tau ->
+        ELet { var = id ; body ; cont } (* FIXME: turned this off for now to test ill-typed-interpreter *)
+        (* ELetWrap { typed_var = { var = id ; tau } ; body ; cont } *)
       | Typed tau ->
         ELetTyped { typed_var = { var = id ; tau } ; body ; cont }
     )

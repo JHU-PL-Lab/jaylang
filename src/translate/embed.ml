@@ -52,6 +52,10 @@ module LetMonad (Names : Fresh_names.S)= struct
   (*
     Build the expression (of many nested let-expressions or ignore-expressions) using
     the monad's state.
+
+    This is the slowest part of the translation BY FAR. However, I keep the translation
+    small by only asking for certain labels from types, so the effect is not that big.
+    However, for faster translation, I would NEED to remove the state monad.
   *)
   let[@landmark] build (m : Embedded.t m) : Embedded.t =
     let resulting_bindings, cont = run m [] in

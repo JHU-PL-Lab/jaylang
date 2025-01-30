@@ -1,9 +1,12 @@
 
-type t [@@deriving compare, equal, sexp]
+type _ t =
+  | Int_key : int -> int t
+  | Bool_key : int -> bool t
 
-val create : int -> t
-(** [create step_count] is the key for expression created at the interpreter [step_count]. *)
+val compare : 'a t -> 'a t -> int
 
-val to_string : t -> string
+val equal : 'a t -> 'a t -> bool
 
-val uniq_id : t -> int
+val to_string : 'a t -> string
+
+val uniq_id : 'a t -> int

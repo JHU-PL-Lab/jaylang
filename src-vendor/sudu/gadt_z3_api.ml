@@ -61,8 +61,14 @@ module Make_common_builders (C : Context) = struct
     >>| unbox (* unbox into ocaml value *)
 
   (* use variable expression to query model for input *)
-  let int_of_expr model (Int_expr e) = a_of_expr model e unbox_int
-  let bool_of_expr model (Bool_expr e) = a_of_expr model e unbox_bool
+  let value_of_expr (type a) model (expr : a t) : a option =
+    match expr with
+    | Int_expr e -> a_of_expr model e unbox_int
+    | Bool_expr e -> a_of_expr model e unbox_bool
+
+  (* use variable expression to query model for input *)
+  let int_of_expr model (Int_expr e) = a_of_expr model e unbox_int (* this needs to stick around for old concolic *)
+  (* let bool_of_expr model (Bool_expr e) = a_of_expr model e unbox_bool *)
 end
 
 module Make_datatype_builders (C : Context) = struct
