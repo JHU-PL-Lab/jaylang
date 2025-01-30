@@ -2,21 +2,25 @@
 open Core
 
 module Typed_binop = struct
+  type iii = int * int * int
+  type iib = int * int * bool
+  type bbb = bool * bool * bool
+
   type _ t =
-    | Plus : (int * int * int) t
-    | Minus : (int * int * int) t
-    | Times : (int * int * int) t
-    | Divide : (int * int * int) t
-    | Modulus : (int * int * int) t
-    | Less_than : (int * int * bool) t
-    | Less_than_eq : (int * int * bool) t
-    | Greater_than : (int * int * bool) t
-    | Greater_than_eq : (int * int * bool) t
-    | Equal_int : (int * int * bool) t
-    | Equal_bool : (bool * bool * bool) t
-    | Not_equal : (int * int * bool) t
-    | And : (bool * bool * bool) t
-    | Or : (bool * bool * bool) t
+    | Plus : iii t
+    | Minus : iii t
+    | Times : iii t
+    | Divide : iii t
+    | Modulus : iii t
+    | Less_than : iib t
+    | Less_than_eq : iib t
+    | Greater_than : iib t
+    | Greater_than_eq : iib t
+    | Equal_int : iib t
+    | Equal_bool : bbb t
+    | Not_equal : iib t
+    | And : bbb t
+    | Or : bbb t
 
   let to_arithmetic (type a b) (binop : (a * a * b) t) : (a -> a -> b) * b C_sudu.box =
     let open C_sudu in

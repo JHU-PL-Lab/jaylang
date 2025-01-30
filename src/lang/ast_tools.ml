@@ -94,14 +94,6 @@ end
 
 module Funsig = struct
   type 'a t = 'a Expr.funsig
-(* 
-  let to_id (fsig : 'a t) : Ident.t =
-    match fsig with
-    | FUntyped { func_id ; _ }
-    | FTyped { func_id ; _ }
-    | FPolyTyped { func = { func_id ; _ } ; _ }
-    | FDepTyped { func_id ; _ }
-    | FPolyDepTyped { func = { func_id ; _ } ; _ } -> func_id *)
 
   (*
     Breaks a function signature into its id, type (optional), parameter names, and function body.

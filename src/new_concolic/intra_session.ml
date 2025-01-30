@@ -55,7 +55,7 @@ let[@landmark] next (x : t) : [ `Done of Status.Terminal.t | `Next of (t * Eval_
   if Status.is_terminal x.status then done_ () else
   let pop_kind =
     match x.prev_res with
-    | Some (Finished { reached_max_step ; _ }) when reached_max_step -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)
+    | Some (Finished { reached_max_step ; _ }) when reached_max_step -> Target_queue.Pop_kind.BFS (* only does BFS when last run reached max step *)
     | _ -> Random
   in
   let%lwt res = Path_tree.pop_sat_target ~kind:pop_kind x.tree in

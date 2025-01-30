@@ -1,11 +1,11 @@
 
 open Core
 
-type 'a terminal = 'a constraint 'a = [> `Terminal ]
+type 'a terminal = 'a constraint 'a = [ `Terminal ]
 
 type 'a eval = 'a constraint 'a = [ `Eval ]
 
-type 'a in_progress = 'a constraint 'a = [> `In_progress ]
+type 'a in_progress = 'a constraint 'a = [ `In_progress ]
 
 type _ t =
   | Found_abort : Input.t list -> 'a t
@@ -66,9 +66,5 @@ end
 
 module Terminal = struct
   type nonrec t = [ `Terminal ] t
-end
-
-module Intra = struct
-  type nonrec t = [ `Terminal | `In_progress ] t
 end
 

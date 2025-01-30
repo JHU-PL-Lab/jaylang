@@ -1,6 +1,6 @@
 
 type t
-(** [t] holds program info between interpretations and helps generate the symbolic session
+(** [t] holds program info between interpretations and helps generate the evaluation session
     for the next run. *)
 
 (* val empty : t *)

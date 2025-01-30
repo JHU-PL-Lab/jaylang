@@ -1,16 +1,6 @@
 
 open Core
 
-(*
-  Edges have claims that must be satisfied to walk the edge.
-  Node is either
-    * Hit (and int or bool children)
-    * Target
-    * Unsat
-    * Solver timeout
-    * Leaf (for root node and any "pruned" nodes that are end of interpretation)
-*)
-
 module type NODE = sig
   type 'a edge
 
