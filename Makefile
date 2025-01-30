@@ -63,11 +63,3 @@ test-concolic:
 
 cbenchmark:
 	dune exec --profile=release $(BENCH_C)/cbenchmark.exe
-
-# legacy
-
-repl:
-	dune utop src -- -require pdr-programming
-
-echo:
-	dune exec src/langdk/examples/echo_repl.exe
