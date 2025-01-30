@@ -6,8 +6,8 @@ module Symbolic = Symbolic_session
 module Status = struct
   type t =
     | In_progress of { pruned : bool }
-    | Found_abort of (Input_feeder.Input.t list [@compare.ignore])
-    | Type_mismatch of (Input_feeder.Input.t list [@compare.ignore])
+    | Found_abort of (Input.t list [@compare.ignore])
+    | Type_mismatch of (Input.t list [@compare.ignore])
     | Exhausted of { pruned : bool }
     [@@deriving compare, sexp]
 
@@ -95,50 +95,6 @@ let[@landmark] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] 
   | None -> 
     Lwt.return 
     @@ `Done (Status.finish x.status)
-
-  (* let rec next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t) ] Lwt.t =
-    let%lwt () = Lwt.pause () in
-    if Status.quit x.status then done_ x else
-    match Path_tree.pop_target ~kind:pop_kind x.tree with
-    | Some (tree, target) -> handle_target { x with tree } target
-    | None -> done_ x (* no targets left, so done *)
-
-  and handle_target (x : t) (target : Target.t) =
-    match solve_for_target x target with
-    | C_sudu.Solve_status.Unsat ->
-      (* Log.Export.CLog.info (fun m -> m "FOUND UNSATISFIABLE BRANCH\n"); *)
-      next { x with tree = Path_tree.set_unsat_target x.tree target }
-    | Unknown ->
-      (* Log.Export.CLog.info (fun m -> m "FOUND UNKNOWN DUE TO SOLVER TIMEOUT\n"); *)
-      next { x with tree = Path_tree.set_timeout_target x.tree target ; status = Status.prune x.status }
-    | Sat model ->
-      (* Log.Export.CLog.app (fun m -> m "FOUND SOLUTION FOR BRANCH\n"); *)
-      Lwt.return
-      @@ `Next (
-            { x with run_num = x.run_num + 1 }
-            , model
-              |> Input_feeder.from_model
-              |> Symbolic.make target
-              |> Options.Fun.appl Symbolic.with_options x.options
-          )
-
-  and solve_for_target (x : t) (target : Target.t) =
-    (* Log.Export.CLog.app (fun m -> m "Solving for target: %s\n" (Branch.Runtime.to_string target.branch)); *)
-    let t0 = Caml_unix.gettimeofday () in
-    let res = 
-      Path_tree.claims_of_target x.tree target
-      |> Tuple2.uncurry Claim.get_formulas
-      |> C_sudu.solve
-    in
-    let t1 = Caml_unix.gettimeofday () in
-    (* Log.Export.CLog.info (fun m -> m "Finished solve in %fs\n" (t1 -. t0)); *)
-    res
-
-  and done_ (x : t) =
-    (* Log.Export.CLog.info (fun m -> m "Done.\n"); *)
-    Lwt.return @@ `Done (Status.finish x.status)
-    
-  in next x *)
 
 let run_num ({ run_num ; _ } : t) : int =
   run_num

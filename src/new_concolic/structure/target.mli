@@ -2,7 +2,8 @@
 type t =
   { dir    : Direction.Packed.t
   ; path_n : int
-  ; path   : Path.Reverse.t }
+  ; path   : Path.Reverse.t
+  ; uniq_id : int } (* FIXME: this should not be visible *)
 
 val make : Path.Reverse.t -> t
 

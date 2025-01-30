@@ -26,7 +26,7 @@ val true_ : bool t
 val const_int : int -> int t
 val const_bool : bool -> bool t
 
-val key : 'a Concolic_key.t -> 'a t
+val key : 'a Stepkey.t -> 'a t
 
 val not_ : bool t -> bool t
 

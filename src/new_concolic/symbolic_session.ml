@@ -3,8 +3,8 @@ open Core
 
 module Status = struct
   type t =
-    | Found_abort of (Input_feeder.Input.t list [@compare.ignore])
-    | Type_mismatch of (Input_feeder.Input.t list [@compare.ignore])
+    | Found_abort of (Input.t list [@compare.ignore])
+    | Type_mismatch of (Input.t list [@compare.ignore])
     | Finished_interpretation of { pruned : bool ; reached_max_step : bool ; stem : Stem.t }
     (* [@@deriving compare, sexp] *)
 
@@ -52,13 +52,12 @@ module Session_consts = struct
     ; max_step     = Options.default.global_max_step }
 end
 
-module T =
-struct
+module T = struct
   type t =
     { stem           : Stem.t
     ; consts         : Session_consts.t
     ; status         : [ `In_progress | `Found_abort | `Type_mismatch | `Diverged ]
-    ; rev_inputs     : Input_feeder.Input.t list
+    ; rev_inputs     : Input.t list
     ; depth_tracker  : Depth_tracker.t }
 end
 
@@ -84,7 +83,7 @@ let make (target : Target.t) (input_feeder : Input_feeder.t) : t =
 let get_max_step (s : t) : int =
   s.consts.max_step
 
-let get_input (type a) (key : a Concolic_key.t) (s : t) : t * Value.t =
+let get_input (type a) (key : a Stepkey.t) (s : t) : t * Value.t =
   let v = s.consts.input_feeder.get key in
   match key with
   | Int_key _ ->
@@ -93,17 +92,6 @@ let get_input (type a) (key : a Concolic_key.t) (s : t) : t * Value.t =
   | Bool_key _ ->
     { s with rev_inputs = Bool v :: s.rev_inputs }
     , Value.VBool (v, Expression.key key)
-
-
-(* let get_int_input (key : Concolic_key.t) (s : t) : t * Value.t =
-  let i = s.consts.input_feeder.get_int key in
-  { s with rev_inputs = Int i :: s.rev_inputs }
-  , Value.VInt (i, Expression.int_key key)
-
-let get_bool_input (key : Concolic_key.t) (s : t) : t * Value.t =
-  let b = s.consts.input_feeder.get_bool key in
-  { s with rev_inputs = Bool b :: s.rev_inputs }
-  , Value.VBool (b, Expression.bool_key key) *)
 
 let has_reached_target (s : t) : bool =
   match s.consts.target with

@@ -14,8 +14,8 @@
 
 module Status : sig
   type t =
-    | Found_abort of (Input_feeder.Input.t list [@compare.ignore])
-    | Type_mismatch of (Input_feeder.Input.t list [@compare.ignore])
+    | Found_abort of (Input.t list [@compare.ignore])
+    | Type_mismatch of (Input.t list [@compare.ignore])
     | Finished_interpretation of { pruned : bool ; reached_max_step : bool ; stem : Stem.t }
     (* [@@deriving compare, sexp] *)
 end
@@ -42,9 +42,7 @@ val get_max_step : t -> int
   -----------
 *)
 
-val get_input : 'a Concolic_key.t -> t -> t * Value.t
-
-(* val get_bool_input : Concolic_key.t -> t -> t * Value.t *)
+val get_input : 'a Stepkey.t -> t -> t * Value.t
 
 (*
   -----------------

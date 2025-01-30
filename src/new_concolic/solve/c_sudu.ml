@@ -18,12 +18,12 @@ end
 
 let solver = Z3.Solver.mk_solver ctx None
 
-let var_of_key (type a) (key : a Concolic_key.t) : a Gexpr.t =
+let var_of_key (type a) (key : a Stepkey.t) : a Gexpr.t =
   match key with
   | Int_key id -> int_var id
   | Bool_key id -> bool_var id
 
-let get_expr model key =
+let value_of_key model key =
   key
   |> var_of_key
   |> value_of_expr model

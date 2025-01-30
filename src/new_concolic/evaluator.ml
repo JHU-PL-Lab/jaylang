@@ -55,9 +55,8 @@ module CPS_Result_M = struct
   let diverge (session : Symbolic_session.t) : 'a m =
     fail (Err.Diverge, Symbolic_session.diverge session)
 
-  let type_mismatch (_session : Symbolic_session.t) (reason : string) : 'a m =
-    failwith reason
-    (* fail (Err.Type_mismatch, Symbolic_session.type_mismatch session) *)
+  let type_mismatch (session : Symbolic_session.t) (_reason : string) : 'a m =
+    fail (Err.Type_mismatch, Symbolic_session.type_mismatch session)
 
   let reach_max_step (session : Symbolic_session.t) : 'a m =
     fail (Err.Reach_max_step, Symbolic_session.reach_max_step session)
@@ -117,7 +116,7 @@ let eval_exp
           | Some v -> next ~step ~session v
           | None -> type_mismatch session "label not found in record"
         end
-        | _ -> type_mismatch session "project non reocrd"
+        | _ -> type_mismatch session "project non record"
       end
       | EThaw e_frozen -> begin
         let%bind { v ; step ; session } = eval ~session ~step e_frozen env in
@@ -152,21 +151,7 @@ let eval_exp
             )
         with
         | Some (e, env) -> eval ~step ~session e env
-        | None -> type_mismatch session (
-          Format.sprintf "expression not in pattern list. Patterns were %s and expression label was %s\n" (
-            List.to_string patterns ~f:(fun (pat, _) ->
-              match pat with
-              | Pattern.PAny -> "any"
-              | PVariable (Ident x) -> "var:" ^ x
-              | PVariant { variant_label = VariantLabel.VariantLabel (Ident x) ; _} -> "label:"^x
-              | _ -> "ocamltypecheckerwrong"
-              )
-          ) (
-            match v with
-            | VVariant { label = VariantLabel.VariantLabel (Ident x) ; _ } -> x
-            | _ -> "nonlabel"
-          )
-        )
+        | None -> type_mismatch session (Format.sprintf "expression not in pattern list\n")
       end
       | ELet { var ; body ; cont } ->
         let%bind { v ; step ; session } = eval ~step ~session body env in
@@ -205,7 +190,7 @@ let eval_exp
         | BGeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 >= n2)) e1 e2 Greater_than_eq
         | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 && b2)) e1 e2 And
         | BOr          , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 || b2)) e1 e2 And
-        | _ -> type_mismatch session "bad binop" (* includes mod or divide by 0 *)
+        | _ -> type_mismatch session "bad binop, which may be mod or divide by 0"
       end
       | ENot e_not_body -> begin
         let%bind { v ; step ; session } = eval ~step ~session e_not_body env in
@@ -246,11 +231,11 @@ let eval_exp
       end
       (* Inputs *)
       | EPick_i ->
-        let key = Concolic_key.Int_key step in
+        let key = Stepkey.Int_key step in
         let session, v = Symbolic_session.get_input key session in
         next ~session v
       | EPick_b ->
-        let key = Concolic_key.Bool_key step in
+        let key = Stepkey.Bool_key step in
         let session, v = Symbolic_session.get_input key session in
         next ~session v
       (* Failure cases *)
@@ -275,7 +260,7 @@ let eval_exp
 
   This eval spans multiple symbolic sessions, trying to hit the branches.
 *)
-let rec loop (e : Embedded.t) (main_session : Session.t) (session : Session.Symbolic.t) : Session.Status.t Lwt.t =
+let rec loop (e : Embedded.t) (main_session : Session.t) (session : Symbolic_session.t) : Session.Status.t Lwt.t =
   let open Lwt.Infix in
   let%lwt () = Lwt.pause () in
   (* CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session)); *)

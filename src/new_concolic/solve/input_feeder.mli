@@ -1,12 +1,5 @@
 
-module Input : sig
-  type t =
-    | Int of int
-    | Bool of bool
-    [@@deriving compare, sexp]
-end
-
-type t = { get : 'a. 'a Concolic_key.t -> 'a } [@@unboxed]
+type t = { get : 'a. 'a Stepkey.t -> 'a } [@@unboxed]
 (** [t] gets an input to go for the clause with the provided key. *)
 
 val zero : t

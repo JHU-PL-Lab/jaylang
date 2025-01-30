@@ -60,7 +60,7 @@ type _ t =
 
 (* abstract expressions only *)
 and _ e =
-  | Key : 'a Concolic_key.t -> 'a e
+  | Key : 'a Stepkey.t -> 'a e
   | Not : bool t -> bool e
   | Binop : ('a * 'a * 'b) Typed_binop.t * 'a t * 'a t -> 'b e
 

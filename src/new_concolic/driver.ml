@@ -6,8 +6,8 @@ open Options.Fun.Infix (* expose infix operators *)
 
 module Test_result = struct
   type t =
-    | Found_abort of Input_feeder.Input.t list (* Found an abort using these inputs *)
-    | Type_mismatch of Input_feeder.Input.t list (* Found a type mismatch using these inputs *)
+    | Found_abort of Input.t list (* Found an abort using these inputs *)
+    | Type_mismatch of Input.t list (* Found a type mismatch using these inputs *)
     | Exhausted               (* Ran all possible tree paths, and no paths were too deep *)
     | Exhausted_pruned_tree   (* Ran all possible tree paths up to the given max step *)
     | Timeout                 (* total evaluation timeout *)
