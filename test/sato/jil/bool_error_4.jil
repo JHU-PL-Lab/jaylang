@@ -1,9 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-TYPE-ERROR-COUNT 1
-# EXPECT-TYPE-ERROR ~result [0] "ret = x and tru" "i" "input" "bool" "int"
-
-tru = true;
-fls = false;
-
-tru2 = tru or fls;
-res = tru2 + tru2;

@@ -1,8 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-TYPE-ERROR-COUNT 1
-# EXPECT-TYPE-ERROR ~result [] "n < true" "" "true" "int" "bool"
-
-let rec sum n =
-    if n < 0 then 0 else n + ( sum ( n - 1 ) )
-in
-sum 5

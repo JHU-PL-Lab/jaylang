@@ -1,3 +1,4 @@
+# IMPORTANT NOTE: this should be caught by wrap on recursive calls, which is turned off until the 123456789 trick is baked into the translation
 
 let t a b i =
   if i % 2 == 0

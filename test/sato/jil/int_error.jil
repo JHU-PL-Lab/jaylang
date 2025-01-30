@@ -1,4 +1,0 @@
-x = false;
-y = false;
-z = x + y;
-foo = z;

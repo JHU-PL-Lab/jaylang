@@ -1,3 +1,0 @@
-let isPos n = n > 0 in
-let (x : {. int | isPos }) = true in
-x

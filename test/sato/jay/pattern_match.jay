@@ -1,9 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-TYPE-ERROR-COUNT 2
-# EXPECT-TYPE-ERROR ~result [] "match {} with | hd :: tl -> tl | [] -> [] end" "" "{}" "list" "{}"
-# EXPECT-TYPE-ERROR ~result [] "match {} with | hd :: tl -> tl | [] -> [] end" "" "{}" "list" "{}"
-
-match {} with
-| hd :: tl -> tl
-| [] -> []
-end

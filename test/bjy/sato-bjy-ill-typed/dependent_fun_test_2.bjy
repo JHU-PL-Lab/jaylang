@@ -1,0 +1,20 @@
+
+let rec length x acc = 
+    match x with
+    | [] -> acc
+    | hd :: tl -> length tl (acc + 1)
+    end
+in
+letd rec f (x : List int) : ((y : List int) -> (z : List int) -> {. List int | (fun a -> (length a 0) == (length x 0) + (length y 0)) }) =
+    let g l2 =
+        let h acc =
+            match l2 with
+            | [] -> []
+            | hd :: tl -> f l2 tl acc
+            end
+        in
+        h
+    in
+    g
+in
+f

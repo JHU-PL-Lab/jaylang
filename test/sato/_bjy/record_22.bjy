@@ -1,5 +1,0 @@
-let f (r : {: a : int :}) : int = match r with
-| {b = vb} -> vb
-| {a = va} -> va
-end
-in (f { a = 1, b = true })

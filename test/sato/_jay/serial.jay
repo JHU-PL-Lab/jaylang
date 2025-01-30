@@ -1,7 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-TYPE-ERROR-COUNT 1
-# EXPECT-TYPE-ERROR ~result [] "false - 0" "" "false" "int" "bool"
-
-let a = false - 0 in
-let b = true * 0 in
-b

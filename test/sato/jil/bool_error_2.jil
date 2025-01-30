@@ -1,3 +1,0 @@
-i1 = input;
-i2 = input;
-ans = i1 and i2;

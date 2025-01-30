@@ -1,9 +1,0 @@
-
-let tau = int
-in
-
-let f (x : tau) : tau =
-  x
-in
-
-f

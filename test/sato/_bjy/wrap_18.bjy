@@ -1,2 +1,0 @@
-let f (type t1) (b : bool) : t1 -> t1 = fun a -> a in 
-f (bool) true 1

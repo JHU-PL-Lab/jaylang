@@ -1,9 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-STUCK
-# EXPECT-TYPE-ERROR-COUNT 1
-# EXPECT-TYPE-ERROR ~result [] "d = a / c" "c = b" "0" "" "0" "0 <> 0" 
-
-a = 2;
-b = 0;
-c = b;
-d = a / c;

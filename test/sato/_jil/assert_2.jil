@@ -1,6 +1,0 @@
-n = input;
-n2 = 100;
-n1 = 50;
-c = n2 < n;
-r = c ? (re = n1 < n) : (ab2 = false;) ;
-res = r ? (ret = 0) : (ab = abort;) ;

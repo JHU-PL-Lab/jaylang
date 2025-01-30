@@ -1,9 +1,0 @@
-# Ill-typed. add currently returns 'a not List 'a.
-let (set_m : 
-    {: emptyset : List 'a
-    , add : 'a -> (List 'a) -> (List 'a) :}) = 
-  { emptyset = []
-  , add = fun x -> fun s -> x
-  }
-in
-set_m

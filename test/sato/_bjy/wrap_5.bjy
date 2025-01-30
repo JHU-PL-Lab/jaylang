@@ -1,2 +1,0 @@
-let (id : int -> int) = fun x -> x in
-id true

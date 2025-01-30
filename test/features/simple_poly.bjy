@@ -1,6 +1,0 @@
-
-let f (type a) (x : a) : a =
-  x
-in
-
-f

@@ -1,2 +1,0 @@
-let (f : ((x : int) -> {. int | fun ret -> ret == x})) = fun x -> x in
-f true

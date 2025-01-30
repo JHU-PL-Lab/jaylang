@@ -1,4 +1,0 @@
-let id (type t1) (x : t1) : t1 = 
-    x
-in
-id

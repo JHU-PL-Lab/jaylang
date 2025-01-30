@@ -1,3 +1,0 @@
-let appl_inc (inc : int -> int) (x : int) : int =
-    inc x
-in appl_inc

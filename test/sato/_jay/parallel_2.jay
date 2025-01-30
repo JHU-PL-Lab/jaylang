@@ -1,7 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-TYPE-ERROR-COUNT 2
-# EXPECT-TYPE-ERROR ~result [0] "(fun x -> x) + 1" "" "fun x -> x" "int" "fun"
-# EXPECT-TYPE-ERROR ~result [1] "{} or false" "" "{}" "bool" "{}" 
-
-let i = input in
-if i == 0 then ((fun x -> x) + 1)  else ({} or false)
