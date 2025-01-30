@@ -10,9 +10,9 @@ open Value
 
 module C_result = struct
   (* a state for the step and session would be really nice, but it is too slow *)
-  type 'a t = { v : 'a ; step : int ; session : Symbolic_session.t }
+  type 'a t = { v : 'a ; step : int ; session : Eval_session.t }
 
-  let get_session ({ session ; _ } : 'a t) : Symbolic_session.t =
+  let get_session ({ session ; _ } : 'a t) : Eval_session.t =
     session
 end
 
@@ -21,7 +21,7 @@ module CPS_Result_M = struct
     type t = Abort | Diverge | Type_mismatch | Reach_max_step
   end
 
-  module C = Monadlib.Continuation.Make (struct type r = Symbolic_session.t end)
+  module C = Monadlib.Continuation.Make (struct type r = Eval_session.t end)
   (* module C = struct
     type 'a m = 'a
     let bind x f = f x
@@ -29,7 +29,7 @@ module CPS_Result_M = struct
   end *)
 
   module T = struct
-    type 'a m = ('a, Err.t * Symbolic_session.t) result C.m
+    type 'a m = ('a, Err.t * Eval_session.t) result C.m
 
     let[@inline_always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m = 
       C.bind x (function
@@ -45,21 +45,21 @@ module CPS_Result_M = struct
   (* include Monadlib.Monad.Make (T) *) (* will replace the line below with this when I need any helpers *)
   include T
 
-  let fail (e : Err.t * Symbolic_session.t) : 'a m =
+  let fail (e : Err.t * Eval_session.t) : 'a m =
     C.return
     @@ Result.fail e
 
-  let abort (session : Symbolic_session.t) : 'a m =
-    fail (Err.Abort, Symbolic_session.abort session)
+  let abort (session : Eval_session.t) : 'a m =
+    fail (Err.Abort, Eval_session.abort session)
 
-  let diverge (session : Symbolic_session.t) : 'a m =
-    fail (Err.Diverge, Symbolic_session.diverge session)
+  let diverge (session : Eval_session.t) : 'a m =
+    fail (Err.Diverge, Eval_session.diverge session)
 
-  let type_mismatch (session : Symbolic_session.t) (_reason : string) : 'a m =
-    fail (Err.Type_mismatch, Symbolic_session.type_mismatch session)
+  let type_mismatch (session : Eval_session.t) (_reason : string) : 'a m =
+    fail (Err.Type_mismatch, Eval_session.type_mismatch session)
 
-  let reach_max_step (session : Symbolic_session.t) : 'a m =
-    fail (Err.Reach_max_step, Symbolic_session.reach_max_step session)
+  let reach_max_step (session : Eval_session.t) : 'a m =
+    fail (Err.Reach_max_step, Eval_session.reach_max_step session)
 end
 
 (*
@@ -67,15 +67,15 @@ end
   Can I then optimize it to not have to pass it around most of the time?
 *)
 let eval_exp 
-  ~(session : Symbolic_session.t)
+  ~(session : Eval_session.t)
   (expr : Embedded.t) 
-  : Symbolic_session.t
+  : Eval_session.t
   =
   let open CPS_Result_M in
-  let max_step = Symbolic_session.get_max_step session in
+  let max_step = Eval_session.get_max_step session in
 
   let rec eval 
-    ~(session : Symbolic_session.t)
+    ~(session : Eval_session.t)
     ~(step : int)
     (expr : Embedded.t) 
     (env : Env.t) 
@@ -86,7 +86,7 @@ let eval_exp
     if step >= max_step
     then reach_max_step session
     else
-      let next ?(step : int = step) ?(session : Symbolic_session.t = session) v =
+      let next ?(step : int = step) ?(session : Eval_session.t = session) v =
         return C_result.{ v ; step ; session }
       in
 
@@ -205,7 +205,7 @@ let eval_exp
         match v with
         | VBool (b, e) ->
           let body = if b then true_body else false_body in
-          let new_session = Symbolic_session.hit_branch (Direction.of_bool b) e session in
+          let new_session = Eval_session.hit_branch (Direction.of_bool b) e session in
           let%bind { v = res ; step ; session } = eval ~step ~session:new_session body env in
           next ~step ~session res
         | _ -> type_mismatch session "non bool condition"
@@ -219,11 +219,11 @@ let eval_exp
           match body_opt with
           | Some body -> (* found a matching case *)
             let other_cases = List.filter int_cases ~f:((<>) i) in
-            let new_session = Symbolic_session.hit_case (Direction.of_int i) e ~other_cases session in
+            let new_session = Eval_session.hit_case (Direction.of_int i) e ~other_cases session in
             let%bind { v = res ; step ; session } = eval ~step ~session:new_session body env in
             next ~step ~session res
           | None -> (* no matching case, so take default case *)
-            let new_session = Symbolic_session.hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases session in
+            let new_session = Eval_session.hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases session in
             let%bind { v = res ; step ; session } = eval ~step ~session:new_session default env in
             next ~step ~session res
         end
@@ -232,11 +232,11 @@ let eval_exp
       (* Inputs *)
       | EPick_i ->
         let key = Stepkey.Int_key step in
-        let session, v = Symbolic_session.get_input key session in
+        let session, v = Eval_session.get_input key session in
         next ~session v
       | EPick_b ->
         let key = Stepkey.Bool_key step in
-        let session, v = Symbolic_session.get_input key session in
+        let session, v = Eval_session.get_input key session in
         next ~session v
       (* Failure cases *)
       | EAbort -> abort session
@@ -260,16 +260,16 @@ let eval_exp
 
   This eval spans multiple symbolic sessions, trying to hit the branches.
 *)
-let rec loop (e : Embedded.t) (main_session : Session.t) (session : Symbolic_session.t) : Session.Status.t Lwt.t =
+let rec loop (e : Embedded.t) (main_session : Intra_session.t) (session : Eval_session.t) : Status.Terminal.t Lwt.t =
   let open Lwt.Infix in
   let%lwt () = Lwt.pause () in
   (* CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session)); *)
   (* let t0 = Caml_unix.gettimeofday () in *)
-  let resulting_symbolic = eval_exp ~session e in
+  let resulting_eval_session = eval_exp ~session e in
   (* let t1 = Caml_unix.gettimeofday () in *)
   (* CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0)); *)
-  Session.next
-  @@ Session.accum_symbolic main_session resulting_symbolic
+  Intra_session.next
+  @@ Intra_session.accum_eval main_session resulting_eval_session
   >>= begin function
     | `Done status ->
         (* CLog.app (fun m -> m "\n------------------------------\nFinishing concolic evaluation...\n\n"); *)
@@ -279,9 +279,9 @@ let rec loop (e : Embedded.t) (main_session : Session.t) (session : Symbolic_ses
     | `Next (session, symb_session) -> loop e session symb_session
     end
 
-let lwt_eval : (Embedded.t, Session.Status.t Lwt.t) Options.Fun.a =
+let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Fun.a =
   (* Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug }; *)
-  Session.of_options
+  Intra_session.of_options
   >>> (Options.Fun.make
   @@ fun r (session, symb_session) (e : Embedded.t) ->
       C_sudu.set_timeout (Core.Time_float.Span.of_sec r.solver_timeout_sec);

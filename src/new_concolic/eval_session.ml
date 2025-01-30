@@ -1,19 +1,6 @@
 
 open Core
 
-module Status = struct
-  type t =
-    | Found_abort of (Input.t list [@compare.ignore])
-    | Type_mismatch of (Input.t list [@compare.ignore])
-    | Finished_interpretation of { pruned : bool ; reached_max_step : bool ; stem : Stem.t }
-    (* [@@deriving compare, sexp] *)
-
-  let prune (s : t) : t =
-    match s with
-    | Finished_interpretation r -> Finished_interpretation { r with pruned = true }
-    | _ -> s
-end
-
 module Depth_tracker = struct
   type t =
     { cur_depth    : int (* branch depth *)
@@ -56,7 +43,7 @@ module T = struct
   type t =
     { stem           : Stem.t
     ; consts         : Session_consts.t
-    ; status         : [ `In_progress | `Found_abort | `Type_mismatch | `Diverged ]
+    ; status         : Status.In_progress.t
     ; rev_inputs     : Input.t list
     ; depth_tracker  : Depth_tracker.t }
 end
@@ -66,7 +53,7 @@ include T
 let empty : t =
   { stem           = Stem.empty
   ; consts         = Session_consts.default
-  ; status         = `In_progress
+  ; status         = Status.In_progress
   ; rev_inputs     = []
   ; depth_tracker  = Depth_tracker.empty }
 
@@ -116,24 +103,23 @@ let hit_case (dir : int Direction.t) (e : int Expression.t) ~(other_cases : int 
   set_lazy_stem s e @@ lazy (Stem.push_case s.stem dir e other_cases)
 
 let diverge (s : t) : t =
-  { s with status = `Diverged }
+  { s with status = Diverge }
 
 let abort (s : t) : t =
-  { s with status = `Found_abort }
+  { s with status = Found_abort (List.rev s.rev_inputs) }
 
 let type_mismatch (s : t) : t =
-  { s with status = `Type_mismatch }
+  { s with status = Type_mismatch (List.rev s.rev_inputs) }
 
 let reach_max_step (s : t) : t =
   { s with depth_tracker = Depth_tracker.hit_max_step s.depth_tracker }
 
-let finish (s : t) : Status.t =
+let finish (s : t) : Status.Eval.t =
   match s.status with
-  | `In_progress
-  | `Diverged ->
-    Finished_interpretation
+  | In_progress
+  | Diverge ->
+    Finished
       { pruned = s.depth_tracker.is_max_depth
       ; reached_max_step = s.depth_tracker.is_max_step
       ; stem = s.stem }
-  | `Found_abort -> Found_abort (List.rev s.rev_inputs)
-  | `Type_mismatch -> Type_mismatch (List.rev s.rev_inputs)
+  | (Found_abort _ | Type_mismatch _) as res -> res
