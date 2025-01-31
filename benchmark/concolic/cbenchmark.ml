@@ -12,7 +12,7 @@ module Report_row (* : Latex_table.ROW *) =
 
     type t =
       { testname                    : Filename.t
-      ; test_result                 : New_concolic.Status.Terminal.t
+      ; test_result                 : Concolic.Status.Terminal.t
       ; time_to_only_run_on_jil     : Time_float.Span.t
       ; time_to_parse_and_translate : Time_float.Span.t
       ; total_time                  : Time_float.Span.t
@@ -72,7 +72,7 @@ module Report_row (* : Latex_table.ROW *) =
         in
         let t1 = Caml_unix.gettimeofday () in
         let test_result =
-          New_concolic.Driver.test_expr source ~global_timeout_sec:90.0
+          Concolic.Driver.test_expr source ~global_timeout_sec:90.0
         in
         let t2 = Caml_unix.gettimeofday () in
         let row =
@@ -94,7 +94,7 @@ module Report_row (* : Latex_table.ROW *) =
           trials
           ~init:{
             testname
-            ; test_result = New_concolic.Status.Exhausted_pruned_tree (* just arbitrary initial result *)
+            ; test_result = Concolic.Status.Exhausted_pruned_tree (* just arbitrary initial result *)
             ; time_to_only_run_on_jil = Time_float.Span.of_sec 0.0
             ; time_to_parse_and_translate = Time_float.Span.of_sec 0.0
             ; total_time = Time_float.Span.of_sec 0.0

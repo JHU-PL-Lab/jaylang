@@ -1,8 +1,8 @@
 (include_subdirs unqualified)
 
 (library
- (name new_utils)
- (public_name jay.new_utils)
+ (name utils)
+ (public_name jay.utils)
  (libraries
   core
   core_unix

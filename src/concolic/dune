@@ -1,8 +1,8 @@
 (include_subdirs unqualified)
 
 (library
- (name new_concolic)
- (public_name jay.new_concolic)
+ (name concolic)
+ (public_name jay.concolic)
  (libraries
   core
   fmt

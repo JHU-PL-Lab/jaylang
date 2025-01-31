@@ -10,7 +10,7 @@
 (executable
  (name ceval)
  (modules ceval)
- (libraries core lang new_concolic translate)
+ (libraries core lang concolic translate)
  (promote
   (until-clean)
   (into "../..")))

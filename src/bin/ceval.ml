@@ -1,6 +1,6 @@
 
 open Core
-open New_concolic
+open Concolic
 
 let usage_msg =
   {|

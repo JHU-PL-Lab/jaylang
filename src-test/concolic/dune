@@ -5,11 +5,11 @@
  (libraries
   core
   core_unix.sys_unix
-  new_utils
+  utils
   cmdliner
   alcotest
   alcotest-lwt
-  new_concolic)
+  concolic)
  (preprocess
   (pps
    ppx_jane

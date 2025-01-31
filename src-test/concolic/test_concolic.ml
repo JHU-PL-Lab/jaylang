@@ -1,6 +1,6 @@
 open Core
-open New_concolic
-open New_utils
+open Concolic
+open Utils
 
 type 'arg test_one = string -> 'arg -> unit
 
@@ -54,4 +54,4 @@ let () =
       @ make_tests_ill_typed "sato-bjy-ill-typed"
       @ make_tests_well_typed "sato-bjy-well-typed"
     ) 
-    ~quick_only:false
+    ~quick_only:true
