@@ -37,14 +37,14 @@ let is_error_found (type a) (x : a t) : bool =
 
 let to_string (type a) (x : a t) : string =
   match x with
-  | Found_abort _ -> "Found abort"
-  | Type_mismatch _ -> "Type mismatch"
-  | Exhausted_full_tree -> "Exhausted full tree"
+  | Found_abort _         -> "Found abort"
+  | Type_mismatch _       -> "Type mismatch"
+  | Exhausted_full_tree   -> "Exhausted full tree"
   | Exhausted_pruned_tree -> "Exhausted pruned true"
-  | Timeout -> "Timeout"
-  | Finished _ -> "Finished interpretation"
-  | Diverge -> "Diverge"
-  | In_progress -> "In progress"
+  | Timeout               -> "Timeout"
+  | Finished _            -> "Finished interpretation"
+  | Diverge               -> "Diverge"
+  | In_progress           -> "In progress"
 
 let to_loud_string (type a) (x : a t) : string =
   String.map (to_string x) ~f:(fun c ->
