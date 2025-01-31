@@ -68,7 +68,7 @@ module Report_row (* : Latex_table.ROW *) =
         let source =
           In_channel.read_all testname
           |> Lang.Parse.parse_single_expr_string
-          |> Translate.Convert.bjy_to_emb
+          |> Translate.Convert.bjy_to_emb ~do_wrap:true
         in
         let t1 = Caml_unix.gettimeofday () in
         let test_result =

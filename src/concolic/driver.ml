@@ -25,10 +25,10 @@ let[@landmark] test_expr : (Lang.Ast.Embedded.t, Status.Terminal.t) Options.Fun.
   -------------------
 *)
 
-let test : (string, Status.Terminal.t) Options.Fun.a =
-  test_expr
-  <<^ (fun s ->
+let test : (string, do_wrap:bool -> Status.Terminal.t) Options.Fun.a =
+  Options.Fun.make
+  @@ fun r -> fun s -> fun ~do_wrap ->
     In_channel.read_all s
     |> Lang.Parse.parse_single_expr_string
-    |> Translate.Convert.bjy_to_emb
-  )
+    |> Translate.Convert.bjy_to_emb ~do_wrap
+    |> Options.Fun.appl test_expr r

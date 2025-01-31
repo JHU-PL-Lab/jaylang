@@ -2,21 +2,42 @@
 open Core
 open Lang
 
-let usage_msg = "interp <file> -m <mode> [<input_i>]"
+let usage_msg =
+  {|
+  interp <file> -m <mode> [-w yes/no]
+  |}
+  (* would like to add [<input_i>] optional inputs *)
 
-let () =
-  match Sys.get_argv () |> List.of_array with
-  | _ :: source_file :: "-m" :: mode :: inputs -> begin
-    if not @@ List.is_empty inputs
-    then failwith "Gave inputs to interpreter, which is currently not handled.";
+let source_file = ref "" 
+let mode = ref ""
+let wrap = ref "yes"
+
+let read_anon_arg src_file_raw =
+  source_file := src_file_raw
+
+let speclist = 
+  [ ("-m", Arg.Set_string mode, "Mode: bluejay, desugared, or embedded.")
+  ; ("-w", Arg.Set_string wrap, "Wrap flag: yes or no. Default is yes.")]
+
+let () = 
+  Arg.parse speclist read_anon_arg usage_msg;
+  match !source_file with
+  | "" -> ()
+  | src_file -> begin
     let pgm =
       Lang.Parse.parse_single_expr_string
-      @@ In_channel.read_all source_file
+      @@ In_channel.read_all src_file
     in
-    match mode with
+    match !mode with
     | "bluejay" -> let _ = Interp.eval_exp pgm in ()
     | "desugared" -> let _ = Interp.eval_exp @@ Translate.Convert.bjy_to_des pgm in ()
-    | "embedded" -> let _ = Interp.eval_exp @@ Translate.Convert.bjy_to_emb pgm in ()
+    | "embedded" ->
+      let do_wrap =
+        match String.lowercase !wrap with
+        | "yes" | "y" -> true
+        | "no" | "n" -> false
+        | _ -> Format.eprintf "Error: bad string given to wrap -w flag. Should be yes/no."; assert false
+      in
+      let _ = Interp.eval_exp @@ Translate.Convert.bjy_to_emb pgm ~do_wrap in ()
     | _ -> Format.eprintf "Error: mode should be one of bluejay, desugared, embedded."; assert false
   end
-  | _ -> Format.printf "error in parsing. Usage message: %s\n" usage_msg

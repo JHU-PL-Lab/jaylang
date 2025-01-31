@@ -8,7 +8,7 @@ open Translation_tools
 open Ast_tools
 open Ast_tools.Utils
 
-module LetMonad (Names : Fresh_names.S)= struct
+module LetMonad (Names : Fresh_names.S) = struct
   module Binding = struct
     type t =
       | Bind of Ident.t * Embedded.t
@@ -67,7 +67,7 @@ module LetMonad (Names : Fresh_names.S)= struct
     )
 end
 
-module Embedded_type = struct
+module Embedded_type (W : sig val do_wrap : bool end) = struct
   type labels = [ `Gen | `Check | `Wrap | `All ]
 
   (*
@@ -83,11 +83,13 @@ module Embedded_type = struct
       | `All ->
         [ (Reserved_labels.Records.gen, Expr.EFreeze (force gen))
         ; (Reserved_labels.Records.check, (force check))
-        ; (Reserved_labels.Records.wrap, (force wrap))
-        ]
+        ] @
+        if W.do_wrap
+        then [ (Reserved_labels.Records.wrap, (force wrap)) ]
+        else []
       | `Gen -> [ (Reserved_labels.Records.gen, Expr.EFreeze (force gen)) ]
       | `Check -> [ (Reserved_labels.Records.check, (force check)) ]
-      | `Wrap -> [ (Reserved_labels.Records.wrap, (force wrap)) ]
+      | `Wrap -> if W.do_wrap then [ (Reserved_labels.Records.wrap, (force wrap)) ] else []
     in
     ERecord (Parsing_tools.record_of_list record_body)
 
@@ -114,7 +116,8 @@ module Embedded_type = struct
       x
 end
 
-let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embedded.t =
+let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) ~(do_wrap : bool) : Embedded.t =
+  let module E = Embedded_type (struct let do_wrap = do_wrap end) in
   let module Names = (val names) in
   let open LetMonad (Names) in
 
@@ -123,7 +126,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
     EFunction { param = id ; body = e id }
   in
 
-  let rec embed ?(ask_for : Embedded_type.labels = `All) (expr : Desugared.t) : Embedded.t =
+  let rec embed ?(ask_for : E.labels = `All) (expr : Desugared.t) : Embedded.t =
     match expr with
     (* base cases *)
     | (EInt _ | EBool _ | EVar _ | EPick_i | EAbort | EDiverge) as e -> e
@@ -153,50 +156,17 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
     (* Let *)
     | ELetTyped { typed_var = { var = x ; tau } ; body = e ; cont = e' } ->
       build @@
-        let%bind () =
-          assign x (
-            build @@
-              let%bind r = capture ~suffix:"r" @@ embed tau in
-              let%bind v = capture ~suffix:"v" @@ embed e in
-              let%bind () = ignore @@ Embedded_type.check ~tau:(EVar r) (EVar v) in
-              return @@ Embedded_type.wrap ~tau:(EVar r) (EVar v)
-          )
-        in
+        let%bind () = assign x @@ embed_let ~do_wrap ~do_check:true ~tau e in
         return @@ embed e'
-    | ELetFlagged { flags ; typed_var = { var = x ; tau } ; body = e ; cont = e' } -> begin
-      match Set.to_list flags with
-      | [ WrapOnly ] ->
-        build @@
-          let%bind () = assign x @@ wrap tau (embed e)
-          in
-          return @@ embed e'
-      | [ TauKnowsBinding ] ->
-        build @@
-          let%bind () =
-            assign x (
-              build @@
-                let%bind () = assign x @@ embed e in
-                let%bind r = capture ~suffix:"r" @@ embed tau in
-                let%bind () = ignore @@ Embedded_type.check ~tau:(EVar r) (EVar x) in
-                return @@ Embedded_type.wrap ~tau:(EVar r) (EVar x)
-            )
-          in
-          return @@ embed e'
-      | [ WrapOnly ; TauKnowsBinding ] | [ TauKnowsBinding ; WrapOnly ] ->
-        build @@
-          let%bind () =
-            assign x (
-              build @@
-                let%bind () = assign x @@ embed e in
-                return @@ wrap tau (EVar x)
-            )
-          in
-          return @@ embed e'
-      | _ -> failwith "unexpected flag combo in ELetFlagged embedding"
-      end
+    | ELetFlagged { flags ; typed_var = { var = x ; tau } ; body = e ; cont = e' } ->
+      let do_check = not @@ Set.mem flags NoCheck in
+      let v_name = if Set.mem flags TauKnowsBinding then x else Names.fresh_id () in
+      build @@
+        let%bind () = assign x @@ embed_let ~v_name ~do_wrap ~do_check ~tau e in
+        return @@ embed e'
     (* types *)
     | ETypeInt ->
-      Embedded_type.make
+      E.make
         ~ask_for
         ~gen:(lazy EPick_i)
         ~check:(lazy (
@@ -208,7 +178,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
         ))
         ~wrap:(lazy EId)
     | ETypeBool ->
-      Embedded_type.make
+      E.make
         ~ask_for
         ~gen:(lazy EPick_b)
         ~check:(lazy (
@@ -221,7 +191,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
         ))
         ~wrap:(lazy EId)
     | ETypeArrow { domain = tau1 ; codomain = tau2 } ->
-      Embedded_type.make
+      E.make
         ~ask_for
         ~gen:(lazy (
           fresh_abstraction "arg_arrow_gen" (fun arg ->
@@ -253,7 +223,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
           )
         ))
     | ETypeRecord m ->
-      Embedded_type.make
+      E.make
         ~ask_for
         ~gen:(lazy (ERecord (Map.map m ~f:gen)))
         ~check:(lazy (
@@ -277,11 +247,11 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
           )
         ))
     | EType ->
-      Embedded_type.make
+      E.make
         ~ask_for
         ~gen:(lazy (
           let a = Names.fresh_poly_value () in
-          Embedded_type.make
+          E.make
             ~ask_for:`All
             ~gen:(lazy (EVariant { label = Reserved_labels.Variants.untouched ; payload = EInt a }))
             ~check:(lazy (
@@ -312,7 +282,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
         ))
         ~wrap:(lazy EId)
     | ETypeArrowD { binding = x ; domain = tau1 ; codomain = tau2 } ->
-      Embedded_type.make
+      E.make
         ~ask_for
         ~gen:(lazy (
           fresh_abstraction "xp_arrowd_gen" (fun x' ->
@@ -348,7 +318,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
           )
         ))
     | ETypeRefinement { tau ; predicate = e_p } ->
-      Embedded_type.make
+      E.make
         ~ask_for
         ~gen:(lazy (
           build @@
@@ -383,7 +353,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
           VariantTypeLabel.to_variant_label type_label, tau
         )
       in
-      Embedded_type.make
+      E.make
         ~ask_for
         ~gen:(lazy (
           ECase
@@ -426,7 +396,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
           fresh_abstraction "self_mu" (fun self ->
             fresh_abstraction "dummy_mu" (fun _dummy ->
               let appl_self_0 = apply (EVar self) (EInt 0) in
-              Embedded_type.make
+              E.make
                 ~ask_for
                 ~gen:(lazy (
                   apply (EFunction { param = b ; body = gen tau }) appl_self_0
@@ -451,7 +421,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
           VariantTypeLabel.to_variant_label type_label, tau, tau'
         )
       in
-      Embedded_type.make
+      E.make
         ~ask_for
         ~gen:(lazy (
           fresh_abstraction "arg_inter_gen" (fun arg ->
@@ -505,18 +475,32 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
           )
         ))
 
+    and embed_let ?(v_name : Ident.t = Names.fresh_id ()) ~(do_check : bool)
+      ~(do_wrap : bool) ~(tau : Desugared.t) (body : Desugared.t) : Embedded.t =
+      build @@
+        let%bind () = assign v_name @@ embed body in
+        let%bind r = capture ~suffix:"r" @@ embed tau in
+        let%bind () = 
+          if do_check
+          then ignore @@ E.check ~tau:(EVar r) (EVar v_name)
+          else return ()
+        in
+        if do_wrap
+        then return @@ E.wrap ~tau:(EVar r) (EVar v_name)
+        else return (EVar v_name)
+
     and embed_pattern (pat : Desugared.pattern) : Embedded.pattern =
       match pat with
       | (PAny | PVariable _ | PVariant _) as p -> p
 
     and gen (tau : Desugared.t) : Embedded.t =
-      Embedded_type.gen (embed ~ask_for:`Gen tau)
+      E.gen (embed ~ask_for:`Gen tau)
 
     and check (tau : Desugared.t) (x : Embedded.t) : Embedded.t =
-      Embedded_type.check ~tau:(embed ~ask_for:`Check tau) x
+      E.check ~tau:(embed ~ask_for:`Check tau) x
 
     and wrap (tau : Desugared.t) (x : Embedded.t) : Embedded.t =
-      Embedded_type.wrap ~tau:(embed ~ask_for:`Wrap  tau) x
+      E.wrap ~tau:(embed ~ask_for:`Wrap  tau) x
   in
   embed expr
 

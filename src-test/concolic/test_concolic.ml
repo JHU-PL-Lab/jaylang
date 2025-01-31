@@ -12,7 +12,7 @@ let group_tests root speed (test_one : 'arg test_one) =
 
 let test_for_abort is_error_expected testname _args = 
   testname
-  |> Driver.test ~global_timeout_sec:30.0
+  |> Driver.test ~global_timeout_sec:30.0 ~do_wrap:true
   |> Status.is_error_found
   |> Bool.(=) is_error_expected
   |> Alcotest.(check bool) "bjy concolic" true

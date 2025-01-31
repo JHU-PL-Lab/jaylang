@@ -4,11 +4,12 @@ open Concolic
 
 let usage_msg =
   {|
-  ceval <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-d <max_tree_depth>] [-n <n_depth_increments>] [-r]
+  ceval <file> [-t <total timeout>] [-s <solver_timeout>] [-m <max_step>] [-d <max_tree_depth>] [-n <n_depth_increments>] [-r] [-w yes/no]
   |}
 
 let source_file = ref "" 
 let optional_args = Options.Refs.create_default ()
+let wrap = ref "yes"
 
 let read_anon_arg src_file_raw =
   source_file := src_file_raw
@@ -20,17 +21,25 @@ let speclist =
   ; ("-m", Arg.Set_int   optional_args.global_max_step   , "Global max step")
   ; ("-d", Arg.Set_int   optional_args.max_tree_depth    , "Max tree depth")
   ; ("-r", Arg.Set       optional_args.random            , "Random")
-  ; ("-n", Arg.Set_int   optional_args.n_depth_increments, "Num depth increments")] 
+  ; ("-n", Arg.Set_int   optional_args.n_depth_increments, "Num depth increments")
+  ; ("-w", Arg.Set_string wrap, "Wrap flag: yes or no. Default is yes.") ]
 
 let () = 
   Arg.parse speclist read_anon_arg usage_msg;
   match !source_file with
   | "" -> ()
   | src_file ->
+    let do_wrap =
+      match String.lowercase !wrap with
+      | "yes" | "y" -> true
+      | "no" | "n" -> false
+      | _ -> Format.eprintf "Error: bad string given to wrap -w flag. Should be yes/no."; assert false
+    in
     let _ =
       Options.Fun.appl
         Driver.test
         (Options.Refs.without_refs optional_args)
         src_file
+        ~do_wrap
     in
     ()

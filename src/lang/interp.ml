@@ -17,8 +17,8 @@ module Value = struct
     | VVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
     | VRecord : 'a t RecordLabel.Map.t -> 'a t
     | VTypeMismatch : 'a t
-    | VAbort : 'a t (* this results from `EAbort` or `EAssert (EBool false)` *)
-    | VDiverge : 'a t (* this results from `EDiverge` or `EAssume (EBool false)` *)
+    | VAbort : 'a t (* this results from `EAbort` or `EAssert e` where e => false *)
+    | VDiverge : 'a t (* this results from `EDiverge` or `EAssume e` where e => false *)
     (* embedded only *)
     | VId : 'a embedded_only t
     | VFrozen : 'a closure -> 'a embedded_only t

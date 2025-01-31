@@ -96,7 +96,7 @@ end
 module LetFlag = struct
   module T = struct
     type t =
-      | WrapOnly
+      | NoCheck
       | TauKnowsBinding (* effectively recursive, but I don't want naming to be confusing *)
       [@@deriving equal, compare, sexp, hash]
   end
