@@ -36,8 +36,8 @@ let () =
 
       (* @ make_tests_ill_typed "gen-compare" *) (* presently (4 Dec) these are all ill-typed *)
       
-      (* @ make_tests_ill_typed "post-oopsla-tests-ill-typed"
-      @ make_tests_well_typed "post-oopsla-tests-well-typed" *)
+      (* @ make_tests_ill_typed "post-oopsla-ill-typed" *)
+      @ make_tests_well_typed "post-oopsla-well-typed"
 
       @ make_tests_ill_typed "edge-cases-ill-typed"
       @ make_tests_well_typed "edge-cases-well-typed"

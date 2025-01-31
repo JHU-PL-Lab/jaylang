@@ -73,6 +73,18 @@ module rec Node : NODE with type 'a edge := 'a Edge.t = struct
         )
       | _ -> failwith "Wrong type of branching in path tree; path is not compatible with the tree"
 
+  (*
+    We add a stem by making a tree out of it and then attaching that tree
+    to where the target's old node was.
+
+    SUPER IMPORTANT NOTE:
+    * It is here that we create targets, and with this method, each target
+      is only created once. We never make the same target twice. For this
+      reason, we can make some assumptions in the Target module to get
+      faster comparison.
+    * Ensure that if this code ever changes, ever, that the assumption made
+      in Target is still safe.
+  *)
   let add_stem (tree : t) (stem : Stem.t) : t * Target.t list =
     let target_of_claim (type a) (claim : a Claim.t) (path_until_claim : Path.Reverse.t) : Target.t =
       Claim.direction claim

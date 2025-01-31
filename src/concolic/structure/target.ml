@@ -17,6 +17,16 @@ let make (rev_path : Path.Reverse.t) : t =
     ; path_n = List.length backward_path + 1
     ; uniq_id = (incr uid; !uid) }
 
+(*
+  SUPER IMPORTANT NOTE:
+  * The concolic evaluator is currently built to only make each
+    target once. Therefore, we can create a unique id upon target
+    creation, and that is safe to use when comparing.
+  * This will break if the concolic evaluator does not have this
+    property, and it won't break loudly, so the developer must be
+    very careful that this assumption continues to hold.
+  * Use the commented comparison if that assumption no longer holds.
+*)
 let compare (a : t) (b : t) : int =
   Int.compare a.uniq_id b.uniq_id
   (* match Int.compare a.path_n b.path_n with
