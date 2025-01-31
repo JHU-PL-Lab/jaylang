@@ -279,6 +279,8 @@ primary_expr:
       { EBool $1 : Bluejay.t }
   | INPUT
       { EPick_i : Bluejay.t }
+  | TYPE
+      { EType : Bluejay.t }
   | ident_usage
       { $1 : Bluejay.t }
   | OPEN_BRACE record_body CLOSE_BRACE

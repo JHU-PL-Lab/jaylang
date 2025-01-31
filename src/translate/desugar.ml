@@ -83,7 +83,7 @@ let desugar_bluejay (names : (module Fresh_names.S)) (expr : Bluejay.t) : Desuga
   let rec desugar (expr : Bluejay.t) : Desugared.t =
     match expr with
     (* Base cases *)
-    | (EInt _ | EBool _ | EVar _ | EPick_i | ETypeInt | ETypeBool) as e -> e
+    | (EInt _ | EBool _ | EVar _ | EPick_i | ETypeInt | ETypeBool | EType) as e -> e
     (* Simple propogation *)
     | EBinop { left ; binop ; right } -> begin
       match binop with

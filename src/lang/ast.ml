@@ -167,8 +167,8 @@ module Expr = struct
     | EDiverge : 'a desugared_or_embedded t
     (* desugared only *)
     | ELetFlagged : { flags : LetFlag.Set.t ; typed_var : 'a typed_var ; body : 'a t ; cont : 'a t} -> 'a desugared_only t
-    | EType : 'a desugared_only t
     (* these exist in the bluejay and desugared languages *)
+    | EType : 'a bluejay_or_desugared t
     | ETypeInt : 'a bluejay_or_desugared t
     | ETypeBool : 'a bluejay_or_desugared t
     | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t

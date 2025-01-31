@@ -22,12 +22,11 @@ module Value = struct
     (* embedded only *)
     | VId : 'a embedded_only t
     | VFrozen : 'a closure -> 'a embedded_only t
-    (* desugared only *)
-    | VType : 'a desugared_only t
     (* bluejay only *)
     | VList : 'a t list -> 'a bluejay_only t
     | VMultiArgFunClosure : { params : Ident.t list ; body : 'a closure } -> 'a bluejay_only t
     (* types in desugared and embedded *)
+    | VType : 'a bluejay_or_desugared t
     | VTypeInt : 'a bluejay_or_desugared t
     | VTypeBool : 'a bluejay_or_desugared t
     | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t

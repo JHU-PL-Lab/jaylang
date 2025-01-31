@@ -250,25 +250,28 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) ~(do_w
       E.make
         ~ask_for
         ~gen:(lazy (
-          let a = Names.fresh_poly_value () in
-          E.make
-            ~ask_for:`All
-            ~gen:(lazy (EVariant { label = Reserved_labels.Variants.untouched ; payload = EInt a }))
-            ~check:(lazy (
-              fresh_abstraction "e_alpha_check" (fun e ->
-                EMatch { subject = EVar e ; patterns =
-                  let v = Names.fresh_id ~suffix:"v" () in
-                  [ (PVariant { variant_label = Reserved_labels.Variants.untouched ; payload_id = v }
-                    , EIf
-                        { cond = EBinop { left = EVar v ; binop = BEqual ; right = EInt a }
-                        ; true_body = EBool true
-                        ; false_body = EAbort 
-                        })
-                  ]
-                }
-              )
-            ))
-            ~wrap:(lazy EId)
+          (* let a = Names.fresh_poly_value () in *)
+          build @@
+            let%bind i = capture EPick_i in
+            return @@
+            E.make
+              ~ask_for:`All
+              ~gen:(lazy (EVariant { label = Reserved_labels.Variants.untouched ; payload = EVar i }))
+              ~check:(lazy (
+                fresh_abstraction "e_alpha_check" (fun e ->
+                  EMatch { subject = EVar e ; patterns =
+                    let v = Names.fresh_id ~suffix:"v" () in
+                    [ (PVariant { variant_label = Reserved_labels.Variants.untouched ; payload_id = v }
+                      , EIf
+                          { cond = EBinop { left = EVar v ; binop = BEqual ; right = EVar i }
+                          ; true_body = EBool true
+                          ; false_body = EAbort 
+                          })
+                    ]
+                  }
+                )
+              ))
+              ~wrap:(lazy EId)
         ))
         ~check:(lazy (
           fresh_abstraction "e_type_check" (fun e ->
