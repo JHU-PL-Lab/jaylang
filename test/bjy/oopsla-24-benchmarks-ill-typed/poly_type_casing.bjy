@@ -5,13 +5,8 @@ in
 let (f : t) = 
   let g (type a_) (x : a_) : a_ =
     match x with
-<<<<<<< HEAD:test/concolic/bjy/oopsla-24-benchmarks-ill-typed/polymorphic_type_casing.bjy
-    | `Int x -> x + 1 # ERROR: type casing on polymorphic type
-    | `Bool x -> not x
-=======
     | `Int i -> i + 1 # ERROR: type casing on polymorphic type
     | `Bool b -> not b
->>>>>>> translation-rework:test/bjy/oopsla-24-benchmarks-ill-typed/poly_type_casing.bjy
     | _ -> x
     end
   in
