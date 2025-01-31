@@ -23,7 +23,7 @@ module Value = struct
     | VId : 'a embedded_only t
     | VFrozen : 'a closure -> 'a embedded_only t
     (* desugared only *)
-    | VStar : 'a desugared_only t
+    | VType : 'a desugared_only t
     (* bluejay only *)
     | VList : 'a t list -> 'a bluejay_only t
     | VMultiArgFunClosure : { params : Ident.t list ; body : 'a closure } -> 'a bluejay_only t
@@ -125,7 +125,7 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
     | ETypeInt -> return VTypeInt
     | ETypeBool -> return VTypeBool
     | ETypeForall { type_variables ; tau } -> return (VTypeForall { type_variables ; tau = { expr = tau ; env } })
-    | EStar -> return VStar
+    | EType -> return VType
     | EAbort -> abort ()
     | EDiverge -> diverge ()
     | EFunction { param ; body } -> return (VFunClosure { param ; body = { expr = body ; env } })

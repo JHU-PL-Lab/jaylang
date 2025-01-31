@@ -276,7 +276,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
             )
           )
         ))
-    | EStar ->
+    | EType ->
       Embedded_type.make
         ~ask_for
         ~gen:(lazy (
@@ -301,7 +301,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
             ~wrap:(lazy EId)
         ))
         ~check:(lazy (
-          fresh_abstraction "e_star_check" (fun e ->
+          fresh_abstraction "e_type_check" (fun e ->
             build @@  
               let e = EVar e in
               let%bind () = ignore @@ proj e Reserved_labels.Records.gen in
