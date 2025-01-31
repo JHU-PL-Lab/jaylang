@@ -100,11 +100,11 @@ let eval_exp
       | EVar id -> 
         next @@ Env.fetch env id
       | EFunction { param ; body } ->
-        next @@ VFunClosure { param ; body = { expr = body ; env } }
+        next @@ VFunClosure { param ; body = { expr = body ; snap = Env.capture env } }
       | EId -> 
         next VId
       | EFreeze e_freeze_body -> 
-        next @@ VFrozen { expr = e_freeze_body ; env }
+        next @@ VFrozen { expr = e_freeze_body ; snap = Env.capture env }
       | EVariant { label ; payload = e_payload } -> 
         let%bind { v = payload ; step ; session } = eval ~session ~step e_payload env in
         next ~step ~session @@ VVariant { label ; payload }
@@ -121,7 +121,12 @@ let eval_exp
       | EThaw e_frozen -> begin
         let%bind { v ; step ; session } = eval ~session ~step e_frozen env in
         match v with
-        | VFrozen { expr ; env } -> eval ~step ~session expr env
+        | VFrozen { expr ; snap } ->
+          let cur_snap = Env.capture env in
+          Env.restore env snap;
+          let%bind res = eval ~step ~session expr env in
+          Env.restore env cur_snap;
+          return res
         | _ -> type_mismatch session "thaw non frozen"
       end
       | ERecord record_body ->
@@ -143,10 +148,10 @@ let eval_exp
           List.find_map patterns ~f:(fun (pat, body) ->
             match pat, v with
             | PAny, _ -> Some (body, env)
-            | PVariable id, _ -> Some (body, Env.add env id v)
+            | PVariable id, _ -> Some (body, (Env.add env id v; env))
             | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
                 when VariantLabel.equal variant_label label ->
-              Some (body, Env.add env payload_id payload)
+              Some (body, (Env.add env payload_id payload; env))
             | _ -> None
             )
         with
@@ -155,14 +160,19 @@ let eval_exp
       end
       | ELet { var ; body ; cont } ->
         let%bind { v ; step ; session } = eval ~step ~session body env in
-        eval ~step ~session cont (Env.add env var v)
+        Env.add env var v; eval ~step ~session cont env
       | EAppl { func ; arg } -> begin
         let%bind { v = vfunc ; step ; session } = eval ~step ~session func env in
         let%bind { v = varg ; step ; session } = eval ~step ~session arg env in
         match vfunc with
         | VId -> next ~step ~session varg
         | VFunClosure { param ; body } ->
-          eval ~step ~session body.expr (Env.add body.env param varg)
+          let cur_snap = Env.capture env in
+          Env.restore env body.snap;
+          Env.add env param varg;
+          let%bind res = eval ~step ~session body.expr env in
+          Env.restore env cur_snap;
+          return res
         | _ -> type_mismatch session "apply non fun"
       end
       (* Operations -- build new expressions *)
@@ -244,7 +254,7 @@ let eval_exp
 
   in
 
-  eval ~session ~step:0 expr Value.Env.empty (function
+  eval ~session ~step:0 expr (Value.Env.create ()) (function
     | Ok r -> C_result.get_session r
     | Error (_, session) -> session (* TODO: log the error message *)
     )

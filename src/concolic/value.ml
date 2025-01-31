@@ -15,7 +15,7 @@ module rec V : sig
     | VFrozen of closure
     | VId
 
-  and closure = { expr : Embedded.t ; env : Env.t }
+  and closure = { expr : Embedded.t ; snap : Env.snapshot }
 end = struct
   type t =
     | VInt of int * int Expression.t 
@@ -26,25 +26,49 @@ end = struct
     | VFrozen of closure
     | VId
 
-  and closure = { expr : Embedded.t ; env : Env.t }
+  and closure = { expr : Embedded.t ; snap : Env.snapshot }
 end
 
 and Env : sig
+  type snapshot
   type t
-  val empty : t
-  val add : t -> Ident.t -> V.t -> t
+
+  val create : unit -> t
+
+  val restore : t -> snapshot -> unit
+
+  val capture : t -> snapshot
+
+  val add : t -> Ident.t -> V.t -> unit
+
   val fetch : t -> Ident.t -> V.t
 end = struct
-  type t = V.t Ident.Map.t
+  module H = Hashtbl.Make (Ident)
 
-  let empty : t = Ident.Map.empty
+  type snapshot = Store.snapshot
 
-  let add (env : t) (id : Ident.t) (v : V.t) : t =
-    Map.set env ~key:id ~data:v
+  type t = 
+    { tbl : V.t Store.Ref.t H.t
+    ; store : Store.t }
+
+  let restore (env : t) (snap : snapshot) : unit =
+    Store.restore env.store snap
+
+  let capture (env : t) : snapshot = 
+    Store.capture env.store
+
+  let create () : t =
+    { tbl = H.create ()
+    ; store = Store.create () }
+
+  let add (env : t) (id : Ident.t) (v : V.t) : unit =
+    match Hashtbl.find env.tbl id with
+    | None -> Hashtbl.set env.tbl ~key:id ~data:(Store.Ref.make env.store v)
+    | Some r -> Store.Ref.set env.store r v
 
   let fetch (env : t) (id : Ident.t) : V.t =
-    match Map.find env id with
-    | Some t -> t
+    match Hashtbl.find env.tbl id with
+    | Some r -> Store.Ref.get env.store r
     | None -> raise @@ UnboundVariable id
 end
 
