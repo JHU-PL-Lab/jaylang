@@ -195,7 +195,7 @@ expr:
       { ETypeIntersect $1 : Bluejay.t } 
 ;
 
-(* TODO: doesn't *really* need parens, but without them we would never get a meaningful intersection type *)
+(* doesn't *really* need parens, but without them we would never get a meaningful intersection type *)
 intersection_type_body:
   | OPEN_PAREN OPEN_PAREN variant_type_label expr CLOSE_PAREN ARROW expr CLOSE_PAREN
       { [ ($3, $4, $7) ] }

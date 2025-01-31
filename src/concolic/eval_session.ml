@@ -82,7 +82,7 @@ let get_input (type a) (key : a Stepkey.t) (s : t) : t * Value.t =
 
 let has_reached_target (s : t) : bool =
   match s.consts.target with
-  | Some target -> s.depth_tracker.cur_depth >= target.path_n
+  | Some target -> s.depth_tracker.cur_depth >= (Target.path_n target)
   | None -> true
 
 let set_lazy_stem (s : t) (e : 'a Expression.t) (lazy_stem : Stem.t Lazy.t) : t =

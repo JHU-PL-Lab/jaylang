@@ -60,7 +60,7 @@ module BFS = struct
 
   let push_one (Bfs q : t) (target : Target.t) : t =
     return
-    @@ Q.push target target.path_n q
+    @@ Q.push target (Target.path_n target) q
 
   let push_list (x : t) (ls : Target.t list) : t =
     List.fold ls ~init:x ~f:push_one
@@ -89,8 +89,9 @@ module DFS = struct
     the same stride count, the higher path_n is better priority.
   *)
   let push_one ({ q ; stride } as x : t) (target : Target.t) : t =
-    let n_strides = target.path_n / stride + 1 in
-    { x with q = Q.push target (n_strides * stride - target.path_n mod stride) q }
+    let n = Target.path_n target in
+    let n_strides = n / stride + 1 in
+    { x with q = Q.push target (n_strides * stride - n mod stride) q }
 
   let push_list (x : t) (ls : Target.t list) : t =
     List.fold ls ~init:x ~f:push_one

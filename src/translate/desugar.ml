@@ -69,7 +69,6 @@ module LetMonad = struct
       | Untyped ->
         ELet { var = id ; body ; cont }
       | Typed_with_flags (flags, tau) ->
-        (* ELet { var = id ; body ; cont } FIXME: turned this off for now to test ill-typed-interpreter *)
         ELetFlagged { flags ; typed_var = { var = id ; tau } ; body ; cont }
       | Typed tau ->
         ELetTyped { typed_var = { var = id ; tau } ; body ; cont }

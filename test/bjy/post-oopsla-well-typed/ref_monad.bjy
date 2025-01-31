@@ -109,9 +109,8 @@ in
 #let bind (type a b) (x : m a) (f : a -> m b) : m b = 
 let bind x f =
   fun s ->
-    match x s with
-    | { new_state = ss , value = a } -> f a ss
-    end
+    let xs = x s in
+    f xs.value xs.new_state
 in
 
 let return a =

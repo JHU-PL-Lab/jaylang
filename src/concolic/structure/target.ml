@@ -4,7 +4,7 @@ let uid = ref 0 (* we can safely use this when making because it's promised that
 type t =
   { dir    : Direction.Packed.t
   ; path_n : int
-  ; path   : Path.Reverse.t (* maybe should hashcons this instead of the uniq id hack *)
+  ; path   : Path.Reverse.t (* maybe should hashcons this instead of the uniq id hack to be more safe (but hashcons would be slower) *)
   ; uniq_id : int
   }
 
@@ -37,12 +37,21 @@ let compare (a : t) (b : t) : int =
   end 
   | x -> x *)
 
+let to_rev_path (target : t) : Path.Reverse.t =
+  Path.Reverse.cons target.dir target.path
+
 let to_path (target : t) : Path.t =
   Path.Reverse.to_forward_path
-  @@ Path.Reverse.cons target.dir target.path
+  @@ to_rev_path target
 
 let append_path (path_to : Path.t) (target : t) : t =
   { dir = target.dir
   ; path_n = target.path_n + List.length path_to.forward_path
   ; path = Path.Reverse.concat target.path @@ Path.Reverse.of_forward_path path_to
   ; uniq_id = (incr uid; !uid) }
+
+let path_n ({ path_n ; _ } : t) : int =
+  path_n
+
+let dir ({ dir ; _ } : t) : Direction.Packed.t =
+  dir
