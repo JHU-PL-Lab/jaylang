@@ -1,8 +1,0 @@
-(library
- (name dj_std)
- (public_name jay.dj_std)
- (synopsis "Standard library for dj")
- (libraries core)
- (preprocess
-  (pps ppx_deriving.std ppx_deriving_yojson ocaml-monadic))
- )

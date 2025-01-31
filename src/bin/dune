@@ -1,33 +1,5 @@
 
 (executable
- (name sato_concolic)
- (modules sato_concolic)
- (libraries core logs sato_concolic jayil)
- (preprocess
-  (pps ppx_jane))
- (promote
-  (until-clean)
-  (into "../..")))
-
-(executable
- (name translator)
- (modules translator translator_options)
- (libraries batteries bluejay jay_translate dj_common)
- (promote
-  (until-clean)
-  (into "../..")))
-
-(executable
- (name jil)
- (modules jil)
- (libraries core logs dj_common from_dbmc jayil)
- (preprocess
-  (pps ppx_jane))
- (promote
-  (until-clean)
-  (into "../..")))
-
-(executable
  (name interp)
  (modules interp)
  (libraries core lang translate)
@@ -44,29 +16,9 @@
   (into "../..")))
 
 (executable
- (name cj)
- (modules cj)
- (libraries core fmt dj_common concolic jayil landmarks)
- (preprocess
-  (pps ppx_jane landmarks-ppx --auto))
- (promote
-  (until-clean)
-  (into "../..")))
-
-(executable
- (name fuzzer)
- (modules fuzzer)
- (libraries core dj_common fuzz)
- (promote
-  (until-clean)
-  (into "../..")))
-
-(executable
- (name jay)
- (modules jay)
- (libraries core logs dj_common jay)
- (preprocess
-  (pps ppx_jane))
+ (name bjy_cloc)
+ (modules bjy_cloc)
+ (libraries cloc_lib core core_unix.sys_unix)
  (promote
   (until-clean)
   (into "../..")))
