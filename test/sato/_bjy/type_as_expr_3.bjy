@@ -1,7 +1,0 @@
-# Same problem as type_as_expr_1
-
-let point t = {: x : t :} in
-let mystifier = bool in
-let int_point = point mystifier in
-let (p : int_point) = {x = 4} in
-p

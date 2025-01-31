@@ -1,4 +1,0 @@
-let x = 20 in
-let y = (40/3) in
-let z = x + y in
-z

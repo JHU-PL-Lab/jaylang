@@ -1,5 +1,0 @@
-# Ignore. No intersection type for now.
-let f (r : {: c : ({: a : int :} && {: b : int :}) :}) : bool = 
-    r.c.a
-in
-f

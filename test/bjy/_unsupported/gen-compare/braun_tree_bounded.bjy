@@ -1,0 +1,69 @@
+# error is that item is always inserted on the left, so it doesn't stay balanced
+
+let braun_tree a =
+  { t_gen =
+    let tt =
+      fun self ->
+        fun n ->
+          if n <= 0
+          then ``Leaf {: leaf : bool :}
+          else
+            let tt = self self (n - 1) in
+            (``Node {: v : a , l : tt , r : tt :} || ``Leaf {: leaf : bool :})
+    in
+    tt tt input
+  , t_check =
+    Mu tt. (``Node {: v : a , l : tt , r : tt :} || ``Leaf {: leaf : bool :})
+  }
+in
+
+let rec size n = 
+  match n with
+  | `Leaf l -> 0
+  | `Node node ->
+    match node with
+    | { v = v , l = l , r = r } -> 1 + size l + size r
+    end
+  end
+in
+
+let rec is_braun_tree x = 
+  match x with
+  | `Leaf l -> true
+  | `Node node ->
+    match node with
+    | { v = v , l = l , r = r } ->
+      is_braun_tree l
+      and is_braun_tree r
+      and (size l == size r or size l == size r + 1)
+    end
+  end
+in
+
+let bt a =
+  let t = braun_tree a in
+  { t_gen = {. t.t_gen | is_braun_tree }
+  , t_check = {. t.t_check | is_braun_tree }
+  }
+in
+
+let rec insert (type a_) (tree : (bt a_).t_gen) (x : a_) : (bt a_).t_check =
+  match tree with
+  | `Leaf l -> `Node { v = x , l = `Leaf { leaf = true } , r = `Leaf { leaf = true } }
+  | `Node node ->
+    match node with
+    | { v = v , l = l , r = r } -> `Node { l = insert a_ l x , r = r , v = v } # ERROR: only inserts to left, so won't be balanced
+    end
+    (* This commented code is the well-typed version so that I can check I bounded it properly *)
+    (*
+      match node with
+      | { v = v , l = l , r = r } ->
+        if size l > size r
+        then `Node { l = l , r = insert a_ r x , v = v }
+        else `Node { l = insert a_ l x , r = r , v = v }
+      end
+    *)
+  end
+in
+
+insert

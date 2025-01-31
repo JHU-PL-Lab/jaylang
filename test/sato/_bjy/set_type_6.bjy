@@ -1,4 +1,0 @@
-let test (f : int -> {. int | fun a -> a > 0}) : {. int | fun a -> a < 0} = 
-    f 1
-in
-test

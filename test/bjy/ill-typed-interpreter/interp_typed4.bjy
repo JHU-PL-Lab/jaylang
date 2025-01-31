@@ -1,0 +1,265 @@
+# Time to find error:
+# With nil as int: 9.2s
+# With nil as bool: 8.9s
+
+let nil =
+  { t = int
+  , v = 00
+  }
+in
+
+let pair =
+  { t = fun a -> fun b -> {: left : a , right : b :}
+  }
+in
+
+let triple =
+  { t = fun a -> fun b -> fun c -> {: first : a , second : b , third : c :}
+  }
+in
+
+let ttype = 
+  let tint = `TInt nil.v in
+  let rec eq a b =
+    match a with
+    | `TArrow p1 ->
+      match b with
+      | `TArrow p2 ->
+        eq p1.left p2.left
+        and eq p1.right p2.right
+      | _ -> false
+      end
+    | `TInt ignore ->
+      match b with
+      | `TInt ignore -> true
+      | _ -> false
+      end
+    end
+  in
+  { t_gen =
+      Mu tt.
+        if input == 123456789
+        then
+          ``TArrow (pair.t tt tt)
+        else
+          ``TInt nil.t
+  , t_check =
+      Mu tt.
+        (  ``TArrow (pair.t tt tt)
+        || ``TInt nil.t
+        )
+  , tint = tint
+  , eq = eq
+  , is_int = eq tint
+  }
+in
+
+let ident =
+  { t = ``Id int
+  , eq =
+      fun a -> fun b -> 
+        let x = match a with | `Id i -> i end in
+        let y = match b with | `Id i -> i end in
+        x == y
+  }
+in
+
+let expr =
+  { t_gen =
+      Mu tt.
+        let n = input in
+        if n == 123456789
+        then 
+          (  ``Function (triple.t ident.t ttype.t_gen tt)
+          || ``If_then_else (triple.t tt tt tt)
+          || ``Plus (pair.t tt tt)
+          || ``Minus (pair.t tt tt)
+          || ``Equal (pair.t tt tt)
+          || ``Appl (pair.t tt tt)
+          )
+        else
+          ( ``Int int || ``Var ident.t )
+  , t_check =
+      Mu tt.
+        ( ``Int int
+        || ``Var ident.t
+        || ``Function (triple.t ident.t ttype.t_check tt)
+        || ``If_then_else (triple.t tt tt tt)
+        || ``Plus (pair.t tt tt)
+        || ``Minus (pair.t tt tt)
+        || ``Equal (pair.t tt tt)
+        || ``Appl (pair.t tt tt)
+        )
+  }
+in
+
+let value =
+  let t expr_t ttype_t =
+    ( ``Int int
+    || ``Function (triple.t ident.t ttype_t expr_t)
+    )
+  in
+  { t_gen = t expr.t_gen ttype.t_gen
+  , t_check = t expr.t_check ttype.t_check
+  }
+in
+
+let result =
+  { t =
+      fun a ->
+        ``Ok a || ``Error nil.t
+  , bind = 
+      fun x -> fun f ->
+        match x with
+        | `Error e -> x
+        | `Ok a -> f a
+        end
+  , return = 
+      fun a -> `Ok a
+  , error =
+      `Error nil.v
+  , is_ok =
+      fun x ->
+        match x with
+        | `Ok a -> true
+        | _ -> false
+        end
+  }
+in
+
+let typecheck e =
+  let add_to_env gamma id tau =
+    fun id_ ->
+      if ident.eq id_ id
+      then result.return tau
+      else gamma id_
+  in
+  let rec typecheck e gamma =
+    let tc e =
+      typecheck e gamma
+    in
+    match e with
+    # Axioms
+    | `Var id -> gamma id
+    | `Int i -> result.return ttype.tint
+    # Functions
+    | `Function trip ->
+      result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
+        result.return (`Tarrow { left = trip.second , right = tau }) # ERROR: The 'a' in Arrow is lowercase and should be uppercase
+      )
+    | `Appl p ->
+      result.bind (tc p.left) (fun res ->
+        match res with
+        | `TArrow p_arrow ->
+          result.bind (tc p.right) (fun tau_arg ->
+            if ttype.eq p_arrow.left tau_arg
+            then result.return p_arrow.right
+            else result.error
+          )
+        | _ -> result.error
+        end
+      )
+    # Conditions
+    | `If_then_else trip -> 
+      result.bind (tc trip.first) (fun tau_cond ->
+        if ttype.is_int tau_cond
+        then
+          result.bind (tc trip.second) (fun tau_left ->
+            result.bind (tc trip.third) (fun tau_right ->
+              if ttype.eq tau_left tau_right
+              then result.return tau_left
+              else result.error
+            )
+          )
+        else result.error
+      )
+    # Simple expressions
+    | _ ->
+      let p =
+        match e with
+        | `Plus p -> p
+        | `Minus p -> p
+        | `Equal p -> p
+        end
+      in
+      result.bind (tc p.left) (fun tau_left ->
+        result.bind (tc p.right) (fun tau_right ->
+          if
+            ttype.is_int tau_left
+            and ttype.is_int tau_right
+          then
+            result.return ttype.tint
+          else
+            result.error
+        )
+      )
+    end
+  in
+  typecheck e (fun ignore_unbound_variable -> result.error)
+in
+
+let is_closed_and_well_typed e =
+  result.is_ok (typecheck e)
+  # Note we don't actually have to check for closed because that would be an unbound variable when typechecking
+in
+
+#let subst (e : expr.t) (id : ident.t) (v : value.t) : expr.t =
+let subst e id v =
+  let rec sub e =
+    let sub_pair p =
+      { left = sub p.left
+      , right = sub p.right }
+    in
+    match e with
+    | `Var var_id ->
+        if ident.eq var_id id
+        then v
+        else e
+    | `Int i -> e
+    | `Function trip ->
+        if ident.eq trip.first id
+        then e
+        else `Function { first = trip.first , second = trip.second ,  third = sub trip.third }
+    | `Plus p -> `Plus (sub_pair p)
+    | `Minus p -> `Minus (sub_pair p)
+    | `Equal p -> `Equal (sub_pair p)
+    | `Appl p -> `Appl (sub_pair p)
+    | `If_then_else trip -> `If_then_else { first = sub trip.first , second = sub trip.second , third = sub trip.third }
+    end
+  in
+  sub e
+in
+
+let int_exn e =
+  match e with
+  | `Int i -> i
+  end
+in
+
+let rec eval (e : {. expr.t_gen | is_closed_and_well_typed }) : value.t_check =
+  let op_ints p op = 
+    let i1 = int_exn (eval p.left) in
+    let i2 = int_exn (eval p.right) in
+    `Int (op i1 i2)
+  in
+  match e with
+  | `Int i -> e
+  | `Function trip -> e
+  | `Plus p -> op_ints p (fun a -> fun b -> a + b)
+  | `Minus p -> op_ints p (fun a -> fun b -> a - b)
+  | `Equal p -> op_ints p (fun a -> fun b -> if a == b then 1 else 0)
+  | `Appl p ->
+    match eval p.left with
+    | `Function trip -> eval (subst trip.third trip.first (eval p.right))
+    end
+  | `If_then_else trip ->
+    match eval trip.first with
+    | `Int i ->
+      if i <> 0 # non-zero int is true, like in C
+      then eval trip.second
+      else eval trip.third
+    end
+  end
+in
+
+eval

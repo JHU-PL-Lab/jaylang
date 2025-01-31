@@ -1,7 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-TYPE-ERROR-COUNT 2
-# EXPECT-TYPE-ERROR ~result [0] "assert ( false )" "" "false" 
-# EXPECT-TYPE-ERROR ~result [1] "assert ( 0 == 1 )" "" "0" "" "1" "0 == 1" 
-
-let i = input in
-if i == 0 then assert ( false ) else assert ( 0 == 1 )

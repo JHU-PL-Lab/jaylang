@@ -1,2 +1,0 @@
-let id (x : bool) : bool = 1 + 1 in
-id

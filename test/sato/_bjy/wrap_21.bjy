@@ -1,9 +1,0 @@
-
-let rec f (x : {: a : bool , b : int :}) : int =
-  match x with
-  | { a = a , b = b } -> f 1 # ERROR: calls with not enough record fields 
-  | { b = b } -> b 
-  end
-in
-
-f

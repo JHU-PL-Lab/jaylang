@@ -1,9 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-TYPE-ERROR-COUNT 1
-# EXPECT-TYPE-ERROR ~result [0] "false - i" "" "false" "int" "bool"
-
-let i = input in
-let a = false - i in
-let j = input in
-let b = true * j in
-b

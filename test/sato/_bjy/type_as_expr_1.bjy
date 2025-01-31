@@ -1,4 +1,0 @@
-# The error message isn't quite right
-
-let test_type = bool in
-let (x : test_type) = 1 in x  

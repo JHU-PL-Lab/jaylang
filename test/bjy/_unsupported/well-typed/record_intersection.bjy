@@ -1,0 +1,25 @@
+
+let t = ((``A {: a : int , b : int :}) -> int) && ((``B {: b : bool , c : int :}) -> bool)
+in
+
+let f (g : t) : t =
+  fun x ->
+    let r =
+      match x with
+      | `A ra -> ra
+      | `B rb -> rb
+      end
+    in
+    let b = 
+      match r with
+      | { b = b , c = c } -> b
+      | { a = a , b = b } -> b
+      end
+    in
+    match b with
+    | int -> b * g x
+    | bool -> b and g x
+    end
+in
+
+f

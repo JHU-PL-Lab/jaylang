@@ -1,9 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-TYPE-ERROR-COUNT 2
-# EXPECT-TYPE-ERROR ~result [0] "a and b" "a" "0" "bool" "int"
-# EXPECT-TYPE-ERROR ~result [0] "a and b" "b" "input" "bool" "int"
-
-let a = 0 in
-let b = input in
-let c = a and b in
-c

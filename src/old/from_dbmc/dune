@@ -1,0 +1,41 @@
+(include_subdirs unqualified)
+
+(library
+ (name from_dbmc)
+ (public_name jay.from_dbmc)
+ (libraries
+  core
+  fmt
+  lwt
+  lwt.unix
+  z3
+  logs
+  logs.lwt
+  logs.fmt
+  ocamlgraph
+  hashcons
+  jayil
+  jay_translate
+  jay_instrumentation
+  jayil_parser
+  bluejay
+  dj_common
+  jil_analysis
+  sudu)
+ (instrumentation
+  (backend landmarks))
+ (synopsis "These are what concolic needs from the old dbmc code")
+ (inline_tests)
+ (preprocess
+  (pps
+   ppx_jane
+   ppx_deriving.show
+   lwt_ppx
+   ; for profiling
+   landmarks-ppx
+   --auto)))
+
+(env
+ (dev
+  (flags
+   (:standard -w -33 -w -26 -w -27))))

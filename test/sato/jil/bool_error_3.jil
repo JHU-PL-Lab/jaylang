@@ -1,8 +1,0 @@
-tru = true;
-fls = false;
-i = input;
-
-f = fun x -> ( ret = x and tru );
-g = fun y -> ( rety = y );
-h = tru ? ( et = g f ) : ( ef = 0 );
-res = h i;

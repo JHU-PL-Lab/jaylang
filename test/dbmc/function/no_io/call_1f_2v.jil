@@ -1,7 +1,0 @@
-c = 1;
-f = fun t -> (
-  target = 1
-);
-g = f;
-a = g c;
-x = 1;

@@ -1,2 +1,0 @@
-let (x : ``BRec {: a : bool :} || ``Int int) = true
-in x

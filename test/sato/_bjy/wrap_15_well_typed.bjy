@@ -1,8 +1,0 @@
-let t a = a
-in
-
-let f (type t1) (x : t (t1)) : t (t1) =
-  x
-in
-
-f (int) 0

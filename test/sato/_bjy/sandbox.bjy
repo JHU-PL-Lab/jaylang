@@ -1,7 +1,0 @@
-let t = List int in
-let (set_m : {: emptyset : int, add : t -> t -> t :}) = 
-  { add = fun s -> fun x -> 1 :: x
-  , emptyset = 1
-  }
-in
-set_m

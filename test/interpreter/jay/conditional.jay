@@ -1,6 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-TYPE-ERROR-COUNT 1
-# EXPECT-TYPE-ERROR ~result [0, 0] "if p then true else false" "p" "input + input" "bool" "int"
-
-let p = input + input in
-if p then true else false

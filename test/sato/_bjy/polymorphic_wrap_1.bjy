@@ -1,2 +1,0 @@
-let fst (x : 'a) (y : 'b): 'a = x in
-fst (int) (bool) 1 2

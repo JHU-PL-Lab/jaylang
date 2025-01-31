@@ -1,4 +1,0 @@
-let trans (type t1 t2) (a : t1) (f : t1 -> t2) : t2 = 
-    f a
-in
-trans

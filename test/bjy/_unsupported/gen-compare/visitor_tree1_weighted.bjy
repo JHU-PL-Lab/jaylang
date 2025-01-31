@@ -1,0 +1,91 @@
+
+let node = 
+  { t =
+    fun a_t ->
+      fun tree_t ->
+        {: v : a_t
+         , children : List tree_t :}
+  }
+in
+
+let leaf =
+  { t = 
+    fun a ->
+      a
+  }
+in
+
+let tree =
+  { t_gen =
+    fun a ->
+      Mu tt.
+        let n = input in
+        if n == 123456789
+        then ``Node (node.t a tt)
+        else ``Leaf (leaf.t a)
+  , t_check =
+    fun a ->
+      Mu tt. (``Node (node.t a tt) || ``Leaf (leaf.t a))
+  }
+in
+
+let visitor = 
+  let t tree_t =
+    fun a ->
+      fun result_type ->
+        {: visit_node : node.t a (tree_t a) -> result_type 
+         , visit_leaf : leaf.t a -> result_type :}
+  in
+  { t_gen = t tree.t_gen
+  , t_check = t tree.t_check
+  }
+in
+
+let client =
+  let t visitor_t =
+    fun a -> fun t -> fun result_type ->
+      {: self : t
+      , accept : visitor_t a result_type -> result_type :}
+  in
+  { t_gen = t visitor.t_gen
+  , t_check = t visitor.t_check
+  }
+in
+
+let make_list f n = 
+  let rec loop i =
+    if i == 0
+    then []
+    else f n :: loop (i - 1)
+  in
+  loop n
+in
+
+# Makes big tree recursively with many children
+let rec make_tree (n : int) : tree.t_check (int) =
+  let ob =
+    fun self ->
+      if n == 0
+      then `Leaf 0
+      else
+        `Node
+        { v = n
+        , children = make_list make_tree (n - 1) }
+  in
+  ob ob
+in
+
+let int_bool_client (tr : tree.t_gen (int)) : client.t_check (int) (tree.t_check (int)) (bool) =
+  { self = tr
+  , accept =
+    fun vis ->
+      match tr with
+      | `Leaf leaf -> vis.visit_leaf leaf
+      | `Node node -> vis.visit_leaf node # ERROR: should be vis.visit_node 
+      end
+  }
+in
+
+int_bool_client
+
+

@@ -1,0 +1,17 @@
+# IMPORTANT NOTE: this should be caught by wrap on recursive calls, which is turned off until the 123456789 trick is baked into the translation
+
+let t a b i =
+  if i % 2 == 0
+  then b
+  else a
+in
+
+# 'a and 'b alternate by call here, so can't assume 'a stays the same in recursive calls
+letd rec f (type a_ b_) (i : int) : a_ -> b_ -> t (a_) (b_) i =
+  fun a -> fun b -> 
+    if i == 0
+    then b
+    else f (a_) (b_) (i - 1) b a # ERROR: need to flip a_ and b_
+in
+
+f (int) (bool) 2 0 true

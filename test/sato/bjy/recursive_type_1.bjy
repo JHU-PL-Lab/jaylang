@@ -1,2 +1,0 @@
-let (x : Mu tt. (``Ind {: a : bool, b : tt :} || ``Base bool)) = `Ind { a = false, b = `Base true }
-in x

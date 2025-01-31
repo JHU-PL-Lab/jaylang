@@ -1,7 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-EVALUATE
-# EXPECT-ANALYSIS-LOOKUP-FROM-END ~result {{}}
-# EXPECT-ANALYSIS-NO-INCONSISTENCIES
-# EXPECT-NO-TYPE-ERRORS
-
-assert (false or false or false or false or false or true)

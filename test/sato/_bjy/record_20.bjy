@@ -1,5 +1,0 @@
-# Ignore. No intersection type for now.
-let f (r : {: a : {: c : int :} :} && {: a : {: c : int, d : bool :} :}) : int = 
-    r.a.c
-in
-f

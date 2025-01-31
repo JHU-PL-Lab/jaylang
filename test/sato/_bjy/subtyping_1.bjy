@@ -1,5 +1,0 @@
-let (r : {: a : int, b : int :}) = {a = 1, b = 2} in
-let transform_record (i : {: a : int :}) : {: a : int, c : bool :} = 
-    {a = r.a, c = r.a > 0}
-in
-let (new_record : {: c : bool :}) = transform_record r in new_record

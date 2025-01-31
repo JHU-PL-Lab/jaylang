@@ -1,38 +1,19 @@
 
-; (executable
-;  (name bjy_cloc)
-;  (modules bjy_cloc)
-;  (libraries core core_unix.sys_unix)
-;  (promote
-;   (until-clean)
-;   (into "../..")))
-
-; (library
-;   (name latex_table)
-;   (modules latex_table)
-;   (libraries
-;     core))
-
-; (executable
-;  (name feature_tagger)
-;  (modules feature_tagger)
-;  (libraries latex_table core core_unix.sys_unix)
-;  (preprocess
-;   (pps ppx_jane ppx_deriving.show))
-;  (promote
-;   (until-clean)
-;   (into "../..")))
-
 (tests
  (names test_concolic)
  (modules test_concolic)
  (libraries
   core
   core_unix.sys_unix
+  new_utils
   cmdliner
   alcotest
   alcotest-lwt
-  concolic
-  dj_common)
+  new_concolic)
  (preprocess
-  (pps ppx_jane lwt_ppx ppx_deriving.std ppx_expect)))
+  (pps
+   ppx_jane
+   lwt_ppx
+   ppx_deriving.std
+   ;bisect_ppx ; should comment when not wanting the report because it adds overhead
+   ppx_expect)))

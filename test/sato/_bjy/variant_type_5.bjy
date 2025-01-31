@@ -1,8 +1,0 @@
-let t a = a
-in
-
-let f (x : t ('a)) : t ('a) =
-  x
-in
-
-f 0

@@ -1,4 +1,0 @@
-x = input;
-t = true;
-z = abort;
-target = x;

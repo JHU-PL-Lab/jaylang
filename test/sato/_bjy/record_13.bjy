@@ -1,5 +1,0 @@
-# Ill-typed. Strict record type doesn't allow access of undeclared fields.
-let (r : {: a : int :}) = {a = 1, b = 2} in
-match r with
-| {a = x, _} -> r.b
-end

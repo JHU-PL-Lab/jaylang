@@ -1,1 +1,0 @@
-let (o_half : (int -> int) -> int) = fun x -> x x in o_half

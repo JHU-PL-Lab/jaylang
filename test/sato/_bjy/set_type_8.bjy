@@ -1,1 +1,0 @@
-let (test : {. int | fun a -> false }) = 1 in test 

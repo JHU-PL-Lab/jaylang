@@ -1,0 +1,100 @@
+
+let node = 
+  { t =
+    fun a_t ->
+      fun tree_t ->
+        {: v : a_t
+         , children : List tree_t :}
+  }
+in
+
+let leaf =
+  { t = 
+    fun a ->
+      a
+  }
+in
+
+let tree =
+  { t_gen =
+    fun a ->
+      let tt =
+        fun self ->
+          fun n -> 
+            if n <= 0
+            then ``Leaf (leaf.t a)
+            else
+              let tt = self self (n - 1) in
+              (``Node (node.t a tt) || ``Leaf (leaf.t a))
+      in
+      tt tt input
+  , t_check =
+    fun a ->
+      Mu tt. (``Node (node.t a tt) || ``Leaf (leaf.t a))
+  }
+in
+
+# ERROR: the node and leaf uses here are all missing the `.t` projection
+let visitor = 
+  { t_gen =
+    fun a ->
+      fun result_type ->
+        {: visit_node : node a (tree.t_gen a) -> result_type 
+         , visit_leaf : leaf a -> result_type :}
+  , t_check =
+    fun a ->
+      fun result_type ->
+        {: visit_node : node a (tree.t_check a) -> result_type 
+         , visit_leaf : leaf a -> result_type :}
+  }
+in
+
+let client =
+  { t_gen =
+    fun a -> fun t -> fun result_type ->
+      {: self : t
+      , accept : visitor.t_gen a result_type -> result_type :}
+  , t_check =
+    fun a -> fun t -> fun result_type ->
+      {: self : t
+      , accept : visitor.t_check a result_type -> result_type :}
+  }
+in
+
+let make_list f n = 
+  let rec loop i =
+    if i == 0
+    then []
+    else f n :: loop (i - 1)
+  in
+  loop n
+in
+
+# Makes big tree recursively with many children
+let rec make_tree (n : int) : tree.t_check (int) =
+  let ob =
+    fun self ->
+      if n == 0
+      then `Leaf 0
+      else
+        `Node
+        { v = n
+        , children = make_list make_tree (n - 1) }
+  in
+  ob ob
+in
+
+let int_bool_client (tr : tree.t_gen (int)) : client.t_check (int) (tree.t_check (int)) (bool) =
+  { self = tr
+  , accept =
+    fun vis ->
+      match tr with
+      | `Leaf leaf -> vis.visit_leaf leaf
+      | `Node node -> vis.visit_node node
+      end
+  }
+in
+
+int_bool_client
+
+

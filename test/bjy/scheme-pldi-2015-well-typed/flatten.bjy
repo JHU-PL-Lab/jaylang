@@ -1,0 +1,27 @@
+# flatten the input down to just a list of ints and bools
+
+let any_type a = Mu tt.
+  if input == 123456789
+  then ``L (List tt)
+  else ``A a
+in
+
+let rec append a b =
+  match a with
+  | [] -> b
+  | hd :: tl -> hd :: append tl b
+  end
+in
+
+let rec flatten (type a_) (x : any_type a_) : List a_ =
+  match x with
+  | `L ls ->
+    match ls with
+    | [] -> []
+    | hd :: tl -> append (flatten a_ hd) (flatten a_ (`L tl))
+    end
+  | `A a -> [ a ]
+  end
+  in
+
+flatten

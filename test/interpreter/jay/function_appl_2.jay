@@ -1,8 +1,0 @@
-# EXPECT-WELL-FORMED
-# EXPECT-TYPE-ERROR-COUNT 1
-# EXPECT-TYPE-ERROR ~result [] "g 1" "g" "let g = f 0 in let h = g 1 in h" "fun" "int"
-
-let f x = x + 1 in
-let g = f 0 in
-let h = g 1 in
-h

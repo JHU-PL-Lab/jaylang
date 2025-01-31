@@ -1,0 +1,201 @@
+# This is an avl tree program, where insert on balanced tree returns a balanced tree.
+# We check that the insert works on some tree instance. It doesn't ... 
+
+let t = Mu tt. 
+  (  ``Node {: left : tt
+            , right : tt
+            , item : int
+            :}
+  || ``Leaf int
+  )
+in
+
+let empty = `Leaf 00
+in
+
+let max a b =
+  if a > b
+  then a
+  else b
+in
+
+let rec height x =
+  match x with
+  | `Leaf l -> 0
+  | `Node node -> max (height node.left) (height node.right) + 1
+  end
+in
+
+let is_leaf x =
+  match x with
+  | `Leaf l -> true
+  | _ -> false
+  end
+in
+
+let item_exn x =
+  match x with
+  | `Node node -> node.item
+  end
+in
+
+let left_exn x =
+  match x with
+  | `Node node -> node.left
+  end
+in
+
+let right_exn x =
+  match x with
+  | `Node node -> node.right
+  end
+in
+
+let balance_factor x =
+  match x with
+  | `Leaf leaf -> 0
+  | `Node node -> height node.left - height node.right
+  end
+in
+
+let abs a =
+  if a > 0
+  then a
+  else (0 - a)
+in
+
+# Checks balancedness in linear time by computing height and balance at same time and level
+let is_balanced x =
+  let rec check_balanced x =
+    match x with
+    | `Leaf l -> { b = true , h = 0 }
+    | `Node node ->
+      let left_res = check_balanced node.left in
+      if left_res.b
+      then
+        let right_res = check_balanced node.right in
+        if right_res.b
+        then
+          { b = abs (left_res.h - right_res.h) < 2 , h = max left_res.h right_res.h + 1 }
+        else
+          { b = false , h = 00 } # height ignored if not balanced
+      else
+        { b = false , h = 00 } # height ignored if not balanced
+    end
+  in
+  (check_balanced x).b
+in
+
+# Check search tree property
+let is_bst x = 
+  let rec to_list x acc =
+    match x with
+    | `Node node ->
+      to_list node.left (node.item :: (to_list node.right acc))
+    | `Leaf l -> acc
+    end
+  in
+  let rec is_increasing_strictly ls =
+    match ls with
+    | [] -> true
+    | hd :: tl ->
+      match tl with
+      | [] -> true
+      | next :: tll ->
+        if hd < next
+        then is_increasing_strictly tl
+        else false
+      end
+    end
+  in
+  is_increasing_strictly (to_list x [])
+in
+
+let avl_tree = {. t | fun tree -> is_balanced tree and is_bst tree }
+in
+
+let create_node item left right =
+  `Node { item = item , left = left , right = right }
+in
+
+let rotate_left x = 
+  match x with
+  | `Node node ->
+    match node.right with
+    | `Node right_node -> 
+      create_node right_node.item (create_node node.item node.left right_node.left) right_node.right
+    end
+  end
+in
+
+let rotate_right x = 
+  match x with
+  | `Node node ->
+    match node.left with
+    | `Node left_node ->
+      create_node left_node.item left_node.left (create_node node.item left_node.right node.right)
+    end 
+  end
+in
+
+let rotate_left_right x =
+  match x with
+  | `Node node -> rotate_right (create_node node.item (rotate_left node.left) node.right)
+  end
+in
+
+let rotate_right_left x =
+  match x with
+  | `Node node -> rotate_left (create_node node.item node.left (rotate_right node.right))
+  end
+in
+
+let rec insert tree i =
+  let rebalance i node =
+    let bf = balance_factor node in
+    if bf > 1
+    then
+      if i < item_exn (left_exn node)
+      then rotate_right node
+      else rotate_left_right node
+    else
+      if bf < (0 - 1)
+      then
+        if i > item_exn (right_exn node)
+        then rotate_left node
+        else rotate_right_left node
+      else
+        node
+  in
+  match tree with
+  | `Leaf l -> create_node i empty empty
+  | `Node node ->
+    let new_node =
+      if i < node.item 
+      then create_node node.item (insert node.left i) node.right
+      else
+        if i > node.item
+        then create_node node.item node.left (insert node.right i)
+        else tree
+    in
+    rebalance i new_node
+  end
+in
+
+# This on a correct `insert` gets exhausted between 600 and 700 branches in 18 seconds
+let (res : avl_tree) =
+  let a =
+    `Node {
+      left = `Node
+        { left = empty 
+        , right = empty 
+        , item = 10 }
+    , right = empty
+    , item = 100
+    }
+  in
+  insert a 1
+in
+
+insert
+

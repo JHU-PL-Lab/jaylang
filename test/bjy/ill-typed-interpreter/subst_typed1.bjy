@@ -1,0 +1,381 @@
+
+let nil =
+  { t = int
+  , v = 00
+  }
+in
+
+let pair =
+  { t = fun a -> fun b -> {: left : a , right : b :}
+  }
+in
+
+let triple =
+  { t = fun a -> fun b -> fun c -> {: first : a , second : b , third : c :}
+  }
+in
+
+let ttype = 
+  let tint = `TInt nil.v in
+  let rec eq a b =
+    match a with
+    | `TArrow p1 ->
+      match b with
+      | `TArrow p2 ->
+        eq p1.left p2.left
+        and eq p1.right p2.right
+      | _ -> false
+      end
+    | `TInt ignore ->
+      match b with
+      | `TInt ignore -> true
+      | _ -> false
+      end
+    end
+  in
+  { t_gen =
+      Mu tt.
+        if input == 123456789
+        then
+          ``TArrow (pair.t tt tt)
+        else
+          ``TInt nil.t
+  , t_check =
+      Mu tt.
+        (  ``TArrow (pair.t tt tt)
+        || ``TInt nil.t
+        )
+  , tint = tint
+  , eq = eq
+  , is_int = eq tint
+  }
+in
+
+let ident =
+  { t = ``Id int
+  , eq =
+      fun a -> fun b -> 
+        let x = match a with | `Id i -> i end in
+        let y = match b with | `Id i -> i end in
+        x == y
+  }
+in
+
+let expr =
+  { t_gen =
+      Mu tt.
+        let n = input in
+        if n == 123456789
+        then 
+          (  ``Function (triple.t ident.t ttype.t_gen tt)
+          || ``If_then_else (triple.t tt tt tt)
+          || ``Plus (pair.t tt tt)
+          || ``Minus (pair.t tt tt)
+          || ``Equal (pair.t tt tt)
+          || ``Appl (pair.t tt tt)
+          )
+        else
+          ( ``Int int || ``Var ident.t )
+  , t_check =
+      Mu tt.
+        ( ``Int int
+        || ``Var ident.t
+        || ``Function (triple.t ident.t ttype.t_check tt)
+        || ``If_then_else (triple.t tt tt tt)
+        || ``Plus (pair.t tt tt)
+        || ``Minus (pair.t tt tt)
+        || ``Equal (pair.t tt tt)
+        || ``Appl (pair.t tt tt)
+        )
+  }
+in
+
+let rec mem ls a eq =
+  match ls with
+  | [] -> false
+  | hd :: tl ->
+      if eq a hd
+      then true
+      else mem tl a eq
+  end
+in
+
+let free_vars e =
+  let rec loop e bound_ids acc =
+    match e with
+    | `Var var_id ->
+      if mem bound_ids var_id ident.eq
+      then acc
+      else var_id :: acc
+    | `Int i -> acc
+    | `Function trip -> loop trip.third (trip.first :: bound_ids) acc
+    | `If_then_else trip ->
+      let acc1 = loop trip.first bound_ids acc in
+      let acc2 = loop trip.second bound_ids acc1 in
+      let acc3 = loop trip.third bound_ids acc2 in
+      acc3
+    | _ -> 
+      let p = 
+        match e with
+        | `Plus p -> p
+        | `Minus p -> p
+        | `Equal p -> p
+        | `Appl p -> p
+        end
+      in
+      let acc1 = loop p.left bound_ids acc in
+      let acc2 = loop p.right bound_ids acc1 in
+      acc2
+    end
+  in
+  loop e [] []
+in
+
+let is_closed e = 
+  match free_vars e with
+  | [] -> true
+  | _ -> false
+  end
+in
+
+let value =
+  let t expr_t ttype_t =
+    ( ``Int int
+    || ``Function (triple.t ident.t ttype_t expr_t)
+    )
+  in
+  { t_gen = t ({. expr.t_gen | is_closed }) ttype.t_gen
+  , t_check = t ({. expr.t_check | is_closed }) ttype.t_check
+  }
+in
+
+let result =
+  { t =
+      fun a ->
+        ``Ok a || ``Error nil.t
+  , bind = 
+      fun x -> fun f ->
+        match x with
+        | `Error e -> x
+        | `Ok a -> f a
+        end
+  , return = 
+      fun a -> `Ok a
+  , error =
+      `Error nil.v
+  , is_ok =
+      fun x ->
+        match x with
+        | `Ok a -> true
+        | _ -> false
+        end
+  }
+in
+
+let typecheck e =
+  let add_to_env gamma id tau =
+    fun id_ ->
+      if ident.eq id_ id
+      then result.return tau
+      else gamma id_
+  in
+  let rec typecheck e gamma =
+    let tc e =
+      typecheck e gamma
+    in
+    match e with
+    # Axioms
+    | `Var id -> gamma id
+    | `Int i -> result.return ttype.tint
+    # Functions
+    | `Function trip ->
+      result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
+        result.return (`TArrow { left = trip.second , right = tau })
+      )
+    | `Appl p ->
+      result.bind (tc p.left) (fun res ->
+        match res with
+        | `TArrow p_arrow ->
+          result.bind (tc p.right) (fun tau_arg ->
+            if ttype.eq p_arrow.left tau_arg
+            then result.return p_arrow.right
+            else result.error
+          )
+        | _ -> result.error
+        end
+      )
+    # Conditions
+    | `If_then_else trip -> 
+      result.bind (tc trip.first) (fun tau_cond ->
+        if ttype.is_int tau_cond
+        then
+          result.bind (tc trip.second) (fun tau_left ->
+            result.bind (tc trip.third) (fun tau_right ->
+              if ttype.eq tau_left tau_right
+              then result.return tau_left
+              else result.error
+            )
+          )
+        else result.error
+      )
+    # Simple expressions
+    | _ ->
+      let p =
+        match e with
+        | `Plus p -> p
+        | `Minus p -> p
+        | `Equal p -> p
+        end
+      in
+      result.bind (tc p.left) (fun tau_left ->
+        result.bind (tc p.right) (fun tau_right ->
+          if
+            ttype.is_int tau_left
+            and ttype.is_int tau_right
+          then
+            result.return ttype.tint
+          else
+            result.error
+        )
+      )
+    end
+  in
+  typecheck e (fun ignore_unbound_variable -> result.error)
+in
+
+let is_closed_and_well_typed e =
+  result.is_ok (typecheck e)
+  # Note we don't actually have to check for closed because that would be an unbound variable when typechecking
+in
+
+let rec list_remove ls a eq =
+  match ls with
+  | [] -> []
+  | hd :: tl ->
+      if eq a hd
+      then list_remove tl a eq
+      else hd :: list_remove tl a eq
+  end
+in
+
+let set_eq ls1 ls2 eq =
+  let rec is_subset subset superset =
+    match subset with
+    | [] -> true
+    | hd :: tl ->
+      if mem superset hd eq
+      then is_subset tl superset
+      else false
+    end
+  in
+  is_subset ls1 ls2
+  and is_subset ls2 ls1
+in
+
+(*
+let free_vars e =
+  let rec loop e bound_ids acc k =
+    match e with
+    | `Var var_id ->
+      if mem bound_ids var_id ident.eq
+      then k acc
+      else k (var_id :: acc)
+    | `Int i -> k acc
+    | `Function trip -> loop trip.third (trip.first :: bound_ids) acc k
+    | `If_then_else trip ->
+        loop trip.first bound_ids acc (fun res ->
+          loop trip.second bound_ids res (fun res ->
+            loop trip.third bound_ids res k
+          )
+        )
+    | _ -> 
+      let p = 
+        match e with
+        | `Plus p -> p
+        | `Minus p -> p
+        | `Equal p -> p
+        | `Appl p -> p
+        end
+      in
+      loop p.left bound_ids acc (fun res ->
+        loop p.right bound_ids res k # previous ERROR: I had trip.right but should be p.right, I also had acc instead of res (failing to propogate)
+      )
+    end
+  in
+  loop e [] [] (fun res -> res)
+in
+*)
+
+# after subst, the expression has the same free variables as e, minus id
+letd subst (e : expr.t_gen) : (id : ident.t) -> value.t_gen -> {. expr.t_check | fun new_expr ->
+  let new_free_vars = free_vars new_expr in
+  let old_free_vars = free_vars e in
+  set_eq new_free_vars (list_remove old_free_vars id ident.eq) ident.eq
+  } = fun id -> fun v ->
+  let rec sub e =
+    let sub_pair p =
+      { left = sub p.left
+      , right = sub p.right }
+    in
+    match e with
+    | `Var var_id ->
+        if ident.eq var_id id
+        then v
+        else e
+    | `Int i -> e
+    | `Function trip ->
+        if ident.eq trip.first id
+        then e
+        else `Function { first = trip.first , second = trip.second , third = sub trip.third }
+    | `Plus p -> `Plus (sub_pair p)
+    | `Minus p -> `Minus (sub_pair p)
+    | `Equal p -> `Equal (sub_pair p)
+    | `Appl p -> `Appl (sub_pair p)
+    #| `If_then_else trip -> `If_then_else { first = sub trip.first , second = sub trip.second , third = sub trip.third } # well-typed
+    | `If_then_else trip -> `If_then_else { first = sub trip.second , second = sub trip.second , third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label
+    # This gets caught nearly instantly with types on subst
+    end
+  in
+  sub e
+in
+
+# Archive this error
+    #| `If_then_else trip -> `If_then_else { first = sub trip.second , second = sub trip.second , third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label
+      # Without types on subst, this error is very difficult because we need something like
+      #    (fun x : int -> if x then fun y : int -> y else fun y : int -> y) 0
+      # So that the condition evaluates to a non-int after the substitution
+
+let int_exn e =
+  match e with
+  | `Int i -> i
+  end
+in
+
+#let rec eval (e : {. expr.t_gen | is_closed_and_well_typed }) : value.t_check =
+let rec eval e =
+  let op_ints p op = 
+    let i1 = int_exn (eval p.left) in
+    let i2 = int_exn (eval p.right) in
+    `Int (op i1 i2)
+  in
+  match e with
+  | `Int i -> e
+  | `Function trip -> e
+  | `Plus p -> op_ints p (fun a -> fun b -> a + b)
+  | `Minus p -> op_ints p (fun a -> fun b -> a - b)
+  | `Equal p -> op_ints p (fun a -> fun b -> if a == b then 1 else 0)
+  | `Appl p ->
+    match eval p.left with
+    | `Function trip -> eval (subst trip.third trip.first (eval p.right))
+    end
+  | `If_then_else trip ->
+    match eval trip.first with
+    | `Int i ->
+      if i <> 0 # non-zero int is true, like in C
+      then eval trip.second
+      else eval trip.third
+    end
+  end
+in
+
+eval
