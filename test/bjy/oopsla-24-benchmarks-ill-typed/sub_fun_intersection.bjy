@@ -1,5 +1,4 @@
 # subtyping of refined intersection type.
-# wrap is helpful for catching error, but I'm not sure why
 
 let t = {. ((``Int int) -> int) && ((``Bool bool) -> bool) | fun x -> x (`Bool true) }
 in

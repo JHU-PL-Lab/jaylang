@@ -201,7 +201,7 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
     end
     | ELet { var ; body ; cont } -> eval_let var ~body ~cont env
     | ELetTyped { typed_var = { var ; _ } ; body ; cont } -> eval_let var ~body ~cont env (* TODO: consider if we should eval and ignore the tau expression *)
-    | ELetWrap { typed_var = { var ; _ } ; body ; cont } -> eval_let var ~body ~cont env
+    | ELetFlagged { typed_var = { var ; _ } ; body ; cont ; _ } -> eval_let var ~body ~cont env
     | EIgnore { ignored ; cont } ->
       let%bind _ = eval ignored env in
       eval cont env

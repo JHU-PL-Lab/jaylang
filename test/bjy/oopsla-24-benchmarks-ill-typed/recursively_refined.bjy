@@ -1,4 +1,3 @@
-# NOTE: should be part of oopsla tests once bug is fixed
 
 let coord =
   {: x : int

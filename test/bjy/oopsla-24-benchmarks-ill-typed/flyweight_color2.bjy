@@ -1,5 +1,4 @@
 # has same well-typed version as flyweight_color1
-# NOTE: after guarding record projection, this now needs 51 conditionals deep to find error.
 
 let color =
   { t =

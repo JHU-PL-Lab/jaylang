@@ -1,8 +1,5 @@
 # has same well-typed version as flyweight_color1
 
-# NOTE: This suffers from the same bug as `project_non_record.bjy`
-#  See comment in `get_color` below
-
 let color =
   { t =
     {. int | fun i -> i >= 0 and i < 256 }

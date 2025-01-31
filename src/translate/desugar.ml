@@ -14,13 +14,23 @@ module LetMonad = struct
     module Kind = struct
       type t = 
         | Untyped
-        | Wrap_only_typed of Desugared.t
         | Typed of Desugared.t
+        | Typed_with_flags of LetFlag.Set.t * Desugared.t
 
-      let wrap_of_tau_opt (tau_opt : Desugared.t option) : t =
+      let flags_if_some (tau_opt : Desugared.t option) (flags : LetFlag.Set.t) : t =
         match tau_opt with
-        | Some tau -> Wrap_only_typed tau
+        | Some tau -> Typed_with_flags (flags, tau)
         | None -> Untyped
+
+      let rec_of_tau_opt (tau_opt : Desugared.t option) : t =
+        flags_if_some tau_opt
+        @@ LetFlag.Set.singleton TauKnowsBinding
+
+      let rec_wrap_of_tau_opt (tau_opt : Desugared.t option) : t =
+        let _ = tau_opt in
+        Untyped (* FIXME: wrap is turned off for recursion until the 123456789 trick is fully baked in *)
+        (* flags_if_some tau_opt
+        @@ LetFlag.Set.of_list [ WrapOnly ; TauKnowsBinding ] *)
 
       let typed_of_tau_opt (tau_opt : Desugared.t option) : t =
         match tau_opt with
@@ -58,9 +68,9 @@ module LetMonad = struct
       match kind with
       | Untyped ->
         ELet { var = id ; body ; cont }
-      | Wrap_only_typed _tau ->
-        ELet { var = id ; body ; cont } (* FIXME: turned this off for now to test ill-typed-interpreter *)
-        (* ELetWrap { typed_var = { var = id ; tau } ; body ; cont } *)
+      | Typed_with_flags (flags, tau) ->
+        (* ELet { var = id ; body ; cont } FIXME: turned this off for now to test ill-typed-interpreter *)
+        ELetFlagged { flags ; typed_var = { var = id ; tau } ; body ; cont }
       | Typed tau ->
         ELetTyped { typed_var = { var = id ; tau } ; body ; cont }
     )
@@ -226,14 +236,14 @@ let desugar_bluejay (names : (module Fresh_names.S)) (expr : Bluejay.t) : Desuga
               abstract_over_ids tmp_names (
                 abstract_over_ids params (
                   build @@ 
-                    let%bind () = create_functions Binding.Kind.wrap_of_tau_opt in
+                    let%bind () = create_functions Binding.Kind.rec_wrap_of_tau_opt in
                     return body
                 )
               )
             )
           )
         in
-        let%bind () = create_functions Binding.Kind.typed_of_tau_opt in
+        let%bind () = create_functions Binding.Kind.rec_of_tau_opt in
         return (desugar cont)
 
   (*

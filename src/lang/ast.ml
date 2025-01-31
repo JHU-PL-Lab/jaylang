@@ -93,6 +93,18 @@ module VariantTypeLabel = struct
     VariantLabel.VariantLabel l
 end
 
+module LetFlag = struct
+  module T = struct
+    type t =
+      | WrapOnly
+      | TauKnowsBinding (* effectively recursive, but I don't want naming to be confusing *)
+      [@@deriving equal, compare, sexp, hash]
+  end
+
+  include T
+  module Set = Set.Make (T)
+end
+
 module Binop = struct
   type t =
     | BPlus
@@ -154,7 +166,7 @@ module Expr = struct
     | EAbort : 'a desugared_or_embedded t
     | EDiverge : 'a desugared_or_embedded t
     (* desugared only *)
-    | ELetWrap : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t} -> 'a desugared_only t
+    | ELetFlagged : { flags : LetFlag.Set.t ; typed_var : 'a typed_var ; body : 'a t ; cont : 'a t} -> 'a desugared_only t
     | EStar : 'a desugared_only t
     (* these exist in the bluejay and desugared languages *)
     | ETypeInt : 'a bluejay_or_desugared t

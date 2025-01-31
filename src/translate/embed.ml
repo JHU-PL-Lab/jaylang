@@ -163,11 +163,37 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) : Embe
           )
         in
         return @@ embed e'
-    | ELetWrap { typed_var = { var = x ; tau } ; body = e ; cont = e' } ->
-      build @@
-        let%bind () = assign x @@ wrap tau (embed e)
-        in
-        return @@ embed e'
+    | ELetFlagged { flags ; typed_var = { var = x ; tau } ; body = e ; cont = e' } -> begin
+      match Set.to_list flags with
+      | [ WrapOnly ] ->
+        build @@
+          let%bind () = assign x @@ wrap tau (embed e)
+          in
+          return @@ embed e'
+      | [ TauKnowsBinding ] ->
+        build @@
+          let%bind () =
+            assign x (
+              build @@
+                let%bind () = assign x @@ embed e in
+                let%bind r = capture ~suffix:"r" @@ embed tau in
+                let%bind () = ignore @@ Embedded_type.check ~tau:(EVar r) (EVar x) in
+                return @@ Embedded_type.wrap ~tau:(EVar r) (EVar x)
+            )
+          in
+          return @@ embed e'
+      | [ WrapOnly ; TauKnowsBinding ] | [ TauKnowsBinding ; WrapOnly ] ->
+        build @@
+          let%bind () =
+            assign x (
+              build @@
+                let%bind () = assign x @@ embed e in
+                return @@ wrap tau (EVar x)
+            )
+          in
+          return @@ embed e'
+      | _ -> failwith "unexpected flag combo in ELetFlagged embedding"
+      end
     (* types *)
     | ETypeInt ->
       Embedded_type.make
