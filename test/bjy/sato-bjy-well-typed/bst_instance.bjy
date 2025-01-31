@@ -4,7 +4,7 @@ let rec is_bst t =
   match t with
   | `Node node ->
     let check_left = 
-      match node.lt with
+      match node.left with
       | `Node lnode -> node.item >= lnode.item
       | `Leaf leaf -> true
       end
@@ -37,7 +37,7 @@ let (x : {. tree_type | is_bst }) =
   `Node { left = 
           `Node { left = `Leaf { leaf = true }
                 , right = `Leaf { leaf = true }
-                , item = 2  # ERROR: this item should be switched with the other
+                , item = 2
                 }
         , right = `Leaf { leaf = true }
         , item = 6

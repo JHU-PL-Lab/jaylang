@@ -176,7 +176,7 @@ let rec insert (tree : avl_tree) (i : int) : avl_tree =
       then create_node node.item (insert node.left i) node.right
       else
         if i > node.item
-        then create_node item node.left (insert node.right i)
+        then create_node node.item node.left (insert node.right i)
         else tree
     in
     rebalance i new_node

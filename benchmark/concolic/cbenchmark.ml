@@ -12,7 +12,7 @@ module Report_row (* : Latex_table.ROW *) =
 
     type t =
       { testname                    : Filename.t
-      ; test_result                 : Concolic.Driver.Test_result.t
+      ; test_result                 : New_concolic.Status.Terminal.t
       ; time_to_only_run_on_jil     : Time_float.Span.t
       ; time_to_parse_and_translate : Time_float.Span.t
       ; total_time                  : Time_float.Span.t
@@ -47,11 +47,13 @@ module Report_row (* : Latex_table.ROW *) =
         Ttag.all
         |> List.map ~f:(fun tag ->
           if List.mem x.reasons tag ~equal:Ttag.equal
-          then
+          then begin
             (* sanity check that reasons is subset of features *)
-            let _ = assert (List.mem x.features tag ~equal:Ttag.equal) in
+            if not (List.mem x.features tag ~equal:Ttag.equal)
+            then failwith ("bad tags for file " ^ x.testname);
             Format.sprintf "\\red{%s}" (* assume \red{%s} is \textcolor{red}{%s} *)
             @@ Ttag.to_string_short tag
+          end
           else
             if List.mem x.features tag ~equal:Ttag.equal
             then Ttag.to_string_short tag
@@ -63,13 +65,14 @@ module Report_row (* : Latex_table.ROW *) =
       assert (n_trials > 0);
       let test_one (n : int) : t =
         let t0 = Caml_unix.gettimeofday () in
-        let source =  
-          Dj_common.Convert.jil_ast_of_convert
-          @@ Dj_common.File_utils.read_source_full ~do_wrap:true ~do_instrument:false testname
+        let source =
+          In_channel.read_all testname
+          |> Lang.Parse.parse_single_expr_string
+          |> Translate.Convert.bjy_to_emb
         in
         let t1 = Caml_unix.gettimeofday () in
         let test_result =
-          Concolic.Driver.test_expr source ~global_timeout_sec:90.0
+          New_concolic.Driver.test_expr source ~global_timeout_sec:90.0
         in
         let t2 = Caml_unix.gettimeofday () in
         let row =
@@ -91,7 +94,7 @@ module Report_row (* : Latex_table.ROW *) =
           trials
           ~init:{
             testname
-            ; test_result = Concolic.Driver.Test_result.Exhausted_pruned_tree
+            ; test_result = New_concolic.Status.Exhausted_pruned_tree (* just arbitrary initial result *)
             ; time_to_only_run_on_jil = Time_float.Span.of_sec 0.0
             ; time_to_parse_and_translate = Time_float.Span.of_sec 0.0
             ; total_time = Time_float.Span.of_sec 0.0
@@ -102,7 +105,7 @@ module Report_row (* : Latex_table.ROW *) =
           }
           ~f:(fun acc x ->
             { acc with (* sum up *)
-              test_result = Concolic.Driver.Test_result.merge acc.test_result x.test_result (* keeps best test result *)
+              test_result = x.test_result (* keeps most recent test result *)
             ; time_to_only_run_on_jil = Time_float.Span.(acc.time_to_only_run_on_jil + x.time_to_only_run_on_jil)
             ; time_to_parse_and_translate = Time_float.Span.(acc.time_to_parse_and_translate + x.time_to_parse_and_translate)
             ; total_time = Time_float.Span.(acc.total_time + x.total_time)
@@ -155,10 +158,11 @@ let run dirs =
   |> Format.printf "%s\n"
 
 let () =
-  (* run [ "test/concolic/bjy/gen-compare" ] *)
-  (* run [ "test/concolic/bjy/oopsla-24-benchmarks-ill-typed" ]; *)
-  run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ];
-  (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ]; *)
-  (* run [ "test/concolic/bjy/deep-type-error" ] *)
-  (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ; "test/concolic/bjy/sato-bjy-ill-typed" ] *)
+  (* run [ "test/bjy/gen-compare" ] *)
+  (* run [ "test/bjy/oopsla-24-benchmarks-ill-typed" ]; *)
+  (* run [ "test/bjy/scheme-pldi-2015-ill-typed" ]; *)
+  (* run [ "test/bjy/oopsla-24-tests-ill-typed" ]; *)
+  (* run [ "test/bjy/deep-type-error" ] *)
+  (* run [ "test/bjy/oopsla-24-tests-ill-typed" ; "test/bjy/sato-bjy-ill-typed" ] *)
+   run [ "test/bjy/sato-bjy-ill-typed" ]
 

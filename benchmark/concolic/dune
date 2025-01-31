@@ -3,8 +3,8 @@
  (name cbenchmark)
  (modules cbenchmark)
  (package jay)
- (public_name jay.cbenchmark3_test_generation)
- (libraries cloc_lib ttag latex_tbl latex_format dj_common concolic core core_unix.sys_unix)
+ (public_name jay.cbenchmark)
+ (libraries lang cloc_lib ttag latex_tbl latex_format new_concolic core core_unix.sys_unix)
  (preprocess
   (pps ppx_jane)))
 

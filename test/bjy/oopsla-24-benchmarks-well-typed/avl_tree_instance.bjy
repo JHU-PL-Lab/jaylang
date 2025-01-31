@@ -170,18 +170,15 @@ let rec insert tree i =
   match tree with
   | `Leaf l -> create_node i empty empty
   | `Node node ->
-    match node with
-   | { item = item , left = left , right = right , _ } ->
-      let new_node =
-        if i < item 
-        then create_node item (insert left i) right
-        else
-          if i > item
-          then create_node item left (insert right i)
-          else tree
-      in
-      rebalance i new_node
-    end
+    let new_node =
+      if i < node.item 
+      then create_node node.item (insert node.left i) node.right
+      else
+        if i > node.item
+        then create_node node.item node.left (insert node.right i)
+        else tree
+    in
+    rebalance i new_node
   end
 in
 

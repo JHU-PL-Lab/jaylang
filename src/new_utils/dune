@@ -1,0 +1,12 @@
+(include_subdirs unqualified)
+
+(library
+ (name new_utils)
+ (public_name jay.new_utils)
+ (libraries
+  core
+  core_unix
+  core_unix.sys_unix
+  )
+ (synopsis "Utils module for the Jaylang project")
+ (inline_tests))
