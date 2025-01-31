@@ -23,9 +23,8 @@ let of_options : (unit, t * Eval_session.t) Options.Fun.a =
   ^>> (fun (r, tree) -> { empty with options = r ; tree })
   &&& (Eval_session.with_options <<^ fun () -> Eval_session.empty)
 
-let accum_eval (x : t) (ev : Eval_session.t) : t =
-  let ev_status = Eval_session.finish ev in
-  ev_status
+let accum_eval (x : t) (ev : Status.Eval.t) : t =
+  ev
   |> begin function
     | (Status.Found_abort _ | Type_mismatch _) as res -> x.tree, x.has_pruned, res
     | Finished { pruned ; reached_max_step ; stem } ->
@@ -37,7 +36,7 @@ let accum_eval (x : t) (ev : Eval_session.t) : t =
     { x with tree
     ; status = new_status
     ; has_pruned = new_pruned
-    ; prev_res = Some ev_status }
+    ; prev_res = Some ev }
 
 let finish_status (x : t) : Status.Terminal.t =
   match x.status with

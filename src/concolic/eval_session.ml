@@ -102,18 +102,6 @@ let hit_branch (dir : bool Direction.t) (e : bool Expression.t) (s : t) : t =
 let hit_case (dir : int Direction.t) (e : int Expression.t) ~(other_cases : int list) (s : t) : t =
   set_lazy_stem s e @@ lazy (Stem.push_case s.stem dir e other_cases)
 
-let diverge (s : t) : t =
-  { s with status = Diverge }
-
-let abort (s : t) : t =
-  { s with status = Found_abort (List.rev s.rev_inputs) }
-
-let type_mismatch (s : t) : t =
-  { s with status = Type_mismatch (List.rev s.rev_inputs) }
-
-let reach_max_step (s : t) : t =
-  { s with depth_tracker = Depth_tracker.hit_max_step s.depth_tracker }
-
 let finish (s : t) : Status.Eval.t =
   match s.status with
   | In_progress
@@ -123,3 +111,15 @@ let finish (s : t) : Status.Eval.t =
       ; reached_max_step = s.depth_tracker.is_max_step
       ; stem = s.stem }
   | (Found_abort _ | Type_mismatch _) as res -> res
+
+let diverge (s : t) : Status.Eval.t =
+  finish s
+
+let abort (s : t) : Status.Eval.t =
+  Found_abort (List.rev s.rev_inputs)
+
+let type_mismatch (s : t) : Status.Eval.t =
+  Type_mismatch (List.rev s.rev_inputs)
+
+let reach_max_step (s : t) : Status.Eval.t =
+  finish { s with depth_tracker = Depth_tracker.hit_max_step s.depth_tracker }

@@ -10,8 +10,8 @@ val of_options : (unit, t * Eval_session.t) Options.Fun.a
 (** [of_options ()] is an empty session that has all relevant info loaded in from the optional arguments,
     along with an eval session for the first interpreter run. *)
 
-val accum_eval : t -> Eval_session.t -> t
-(** [accum_eval t sess] finishes the eval session [sess] and accumulates results into [t]. *)
+val accum_eval : t -> Status.Eval.t -> t
+(** [accum_eval t status] accumulates the resulting [status] into [t]. *)
 
 val next : t -> [ `Done of Status.Terminal.t | `Next of (t * Eval_session.t) ] Lwt.t
 (** [next t] is [`Done status] if the concolic evaluation is done, or is [`Next (session, eval_session)]

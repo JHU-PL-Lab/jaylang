@@ -17,11 +17,7 @@ module C_result = struct
 end
 
 module CPS_Result_M = struct
-  module Err = struct
-    type t = Abort | Diverge | Type_mismatch | Reach_max_step
-  end
-
-  module C = Monadlib.Continuation.Make (struct type r = Eval_session.t end)
+  module C = Monadlib.Continuation.Make (struct type r = Status.Eval.t end)
   (* module C = struct
     type 'a m = 'a
     let bind x f = f x
@@ -29,7 +25,7 @@ module CPS_Result_M = struct
   end *)
 
   module T = struct
-    type 'a m = ('a, Err.t * Eval_session.t) result C.m
+    type 'a m = ('a, Status.Eval.t) result C.m
 
     let[@inline_always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m = 
       C.bind x (function
@@ -45,21 +41,21 @@ module CPS_Result_M = struct
   (* include Monadlib.Monad.Make (T) *) (* will replace the line below with this when I need any helpers *)
   include T
 
-  let fail (e : Err.t * Eval_session.t) : 'a m =
+  let fail (e : Status.Eval.t) : 'a m =
     C.return
     @@ Result.fail e
 
   let abort (session : Eval_session.t) : 'a m =
-    fail (Err.Abort, Eval_session.abort session)
+    fail @@ Eval_session.abort session
 
   let diverge (session : Eval_session.t) : 'a m =
-    fail (Err.Diverge, Eval_session.diverge session)
+    fail @@ Eval_session.diverge session
 
   let type_mismatch (session : Eval_session.t) (_reason : string) : 'a m =
-    fail (Err.Type_mismatch, Eval_session.type_mismatch session)
+    fail @@ Eval_session.type_mismatch session
 
   let reach_max_step (session : Eval_session.t) : 'a m =
-    fail (Err.Reach_max_step, Eval_session.reach_max_step session)
+    fail @@ Eval_session.reach_max_step session
 end
 
 (*
@@ -69,7 +65,7 @@ end
 let eval_exp 
   ~(session : Eval_session.t)
   (expr : Embedded.t) 
-  : Eval_session.t
+  : Status.Eval.t
   =
   let open CPS_Result_M in
   let max_step = Eval_session.get_max_step session in
@@ -245,8 +241,8 @@ let eval_exp
   in
 
   eval ~session ~step:0 expr Value.Env.empty (function
-    | Ok r -> C_result.get_session r
-    | Error (_, session) -> session (* TODO: log the error message *)
+    | Ok r -> C_result.get_session r |> Eval_session.finish
+    | Error status -> status (* TODO: log the error message *)
     )
 
 
@@ -265,11 +261,11 @@ let rec loop (e : Embedded.t) (main_session : Intra_session.t) (session : Eval_s
   let%lwt () = Lwt.pause () in
   (* CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session)); *)
   (* let t0 = Caml_unix.gettimeofday () in *)
-  let resulting_eval_session = eval_exp ~session e in
+  let res = eval_exp ~session e in
   (* let t1 = Caml_unix.gettimeofday () in *)
   (* CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0)); *)
   Intra_session.next
-  @@ Intra_session.accum_eval main_session resulting_eval_session
+  @@ Intra_session.accum_eval main_session res
   >>= begin function
     | `Done status ->
         (* CLog.app (fun m -> m "\n------------------------------\nFinishing concolic evaluation...\n\n"); *)
