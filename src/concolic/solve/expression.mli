@@ -36,4 +36,4 @@ val not_ : bool t -> bool t
 
 val op : 'a t -> 'a t -> ('a * 'a * 'b) Typed_binop.t -> 'b t
 
-val t_to_formula : 'a t -> 'a C_sudu.Gexpr.t
+val t_to_formula : 'a t -> 'a C_sudu.E.t

@@ -7,26 +7,8 @@ module type Context = sig
 end
 
 module Make_common_builders (C : Context) = struct
-  module Gexpr =
-    struct
-      type _ t =
-        | Int_expr : Z3.Expr.expr -> int t 
-        | Bool_expr : Z3.Expr.expr -> bool t
-
-      let extract : type a. a t -> Z3.Expr.expr = function
-        | Int_expr e -> e
-        | Bool_expr e -> e
-
-      let rec extract_list : type a. a t list -> Z3.Expr.expr list = function
-        | [] -> []
-        | Int_expr hd :: tl -> hd :: extract_list tl
-        | Bool_expr hd :: tl -> hd :: extract_list tl
-
-      let int_ e = Int_expr e
-      let bool_ e = Bool_expr e
-    end
-
-  open Gexpr
+  module E = Separate.Make (struct type t = Z3.Expr.expr end)
+  open E
 
   let ctx = C.ctx
 
@@ -63,18 +45,18 @@ module Make_common_builders (C : Context) = struct
   (* use variable expression to query model for input *)
   let value_of_expr (type a) model (expr : a t) : a option =
     match expr with
-    | Int_expr e -> a_of_expr model e unbox_int
-    | Bool_expr e -> a_of_expr model e unbox_bool
+    | I e -> a_of_expr model e unbox_int
+    | B e -> a_of_expr model e unbox_bool
 
   (* use variable expression to query model for input *)
-  let int_of_expr model (Int_expr e) = a_of_expr model e unbox_int (* this needs to stick around for old concolic *)
+  let int_of_expr model (I e) = a_of_expr model e unbox_int (* this needs to stick around for old concolic *)
   (* let bool_of_expr model (Bool_expr e) = a_of_expr model e unbox_bool *)
 end
 
 module Make_datatype_builders (C : Context) = struct
   include Make_common_builders (C)
 
-  open Gexpr
+  open E
 
   let op_two_ints ret op =
     fun (e1 : int t) (e2 : int t) ->

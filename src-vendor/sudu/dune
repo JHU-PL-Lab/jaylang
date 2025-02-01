@@ -1,7 +1,0 @@
-(library
- (public_name sudu)
- (libraries core z3)
- (instrumentation
-  (backend landmarks))
-  (preprocess
-  (pps landmarks-ppx --auto)))

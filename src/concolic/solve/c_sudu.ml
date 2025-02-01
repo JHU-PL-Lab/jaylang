@@ -1,13 +1,13 @@
 
 open Core
 
-module SuduZ3 = Sudu.Gadt_z3_api.Make (struct
+module SuduZ3 = Utils.Z3_api.Make (struct
   let ctx = Z3.mk_context []
 end)
 
 include SuduZ3
 
-type 'a box = 'a -> 'a Gexpr.t
+type 'a box = 'a -> 'a E.t
 
 module Solve_status = struct
   type t =
@@ -18,10 +18,10 @@ end
 
 let solver = Z3.Solver.mk_solver ctx None
 
-let var_of_key (type a) (key : a Stepkey.t) : a Gexpr.t =
+let var_of_key (type a) (key : a Stepkey.t) : a E.t =
   match key with
-  | Int_key id -> int_var id
-  | Bool_key id -> bool_var id
+  | I id -> int_var id
+  | B id -> bool_var id
 
 let value_of_key model key =
   key
@@ -36,7 +36,7 @@ let set_timeout time =
   |> Z3.Params.update_param_value ctx "timeout"
 
 let solve bool_formulas =
-  Z3.Solver.add solver (SuduZ3.Gexpr.extract_list bool_formulas);
+  Z3.Solver.add solver (SuduZ3.E.extract_list bool_formulas);
   (* Format.printf "Model is %s\n" (Z3.Solver.to_string solver); *)
   let res = Z3.Solver.check solver [] in
   match res with

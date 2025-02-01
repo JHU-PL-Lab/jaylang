@@ -73,10 +73,10 @@ let get_max_step (s : t) : int =
 let get_input (type a) (key : a Stepkey.t) (s : t) : t * Value.t =
   let v = s.consts.input_feeder.get key in
   match key with
-  | Int_key _ ->
+  | I _ ->
     { s with rev_inputs = I v :: s.rev_inputs }
     , Value.VInt (v, Expression.key key)
-  | Bool_key _ ->
+  | B _ ->
     { s with rev_inputs = B v :: s.rev_inputs }
     , Value.VBool (v, Expression.key key)
 

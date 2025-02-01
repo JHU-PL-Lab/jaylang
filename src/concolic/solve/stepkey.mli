@@ -1,13 +1,7 @@
 
-type _ t =
-  | Int_key : int -> int t
-  | Bool_key : int -> bool t
-  (** Is an identifier for a symbolic input at the interpreter step count
-      given by the payload. *)
-
-val compare : 'a t -> 'a t -> int
-
-val equal : 'a t -> 'a t -> bool
+include module type of Utils.Separate.Make_with_compare (Core.Int)
+(** Is an identifier for a symbolic input at the interpreter step count
+    given by the payload. *)
 
 val to_string : 'a t -> string
 

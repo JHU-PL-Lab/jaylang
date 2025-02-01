@@ -16,7 +16,7 @@ module type NODE = sig
 
   val add_stem : t -> Stem.t -> t * Target.t list
 
-  val formulas_of_target : t -> Target.t -> bool C_sudu.Gexpr.t list
+  val formulas_of_target : t -> Target.t -> bool C_sudu.E.t list
 
   val set_unsat_target : t -> Target.t -> t
 end
@@ -130,7 +130,7 @@ module rec Node : NODE with type 'a edge := 'a Edge.t = struct
     IMO to abstract this because of the number of captured parameters during the tracing of the
     path, and it is not a simple "map".
   *)
-  let formulas_of_target (tree : t) (target : Target.t) : bool C_sudu.Gexpr.t list =
+  let formulas_of_target (tree : t) (target : Target.t) : bool C_sudu.E.t list =
     let rec loop (tree : t) (path : Path.t) =
       match path.forward_path with
       | [] -> []

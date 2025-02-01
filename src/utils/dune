@@ -7,7 +7,10 @@
   core
   core_unix
   core_unix.sys_unix
+  z3
   )
  (synopsis "Utils module for the Jaylang project")
  (inline_tests)
- (preprocess (pps ppx_compare)))
+ (instrumentation
+  (backend landmarks))
+ (preprocess (pps ppx_compare landmarks-ppx --auto)))

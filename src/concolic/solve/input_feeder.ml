@@ -5,8 +5,8 @@ let zero : t =
   { get = 
     let f (type a) (key : a Stepkey.t) : a =
       match key with
-      | Int_key _ -> 0
-      | Bool_key _ -> false
+      | I _ -> 0
+      | B _ -> false
     in
     f
   }
@@ -15,8 +15,8 @@ let default : t =
   { get = 
     let f (type a) (key : a Stepkey.t) : a =
       match key with
-      | Int_key _ -> C_random.int_incl (-10) 10
-      | Bool_key _ -> C_random.bool ()
+      | I _ -> C_random.int_incl (-10) 10
+      | B _ -> C_random.bool ()
     in
     f
   }

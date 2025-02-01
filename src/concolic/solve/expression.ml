@@ -40,7 +40,7 @@ module Typed_binop = struct
     | And -> ( && ), box_bool
     | Or -> ( || ), box_bool
 
-  let to_z3_expr (type a b) (binop : (a * a * b) t) : a C_sudu.Gexpr.t -> a C_sudu.Gexpr.t -> b C_sudu.Gexpr.t =
+  let to_z3_expr (type a b) (binop : (a * a * b) t) : a C_sudu.E.t -> a C_sudu.E.t -> b C_sudu.E.t =
     match binop with
     | Plus -> C_sudu.plus
     | Minus -> C_sudu.minus
@@ -59,7 +59,7 @@ module Typed_binop = struct
 end
 
 type _ t =
-  | Const : 'a * ('a -> 'a C_sudu.Gexpr.t) -> 'a t
+  | Const : 'a * ('a -> 'a C_sudu.E.t) -> 'a t
   | Abstract : 'a e -> 'a t
 
 (* abstract expressions only *)
@@ -88,7 +88,7 @@ let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t)
   | _ -> Abstract (Binop (binop, left, right))
 
 module Resolve = struct
-  type 'a conv = 'a t -> 'a C_sudu.Gexpr.t
+  type 'a conv = 'a t -> 'a C_sudu.E.t
 
   (* It's dumb how I cannot combine cases here *)
   let binop_opkind_to_converter (type a b) (i : int conv) (b : bool conv) (binop : (a * a * b) Typed_binop.t) : a conv =
@@ -112,12 +112,12 @@ module Resolve = struct
     Because of issues with mutual recursion and locally abstract types, I have to do this
     weird hack where I pass in each "t_to_formula" converter.
   *)
-  let e_to_formula (type a b) (i : int conv) (b : bool conv) (x : a e) : a C_sudu.Gexpr.t =
+  let e_to_formula (type a b) (i : int conv) (b : bool conv) (x : a e) : a C_sudu.E.t =
     match x with
     | Key key -> begin
       match key with
-      | Int_key id -> C_sudu.int_var id
-      | Bool_key id -> C_sudu.bool_var id
+      | I id -> C_sudu.int_var id
+      | B id -> C_sudu.bool_var id
     end
     | Not y -> C_sudu.not_ (b y)
     | Binop (binop, e1, e2) ->

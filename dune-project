@@ -36,7 +36,7 @@
   (ppx_deriving
    (>= 3.2))))
 
-(package
- (name sudu)
- (description "Z3 API built upon official one for easy operations")
- (depends core z3))
+; (package
+;  (name sudu)
+;  (description "Z3 API built upon official one for easy operations")
+;  (depends core z3))

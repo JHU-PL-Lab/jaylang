@@ -227,11 +227,11 @@ let eval_exp
       end
       (* Inputs *)
       | EPick_i ->
-        let key = Stepkey.Int_key step in
+        let key = Stepkey.I step in
         let session, v = Eval_session.get_input key session in
         next ~session v
       | EPick_b ->
-        let key = Stepkey.Bool_key step in
+        let key = Stepkey.B step in
         let session, v = Eval_session.get_input key session in
         next ~session v
       (* Failure cases *)
