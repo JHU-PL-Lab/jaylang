@@ -15,8 +15,8 @@ module Depth_tracker = struct
     ; is_max_step  = false
     ; is_max_depth = false }
 
-  let with_options : (t, t) Options.Fun.a =
-    Options.Fun.make
+  let with_options : (t, t) Options.Arrow.t =
+    Options.Arrow.make
     @@ fun (r : Options.t) -> fun (x : t) -> { x with max_depth = r.max_tree_depth }
 
   let incr_branch (x : t) : t =
@@ -57,10 +57,10 @@ let empty : t =
   ; rev_inputs     = []
   ; depth_tracker  = Depth_tracker.empty }
 
-let with_options : (t, t) Options.Fun.a =
-  Options.Fun.make
+let with_options : (t, t) Options.Arrow.t =
+  Options.Arrow.make
   @@ fun (r : Options.t) -> fun (x : t) ->
-    { x with depth_tracker = Options.Fun.appl Depth_tracker.with_options r x.depth_tracker
+    { x with depth_tracker = Options.Arrow.appl Depth_tracker.with_options r x.depth_tracker
     ; consts = { x.consts with max_step = r.global_max_step } }
 
 let make (target : Target.t) (input_feeder : Input_feeder.t) : t =

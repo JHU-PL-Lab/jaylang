@@ -13,7 +13,7 @@ type t
 
 val empty : t
 
-val of_options : (unit, t) Options.Fun.a
+val of_options : (unit, t) Options.Arrow.t
 
 val push_list : t -> Target.t list -> t
 (** [push_list t ls] pushes all targets in [ls] (which have no necessary order in the list) onto [t] *)

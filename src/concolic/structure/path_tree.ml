@@ -185,10 +185,10 @@ let empty : t =
   { root = Node.empty
   ; target_queue = Target_queue.empty }
 
-let of_options : (unit, t) Options.Fun.a =
-  let open Options.Fun.Infix in
+let of_options : (unit, t) Options.Arrow.t =
+  let open Options.Arrow.Infix in
   Target_queue.of_options
-  ^>> (fun target_queue ->
+  >>^ (fun target_queue ->
     { empty with target_queue })
 
 let add_stem ({ root ; target_queue } : t) (stem : Stem.t) : t =

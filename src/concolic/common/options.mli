@@ -30,9 +30,9 @@ module Refs : sig
   (** [without_refs t] is all the values in the cells in [t]. *)
 end
 
-(* `Fun` for optional arguments on functions *)
-module Fun : sig
-  type (-'a, +'b) a =
+(* `Arrow` for optional arguments on functions *)
+module Arrow : sig
+  type ('a, 'b) t =
     ?global_timeout_sec    : float
     -> ?solver_timeout_sec : float
     -> ?global_max_step    : int
@@ -41,43 +41,16 @@ module Fun : sig
     -> ?n_depth_increments : int
     -> 'a
     -> 'b
-  (** [a] is an arrow *)
+  (** [t] is an arrow *)
 
-  val appl : ('b, 'c) a -> T.t -> 'b -> 'c
+  include Preface.Specs.ARROW with type ('a, 'b) t := ('a, 'b) t
+
+  val appl : ('b, 'c) t -> T.t -> 'b -> 'c
   (** [run x r] applies the values from [r] to the arguments of [x] *)
 
-  val make : (T.t -> 'b -> 'c) -> ('b, 'c) a
+  val make : (T.t -> 'b -> 'c) -> ('b, 'c) t
   (** [make f] accepts optional arguments and applies them in the default record to [f]. *)
-  
-  val arr : ('b -> 'c) -> ('b, 'c) a
 
-  val first : ('b, 'c) a -> ('b * 'd, 'c * 'd) a
-
-  module Infix : sig
-    val (>>>) : ('b, 'c) a -> ('c, 'd) a -> ('b, 'd) a
-
-    val ( *** ) : ('b, 'c) a -> ('d, 'e) a -> ('b * 'd, 'c * 'e) a
-    (** [( *** )] is infix [split]. *)
-
-    val (&&&) : ('b, 'c) a -> ('b, 'd) a -> ('b, 'c * 'd) a
-    (** [(&&&)] is infix [fanout]. *)
-
-    val (^>>) : ('b, 'c) a -> ('c -> 'd) -> ('b, 'd) a
-    (** [(^>>)] is infix [map_snd] because an a is also a profunctor. *)
-
-    (* contramap first *)
-    val (<<^) : ('c, 'd) a -> ('b -> 'c) -> ('b, 'd) a
-    (** [(<<^)] is infix [contramap_fst] because an a is also a profunctor. *)
-  end
-
-  val second : ('b, 'c) a -> ('d * 'b, 'd * 'c) a
-
-  val dimap : ('b -> 'c) -> ('d -> 'e) -> ('c, 'd) a -> ('b, 'e) a
-
-  val uncurry : ('b, 'c -> 'd) a -> ('b * 'c, 'd) a 
-
-  val strong : ('b -> 'c -> 'd) -> ('b, 'c) a -> ('b, 'd) a
-
-  val thaw : (unit, 'b -> 'c) a -> ('b, 'c) a
+  val thaw : (unit, 'a -> 'b) t -> ('a, 'b) t
   (** [thaw x] is [uncurry x <<^ (fun y -> (), y)] *)
 end

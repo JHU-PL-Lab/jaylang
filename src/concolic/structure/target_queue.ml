@@ -1,6 +1,6 @@
 
 open Core
-open Options.Fun.Infix
+open Options.Arrow.Infix
 
 module Pop_kind = struct
   type t =
@@ -78,11 +78,11 @@ module DFS = struct
     { q      : Q.t (* will use negative target depth as priority in order to prefer deeper targets *)
     ; stride : int }
 
-  let of_options : (unit, t) Options.Fun.a =
-    Options.Fun.make
+  let of_options : (unit, t) Options.Arrow.t =
+    Options.Arrow.make
     @@ fun (r : Options.t) () -> { q = Q.empty ; stride = r.max_tree_depth / r.n_depth_increments }
 
-  let empty : t = Options.Fun.appl of_options Options.default ()
+  let empty : t = Options.Arrow.appl of_options Options.default ()
 
   (*
     We push targets such that higher number of strides is worse priority, but within
@@ -118,9 +118,9 @@ let empty : t =
   ; bfs = BFS.empty
   ; uniform = R.empty }
 
-let of_options : (unit, t) Options.Fun.a =
+let of_options : (unit, t) Options.Arrow.t =
   DFS.of_options
-  ^>> fun dfs -> { empty with dfs }
+  >>^ fun dfs -> { empty with dfs }
 
 let push_list ({ dfs ; bfs ; uniform } : t) (ls : Target.t list) : t =
   { dfs = DFS.push_list dfs ls

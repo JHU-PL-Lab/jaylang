@@ -4,7 +4,7 @@ type t
 val empty : t
 (** [empty] knows no paths or constraints. *)
 
-val of_options : (unit, t) Options.Fun.a
+val of_options : (unit, t) Options.Arrow.t
 
 val add_stem : t -> Stem.t -> t
 (** [add_stem tree stem] is a new path tree where the [stem] has been placed onto the [tree]. *)

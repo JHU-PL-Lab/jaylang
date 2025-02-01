@@ -36,7 +36,7 @@ let () =
       | _ -> Format.eprintf "Error: bad string given to wrap -w flag. Should be yes/no."; assert false
     in
     let _ =
-      Options.Fun.appl
+      Options.Arrow.appl
         Driver.test
         (Options.Refs.without_refs optional_args)
         src_file

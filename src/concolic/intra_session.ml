@@ -1,5 +1,5 @@
 open Core
-open Options.Fun.Infix
+open Options.Arrow.Infix
 
 (* ignore warning about prev_res not used because it depends on current code for pop kind *)
 type[@ocaml.warning "-69"] t =
@@ -11,16 +11,16 @@ type[@ocaml.warning "-69"] t =
   ; prev_res     : Status.Eval.t option }
 
 let empty : t =
-  { tree         = Options.Fun.appl Path_tree.of_options Options.default ()
+  { tree         = Options.Arrow.appl Path_tree.of_options Options.default ()
   ; run_num      = 1
   ; options      = Options.default
   ; status       = In_progress
   ; has_pruned   = false
   ; prev_res     = None }
 
-let of_options : (unit, t * Eval_session.t) Options.Fun.a =
-  (Options.Fun.make (fun r () -> r) &&& Path_tree.of_options) 
-  ^>> (fun (r, tree) -> { empty with options = r ; tree })
+let of_options : (unit, t * Eval_session.t) Options.Arrow.t =
+  (Options.Arrow.make (fun r () -> r) &&& Path_tree.of_options) 
+  >>^ (fun (r, tree) -> { empty with options = r ; tree })
   &&& (Eval_session.with_options <<^ fun () -> Eval_session.empty)
 
 let accum_eval (x : t) (ev : Status.Eval.t) : t =
@@ -64,7 +64,7 @@ let[@landmark] next (x : t) : [ `Done of Status.Terminal.t | `Next of (t * Eval_
     @@ `Next ( 
       { x with tree ; run_num = x.run_num + 1 }
       , Eval_session.make target input_feeder
-        |> Options.Fun.appl Eval_session.with_options x.options
+        |> Options.Arrow.appl Eval_session.with_options x.options
     )
   | None -> done_ ()
 

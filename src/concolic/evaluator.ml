@@ -4,7 +4,7 @@ open Lang
 open Ast
 open Expr
 
-open Options.Fun.Infix
+open Options.Arrow.Infix
 
 open Value
 
@@ -275,10 +275,10 @@ let rec loop (e : Embedded.t) (main_session : Intra_session.t) (session : Eval_s
     | `Next (session, symb_session) -> loop e session symb_session
     end
 
-let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Fun.a =
+let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
   (* Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug }; *)
   Intra_session.of_options
-  >>> (Options.Fun.make
+  >>> (Options.Arrow.make
   @@ fun r (session, symb_session) (e : Embedded.t) ->
       C_sudu.set_timeout (Core.Time_float.Span.of_sec r.solver_timeout_sec);
       if not r.random then C_random.reset ();
@@ -286,4 +286,4 @@ let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Fun.a =
       Lwt_unix.with_timeout r.global_timeout_sec
       @@ fun () -> loop e session symb_session (* repeatedly evaluate program *)
   )
-  |> Options.Fun.thaw
+  |> Options.Arrow.thaw

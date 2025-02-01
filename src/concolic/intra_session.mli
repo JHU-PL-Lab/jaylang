@@ -6,7 +6,7 @@ type t
 (* val empty : t *)
 (** [empty] is a default empty session *)
 
-val of_options : (unit, t * Eval_session.t) Options.Fun.a
+val of_options : (unit, t * Eval_session.t) Options.Arrow.t
 (** [of_options ()] is an empty session that has all relevant info loaded in from the optional arguments,
     along with an eval session for the first interpreter run. *)
 

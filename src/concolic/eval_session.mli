@@ -11,7 +11,7 @@ val empty : t
 
 val make : Target.t -> Input_feeder.t -> t
 
-val with_options : (t, t) Options.Fun.a
+val with_options : (t, t) Options.Arrow.t
 
 val get_max_step : t -> int
 
