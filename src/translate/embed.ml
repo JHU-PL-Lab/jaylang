@@ -116,6 +116,43 @@ module Embedded_type (W : sig val do_wrap : bool end) = struct
       x
 end
 
+let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
+  let rec loop (e : Desugared.t) : bool =
+    match e with
+    | (EInt _ | EBool _ | EPick_i | EAbort | EDiverge | EType | ETypeInt | ETypeBool) -> false
+    | EVar id' -> Ident.equal id id'
+    (* capturing variables *)
+    | ELet { var ; body ; _ } when Ident.equal var id -> loop body
+    | EFunction { param ; _ } when Ident.equal param id -> false
+    | ETypeMu { var ; _  } when Ident.equal var id -> false
+    | ETypeArrowD { binding ; domain ; _ } when Ident.equal binding id -> loop domain
+    | ELetFlagged { typed_var = { var ; tau } ; body ; _  } when Ident.equal var id -> loop tau || loop body
+    | ELetTyped { typed_var = { var ; tau } ; body ; _ } when Ident.equal var id -> loop tau || loop body
+    (* simple unary cases *)
+    | EFunction { body = e ; _ }
+    | ENot e
+    | EVariant { payload = e ; _ }
+    | ETypeMu { body = e ; _ }
+    | EProject { record = e ; _ } -> loop e
+    (* simple binary cases *)
+    | ELet { body = e1 ; cont = e2 ; _ }
+    | EAppl { func = e1 ; arg = e2 }
+    | EBinop { left = e1 ; right = e2 ; _ }
+    | ETypeArrow { domain = e1 ; codomain = e2 }
+    | ETypeArrowD { domain = e1 ; codomain = e2 ; _ }
+    | ETypeRefinement { tau = e1 ; predicate = e2 } -> loop e1 || loop e2
+    (* special cases *)
+    | ERecord m -> Map.exists m ~f:loop
+    | ETypeRecord m -> Map.exists m ~f:loop
+    | ETypeVariant ls -> List.exists ls ~f:(fun (_, e) -> loop e)
+    | ETypeIntersect ls -> List.exists ls ~f:(fun (_, e1, e2) -> loop e1 || loop e2)
+    | EMatch { subject ; patterns } -> loop subject || List.exists patterns ~f:(fun (_, e) -> loop e)
+    | EIf { cond ; true_body ; false_body } -> loop cond || loop true_body || loop false_body
+    | ELetFlagged { typed_var = { tau ; _ } ; body ; cont ; _ }
+    | ELetTyped { typed_var = { tau ; _ } ; body ; cont } -> loop tau || loop body || loop cont
+  in
+  loop expr
+
 let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) ~(do_wrap : bool) : Embedded.t =
   let module E = Embedded_type (struct let do_wrap = do_wrap end) in
   let module Names = (val names) in
@@ -125,6 +162,8 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) ~(do_w
     let id = Names.fresh_id ~suffix () in
     EFunction { param = id ; body = e id }
   in
+
+  let cur_mu_vars : Ident.t list ref = ref [] in (* FIXME : don't use ref for this *)
 
   let rec embed ?(ask_for : E.labels = `All) (expr : Desugared.t) : Embedded.t =
     match expr with
@@ -359,17 +398,33 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) ~(do_w
       E.make
         ~ask_for
         ~gen:(lazy (
-          ECase
-            { subject = EPick_i
-            ; cases =
-              List.tl_exn e_variant_ls
-              |> List.mapi ~f:(fun i (label, tau) ->
-                i + 1, EVariant { label ; payload = gen tau }
-              )
-            ; default = 
-              let (last_label, last_tau) = List.hd_exn e_variant_ls in
-              EVariant { label = last_label ; payload = gen last_tau }
-            }
+          let of_case_list ls =
+            ECase
+              { subject = EPick_i
+              ; cases =
+                List.tl_exn ls
+                |> List.mapi ~f:(fun i (label, tau) ->
+                  i + 1, EVariant { label ; payload = gen tau }
+                )
+              ; default = 
+                let (last_label, last_tau) = List.hd_exn ls in
+                EVariant { label = last_label ; payload = gen last_tau }
+              }
+          in
+          let unlikely, likely =
+            List.partition_tf e_variant_ls ~f:(fun (_, tau) -> 
+              List.exists !cur_mu_vars ~f:(fun id -> uses_id tau id)
+            )
+          in
+          match unlikely, likely with
+          | [], _ | _, [] -> of_case_list e_variant_ls (* either was empty, so just put all flat *)
+          | _ ->
+            EIf
+              { cond = EBinop { left = EPick_i ; binop = BEqual ; right = EInt 123456789 }
+              ; true_body = of_case_list unlikely
+              ; false_body = of_case_list likely
+              }
+
         ))
         ~check:(lazy (
           fresh_abstraction "e_var_check" (fun e ->
@@ -394,30 +449,35 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) ~(do_w
           )
         ))
     | ETypeMu { var = b ; body = tau } ->
-      apply (
-        apply Embedded_functions.y_comb (
-          fresh_abstraction "self_mu" (fun self ->
-            fresh_abstraction "dummy_mu" (fun _dummy ->
-              let appl_self_0 = apply (EVar self) (EInt 0) in
-              E.make
-                ~ask_for
-                ~gen:(lazy (
-                  apply (EFunction { param = b ; body = gen tau }) appl_self_0
-                ))
-                ~check:(lazy (
-                  fresh_abstraction "e_mu_check" (fun e ->
-                    apply (EFunction { param = b ; body = check tau (EVar e) }) appl_self_0
-                  )
-                ))
-                ~wrap:(lazy (
-                  fresh_abstraction "e_mu_wrap" (fun e ->
-                    apply (EFunction { param = b ; body = wrap tau (EVar e) }) appl_self_0
-                  )
-                ))
+      cur_mu_vars := b :: !cur_mu_vars;
+      let res =
+        apply (
+          apply Embedded_functions.y_comb (
+            fresh_abstraction "self_mu" (fun self ->
+              fresh_abstraction "dummy_mu" (fun _dummy ->
+                let appl_self_0 = apply (EVar self) (EInt 0) in
+                E.make
+                  ~ask_for
+                  ~gen:(lazy (
+                    apply (EFunction { param = b ; body = gen tau }) appl_self_0
+                  ))
+                  ~check:(lazy (
+                    fresh_abstraction "e_mu_check" (fun e ->
+                      apply (EFunction { param = b ; body = check tau (EVar e) }) appl_self_0
+                    )
+                  ))
+                  ~wrap:(lazy (
+                    fresh_abstraction "e_mu_wrap" (fun e ->
+                      apply (EFunction { param = b ; body = wrap tau (EVar e) }) appl_self_0
+                    )
+                  ))
+              )
             )
           )
-        )
-      ) (EInt 0)
+        ) (EInt 0)
+      in
+      cur_mu_vars := List.tl_exn !cur_mu_vars;
+      res
     | ETypeIntersect e_intersect_type ->
       let e_intersect_ls = 
         List.map e_intersect_type ~f:(fun (type_label, tau, tau') ->

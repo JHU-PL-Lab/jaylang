@@ -1,0 +1,11 @@
+
+let t = 
+  Mu t.
+    ``A t
+    || ``B int
+in
+
+let f (x : t) : int = true
+in
+
+f
