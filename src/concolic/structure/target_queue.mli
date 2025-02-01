@@ -1,23 +1,16 @@
 
-module Pop_kind : sig
-  type t =
-    | DFS
-    | BFS
-    | Uniform
-    | Random
+module type S = sig
+  type t
+  val of_options : (unit, t) Options.Arrow.t
+  val push_list : t -> Target.t list -> t
+  val remove : t -> Target.t -> t
+  val pop : t -> (Target.t * t) option
 end
 
-type t
-(** [t] is a functional priority search queue of targets that can be popped according
-    to the pop kind. *)
+module DFS : S
+module BFS : S
+module Uniform : S
 
-val empty : t
+module Merge (_ : S) (_ : S) : S
 
-val of_options : (unit, t) Options.Arrow.t
-
-val push_list : t -> Target.t list -> t
-(** [push_list t ls] pushes all targets in [ls] (which have no necessary order in the list) onto [t] *)
-
-val pop : ?kind:Pop_kind.t -> t -> (Target.t * t) option
-(** [pop ~kind t] is most prioritized target and new queue, or [None] if empty. [kind] is random of all kinds
-    that exist in [t] if unspecified. Raises an exception if [kind] is not valid. *)
+module All : S

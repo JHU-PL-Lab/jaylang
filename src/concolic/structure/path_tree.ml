@@ -177,43 +177,41 @@ and Edge : EDGE with type node := Node.t = struct
     ; goes_to     : Node.t }
 end
 
-type t = 
-  { root : Node.t
-  ; target_queue : Target_queue.t }
+module Make (TQ : Target_queue.S) = struct
+  type t = 
+    { root : Node.t
+    ; target_queue : TQ.t }
 
-let empty : t =
-  { root = Node.empty
-  ; target_queue = Target_queue.empty }
+  let of_options : (unit, t) Options.Arrow.t =
+    let open Options.Arrow.Infix in
+    TQ.of_options
+    >>^ (fun target_queue ->
+      { root = Node.empty ; target_queue })
 
-let of_options : (unit, t) Options.Arrow.t =
-  let open Options.Arrow.Infix in
-  Target_queue.of_options
-  >>^ (fun target_queue ->
-    { empty with target_queue })
+  let add_stem ({ root ; target_queue } : t) (stem : Stem.t) : t =
+    let new_root, new_targets = Node.add_stem root stem in
+    { root = new_root
+    ; target_queue = TQ.push_list target_queue new_targets }
 
-let add_stem ({ root ; target_queue } : t) (stem : Stem.t) : t =
-  let new_root, new_targets = Node.add_stem root stem in
-  { root = new_root
-  ; target_queue = Target_queue.push_list target_queue new_targets }
+  let pop_sat_target (r : t) : (t * Target.t * Input_feeder.t) option Lwt.t =
+    let pop_target ({ target_queue ; _ } as r : t) : (t * Target.t) option =
+      Option.map (TQ.pop target_queue) ~f:(fun (target, queue) ->
+        { r with target_queue = queue }, target
+      )
+    in
 
-let pop_sat_target ?(kind : Target_queue.Pop_kind.t option) (r : t) : (t * Target.t * Input_feeder.t) option Lwt.t =
-  let pop_target ({ target_queue ; _ } as r : t) : (t * Target.t) option =
-    Option.map (Target_queue.pop ?kind target_queue) ~f:(fun (target, queue) ->
-      { r with target_queue = queue }, target
-    )
-  in
+    let rec next (r : t) =
+      let%lwt () = Lwt.pause () in
+      match pop_target r with
+      | None -> Lwt.return None
+      | Some ({ root ; _ } as r, target) ->
+        Node.formulas_of_target root target
+        |> C_sudu.solve
+        |> function
+          | C_sudu.Solve_status.Unsat -> next { r with root = Node.set_unsat_target root target }
+          | Unknown -> failwith "unimplemented solver timeout" (* would want to convey that we pruned the tree if this happens *)
+          | Sat model -> Lwt.return @@ Option.return ({ r with root }, target, Input_feeder.from_model model )
+    in
 
-  let rec next (r : t) =
-    let%lwt () = Lwt.pause () in
-    match pop_target r with
-    | None -> Lwt.return None
-    | Some ({ root ; _ } as r, target) ->
-      Node.formulas_of_target root target
-      |> C_sudu.solve
-      |> function
-        | C_sudu.Solve_status.Unsat -> next { r with root = Node.set_unsat_target root target }
-        | Unknown -> failwith "unimplemented solver timeout" (* would want to convey that we pruned the tree if this happens *)
-        | Sat model -> Lwt.return @@ Option.return ({ r with root }, target, Input_feeder.from_model model )
-  in
-
-  next r
+    next r
+end

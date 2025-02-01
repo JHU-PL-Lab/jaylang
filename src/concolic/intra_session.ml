@@ -1,9 +1,11 @@
 open Core
 open Options.Arrow.Infix
 
-(* ignore warning about prev_res not used because it depends on current code for pop kind *)
+module Tree = Path_tree.Make (Target_queue.All)
+
+(* ignore warning about prev_res not used *)
 type[@ocaml.warning "-69"] t =
-  { tree         : Path_tree.t (* pointer to the root of the entire tree of paths *)
+  { tree         : Tree.t (* pointer to the root of the entire tree of paths *)
   ; run_num      : int
   ; options      : Options.t
   ; status       : Status.In_progress.t
@@ -11,7 +13,7 @@ type[@ocaml.warning "-69"] t =
   ; prev_res     : Status.Eval.t option }
 
 let empty : t =
-  { tree         = Options.Arrow.appl Path_tree.of_options Options.default ()
+  { tree         = Options.Arrow.appl Tree.of_options Options.default ()
   ; run_num      = 1
   ; options      = Options.default
   ; status       = In_progress
@@ -19,7 +21,7 @@ let empty : t =
   ; prev_res     = None }
 
 let of_options : (unit, t * Eval_session.t) Options.Arrow.t =
-  (Options.Arrow.make (fun r () -> r) &&& Path_tree.of_options) 
+  (Options.Arrow.make (fun r () -> r) &&& Tree.of_options) 
   >>^ (fun (r, tree) -> { empty with options = r ; tree })
   &&& (Eval_session.with_options <<^ fun () -> Eval_session.empty)
 
@@ -28,7 +30,7 @@ let accum_eval (x : t) (ev : Status.Eval.t) : t =
   |> begin function
     | (Status.Found_abort _ | Type_mismatch _) as res -> x.tree, x.has_pruned, res
     | Finished { pruned ; reached_max_step ; stem } ->
-      Path_tree.add_stem x.tree stem
+      Tree.add_stem x.tree stem
       , x.has_pruned || pruned || reached_max_step
       , x.status
   end
@@ -52,12 +54,7 @@ let[@landmark] next (x : t) : [ `Done of Status.Terminal.t | `Next of (t * Eval_
     @@ `Done (finish_status x)
   in
   if Status.is_terminal x.status then done_ () else
-  let pop_kind =
-    match x.prev_res with
-    | Some (Finished { reached_max_step ; _ }) when reached_max_step -> Target_queue.Pop_kind.BFS (* only does BFS when last run reached max step *)
-    | _ -> Random
-  in
-  let%lwt res = Path_tree.pop_sat_target ~kind:pop_kind x.tree in
+  let%lwt res = Tree.pop_sat_target x.tree in
   match res with
   | Some (tree, target, input_feeder) ->
     Lwt.return

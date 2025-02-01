@@ -1,20 +1,13 @@
 
 open Core
-open Options.Arrow.Infix
 
-module Pop_kind = struct
-  type t =
-    | DFS
-    | BFS
-    | Uniform (* uniformly randomly sample from all of the targets *)
-    | Random (* randomly choose one of the above pop kinds *)
-
-  let random () =
-    match C_random.int 3 with
-    | 0 -> DFS
-    | 1 -> BFS
-    | _ -> Uniform
-  end
+module type S = sig
+  type t
+  val of_options : (unit, t) Options.Arrow.t
+  val push_list : t -> Target.t list -> t
+  val remove : t -> Target.t -> t
+  val pop : t -> (Target.t * t) option
+end
 
 (*
   Note that in a psq, the same priority can exist for multiple keys (e.g. two different targets
@@ -22,10 +15,13 @@ module Pop_kind = struct
 *)
 module Q = Psq.Make (Target) (Int) (* functional priority search queue *)
 
-module R = struct
+module Uniform = struct
   type t = Q.t
 
   let empty : t = Q.empty
+
+  let of_options : (unit, t) Options.Arrow.t =
+    Options.Arrow.arrow (fun () -> empty)
 
   let push_one (q : t) (target : Target.t) : t =
     Q.push target (C_random.any_pos_int ()) q
@@ -58,6 +54,9 @@ module BFS = struct
 
   let empty : t = return Q.empty
 
+  let of_options : (unit, t) Options.Arrow.t =
+    Options.Arrow.arrow (fun () -> empty)
+
   let push_one (Bfs q : t) (target : Target.t) : t =
     return
     @@ Q.push target (Target.path_n target) q
@@ -81,8 +80,6 @@ module DFS = struct
   let of_options : (unit, t) Options.Arrow.t =
     Options.Arrow.make
     @@ fun (r : Options.t) () -> { q = Q.empty ; stride = r.max_tree_depth / r.n_depth_increments }
-
-  let empty : t = Options.Arrow.appl of_options Options.default ()
 
   (*
     We push targets such that higher number of strides is worse priority, but within
@@ -108,47 +105,29 @@ module DFS = struct
     { x with q = Q.remove target q }
 end
 
-type t =
-  { dfs     : DFS.t
-  ; bfs     : BFS.t
-  ; uniform : R.t }
-  
-let empty : t =
-  { dfs = DFS.empty
-  ; bfs = BFS.empty
-  ; uniform = R.empty }
+module Merge (P : S) (Q : S) : S = struct
+  type t = P.t * Q.t 
 
-let of_options : (unit, t) Options.Arrow.t =
-  DFS.of_options
-  >>^ fun dfs -> { empty with dfs }
+  let of_options : (unit, t) Options.Arrow.t =
+    let open Options.Arrow.Infix in
+    P.of_options &&& Q.of_options
 
-let push_list ({ dfs ; bfs ; uniform } : t) (ls : Target.t list) : t =
-  { dfs = DFS.push_list dfs ls
-  ; bfs = BFS.push_list bfs ls 
-  ; uniform = R.push_list uniform ls (* give random priority *)
-  }
+  let push_list ((p, q) : t) (ls : Target.t list) : t =
+    P.push_list p ls, Q.push_list q ls
 
-let remove (x : t) (target : Target.t) : t =
-  { bfs = BFS.remove x.bfs target
-  ; dfs = DFS.remove x.dfs target
-  ; uniform = R.remove x.uniform target }
+  let remove ((p, q) : t) (target : Target.t) : t =
+    P.remove p target, Q.remove q target
 
-let rec pop ?(kind : Pop_kind.t = DFS) (x : t) : (Target.t * t) option =
-  match kind with
-  | DFS -> begin
-    match DFS.pop x.dfs with
-    | Some (target, dfs) -> Some (target, remove { x with dfs } target)
-    | None -> None
-  end
-  | BFS -> begin
-    match BFS.pop x.bfs with
-    | Some (target, bfs) -> Some (target, remove { x with bfs } target)
-    | None -> None
-  end
-  | Uniform ->
-    begin
-    match Q.pop x.uniform with
-    | Some ((target, _), uniform) -> Some (target, remove { x with uniform } target)
-    | None -> None
-    end
-  | Random -> pop ~kind:(Pop_kind.random ()) x
+  let pop ((p, q) : t) : (Target.t * t) option =
+    if C_random.bool ()
+    then
+      match P.pop p with
+      | None -> Option.map (Q.pop q) ~f:(fun (target, q) -> target, (P.remove p target, q))
+      | Some (target, p) -> Some (target, (p, Q.remove q target))
+    else
+      match Q.pop q with
+      | None -> Option.map (P.pop p) ~f:(fun (target, p) -> target, (p, Q.remove q target))
+      | Some (target, q) -> Some (target, (P.remove p target, q))
+end
+
+module All = Merge (Merge (BFS) (DFS)) (Uniform)
