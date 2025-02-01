@@ -22,8 +22,3 @@
  (promote
   (until-clean)
   (into "../..")))
-
-(env
- (dev
-  (flags
-   (:standard -w -33 -w -26))))

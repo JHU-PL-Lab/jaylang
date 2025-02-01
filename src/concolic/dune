@@ -5,20 +5,15 @@
  (public_name jay.concolic)
  (libraries
   core
-  fmt
   lwt
   lwt.unix
   z3
-  logs
-  logs.lwt
-  logs.fmt
   monadlib
   lang
   translate
   sudu
-  core_unix
   preface
-  psq) ; psq added for queue of target branches
+  psq)
  (synopsis "Concolic evaluator on embedded-type programs")
  (inline_tests)
  (preprocess
@@ -26,7 +21,6 @@
    ppx_sexp_conv
    ppx_compare
    ocaml-monadic
-   ppx_deriving.show
    lwt_ppx
    ;bisect_ppx ; should comment when not wanting report because it adds overhead
    ; for profiling
