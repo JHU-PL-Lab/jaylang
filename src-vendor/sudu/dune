@@ -1,6 +1,6 @@
 (library
  (public_name sudu)
- (libraries core fmt logs z3)
+ (libraries core z3)
  (instrumentation
   (backend landmarks))
   (preprocess
