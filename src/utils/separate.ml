@@ -3,6 +3,7 @@ module Make (X : sig type t end) = struct
   type _ t =
     | I : X.t -> int t
     | B : X.t -> bool t
+  (** Separate [X.t] into an int [I] case and a bool [B] case. *)
 
   let int_ : X.t -> int t = fun x -> I x
   let bool_ : X.t -> bool t = fun x -> B x

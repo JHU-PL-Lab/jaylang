@@ -47,10 +47,6 @@ module Make_common_builders (C : Context) = struct
     match expr with
     | I e -> a_of_expr model e unbox_int
     | B e -> a_of_expr model e unbox_bool
-
-  (* use variable expression to query model for input *)
-  let int_of_expr model (I e) = a_of_expr model e unbox_int (* this needs to stick around for old concolic *)
-  (* let bool_of_expr model (Bool_expr e) = a_of_expr model e unbox_bool *)
 end
 
 module Make_datatype_builders (C : Context) = struct
