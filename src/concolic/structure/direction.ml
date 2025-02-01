@@ -32,14 +32,9 @@ let of_bool (b : bool) : bool t =
 let of_int (i : int) : int t =
   Case_int i
 
-module Packed = struct
-  type t = 
-    | Dir_bool of bool T.t
-    | Dir_int of int T.t
-    [@@deriving compare]
-end
+module Packed = Utils.Pack.Make (T)
 
 let pack (type a) (dir : a t) : Packed.t =
   match dir with
-  | (True_direction | False_direction) as d -> Dir_bool d
-  | (Case_int _ | Case_default _) as d -> Dir_int d
+  | (True_direction | False_direction) as d -> B d
+  | (Case_int _ | Case_default _) as d -> I d

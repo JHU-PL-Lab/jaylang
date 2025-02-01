@@ -14,12 +14,6 @@ include module type of T with type 'a t = 'a T.t
 val of_bool : bool -> bool t
 val of_int : int -> int t
 
-module Packed : sig
-  type t =
-    | Dir_bool of bool T.t 
-    | Dir_int of int T.t
-
-  val compare : t -> t -> int
-end
+module Packed : module type of Utils.Pack.Make (T)
 
 val pack : 'a t -> Packed.t

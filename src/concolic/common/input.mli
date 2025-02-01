@@ -1,5 +1,2 @@
 
-type t =
-  | Int of int
-  | Bool of bool
-  [@@deriving compare, sexp]
+include module type of Utils.Pack.Make (struct type 'a t = 'a [@@deriving compare] end)

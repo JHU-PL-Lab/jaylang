@@ -9,4 +9,5 @@
   core_unix.sys_unix
   )
  (synopsis "Utils module for the Jaylang project")
- (inline_tests))
+ (inline_tests)
+ (preprocess (pps ppx_compare)))

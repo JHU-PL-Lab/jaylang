@@ -46,13 +46,13 @@ module rec Node : NODE with type 'a edge := 'a Edge.t = struct
     | dir :: tl ->
       let go t = set_at_path t { forward_path = tl } ~to_add in
       match dir, tree with
-      | Dir_bool True_direction, Hit_with_bool_children r -> 
+      | B True_direction, Hit_with_bool_children r -> 
         Hit_with_bool_children
           { r with true_ = { r.true_ with goes_to = go r.true_.goes_to } }
-      | Dir_bool False_direction, Hit_with_bool_children r -> 
+      | B False_direction, Hit_with_bool_children r -> 
         Hit_with_bool_children
           { r with false_ = { r.false_ with goes_to = go r.false_.goes_to } }
-      | Dir_int Case_int i, Hit_with_int_children ls ->
+      | I Case_int i, Hit_with_int_children ls ->
         Hit_with_int_children (
           List.map ls ~f:(fun edge ->
             match edge.constraint_ with
@@ -61,7 +61,7 @@ module rec Node : NODE with type 'a edge := 'a Edge.t = struct
             | _ -> edge
             )
         )
-      | Dir_int Case_default { not_in }, Hit_with_int_children ls ->
+      | I Case_default { not_in }, Hit_with_int_children ls ->
         Hit_with_int_children (
           List.map ls ~f:(fun edge ->
             match edge.constraint_ with
@@ -138,16 +138,16 @@ module rec Node : NODE with type 'a edge := 'a Edge.t = struct
         let tl_path : Path.t = { forward_path = tl } in
         let edge =
           match dir, tree with
-          | Dir_bool True_direction, Hit_with_bool_children r -> `B r.true_
-          | Dir_bool False_direction, Hit_with_bool_children r -> `B r.false_
-          | Dir_int Case_int i, Hit_with_int_children ls ->
+          | B True_direction, Hit_with_bool_children r -> `B r.true_
+          | B False_direction, Hit_with_bool_children r -> `B r.false_
+          | I Case_int i, Hit_with_int_children ls ->
             `I (List.find_exn ls ~f:(fun edge ->
                 match edge.constraint_ with
                 | Equality (_, Case_int i') when i' = i -> true
                 | _ -> false
                 )
               )
-          | Dir_int Case_default { not_in }, Hit_with_int_children ls ->
+          | I Case_default { not_in }, Hit_with_int_children ls ->
             `I (List.find_exn ls ~f:(fun edge ->
                 match edge.constraint_ with
                 | Equality (_, Case_default { not_in = not_in' })
