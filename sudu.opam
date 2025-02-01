@@ -10,8 +10,6 @@ depends: [
   "dune" {>= "3.16"}
   "core"
   "z3"
-  "logs"
-  "fmt"
   "odoc" {with-doc}
 ]
 build: [

@@ -10,30 +10,18 @@ depends: [
   "dune" {>= "3.16"}
   "core"
   "core_unix"
-  "batteries"
   "alcotest" {with-test}
-  "shexp"
-  "hashcons"
-  "ocamlgraph"
   "menhir"
-  "fmt"
   "logs"
   "lwt"
   "lwt_ppx"
-  "shexp"
-  "pds-reachability"
   "landmarks"
   "landmarks-ppx"
-  "ounit"
   "alcotest"
   "alcotest-lwt"
   "sudu"
-  "jhupllib" {>= "0.1.1"}
   "ocaml-monadic" {>= "0.4.1"}
   "ppx_deriving" {>= "3.2"}
-  "ppx_deriving_yojson" {>= "2.1"}
-  "yojson"
-  "pds-reachability"
   "odoc" {with-doc}
 ]
 build: [
