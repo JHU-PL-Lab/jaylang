@@ -420,7 +420,7 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) ~(do_w
           | [], _ | _, [] -> of_case_list e_variant_ls (* either was empty, so just put all flat *)
           | _ ->
             EIf
-              { cond = EBinop { left = EPick_i ; binop = BEqual ; right = EInt 123456789 }
+              { cond = EBinop { left = EPick_i ; binop = BEqual ; right = EInt 10 } (* unlikely but not THAT unlikely to choose *)
               ; true_body = of_case_list unlikely
               ; false_body = of_case_list likely
               }
