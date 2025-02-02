@@ -82,7 +82,7 @@ module Report_row (* : Latex_table.ROW *) =
           ; time_to_parse_and_translate = Time_float.Span.of_sec (t1 -. t0)
           ; total_time = Time_float.Span.of_sec (t2 -. t0)
           ; trial = Number n
-          ; lines_of_code = Cloc_lib.count_bjy_lines testname
+          ; lines_of_code = Utils.Cloc_lib.count_bjy_lines testname
           ; features = Ttag.features testname
           ; reasons = Ttag.reasons testname }
         in
@@ -99,7 +99,7 @@ module Report_row (* : Latex_table.ROW *) =
             ; time_to_parse_and_translate = Time_float.Span.of_sec 0.0
             ; total_time = Time_float.Span.of_sec 0.0
             ; trial = Average
-            ; lines_of_code = Cloc_lib.count_bjy_lines testname (* won't even average the remaining fields out. Just pre-calculate it *)
+            ; lines_of_code = Utils.Cloc_lib.count_bjy_lines testname (* won't even average the remaining fields out. Just pre-calculate it *)
             ; features = Ttag.features testname
             ; reasons = Ttag.reasons testname
           }

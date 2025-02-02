@@ -1,6 +1,0 @@
-
-(library
-  (name cloc_lib)
-  (modules cloc_lib)
-  (libraries
-    core))

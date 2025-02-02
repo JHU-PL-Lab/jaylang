@@ -18,7 +18,7 @@
 (executable
  (name bjy_cloc)
  (modules bjy_cloc)
- (libraries cloc_lib core core_unix.sys_unix)
+ (libraries utils core core_unix.sys_unix)
  (promote
   (until-clean)
   (into "../..")))
