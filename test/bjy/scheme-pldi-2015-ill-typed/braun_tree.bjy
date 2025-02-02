@@ -1,12 +1,6 @@
 # error is that item is always inserted on the left, so it doesn't stay balanced
 
-let t_gen a = Mu tt.
-  if input == 123456789
-  then ``Node {: v : a , l : tt , r : tt :}
-  else ``Leaf {: leaf : bool :}
-in
-
-let t_check a = Mu tt.
+let t a = Mu tt.
   (``Leaf {: leaf : bool :}
   || ``Node {: v : a , l : tt , r : tt :}
   )
@@ -29,10 +23,9 @@ let rec is_braun_tree x =
   end
 in
 
-let bt_gen a = {. t_gen a | is_braun_tree } in
-let bt_check a = {. t_check a | is_braun_tree } in
+let bt a = {. t a | is_braun_tree } in
 
-let rec insert (type a_) (tree : bt_gen a_) (x : a_) : bt_check a_ =
+let rec insert (type a_) (tree : bt a_) (x : a_) : bt a_ =
   match tree with
   | `Leaf l -> `Node { v = x , l = `Leaf { leaf = true } , r = `Leaf { leaf = true } }
   | `Node node ->

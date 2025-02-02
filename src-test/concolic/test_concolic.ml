@@ -30,12 +30,11 @@ let () =
     Cmdliner.Term.main_name
     (
       []
-      (* @ make_tests_ill_typed "bjy/deep-type-error" *)
+      (* @ make_tests_ill_typed "deep-type-error" *)
 
-      (* @ make_tests_ill_typed "bjy/ill-typed-interpreter" *)
+      (* @ make_tests_ill_typed "interp-ill-typed" *)
+      (* @ make_tests_well_typed "interp-well-typed" *)
 
-      (* @ make_tests_ill_typed "gen-compare" *) (* presently (4 Dec) these are all ill-typed *)
-      
       (* @ make_tests_ill_typed "post-oopsla-ill-typed" *)
       @ make_tests_well_typed "post-oopsla-well-typed"
 

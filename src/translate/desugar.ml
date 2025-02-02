@@ -27,10 +27,8 @@ module LetMonad = struct
         @@ LetFlag.Set.singleton TauKnowsBinding
 
       let rec_no_check_of_tau_opt (tau_opt : Desugared.t option) : t =
-        let _ = tau_opt in
-        Untyped (* FIXME: wrap is turned off for recursion until the 123456789 trick is fully baked in *)
-        (* flags_if_some tau_opt
-        @@ LetFlag.Set.of_list [ NoCheck ; TauKnowsBinding ] *)
+        flags_if_some tau_opt
+        @@ LetFlag.Set.of_list [ NoCheck ; TauKnowsBinding ]
 
       let typed_of_tau_opt (tau_opt : Desugared.t option) : t =
         match tau_opt with

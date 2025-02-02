@@ -1,10 +1,7 @@
-# Time to find error:
-# About 41 seconds with nil as int
-# About 18 seconds with nil as bool (I think this is just lucky. There is no explanation or positive pattern in other tests)
 
 let nil =
-  { t = int
-  , v = 00
+  { t = {: :}
+  , v = {}
   }
 in
 
@@ -19,37 +16,29 @@ let triple =
 in
 
 let ttype = 
-  let tint = `TInt nil.v in
-  let rec eq a b =
-    match a with
-    | `TArrow p1 ->
-      match b with
-      | `TArrow p2 ->
-        # ERROR: these are first and second, but they should be left and right
-        # This error is realized when a condition has a function as both the "then" and "else" bodies, which is a deep error.
-        eq p1.first p2.first
-        and eq p1.second p2.second
-      | _ -> false
-      end
-    | `TInt ignore ->
-      match b with
-      | `TInt ignore -> true
-      | _ -> false
-      end
-    end
-  in
-  { t_gen =
-      Mu tt.
-        ``TArrow (pair.t tt tt)
-        || ``TInt nil.t
-  , t_check =
-      Mu tt.
-        (  ``TArrow (pair.t tt tt)
-        || ``TInt nil.t
-        )
-  , tint = tint
-  , eq = eq
-  , is_int = eq tint
+  { t = Mu tt.
+    ``TArrow (pair.t tt tt)
+    || ``TInt nil.t
+  , tint = `TInt nil.v
+  , eq =
+      let rec eq a b =
+        match a with
+        | `TArrow p1 ->
+          match b with
+          | `TArrow p2 ->
+            eq p1.left p2.left
+            and eq p1.right p2.right
+          | _ -> false
+          end
+        | `TInt ignore ->
+          match b with
+          | `TInt ignore -> true
+          | _ -> false
+          end
+        end
+      in
+      eq
+  , is_int = assert false # eq tint # ERROR: `eq` and `tint` would have to be from a self reference, but this is an uncaught exception currently, so I replace with assert false
   }
 in
 
@@ -57,46 +46,27 @@ let ident =
   { t = ``Id int
   , eq =
       fun a -> fun b -> 
-        let x = match a with | `Id i -> i end in
-        let y = match b with | `Id i -> i end in
+        let x = match a with `Id i -> i end in
+        let y = match b with `Id i -> i end in
         x == y
   }
 in
 
 let expr =
-  { t_gen =
-      Mu tt.
-        (  ``Function (triple.t ident.t ttype.t_gen tt)
-        || ``If_then_else (triple.t tt tt tt)
-        || ``Plus (pair.t tt tt)
-        || ``Minus (pair.t tt tt)
-        || ``Equal (pair.t tt tt)
-        || ``Appl (pair.t tt tt)
-        || ``Int int
-        || ``Var ident.t
-        )
-  , t_check =
-      Mu tt.
-        ( ``Int int
-        || ``Var ident.t
-        || ``Function (triple.t ident.t ttype.t_check tt)
-        || ``If_then_else (triple.t tt tt tt)
-        || ``Plus (pair.t tt tt)
-        || ``Minus (pair.t tt tt)
-        || ``Equal (pair.t tt tt)
-        || ``Appl (pair.t tt tt)
-        )
+  { t = Mu tt.
+    ``Int int
+    || ``Var ident.t
+    || ``Function (triple.t ident.t ttype.t tt)
+    || ``If_then_else (triple.t tt tt tt)
+    || ``Plus (pair.t tt tt)
+    || ``Minus (pair.t tt tt)
+    || ``Equal (pair.t tt tt)
+    || ``Appl (pair.t tt tt)
   }
 in
 
 let value =
-  let t expr_t ttype_t =
-    ( ``Int int
-    || ``Function (triple.t ident.t ttype_t expr_t)
-    )
-  in
-  { t_gen = t expr.t_gen ttype.t_gen
-  , t_check = t expr.t_check ttype.t_check
+  { t = ``Int int || ``Function (triple.t ident.t ttype.t expr.t)
   }
 in
 
@@ -232,7 +202,7 @@ let int_exn e =
   end
 in
 
-let rec eval (e : {. expr.t_gen | is_closed_and_well_typed }) : value.t_check =
+let rec eval (e : {. expr.t | is_closed_and_well_typed }) : value.t =
   let op_ints p op = 
     let i1 = int_exn (eval p.left) in
     let i2 = int_exn (eval p.right) in

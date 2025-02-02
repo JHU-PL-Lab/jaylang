@@ -1,9 +1,8 @@
 # flatten the input down to just a list of ints and bools
 
 let any_type a = Mu tt.
-  if input == 123456789
-  then ``L (List tt)
-  else ``A a
+  ``L (List tt)
+  || ``A a
 in
 
 let rec append a b =
