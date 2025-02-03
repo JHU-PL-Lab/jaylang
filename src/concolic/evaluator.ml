@@ -1,12 +1,10 @@
 
 open Core
-open Lang
-open Ast
+open Lang.Ast
 open Expr
+open Value
 
 open Options.Arrow.Infix
-
-open Value
 
 module C_result = struct
   (* a state for the step and session would be really nice, but it is too slow *)
@@ -24,7 +22,7 @@ module CPS_Result_M = struct
     let return x = x
   end *)
 
-  module T = struct
+  (* module T = struct *)
     type 'a m = ('a, Status.Eval.t) result C.m
 
     let[@inline_always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m = 
@@ -36,10 +34,10 @@ module CPS_Result_M = struct
     let[@inline_always] return (a : 'a) : 'a m =
       C.return
       @@ Result.return a
-  end
+  (* end *)
 
   (* include Monadlib.Monad.Make (T) *) (* will replace the line below with this when I need any helpers *)
-  include T
+  (* include T *)
 
   let fail (e : Status.Eval.t) : 'a m =
     C.return
@@ -85,6 +83,8 @@ let eval_exp
       let next ?(step : int = step) ?(session : Eval_session.t = session) v =
         return C_result.{ v ; step ; session }
       in
+
+      let open Value.M in (* puts the value constructors in scope *)
 
       match expr with
       (* Ints and bools -- constant expressions *)
@@ -240,7 +240,7 @@ let eval_exp
 
   in
 
-  eval ~session ~step:0 expr Value.Env.empty (function
+  eval ~session ~step:0 expr Env.empty (function
     | Ok r -> C_result.get_session r |> Eval_session.finish
     | Error status -> status (* TODO: log the error message *)
     )

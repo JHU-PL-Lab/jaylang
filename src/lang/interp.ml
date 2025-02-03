@@ -4,68 +4,9 @@ open Ast
 open Expr
 
 exception InvariantFailure of string
-exception UnboundVariable of Ident.t
 
-module Value = struct
-  open Constraints
-
-  type _ t =
-    (* all languages *)
-    | VInt : int -> 'a t
-    | VBool : bool -> 'a t
-    | VFunClosure : { param : Ident.t ; body : 'a closure } -> 'a t
-    | VVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
-    | VRecord : 'a t RecordLabel.Map.t -> 'a t
-    | VTypeMismatch : 'a t
-    | VAbort : 'a t (* this results from `EAbort` or `EAssert e` where e => false *)
-    | VDiverge : 'a t (* this results from `EDiverge` or `EAssume e` where e => false *)
-    (* embedded only *)
-    | VId : 'a embedded_only t
-    | VFrozen : 'a closure -> 'a embedded_only t
-    (* bluejay only *)
-    | VList : 'a t list -> 'a bluejay_only t
-    | VMultiArgFunClosure : { params : Ident.t list ; body : 'a closure } -> 'a bluejay_only t
-    (* types in desugared and embedded *)
-    | VType : 'a bluejay_or_desugared t
-    | VTypeInt : 'a bluejay_or_desugared t
-    | VTypeBool : 'a bluejay_or_desugared t
-    | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
-    | VTypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
-    | VTypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure } -> 'a bluejay_or_desugared t
-    | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
-    | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_or_desugared t
-    | VTypeMu : { var : Ident.t ; body : 'a closure } -> 'a bluejay_or_desugared t
-    | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
-    (* types in bluejay only *)
-    | VTypeList : 'a t -> 'a bluejay_only t
-    | VTypeForall : { type_variables : Ident.t list ; tau : 'a closure } -> 'a bluejay_only t
-    (* recursive function stub for bluejay and mu type for desugared *)
-    | VRecStub : 'a bluejay_or_desugared t
-
-  and 'a env = 'a t ref Ident.Map.t (* ref is to handle recursion *)
-
-  and 'a closure = { expr : 'a Expr.t ; env : 'a env } (* an expression to be evaluated in an environment *)
-end
-
-open Value
-
-module Env = struct
-  type 'a t = 'a Value.env
-
-  let empty : 'a t = Ident.Map.empty
-
-  let add (env : 'a t) (id : Ident.t) (v : 'a Value.t) : 'a t =
-    Map.set env ~key:id ~data:(ref v)
-
-  let fetch (env : 'a t) (id : Ident.t) : 'a Value.t =
-    match Map.find env id with
-    | None -> raise @@ UnboundVariable id
-    | Some r -> !r
-
-  let add_stub (env : 'a Constraints.bluejay_or_desugared t) (id : Ident.t) : 'a Value.t ref * 'a t =
-    let v_ref = ref Value.VRecStub in
-    v_ref, Map.set env ~key:id ~data:v_ref
-end
+module V = Value.Make (Value.Ref_cell) (struct type 'a t = 'a end)
+open V
 
 (* 
   Notes:
@@ -111,11 +52,11 @@ module CPS_Error_M (R : sig type t end) = struct
     @@ Result.fail Err.Type_mismatch
 end
 
-let eval_exp (type a) (e : a Expr.t) : a Value.t =
-  let module M = CPS_Error_M (struct type t = a Value.t end) in
+let eval_exp (type a) (e : a Expr.t) : a V.t =
+  let module M = CPS_Error_M (struct type t = a V.t end) in
   let open M in
   let zero () = type_mismatch () in
-  let rec eval (e : a Expr.t) (env : a Env.t) : a Value.t m =
+  let rec eval (e : a Expr.t) (env : a Env.t) : a V.t m =
     match e with
     (* direct values *)
     | EInt i -> return (VInt i)
@@ -318,11 +259,11 @@ let eval_exp (type a) (e : a Expr.t) : a Value.t =
           @@ Env.add env comps.func_id (VFunClosure { param ; body = { expr = body ; env } })
         | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
 
-    and eval_let (var : Ident.t) ~(body : a Expr.t) ~(cont : a Expr.t) (env : a Env.t) : a Value.t m =
+    and eval_let (var : Ident.t) ~(body : a Expr.t) ~(cont : a Expr.t) (env : a Env.t) : a V.t m =
       let%bind v = eval body env in
       eval cont (Env.add env var v)
 
-    and eval_record_body (record_body : a Expr.t RecordLabel.Map.t) (env : a Env.t) : a Value.t RecordLabel.Map.t m =
+    and eval_record_body (record_body : a Expr.t RecordLabel.Map.t) (env : a Env.t) : a V.t RecordLabel.Map.t m =
       Map.fold record_body ~init:(return RecordLabel.Map.empty) ~f:(fun ~key ~data:e acc_m ->
         let%bind acc = acc_m in
         let%bind v = eval e env in
