@@ -118,8 +118,8 @@ let diverge (s : t) : Status.Eval.t =
 let abort (s : t) : Status.Eval.t =
   Found_abort (List.rev s.rev_inputs)
 
-let type_mismatch (s : t) : Status.Eval.t =
-  Type_mismatch (List.rev s.rev_inputs)
+let type_mismatch (s : t) (reason : string) : Status.Eval.t =
+  Type_mismatch (List.rev s.rev_inputs, reason)
 
 let reach_max_step (s : t) : Status.Eval.t =
   finish { s with depth_tracker = Depth_tracker.hit_max_step s.depth_tracker }

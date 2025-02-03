@@ -49,8 +49,8 @@ module CPS_Result_M = struct
   let diverge (session : Eval_session.t) : 'a m =
     fail @@ Eval_session.diverge session
 
-  let type_mismatch (session : Eval_session.t) (_reason : string) : 'a m =
-    fail @@ Eval_session.type_mismatch session
+  let type_mismatch (session : Eval_session.t) (reason : string) : 'a m =
+    fail @@ Eval_session.type_mismatch session reason
 
   let reach_max_step (session : Eval_session.t) : 'a m =
     fail @@ Eval_session.reach_max_step session
@@ -147,7 +147,7 @@ let eval_exp
             )
         with
         | Some (e, env) -> eval ~step ~session e env
-        | None -> type_mismatch session (Format.sprintf "expression not in pattern list\n")
+        | None -> type_mismatch session (Format.sprintf "expression not in pattern list")
       end
       | ELet { var ; body ; cont } ->
         let%bind { v ; step ; session } = eval ~step ~session body env in

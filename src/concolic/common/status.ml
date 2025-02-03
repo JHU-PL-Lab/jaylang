@@ -9,7 +9,7 @@ type 'a in_progress = 'a constraint 'a = [ `In_progress ]
 
 type _ t =
   | Found_abort : Input.t list -> 'a t
-  | Type_mismatch : Input.t list -> 'a t
+  | Type_mismatch : Input.t list * string -> 'a t
 
   (* result from entire concolic evaluation *)
   | Exhausted_full_tree : 'a terminal t
@@ -38,7 +38,7 @@ let is_error_found (type a) (x : a t) : bool =
 let to_string (type a) (x : a t) : string =
   match x with
   | Found_abort _         -> "Found abort"
-  | Type_mismatch _       -> "Type mismatch"
+  | Type_mismatch (_, s)  -> "Type mismatch: " ^ s
   | Exhausted_full_tree   -> "Exhausted full tree"
   | Exhausted_pruned_tree -> "Exhausted pruned true"
   | Timeout               -> "Timeout"
@@ -47,14 +47,20 @@ let to_string (type a) (x : a t) : string =
   | In_progress           -> "In progress"
 
 let to_loud_string (type a) (x : a t) : string =
-  String.map (to_string x) ~f:(fun c ->
-    if Char.is_alpha c
-    then Char.uppercase c
-    else
-      if Char.is_whitespace c
-      then '_'
-      else c
-  )
+  let make_loud s =
+    String.map s ~f:(fun c ->
+      if Char.is_alpha c
+      then Char.uppercase c
+      else
+        if Char.is_whitespace c
+        then '_'
+        else c
+    )
+  in
+  match String.split (to_string x) ~on:':' with
+  | [ s ] -> make_loud s
+  | before_colon :: after_colon :: [] -> make_loud before_colon ^ ": " ^ after_colon
+  | _ -> failwith "this doesn't make sense"
 
 module In_progress = struct
   type nonrec t = [ `In_progress ] t

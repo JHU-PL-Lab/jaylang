@@ -46,9 +46,9 @@ val diverge : t -> Status.Eval.t
 val abort : t -> Status.Eval.t
 (** [abort session] tells the [session] that the interpretation aborted. *)
 
-val type_mismatch : t -> Status.Eval.t
-(** [type_mismatch session] tells the [session] that the interpretation ended
-    due to type mismatch. *)
+val type_mismatch : t -> string -> Status.Eval.t
+(** [type_mismatch session reason] tells the [session] that the interpretation ended
+    due to type mismatch, explained by [reason]. *)
 
 val reach_max_step : t -> Status.Eval.t
 (** [reach_max_step session] tells the [session] that the interpretation ended
