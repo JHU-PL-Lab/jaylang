@@ -11,6 +11,10 @@ module type CELL = sig
   val get : 'a t -> 'a
 end
 
+(*
+  V is the payload of int and bool. We do this so that we can
+  inject Z3 expressions into the values of the concolic evaluator.
+*)
 module Make (Cell : CELL) (V : T1) = struct
   module T = struct
     type _ t =

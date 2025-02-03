@@ -158,11 +158,9 @@ let run dirs =
   |> Format.printf "%s\n"
 
 let () =
-  (* run [ "test/bjy/gen-compare" ] *)
   run [ "test/bjy/oopsla-24-benchmarks-ill-typed" ];
   (* run [ "test/bjy/scheme-pldi-2015-ill-typed" ]; *)
-  (* run [ "test/bjy/oopsla-24-tests-ill-typed" ]; *)
   (* run [ "test/bjy/deep-type-error" ] *)
   (* run [ "test/bjy/oopsla-24-tests-ill-typed" ; "test/bjy/sato-bjy-ill-typed" ] *)
-   (* run [ "test/bjy/sato-bjy-ill-typed" ] *)
+  (* run [ "test/bjy/interp-ill-typed" ] *)
 
