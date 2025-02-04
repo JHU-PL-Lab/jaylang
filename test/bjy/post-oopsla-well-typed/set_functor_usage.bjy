@@ -6,11 +6,15 @@ letd F (tf : type -> type) :
     ,  add   : a -> t -> t
     :}
     ->
-    {: of_list : (List a) -> t
+    {: empty   : {: :} -> t
+    , add     : a -> t -> t
+    , of_list : (List a) -> t
     :}
   =
   fun a r ->
-    { of_list =
+    { empty = r.empty
+    , add = r.add
+    , of_list =
       fun ls ->
         let rec loop acc ls =
           match ls with
@@ -20,6 +24,16 @@ letd F (tf : type -> type) :
         in
         loop (r.empty {}) ls
     }
+in
+
+let M =
+  let r = 
+    { tf = fun a -> List a
+    , a  = int
+    , empty = fun mt -> [] 
+    , add   = fun a ls -> a :: ls }
+  in
+  F r.tf r.a r
 in
 
 F
