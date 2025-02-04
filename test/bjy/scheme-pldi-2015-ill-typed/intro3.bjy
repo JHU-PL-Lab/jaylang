@@ -1,6 +1,6 @@
 
-let unit_type = {: e : int :} in
-let unit = { e = 0 } in
+let unit_type = {: :} in
+let unit = { } in
 
 let f x g =
   g (x + 1)

@@ -5,8 +5,9 @@ let color =
 in
 
 let unit =
-  { t = {: empty : bool :}
-  , x = { empty = true } }
+  { t = {: :}
+  , x = { }
+  }
 in
 
 let common_state =

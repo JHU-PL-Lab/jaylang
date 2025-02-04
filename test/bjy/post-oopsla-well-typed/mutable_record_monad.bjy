@@ -51,10 +51,10 @@
 # Now I need to encode this with the ref monad
 
 
-let unit = {: terminal : int :}
+let unit = {: :}
 in
 
-let u = { terminal = 00 }
+let u = { }
 in
 
 # We don't actually have an "any" type, so this is an attempt to enumerate a few types we might use

@@ -22,22 +22,17 @@ module CPS_Result_M = struct
     let return x = x
   end *)
 
-  (* module T = struct *)
-    type 'a m = ('a, Status.Eval.t) result C.m
+  type 'a m = ('a, Status.Eval.t) result C.m
 
-    let[@inline_always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m = 
-      C.bind x (function
-        | Ok r -> f r
-        | Error e -> C.return (Error e)
-      )
+  let[@inline_always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m = 
+    C.bind x (function
+      | Ok r -> f r
+      | Error e -> C.return (Error e)
+    )
 
-    let[@inline_always] return (a : 'a) : 'a m =
-      C.return
-      @@ Result.return a
-  (* end *)
-
-  (* include Monadlib.Monad.Make (T) *) (* will replace the line below with this when I need any helpers *)
-  (* include T *)
+  let[@inline_always] return (a : 'a) : 'a m =
+    C.return
+    @@ Result.return a
 
   let fail (e : Status.Eval.t) : 'a m =
     C.return

@@ -1,0 +1,26 @@
+
+letd F (tf : type -> type) : 
+  (a : type) ->
+    let t = tf a in
+    {: empty : {: :} -> t
+    ,  add   : a -> t -> t
+    :}
+    ->
+    {: of_list : (List a) -> t
+    :}
+  =
+  fun a r ->
+    { of_list =
+      fun ls ->
+        let rec loop acc ls =
+          match ls with
+          | [] -> acc
+          | hd :: tl -> loop (r.add hd acc) tl
+          end
+        in
+        loop (r.empty {}) ls
+    }
+
+in
+
+F

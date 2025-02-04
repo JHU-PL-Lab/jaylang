@@ -1,8 +1,8 @@
 
-let unit_type = {: empty_label : int :} # treat as empty_record
+let unit_type = {: :}
 in
 
-let (unit : unit_type) = { empty_label = 0 }
+let (unit : unit_type) = { }
 in
 
 let c x = unit

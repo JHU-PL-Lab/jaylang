@@ -1,8 +1,8 @@
 
-let unit_type = {: unit : int :}
+let unit_type = {: :}
 in
 
-let unit = { unit = 00 }
+let unit = { }
 in
 
 let (obj : (((``A unit_type) -> int) && ((``B unit_type) -> int) && ((``C int) -> List int))) =
