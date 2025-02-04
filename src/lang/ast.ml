@@ -126,13 +126,8 @@ module Pattern = struct
   type _ t =
     (* all languages *)
     | PAny : 'a t
-    (* | PInt : 'a t
-    | PBool : 'a t
-    | PFun : 'a t *)
     | PVariable : Ident.t -> 'a t
     | PVariant : { variant_label : VariantLabel.t ; payload_id : Ident.t } -> 'a t
-    (* | PStrictRecord : RecordPatternBody.t -> 'a t
-    | PRecord : RecordPatternBody.t -> 'a t *)
     (* only Bluejay *)
     | PEmptyList : 'a bluejay_only t
     | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_only t
