@@ -14,47 +14,27 @@ open V
     * However, on somewhat small computations on the order of ms and tens of ms, non-CPS is faster by the same order
       * With inline_always, most of that performance gap goes away, so CPS is generally a fine choice
  *)
-module CPS_Error_M (R : sig type t end) = struct
+module CPS_Error_M = struct
   module Err = struct
     type t = Abort | Diverge | Type_mismatch
     (* we might consider adding an Assert_false and Assume_false construct *)
   end
 
-  module C = Monadlib.Continuation.Make (struct type r = R.t end)
-
-  module T = struct
-    type 'a m = ('a, Err.t) result C.m
-
-    let[@inline_always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m = 
-      C.bind x (function
-        | Ok r -> f r
-        | Error e -> C.return (Error e)
-      )
-
-    let[@inline_always] return (a : 'a) : 'a m =
-      C.return
-      @@ Result.return a
-  end
-
-  include Monadlib.Monad.Make (T)
+  include Utils.Cps_result.Make (Err)
 
   (* unit is needed to surmount the value restriction *)
   let abort (type a) (() : unit) : a m =
-    C.return
-    @@ Result.fail Err.Abort
+    fail Err.Abort
 
   let diverge (type a) (() : unit) : a m =
-    C.return
-    @@ Result.fail Err.Diverge
+    fail Err.Diverge
 
   let type_mismatch (type a) (() : unit) : a m =
-    C.return
-    @@ Result.fail Err.Type_mismatch
+    fail Err.Type_mismatch
 end
 
 let eval_exp (type a) (e : a Expr.t) : a V.t =
-  let module M = CPS_Error_M (struct type t = a V.t end) in
-  let open M in
+  let open CPS_Error_M in
   let zero () = type_mismatch () in
   let rec eval (e : a Expr.t) (env : a Env.t) : a V.t m =
     match e with
@@ -80,7 +60,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%bind payload = eval payload env in
       return (VVariant { label ; payload = payload })
     | EList e_list ->
-      let%bind ls = M.list_map (fun e -> eval e env) e_list in
+      let%bind ls = list_map (fun e -> eval e env) e_list in
       return (VList ls)
     | ETypeList tau ->
       let%bind vtau = eval tau env in
@@ -97,7 +77,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%bind predicate = eval predicate env in
       return (VTypeRefinement { tau ; predicate })
     | ETypeIntersect e_ls ->
-      let%bind ls = M.list_map (fun (label, tau, tau') ->
+      let%bind ls = list_map (fun (label, tau, tau') ->
         let%bind vtau = eval tau env in
         let%bind vtau' = eval tau' env in
         return (label, vtau, vtau')
@@ -105,7 +85,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       in
       return (VTypeIntersect ls)
     | ETypeVariant e_ls ->
-      let%bind ls = M.list_map (fun (label, tau) ->
+      let%bind ls = list_map (fun (label, tau) ->
         let%bind vtau = eval tau env in
         return (label, vtau)
         ) e_ls
@@ -270,7 +250,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         return (Map.set acc ~key ~data:v)
       )
   in
-  (eval e Env.empty) (function
+  (eval e Env.empty).run (function
     | Ok r -> Format.printf "OK"; r
     | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
     | Error Abort -> Format.printf "FOUND ABORT"; VAbort

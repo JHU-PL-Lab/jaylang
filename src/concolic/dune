@@ -8,7 +8,6 @@
   lwt
   lwt.unix
   z3
-  monadlib
   lang
   translate
   preface

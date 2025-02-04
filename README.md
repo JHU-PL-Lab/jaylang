@@ -18,83 +18,98 @@ Please cite this software as:
 }
 ```
 
-This is the codebase for languages BlueJay, Jay and Jay Intermediate Language 
-(JayIL), as well as the language's semantic-type-guided type checker. This code 
-is developed by JHU Programming Languages Lab. It's a pipeline of functional 
-languages that fits for research at each layer.
+This is the codebase for the BlueJay language with its semantic-type-guided bug finder.
+This code is developed by the JHU Programming Languages Lab.
 
-This monorepo contains all tools built upon these languages.
+This monorepo contains all tools built upon this language, which has recently be pruned
+down to contain less code that is better-supported.
 
-This snapshot is for the artifact for the paper **Semantic-Type-Guided Bug Finding**.
+There is a snapshot that is the artifact for the paper **Semantic-Type-Guided Bug Finding** at SPLASH-OOPSLA 2024. Find it at the appropriate tag and release.
 
-## Getting Started Guide
+# Getting Started Guide
 
 The repo is tested under MacOS, Ubuntu, and WSL on Windows.
 
-After cloning the repository, make sure that the branch is switched to `oopsla-24`.
+After cloning the repository, make sure that the branch is switch to `main`, as it is
+the most well-supported.
 
 ```
-# git clone https://github.com/JHU-PL-Lab/jaylang.git
-git checkout oopsla-24
+git clone https://github.com/JHU-PL-Lab/jaylang.git
+git checkout main
 ```
 
-### Install from docker
+## Install from docker
 
 ```
 docker build -t jaylang .
 docker run -it jaylang
-
-# go to Section run
-make sc
-
 ```
 
-### Install from source
+Then go to section `Run`.
 
-Prepare and upgrade `apt` and the ocaml environment
+## Install from source
+
+Prepare and upgrade `apt` and the OCaml environment
+
 ```
 sudo apt upgrade opam
 opam update
 ```
 
-Install local opam switch. Answer `yes` to questions. It can take a while.
+Install the local opam switch with the following command. Answer `yes` to all questions. It can take a while.
 This command installs the dependencies of this project to opam. You are supposed 
-to develop in this directory.
-
+to develop in this directory, as this switch is only active when you are in this directory.
 
 ```
-opam switch create 5.2.0
+opam switch create ./ 5.3.0
 ```
 
-After that, you can install the develop tools
+Note that this installs all of the necessary packages to build and run the project. However, you may want a few developer tools. We suggest you run the following to get developer tools:
+
 ```
 opam user-setup install
 opam install utop ocaml-lsp-server ocamlformat
-opam pin add monadlib https://github.com/besport/monadlib/archive/076858f1a9ce700b89f6e0a9651b9dd32c71fc29.zip
-opam install core core_unix psq hashcons ocamlgraph z3 fmt ppx_deriving yojson ppx_deriving_yojson lwt_ppx landmarks-ppx jhupllib pds-reachability alcotest-lwt
 ```
 
-Now you should be able to run the project.
+Now you are ready to develop in the project.
 
-### Run
+## Run
+
+### Concolic evaluator
 
 ```
-make sc
+make ceval
 ```
-This makes the executable for the semantic type checker itself. The resulting 
-executable, `sato_concolic.exe`, can be used directly by running the command, 
-`./sato_concolic.exe SOURCE_FILE`.
+
+This makes the executable to run the concolic evaluator on a BlueJay file.
+The resulting executable `ceval.exe`, can be used directly by running the 
+command
+
+```
+./ceval.exe <source_file>.bjy
+```
+
+Optional arguments for this executable can be found in the source code at
+`src/bin/ceval.ml`.
+
+
+### Tests
 
 ```
 make test-concolic
 ```
-This makes the full test suite for `sato_concolic.exe` (the type checker). The 
-tests are found in the folder, `test/concolic/bjy/`.
+
+This makes the full tests suite for the concolic evaluator. The tests are found
+in the directory `test/bjy`. By default, the well-typed tests are skipped because
+they are expected to run for a long time.
+
+### Benchmarks
 
 ```
 make cbenchmark
 ```
-This makes the benchmark for `sato_concolic.exe`. The results are printed to stdout
+
+This makes the benchmark for the concolic evaluator. The results are printed to stdout
 in a LaTeX table format as is seen in Table 2 in Section 6.6 of the paper.
 
 To run the benchmarks in other tables, go to the file `benchmark/concolic/cbenchmark.ml`

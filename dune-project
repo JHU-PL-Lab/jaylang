@@ -1,4 +1,4 @@
-(lang dune 3.16)
+(lang dune 3.17)
 
 (name jay)
 
@@ -23,20 +23,18 @@
   core_unix
   (alcotest :with-test)
   menhir
-  logs
   lwt
   lwt_ppx
   landmarks
   landmarks-ppx
   alcotest
   alcotest-lwt
-  sudu
+  psq
+  preface
+  z3
   (ocaml-monadic
    (>= 0.4.1))
   (ppx_deriving
    (>= 3.2))))
 
-; (package
-;  (name sudu)
-;  (description "Z3 API built upon official one for easy operations")
-;  (depends core z3))
+

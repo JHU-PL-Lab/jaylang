@@ -3,17 +3,8 @@
  (names test_concolic)
  (modules test_concolic)
  (libraries
-  core
-  core_unix.sys_unix
   utils
-  cmdliner
   alcotest
   alcotest-lwt
   concolic)
- (preprocess
-  (pps
-   ppx_jane
-   lwt_ppx
-   ppx_deriving.std
-   ;bisect_ppx ; should comment when not wanting the report because it adds overhead
-   ppx_expect)))
+ )

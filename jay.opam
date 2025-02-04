@@ -7,19 +7,20 @@ license: "Apache-2.0"
 homepage: "https://github.com/JHU-PL-Lab/jaylang"
 bug-reports: "https://github.com/JHU-PL-Lab/jaylang/issues"
 depends: [
-  "dune" {>= "3.16"}
+  "dune" {>= "3.17"}
   "core"
   "core_unix"
   "alcotest" {with-test}
   "menhir"
-  "logs"
   "lwt"
   "lwt_ppx"
   "landmarks"
   "landmarks-ppx"
   "alcotest"
   "alcotest-lwt"
-  "sudu"
+  "psq"
+  "preface"
+  "z3"
   "ocaml-monadic" {>= "0.4.1"}
   "ppx_deriving" {>= "3.2"}
   "odoc" {with-doc}

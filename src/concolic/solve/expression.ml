@@ -112,7 +112,7 @@ module Resolve = struct
     Because of issues with mutual recursion and locally abstract types, I have to do this
     weird hack where I pass in each "t_to_formula" converter.
   *)
-  let e_to_formula (type a b) (i : int conv) (b : bool conv) (x : a e) : a C_sudu.E.t =
+  let e_to_formula (type a) (i : int conv) (b : bool conv) (x : a e) : a C_sudu.E.t =
     match x with
     | Key key -> begin
       match key with

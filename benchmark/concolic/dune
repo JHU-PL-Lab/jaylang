@@ -7,8 +7,3 @@
  (libraries lang utils ttag latex_tbl latex_format concolic core core_unix.sys_unix)
  (preprocess
   (pps ppx_jane)))
-
-(env
- (dev
-  (flags
-   (:standard -w -32))))

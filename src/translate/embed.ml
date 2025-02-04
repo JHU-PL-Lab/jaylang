@@ -16,10 +16,17 @@ module LetMonad (Names : Fresh_names.S) = struct
   end
 
   module State = struct
-    type s = Binding.t list
+    type t = Binding.t list
   end
 
-  include Monadlib.State.Make (State)
+  module T = struct
+    module M = Preface.State.Over (State)
+    include M
+    type 'a m = 'a M.t
+    let bind x f = M.bind f x
+  end
+
+  include T
 
   open Binding
 
@@ -58,7 +65,7 @@ module LetMonad (Names : Fresh_names.S) = struct
     However, for faster translation, I would NEED to remove the state monad.
   *)
   let[@landmark] build (m : Embedded.t m) : Embedded.t =
-    let resulting_bindings, cont = run m [] in
+    let cont, resulting_bindings = run_identity m [] in
     List.fold resulting_bindings ~init:cont ~f:(fun cont -> function
       | Bind (id, body) ->
         ELet { var = id ; body ; cont }

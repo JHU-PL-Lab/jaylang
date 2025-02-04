@@ -39,10 +39,17 @@ module LetMonad = struct
   end
 
   module State = struct
-    type s = Binding.t list
+    type t = Binding.t list
   end
 
-  include Monadlib.State.Make (State)
+  module T = struct
+    module M = Preface.State.Over (State)
+    include M
+    type 'a m = 'a M.t
+    let bind x f = M.bind f x
+  end
+
+  include T
 
   (*
     Assign the expression the given name with optional typing.
@@ -61,7 +68,7 @@ module LetMonad = struct
     in the monad's state.
   *)
   let build (m : Desugared.t m) : Desugared.t =
-    let resulting_bindings, cont = run m [] in
+    let cont, resulting_bindings = M.run_identity m [] in
     List.fold resulting_bindings ~init:cont ~f:(fun cont (kind, id, body) ->
       match kind with
       | Untyped ->

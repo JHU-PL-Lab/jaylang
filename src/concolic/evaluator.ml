@@ -15,28 +15,13 @@ module C_result = struct
 end
 
 module CPS_Result_M = struct
-  module C = Monadlib.Continuation.Make (struct type r = Status.Eval.t end)
   (* module C = struct
     type 'a m = 'a
     let bind x f = f x
     let return x = x
   end *)
 
-  type 'a m = ('a, Status.Eval.t) result C.m
-
-  let[@inline_always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m = 
-    C.bind x (function
-      | Ok r -> f r
-      | Error e -> C.return (Error e)
-    )
-
-  let[@inline_always] return (a : 'a) : 'a m =
-    C.return
-    @@ Result.return a
-
-  let fail (e : Status.Eval.t) : 'a m =
-    C.return
-    @@ Result.fail e
+  include Utils.Cps_result.Make (Status.Eval)
 
   let abort (session : Eval_session.t) : 'a m =
     fail @@ Eval_session.abort session
@@ -235,7 +220,7 @@ let eval_exp
 
   in
 
-  eval ~session ~step:0 expr Env.empty (function
+  (eval ~session ~step:0 expr Env.empty).run (function
     | Ok r -> C_result.get_session r |> Eval_session.finish
     | Error status -> status (* TODO: log the error message *)
     )

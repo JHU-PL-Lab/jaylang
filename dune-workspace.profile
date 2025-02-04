@@ -1,10 +1,8 @@
-(lang dune 3.0)
+(lang dune 3.17)
 
 (profile dev)
 
 (env
- ; (dev
- ;  (ocamlopt_flags (:standard -O3)))
  (release
   (ocamlopt_flags (:standard -O3))))
 
