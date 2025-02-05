@@ -1,16 +1,13 @@
 
 let c x = {}
-in
 
 let b x =
   fun y ->
     x 1
-in
 
 let a (x : int -> unit) (y : int -> unit) (q : { int | fun i -> i == 0 }) : unit =
   let ignore = x 0 in
   y 0
-in
 
 let rec f n x q =
   if n <= 0
@@ -18,14 +15,9 @@ let rec f n x q =
   else a x (fun p -> f (n - 1) (fun ignore -> b x ignore) p) q
   # ERROR: `p` in this needs to be zero because is `q` in next recursive level; but it is checked against `x : int -> unit`; so is checked with nonzero `p`.
   # i.e. to be well-typed; we need instead `q` can be any int; or `x` has type `{ int | fun i -> i == 0 } -> unit`
-in
 
 let s n q =
   f n c q
-in
 
 let main (n : int) : unit =
   s n n
-in
-
-main

@@ -1,3 +1,6 @@
-let f = false in
-let a = assume f in
-1 + true
+
+let f = false
+
+let a = assume f
+
+let res = 1 + true

@@ -3,16 +3,10 @@ let rec testFun l =
   | [] -> true
   | hd :: tl -> if (hd > 10) then testFun tl else false
   end
-in
 
 let userinput = input
-in
 
 let val = userinput
-in
 
 let (x : { List int | testFun } ) =
   [ val ; val ]
-in
-
-x

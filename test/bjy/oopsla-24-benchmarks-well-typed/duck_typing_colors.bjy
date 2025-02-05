@@ -2,7 +2,6 @@ let color =
   { t =
     { int | fun i -> i >= 0 and i < 256 }
   }
-in
 
 let point =
   { t =
@@ -11,7 +10,6 @@ let point =
      ; get_deg : unit -> int
      }
   }
-in
 
 let colored_point =
   { t =
@@ -20,7 +18,6 @@ let colored_point =
      ; get_deg : unit -> int
      ; c : color.t }
   }
-in
 
 let (obj : colored_point.t) =
   let ob =
@@ -35,13 +32,8 @@ let (obj : colored_point.t) =
       ; c = 255 }
   in
   ob ob
-in
 
 let get_color (p : colored_point.t) : color.t =
   p.c
-in
 
 let result = get_color obj
-in
-
-result

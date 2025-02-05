@@ -5,5 +5,3 @@ let rec foldl (f : int -> bool -> bool) (z : bool) (xs : List int) : bool =
   | [] -> z
   | x :: rest -> foldl f (f x z) rest
   end
-in
-foldl

@@ -4,5 +4,3 @@ let list_test (lst : List int) : int =
   | [] -> false
   | hd :: tl -> 5
   end
-in
-list_test

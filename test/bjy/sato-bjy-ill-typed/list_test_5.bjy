@@ -1,5 +1,3 @@
+
 let (x : List int) =
   [[1]]
-in
-
-x 

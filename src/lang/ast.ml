@@ -215,6 +215,25 @@ module Program = struct
     | SFunRec : 'a funsig list -> 'a bluejay_only statement
 
   type 'a t = 'a statement list
+
+  let stmt_to_expr (type a) (stmt : a statement) (cont : a Expr.t) : a Expr.t =
+    match stmt with
+    | SUntyped { var ; body } ->
+      ELet { var ; body ; cont = cont }
+    | SFlagged { flags ; typed_var ; body } ->
+      ELetFlagged { flags ; typed_var ; body ; cont }
+    | STyped { typed_var ; body } ->
+      ELetTyped { typed_var ; body ; cont }
+    | SFun fsig ->
+      ELetFun { func = fsig ; cont }
+    | SFunRec fsigs ->
+      ELetFunRec { funcs = fsigs ; cont }
+
+  let rec pgm_to_expr : type a. a statement list -> a Expr.t = function
+    | [] -> ERecord RecordLabel.Map.empty
+    | (hd : a statement) :: (tl : a statement list) ->
+      let cont = pgm_to_expr tl in
+      stmt_to_expr hd cont
 end
 
 module Embedded = struct
@@ -232,6 +251,7 @@ module Bluejay = struct
   type pattern = bluejay Pattern.t
   type funsig = bluejay Expr.funsig
   type typed_var = bluejay Expr.typed_var
+  type statement = bluejay Program.statement
 end
 
 module Parsing_tools = struct

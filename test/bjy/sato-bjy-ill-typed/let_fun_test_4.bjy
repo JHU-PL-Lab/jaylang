@@ -1,2 +1,2 @@
-let f (x : bool) : int = x + x in
-f
+
+let f (x : bool) : int = x + x

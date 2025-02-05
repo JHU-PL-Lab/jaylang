@@ -2,22 +2,16 @@
 
 let h x =
   assert x
-in
 
 let g x y =
   assert y
-in
 
 let rec f x y =
   if x
   then f x x
   else g x y
-in
 
 let main =
   if 0 < 1
   then f (0 < 1) (1 < 0)
   else h (1 < 0)
-in
-
-main

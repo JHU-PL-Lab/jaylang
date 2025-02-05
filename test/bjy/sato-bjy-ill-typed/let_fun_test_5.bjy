@@ -1,6 +1,5 @@
+
 let f (x : bool) : int =
   let ret = x + x in
   1
-in
-
-f
+  

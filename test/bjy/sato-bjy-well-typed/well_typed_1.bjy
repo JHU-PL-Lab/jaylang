@@ -1,5 +1,4 @@
-# EXPECT-WELL-FORMED
-# EXPECT-NO-TYPE-ERRORS
 
-let id (x : int) : int = x in
-id 5
+let id (x : int) : int = x
+
+let res = id 5

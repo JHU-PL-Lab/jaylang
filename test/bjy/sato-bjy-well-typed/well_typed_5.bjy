@@ -1,3 +1,6 @@
-let twice (f : int -> int) (x : int) : int = f (f x) in
-let inc (x : int) : int = x + 1 in
-twice inc 2
+
+let twice (f : int -> int) (x : int) : int = f (f x)
+
+let inc (x : int) : int = x + 1
+
+let res = twice inc 2

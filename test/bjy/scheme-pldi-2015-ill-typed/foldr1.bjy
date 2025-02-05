@@ -9,6 +9,3 @@ let rec foldr1 (type a_) (f : a_ -> a_ -> a_) (xs : List a_) : a_ =
     | _ -> f z (foldr1 a_ f zs)
     end 
   end
-in
-
-foldr1

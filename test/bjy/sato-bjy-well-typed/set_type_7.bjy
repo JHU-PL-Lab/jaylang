@@ -1,4 +1,6 @@
-let tree_type = Mu tt. (``Node { left : tt; right : tt } || ``Leaf { leaf : int }) in
+
+let tree_type = Mu tt. (``Node { left : tt; right : tt } || ``Leaf { leaf : int })
+
 let (x : tree_type) = 
   `Node { left = 
         `Node { left = 
@@ -7,4 +9,3 @@ let (x : tree_type) =
               right = `Leaf {leaf = 0}} ; 
           right = `Leaf {leaf = 0} }; 
       right = `Leaf { leaf = 0 } }
-in x

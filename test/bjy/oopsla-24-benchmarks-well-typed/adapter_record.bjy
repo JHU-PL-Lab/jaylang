@@ -1,12 +1,10 @@
 
 let int_wrapper = { value : int }
-in
 
 let t =
   { square : int -> int
   ;  add_x : int -> int
   ;  x : int }
-in
 
 let ob =
   fun x -> 
@@ -14,13 +12,10 @@ let ob =
       { square = fun i -> i * i
       ; add_x = fun i -> i + (self self).x
       ; x = x }
-in
 
 let ob_5 = ob 5
-in
 
 let (obj : t) = ob_5 ob_5
-in
 
 let adapter obj =
   let s =
@@ -30,10 +25,6 @@ let adapter obj =
       ; x = { value = obj.x } }
   in
   s s
-in
 
 let (x : int_wrapper) = (adapter obj).square { value = 36 }
-in
-
-x
  

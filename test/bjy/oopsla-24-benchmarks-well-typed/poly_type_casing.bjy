@@ -1,6 +1,5 @@
 
 let t = ((``Int int) -> int) && ((``Bool bool) -> bool)
-in
 
 let (f : t) = 
   fun x ->
@@ -8,6 +7,3 @@ let (f : t) =
     | `Int i -> i + 1
     | `Bool b -> not b
     end
-in
-
-f

@@ -1,6 +1,7 @@
-let isEven x = (x % 2) == 0 in
-let isOdd x = (x % 2) <> 0 in
+let isEven x = (x % 2) == 0
+
+let isOdd x = (x % 2) <> 0
+
 let e2o (f : { int | isEven} -> { int | isEven}) : ({ int | isOdd} -> { int | isOdd}) =
     fun n -> (f (n + 1)) 
-in
-e2o
+    

@@ -1,7 +1,6 @@
 # Polymorphic higher order function application is incorrect
 
 let sign = (``Even { even : bool } || ``Odd { odd : bool })
-in
 
 let rec list_count (type a_) (ls : List a_) (f : a_ -> bool) : int =
   match ls with
@@ -10,7 +9,6 @@ let rec list_count (type a_) (ls : List a_) (f : a_ -> bool) : int =
     let a = if f hd then 1 else 0 in
     a + list_count a_ tl f
   end
-in
 
 # Computes sgn of permutation
 let sgn (type a_) (ls : List a_) (compare : a_ -> a_ -> int) : sign =
@@ -23,7 +21,3 @@ let sgn (type a_) (ls : List a_) (compare : a_ -> a_ -> int) : sign =
   if num_inversions ls % 2 == 0
   then `Even { even = true }
   else `Odd { odd = true }
-in
-
-sgn
-

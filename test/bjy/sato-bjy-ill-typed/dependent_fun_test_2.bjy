@@ -4,7 +4,7 @@ let rec length x acc =
     | [] -> acc
     | hd :: tl -> length tl (acc + 1)
     end
-in
+
 letd rec f (x : List int) : ((y : List int) -> (z : List int) -> { List int | (fun a -> (length a 0) == (length x 0) + (length y 0)) }) =
     let g l2 =
         let h acc =
@@ -16,5 +16,4 @@ letd rec f (x : List int) : ((y : List int) -> (z : List int) -> { List int | (f
         h
     in
     g
-in
-f
+    

@@ -1,16 +1,11 @@
 # functions on records
 
 let t = ({ a : int ; b : bool } -> { x : List int }) -> { y : List bool }
-in
 
 let f (a : { a : int ; b : bool } -> { x : List int }) : { y : List bool } =
   match (a { a = 0 ; b = false }).x with
   | [] -> { y = [] }
   | hd :: tl -> if hd == 0 then { y = [ false ] } else { y = [ true ] }
   end
-in
 
 let (g : t) = f
-in
-
-g

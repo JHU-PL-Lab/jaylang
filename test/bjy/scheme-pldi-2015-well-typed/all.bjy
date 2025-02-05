@@ -9,6 +9,3 @@ let rec all (type a_) (p : a_ -> bool) (xs : List a_) : bool =
     | _ -> (p x) and (all a_ p xss)
     end
   end
-in
-
-all

@@ -6,21 +6,18 @@ let node =
         { v : a_t
          ; children : List tree_t }
   }
-in
 
 let leaf =
   { t = 
     fun a ->
       a
   }
-in
 
 let tree =
   { t =
     fun a ->
       Mu tt. (``Node (node.t a tt) || ``Leaf (leaf.t a))
   }
-in
 
 let visitor = 
   { t =
@@ -29,12 +26,10 @@ let visitor =
         { visit_node : node a (tree.t a) -> result_type # ERROR: is missing the `.t` projection
          ; visit_leaf : leaf a -> result_type } # ERROR: is missing the `.t` projection
   }
-in
 
 let client a t result_type =
   { self : t
    ; accept : visitor.t a result_type -> result_type }
-in
 
 let make_list f n = 
   let rec loop i =
@@ -43,7 +38,6 @@ let make_list f n =
     else f n :: loop (i - 1)
   in
   loop n
-in
 
 # Makes big tree recursively with many children
 let rec make_tree (n : int) : tree.t (int) =
@@ -57,7 +51,6 @@ let rec make_tree (n : int) : tree.t (int) =
         ; children = make_list make_tree (n - 1) }
   in
   ob ob
-in
 
 let int_bool_client (tr : tree.t (int)) : client (int) (tree.t (int)) (bool) =
   { self = tr
@@ -68,8 +61,3 @@ let int_bool_client (tr : tree.t (int)) : client (int) (tree.t (int)) (bool) =
       | `Node node -> vis.visit_node node # leaves it up to the visitor to fold over the children
       end
   }
-in
-
-int_bool_client
-
-

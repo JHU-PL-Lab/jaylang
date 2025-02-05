@@ -4,6 +4,3 @@ let rec map (type a_ b_) (mf : a_ -> b_) (l : List a_) : List b_ =
     | [] -> []
     | hd :: tl -> mf hd :: (map a_ b_ mf tl)
     end
-in
-
-map

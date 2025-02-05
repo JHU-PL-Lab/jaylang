@@ -10,6 +10,3 @@ let (obj : (((``A unit) -> int) && ((``B unit) -> int) && ((``C int) -> List int
         end
   in
   ob ob
-in
-
-obj

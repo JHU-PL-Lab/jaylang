@@ -3,7 +3,6 @@ let t a b i =
   if i % 2 == 0
   then b
   else a
-in
 
 # 'a and 'b alternate by call here; so can't assume 'a stays the same in recursive calls
 letd rec f (type a_ b_) (i : int) : a_ -> b_ -> t (a_) (b_) i =
@@ -11,6 +10,5 @@ letd rec f (type a_ b_) (i : int) : a_ -> b_ -> t (a_) (b_) i =
     if i == 0
     then b
     else f (b_) (a_) (i - 1) b a
-in
 
-f (int) (bool) 2 0 true
+let res = f (int) (bool) 2 0 true

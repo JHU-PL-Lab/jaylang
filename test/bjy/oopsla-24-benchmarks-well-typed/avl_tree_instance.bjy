@@ -8,61 +8,51 @@ let t = Mu tt.
             }
   || ``Leaf int
   )
-in
 
 let empty = `Leaf 00
-in
 
 let max a b =
   if a > b
   then a
   else b
-in
 
 let rec height x =
   match x with
   | `Leaf l -> 0
   | `Node node -> max (height node.left) (height node.right) + 1
   end
-in
 
 let is_leaf x =
   match x with
   | `Leaf l -> true
   | _ -> false
   end
-in
 
 let item_exn x =
   match x with
   | `Node node -> node.item
   end
-in
 
 let left_exn x =
   match x with
   | `Node node -> node.left
   end
-in
 
 let right_exn x =
   match x with
   | `Node node -> node.right
   end
-in
 
 let balance_factor x =
   match x with
   | `Leaf leaf -> 0
   | `Node node -> height node.left - height node.right
   end
-in
 
 let abs a =
   if a > 0
   then a
   else (0 - a)
-in
 
 # Checks balancedness in linear time by computing height and balance at same time and level
 let is_balanced x =
@@ -84,7 +74,6 @@ let is_balanced x =
     end
   in
   (check_balanced x).b
-in
 
 # Check search tree property
 let is_bst x = 
@@ -109,14 +98,11 @@ let is_bst x =
     end
   in
   is_increasing_strictly (to_list x [])
-in
 
 let avl_tree = { t | fun tree -> is_balanced tree and is_bst tree }
-in
 
 let create_node item left right =
   `Node { item = item ; left = left ; right = right }
-in
 
 let rotate_left x = 
   match x with
@@ -126,7 +112,6 @@ let rotate_left x =
       create_node right_node.item (create_node node.item node.left right_node.left) right_node.right
     end
   end
-in
 
 let rotate_right x = 
   match x with
@@ -136,19 +121,16 @@ let rotate_right x =
       create_node left_node.item left_node.left (create_node node.item left_node.right node.right)
     end 
   end
-in
 
 let rotate_left_right x =
   match x with
   | `Node node -> rotate_right (create_node node.item (rotate_left node.left) node.right)
   end
-in
 
 let rotate_right_left x =
   match x with
   | `Node node -> rotate_left (create_node node.item node.left (rotate_right node.right))
   end
-in
 
 let rec insert tree i =
   let rebalance i node =
@@ -180,7 +162,6 @@ let rec insert tree i =
     in
     rebalance i new_node
   end
-in
 
 # This on a correct `insert` gets exhausted between 600 and 700 branches in 18 seconds
 let (res : avl_tree) =
@@ -195,7 +176,3 @@ let (res : avl_tree) =
     }
   in
   insert a 1
-in
-
-insert
-

@@ -1,2 +1,2 @@
-let id (x : int) : int = x > 0 in
-id
+
+let id (x : int) : int = x > 0

@@ -4,16 +4,11 @@ let rec sum x =
   if x <= 0
   then 0
   else x + sum (x - 1)
-in
 
 let h y =
   let b = y + y <= sum y
   in
   b
-in
 
 let main (n : { int | fun i -> i > 2 }) : { bool | fun b -> b } =
   h n
-in
-
-main

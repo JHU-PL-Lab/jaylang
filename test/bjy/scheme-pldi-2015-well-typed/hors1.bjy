@@ -1,30 +1,22 @@
 # This is one well-typed version of `hors`
 
 let c x = {}
-in
 
 let b x =
   fun y ->
     x 1
-in
 
 let a (x : int -> unit) (y : int -> unit) (q : int) : unit =
   let ignore = x 0 in
   y 0
-in
 
 let rec f n x q =
   if n <= 0
   then x q
   else a x (fun p -> f (n - 1) (fun ignore -> b x ignore) p) q
-in
 
 let s n q =
   f n c q
-in
 
 let main (n : int) : unit =
   s n n
-in
-
-main

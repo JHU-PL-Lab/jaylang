@@ -1,6 +1,5 @@
 
 let t = {: t : type ; elt : type ; empty : t ; add : t -> elt -> t :}
-in
 
 letd F (x : t) : { of_list : (List x.elt) -> x.t } =
   { of_list = fun ls -> 
@@ -12,9 +11,7 @@ letd F (x : t) : { of_list : (List x.elt) -> x.t } =
     in
     loop x.empty ls
   }
-in
 
 let (M : t) = { elt = int ; t = List int ; empty = [] ; add = fun ls a -> a :: ls }
-in
 
-F M
+let X = F M 

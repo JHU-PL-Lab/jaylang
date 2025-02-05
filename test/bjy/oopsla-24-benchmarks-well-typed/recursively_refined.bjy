@@ -4,27 +4,22 @@
 let coord =
   { x : int
    ; y : int }
-in
 
 let t = Mu tt.
   { parent : (``Some tt || ``None int)
    ; relative_coord : coord }
-in
 
 let is_coord_nonzero c = 
   not (c.x == 0) and not (c.y == 0)
-in
 
 let coord_equal a b =
   a.x == b.x and a.y == b.y
-in
 
 let has_parent x = 
   match x.parent with
   | `Some ignore -> true
   | _ -> false
   end
-in
 
 letd rec get_abs_coord (r : t)
   : 
@@ -44,7 +39,3 @@ letd rec get_abs_coord (r : t)
     { x = c.x + r.relative_coord.x ; y = c.y + r.relative_coord.y }
   | `None ignore -> r.relative_coord
   end
-in
-
-get_abs_coord
-

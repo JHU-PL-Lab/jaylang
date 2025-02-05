@@ -25,13 +25,11 @@ let rec is_bst t =
       false
   | `Leaf leaf -> true
   end
-in
 
 let tree_type = Mu tt.
   (  ``Node { left : tt; right : tt; item : int }
   || ``Leaf { leaf : bool }
   )
-in
 
 let (x : { tree_type | is_bst }) = 
   `Node { left = 
@@ -42,6 +40,3 @@ let (x : { tree_type | is_bst }) =
         ; right = `Leaf { leaf = true }
         ; item = 6
         }
-in
-
-x

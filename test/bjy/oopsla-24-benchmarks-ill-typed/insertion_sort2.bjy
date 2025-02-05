@@ -5,7 +5,6 @@ let is_nonempty lst =
   | [] -> false
   | _ -> true
   end
-in
 
 let rec ne_sorted lst =
   match lst with
@@ -16,14 +15,12 @@ let rec ne_sorted lst =
     | b :: tll -> a <= b and ne_sorted tl
     end
   end
-in
 
 let rec foldl f b l =
   match l with
   | [] -> b
   | x :: xs -> foldl f (f x b) xs
   end
-in
 
 let rec insert x l =
   match l with
@@ -33,7 +30,6 @@ let rec insert x l =
     then x :: l
     else h :: (insert x t)
   end
-in
 
 let ret_type xs =
   { List int | fun l ->
@@ -43,10 +39,6 @@ let ret_type xs =
       then is_nonempty l
       else not (is_nonempty l)
   }
-in
 
 letd sort (xs : List int) : ret_type xs =
   foldl insert [] xs
-in
-
-sort

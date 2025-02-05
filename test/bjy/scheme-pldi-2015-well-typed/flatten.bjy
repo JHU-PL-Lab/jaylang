@@ -3,14 +3,12 @@
 let any_type a = Mu tt.
   ``L (List tt)
   || ``A a
-in
 
 let rec append a b =
   match a with
   | [] -> b
   | hd :: tl -> hd :: append tl b
   end
-in
 
 let rec flatten (type a_) (x : any_type a_) : List a_ =
   match x with
@@ -21,6 +19,3 @@ let rec flatten (type a_) (x : any_type a_) : List a_ =
     end
   | `A a -> [ a ]
   end
-  in
-
-flatten

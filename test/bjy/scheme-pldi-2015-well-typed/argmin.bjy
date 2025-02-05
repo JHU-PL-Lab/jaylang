@@ -5,7 +5,6 @@ let is_cons xs =
   | hd :: tl -> true
   | _ -> false
   end
-in
 
 let rec argmin_acc f a b xs =
   match xs with
@@ -15,12 +14,8 @@ let rec argmin_acc f a b xs =
     then argmin_acc f a b tl
     else argmin_acc f hd (f hd) tl
   end
-in
 
 let argmin (type a_) (f : a_ -> int) (xs : { List a_ | is_cons }) : a_ =
   match xs with
   | hd :: tl -> argmin_acc f hd (f hd) tl
   end
-in
-
-argmin

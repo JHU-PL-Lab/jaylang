@@ -9,6 +9,3 @@ let rec member (x : int) (l : List int) : bool =
     then true
     else member x tl
   end
-in
-
-member

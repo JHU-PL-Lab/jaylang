@@ -1,6 +1,5 @@
 
 let t = ((``Int int) -> int) && ((``Bool bool) -> bool)
-in
 
 let (f : t) = 
   let g (type a_) (x : a_) : a_ =
@@ -11,6 +10,3 @@ let (f : t) =
     end
   in
   g # Also error here -- no good type to put here 
-in
-
-f

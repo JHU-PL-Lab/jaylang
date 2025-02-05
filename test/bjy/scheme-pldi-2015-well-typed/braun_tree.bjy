@@ -3,14 +3,12 @@ let t a = Mu tt.
   (``Leaf { leaf : bool }
   || ``Node { v : a ; l : tt ; r : tt }
   )
-in
 
 let rec size n = 
   match n with
   | `Leaf l -> 0
   | `Node node -> 1 + size node.l + size node.r
   end
-in
 
 let rec is_braun_tree x = 
   match x with
@@ -20,9 +18,8 @@ let rec is_braun_tree x =
     and is_braun_tree node.r
     and (size node.l == size node.r or size node.l == size node.r + 1)
   end
-in
 
-let bt a = { t a | is_braun_tree } in
+let bt a = { t a | is_braun_tree }
 
 let rec insert (type a_) (tree : bt a_) (x : a_) : bt a_ =
   match tree with
@@ -32,6 +29,3 @@ let rec insert (type a_) (tree : bt a_) (x : a_) : bt a_ =
     then `Node { l = node.l ; r = insert a_ node.r x ; v = node.v }
     else `Node { l = insert a_ node.l x ; r = node.r ; v = node.v }
   end
-in
-
-insert

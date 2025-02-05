@@ -1,6 +1,3 @@
 
 let (x : { a : bool; b : (``R { a : bool ; b: int } || ``I int) }) =
   { a = true; b = true }
-in
-
-x

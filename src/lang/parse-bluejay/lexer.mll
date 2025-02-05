@@ -15,7 +15,6 @@ let alpha = ['a'-'z'] | ['A'-'Z']
 let alpha_upper = ['A'-'Z']
 let whitespace = [' ' '\t']
 let newline = '\n'
-let comment = '#' [^'\n']* '\n'
 let string_contents = [^'"']*
 
 let ident_start = alpha
@@ -23,8 +22,8 @@ let ident_cont = alpha | digit | '_'
 
 rule token = parse
 | eof                  { EOF }
-| "(*" ([^'*']|('*'[^')']))* ("*)"|"**)") {token lexbuf} (* OCaml-like comments *)
-| comment              { incr_lineno lexbuf; token lexbuf }
+| "#"                  { single_line_comment lexbuf }
+| "(*"                 { multi_line_comment lexbuf }
 | whitespace           { token lexbuf }
 | newline              { incr_lineno lexbuf; token lexbuf }
 | "{"                  { OPEN_BRACE }
@@ -85,5 +84,16 @@ rule token = parse
 | ">="                 { GREATER_EQUAL }
 | digit+ as n          { INT (int_of_string n) }
 | ident_start ident_cont* as s     { IDENTIFIER s }
+
+and single_line_comment = parse
+| newline { incr_lineno lexbuf; token lexbuf }
+| eof { EOF }
+| _ { single_line_comment lexbuf }
+
+and multi_line_comment = parse
+| "*)" { token lexbuf }
+| newline { incr_lineno lexbuf; multi_line_comment lexbuf }
+| eof { failwith "Lexer - unexpected EOF in multi-line comment" }
+| _ { multi_line_comment lexbuf }
 
 {}

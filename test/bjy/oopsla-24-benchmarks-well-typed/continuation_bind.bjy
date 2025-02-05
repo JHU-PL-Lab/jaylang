@@ -1,18 +1,13 @@
 # Continuation monad
 
 let t a r = { continuation : (a -> r) -> r }
-in
 
 let bind (type a_ b_ r_) (ar_r : t a_ r_) : (a_ -> t b_ r_) -> t b_ r_ =
   fun a_br_r ->
     { continuation = 
       fun br -> ar_r.continuation (fun a -> (a_br_r a).continuation br)
     }
-in
 
 let int_bind (type b_ r_) (i_br_r : int -> t b_ r_) : t b_ r_ =
   bind (int) b_ r_ { continuation = fun ir -> ir 0 } i_br_r
-in
-
-int_bind
       

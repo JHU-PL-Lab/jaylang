@@ -87,24 +87,38 @@
 %right ARROW                  /* -> for type declaration */
 %right DOUBLE_AMPERSAND      /* && for type intersection */
 
-%start <Bluejay.t> prog
-%start <Bluejay.t option> delim_expr
+%start <Bluejay.statement list> prog
+%start <Bluejay.statement list option> delim_expr
 
 %%
 
 prog:
-  | expr EOF
-      { $1 }
+  | statement_list EOF { $1 }
   ;
 
 delim_expr:
   | EOF
       { None }
-  | expr EOF
+  | prog EOF
       { Some ($1) }
   ;
 
+statement_list:
+  | statement { [ $1 ] }
+  | statement statement_list { $1 :: $2 }
+
+statement:
+  | LET ident_decl EQUALS expr
+      { SUntyped { var = $2 ; body = $4 } : Bluejay.statement }
+  | LET OPEN_PAREN ident_decl COLON expr CLOSE_PAREN EQUALS expr
+      { STyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 } : Bluejay.statement }
+  | letfun_rec
+      { SFunRec $1 : Bluejay.statement }
+  | letfun
+      { SFun $1 : Bluejay.statement }
+
 /* **** Expressions **** */
+
 
 expr:
   | appl_expr /* Includes primary expressions */
@@ -350,29 +364,10 @@ match_expr:
 
 pattern:
   | UNDERSCORE { PAny }
-//   | INT_KEYWORD { PInt }
-//   | BOOL_KEYWORD { PBool }
-//   | FUNCTION { PFun }
   | ident_decl { PVariable $1 }
   | variant_label ident_decl { PVariant { variant_label = $1 ; payload_id = $2 } }
   | variant_label OPEN_PAREN ident_decl CLOSE_PAREN { PVariant { variant_label = $1 ; payload_id = $3 } }
-//   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) CLOSE_BRACE { PStrictRecord (record_of_list $2) }
-//   | OPEN_BRACE separated_nonempty_trailing_list(COMMA, record_pattern_element) UNDERSCORE CLOSE_BRACE { PRecord (record_of_list $2) }
-//   | OPEN_BRACE CLOSE_BRACE { PStrictRecord empty_record }
-//   | OPEN_BRACE UNDERSCORE CLOSE_BRACE { PRecord empty_record }
   | OPEN_BRACKET CLOSE_BRACKET { PEmptyList }
   | ident_decl DOUBLE_COLON ident_decl { PDestructList { hd_id = $1 ; tl_id = $3 } }
   | OPEN_PAREN pattern CLOSE_PAREN { $2 }
-;
-
-// record_pattern_element:
-//   | record_label EQUALS ident_decl
-//       { ($1, $3) }
-// ;
-
-// separated_nonempty_trailing_list(separator, rule):
-//   | nonempty_list(terminated(rule, separator))
-//       { $1 }
-//   | separated_nonempty_list(separator,rule)
-//       { $1 }
 ;

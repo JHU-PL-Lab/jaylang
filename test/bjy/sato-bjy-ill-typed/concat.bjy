@@ -4,5 +4,3 @@ let rec prepend (l1 : List int) (l2 : List bool) : List int =
     | [] -> l1
     | hd :: tl -> prepend (hd :: l1) tl
     end
-in
-prepend

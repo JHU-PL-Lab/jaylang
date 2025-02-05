@@ -3,7 +3,6 @@ let color =
   { t =
     { int | fun i -> i >= 0 and i < 256 }
   }
-in
 
 let point =
   { t =
@@ -12,7 +11,6 @@ let point =
      ; get_deg : unit -> int
      }
   }
-in
 
 let colored_point =
   { t =
@@ -21,7 +19,6 @@ let colored_point =
      ; get_deg : unit -> int
      ; c : color.t }
   }
-in
 
 let (obj : colored_point.t) =
   let ob =
@@ -36,13 +33,8 @@ let (obj : colored_point.t) =
       ; c = 255 }
   in
   ob ob
-in
 
 let get_color (p : point.t) : color.t =
   p.c # ERROR: should have required colored_point
-in
 
 let result = get_color obj # this application is fine. Error is in `get_color`  
-in
-
-result

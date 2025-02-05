@@ -1,21 +1,15 @@
 
 let acc z m =
   fun r -> m (z + r)
-in
 
 let rec mult x y k =
   if x <= 0 or y <= 0
   then k 0
   else x + mult x (y - 1) (acc x k)
-in
 
 let check w =
   let ignore = assert true in
   w
-in
 
 let main (n : int) : int =
   mult 100 n check
-in
-
-main

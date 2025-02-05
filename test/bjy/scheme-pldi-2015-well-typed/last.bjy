@@ -6,14 +6,12 @@ let rec ycomb f =
     (fun x -> f (fun z -> (x x) z))
     (fun x -> f (fun z -> (x x) z))
     y
-in
 
 let is_nonempty ls =
   match ls with
   | [] -> false
   | _ -> true
   end
-in
 
 let last (type a_) (l : { List a_ | is_nonempty }) : a_ =
   ycomb (
@@ -27,6 +25,3 @@ let last (type a_) (l : { List a_ | is_nonempty }) : a_ =
         end
       end
   ) l
-in
-
-last

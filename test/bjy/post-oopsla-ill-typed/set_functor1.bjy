@@ -20,7 +20,3 @@ letd F (tf : type -> type) :
         in
         loop r.empty ls # ERROR: forgot to apply empty record to r.empty
     }
-
-in
-
-F

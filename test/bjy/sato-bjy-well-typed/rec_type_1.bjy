@@ -1,2 +1,2 @@
+
 let (x : Mu tt. (``R { a : bool; b : tt } || ``B bool)) = `R { a = false; b = `B true }
-in x

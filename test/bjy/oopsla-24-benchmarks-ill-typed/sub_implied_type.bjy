@@ -4,7 +4,6 @@
 # ignored arg must be 0. Applies 0 to g
 let appl_zero (g : int -> bool) (ignored_zero_arg : { int | fun i -> i == 0 }) : bool =
   g 0
-in
 
 # By the body of `f`; we know `f` effectively has type `int -> { int | fun i -> i == 0 } -> bool`; but
 #  we have `appl_zero (f (n - 1))`; and type of `f (n - 1)` is not a subtype of `int -> bool`; so it fails.
@@ -12,10 +11,6 @@ let rec f n zero_arg =
   if n <= 0
   then true
   else appl_zero (f (n - 1)) zero_arg
-in
 
 let main (n : int) : bool =
   f n 0
-in
-
-main

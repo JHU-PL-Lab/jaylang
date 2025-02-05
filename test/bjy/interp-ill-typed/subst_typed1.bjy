@@ -3,17 +3,14 @@ let nil =
   { t = unit
   ; v = {}
   }
-in
 
 let pair =
   { t = fun a -> fun b -> { left : a ; right : b }
   }
-in
 
 let triple =
   { t = fun a -> fun b -> fun c -> { first : a ; second : b ; third : c }
   }
-in
 
 let ttype = 
   let tint = `TInt nil.v in
@@ -40,7 +37,6 @@ let ttype =
   ; eq = eq
   ; is_int = eq tint
   }
-in
 
 let ident =
   { t = ``Id int
@@ -50,7 +46,6 @@ let ident =
         let y = match b with `Id i -> i end in
         x == y
   }
-in
 
 let expr =
   { t = Mu tt.
@@ -63,7 +58,6 @@ let expr =
     || ``Equal (pair.t tt tt)
     || ``Appl (pair.t tt tt)
   }
-in
 
 let rec mem ls a eq =
   match ls with
@@ -73,7 +67,6 @@ let rec mem ls a eq =
       then true
       else mem tl a eq
   end
-in
 
 let free_vars e =
   let rec loop e bound_ids acc =
@@ -104,21 +97,18 @@ let free_vars e =
     end
   in
   loop e [] []
-in
 
 let is_closed e = 
   match free_vars e with
   | [] -> true
   | _ -> false
   end
-in
 
 let value =
   { t =
     ``Int int
     || ``Function (triple.t ident.t ttype.t ({ expr.t | is_closed }))
   }
-in
 
 let result =
   { t =
@@ -141,7 +131,6 @@ let result =
         | _ -> false
         end
   }
-in
 
 let typecheck e =
   let add_to_env gamma id tau =
@@ -212,12 +201,10 @@ let typecheck e =
     end
   in
   typecheck e (fun ignore_unbound_variable -> result.error)
-in
 
 let is_closed_and_well_typed e =
   result.is_ok (typecheck e)
   # Note we don't actually have to check for closed because that would be an unbound variable when typechecking
-in
 
 let rec list_remove ls a eq =
   match ls with
@@ -227,7 +214,6 @@ let rec list_remove ls a eq =
       then list_remove tl a eq
       else hd :: list_remove tl a eq
   end
-in
 
 let set_eq ls1 ls2 eq =
   let rec is_subset subset superset =
@@ -241,7 +227,6 @@ let set_eq ls1 ls2 eq =
   in
   is_subset ls1 ls2
   and is_subset ls2 ls1
-in
 
 # after subst; the expression has the same free variables as e; minus id
 letd subst (e : expr.t) : (id : ident.t) -> value.t -> { expr.t | fun new_expr ->
@@ -272,7 +257,6 @@ letd subst (e : expr.t) : (id : ident.t) -> value.t -> { expr.t | fun new_expr -
     end
   in
   sub e
-in
 
 # Archive this error
     #| `If_then_else trip -> `If_then_else { first = sub trip.second ; second = sub trip.second ; third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label
@@ -284,7 +268,6 @@ let int_exn e =
   match e with
   | `Int i -> i
   end
-in
 
 #let rec eval (e : { expr.t | is_closed_and_well_typed }) : value.t =
 let rec eval e =
@@ -311,6 +294,3 @@ let rec eval e =
       else eval trip.third
     end
   end
-in
-
-eval

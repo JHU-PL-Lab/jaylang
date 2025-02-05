@@ -23,7 +23,6 @@ let set_m =
         end
       in f
   }
-in
 
 let set_m_type = 
   fun a_ -> # any type
@@ -33,9 +32,5 @@ let set_m_type =
     ; remove : a_ -> t -> (a_ -> a_ -> bool) -> t
     ; contains : a_ -> t -> (a_ -> a_ -> bool) -> bool
     }
-in
 
 let (check_type : set_m_type (int)) = set_m
-in
-
-check_type 

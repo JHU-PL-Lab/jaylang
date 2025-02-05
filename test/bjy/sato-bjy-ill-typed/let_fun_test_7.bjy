@@ -1,6 +1,3 @@
 
 let neg (x : int) : bool =
   (0 - 1) * x
-in
-
-neg

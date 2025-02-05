@@ -9,5 +9,3 @@ let rec foldl1 (type a_) (f : a_ -> a_ -> a_) (xs : List a_) : a_ =
     end
   | [] -> assert false # ERROR: `xs` could be empty. `assert false` is equivalent to missing match case
   end
-in
-foldl1

@@ -57,7 +57,6 @@ let any = Mu t.
   || ``I int 
   || ``B bool
   || ``L (List t)
-in
 
 let id = 
   let get =
@@ -76,11 +75,9 @@ let id =
         get i1 == get i2
   ; initial = `Id 0
   }
-in
 
 # Suppose this usually is polymorphic. 
 let a = ``A int
-in
 
 let data =
   ``Diff
@@ -90,7 +87,6 @@ let data =
         ; next : id.t    # the id for the ref cell of the child of this node
       }
   || ``Mem unit          # this node is what is currently stored in memory
-in
 
 let poly_map =
   { t =
@@ -133,7 +129,6 @@ let poly_map =
         in
         length t
   }
-in
 
 let state = 
   let size =
@@ -157,50 +152,41 @@ let state =
         { map = pm ; next_id = t.next_id }
   ; initial = { map = poly_map.empty ; next_id = id.initial }
   }
-in
 
 let m a = 
   (s : state.t) ->
     { new_state : { state.t | state.is_progression s }
      ; value     : a
     }
-in
 
 #let bind (type a b) (x : m a) (f : a -> m b) : m b = 
 let bind x f =
   fun s ->
     let xs = x s in
     f xs.value xs.new_state
-in
 
 let return a =
   fun s ->
     { new_state = s ; value = a }
-in
 
 let fmap x f = bind x (fun a -> return (f a))
-in
 
 #let (read : m state.t) =
 let read =
   fun s ->
     { new_state = s ; value = s }
-in
 
 let run x = (x state.initial).value
-in
 
 let modify f =
   fun s ->
     { new_state = f s ; value = {} }
-in
 
 #let deref (ref_id : id.t) : m any =
 let deref ref_id =
   bind read (fun s ->
     return (poly_map.find s.map ref_id)
   )
-in
 
 let set_ref ref_id v =
   modify (fun s ->
@@ -208,7 +194,6 @@ let set_ref ref_id v =
       s
       (poly_map.set s.map ref_id v)
   )
-in
 
 let new_ref x =
   fun s ->
@@ -219,7 +204,6 @@ let new_ref x =
           (state.incr_id s)
           (poly_map.set s.map new_id x)
     }
-in
 
 let res =
   match run (
@@ -253,6 +237,3 @@ let res =
     then assert false
     else assume true
   end
-in
-
-bind

@@ -5,7 +5,6 @@ let is_nonempty ls =
   | [] -> false
   | _ -> true
   end
-in
 
 let rec foldl1 (type a_) (f : a_ -> a_ -> a_) (xs : { List a_ | is_nonempty } ) : a_ =
   match xs with
@@ -15,5 +14,3 @@ let rec foldl1 (type a_) (f : a_ -> a_ -> a_) (xs : { List a_ | is_nonempty } ) 
     | z1 :: tl -> foldl1 a_ f ((f z z1) :: tl)
     end
   end
-in
-foldl1

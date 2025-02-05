@@ -4,13 +4,11 @@ let rec reverse l ac =
   | [] -> ac
   | hd :: tl -> reverse tl (hd :: ac)
   end
-in
 
 let rec mk_list n =
   if n < 0
   then []
   else n :: mk_list (n - 1)
-in
 
 let main (len : int) : int =
   let xs = mk_list len in
@@ -22,7 +20,3 @@ let main (len : int) : int =
     end
   else
     0
-in
-
-main
-

@@ -6,7 +6,6 @@ let rec ycomb f =
     (fun x -> f (fun z -> (x x) z))
     (fun x -> f (fun z -> (x x) z))
     y
-in
 
 let last (type a_) (l : List a_) : a_ =
   ycomb (
@@ -20,6 +19,3 @@ let last (type a_) (l : List a_) : a_ =
         end
       end
   ) l
-in
-
-last

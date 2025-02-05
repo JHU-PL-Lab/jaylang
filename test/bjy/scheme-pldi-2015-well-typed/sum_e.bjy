@@ -4,10 +4,6 @@ let rec sum x =
   if x <= 0
   then 0
   else x + sum (x - 1)
-in
 
 let main (n : { int | fun i -> i >= 14 }) : { int | fun i -> 100 <= i } =
   sum n
-in
-
-main

@@ -3,29 +3,23 @@
 let eq i =
   fun x ->
     i == x
-in
 
 let one_of i =
   { int | eq i }
-in
 
-let lock (st : one_of 0) : one_of 1 = 1 in
-let unlock (st : one_of 1) : one_of 0 = 0 in
+let lock (st : one_of 0) : one_of 1 = 1
+
+let unlock (st : one_of 1) : one_of 0 = 0
 
 let f n st =
   if n > 0
   then lock st
   else st
-in
 
 let g n st =
   if n > 0
   then unlock st
   else st
-in
 
 let main (n : int) : one_of 0 =
   g n (f n 0)
-in
-
-main

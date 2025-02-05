@@ -2,12 +2,10 @@
 
 let compose (type a b c) (b_c : b -> c) (a_b : a -> b) (a_ : a) : c =
   b_c (a_b a_)
-in
 
 let id (type a) (a_ : a) : a =
   a_
-in
-
+  
 let r =
   compose
     (int)
@@ -16,6 +14,3 @@ let r =
     (id (int))
     (id (int))
     4 
-in
-
-r

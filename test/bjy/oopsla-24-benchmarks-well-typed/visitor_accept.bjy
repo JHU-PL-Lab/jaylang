@@ -1,23 +1,18 @@
 let result_type = { result : int }
-in
 
 let city =
   { population : int
    ; show_population : bool -> bool }
-in
 
 let sight =
   { is_open : bool }
-in
 
 let visitor =
   { visit_city : city -> result_type
    ; visit_sight : sight -> result_type }
-in
 
 let client =
    { accept : visitor -> result_type }
-in
 
 let make_city_client (i : int) : client =
   let s = 
@@ -26,14 +21,7 @@ let make_city_client (i : int) : client =
       ; show_population = fun ignore -> (self self).population == 0 } # arbitrary code in place of side effect 
   in
   { accept = fun v -> v.visit_city (s s) }
-in
 
 let make_sight_client (b : bool) : client =
   let s = { is_open = b } in
   { self = s ; accept = fun v -> v.visit_sight s }
-in
-
-make_sight_client
-
-
-

@@ -33,7 +33,6 @@ let state_monad =
       in
       impl
   }
-in
 
 # We don't have polymorphic types that easily to type a record; so I do this little trick
 let confirm_type_of_state_monad (type a b s) (dummy : a) :
@@ -46,7 +45,6 @@ let confirm_type_of_state_monad (type a b s) (dummy : a) :
   })
   =
     state_monad
-in
 
 let t n = 
   int -> (
@@ -64,7 +62,6 @@ let t n =
     # EXAMPLE ERROR: don't use run. Just apply state by self (and thereby forget to project the result from the record)
     # But such an error is instant to catch just in the generation of a value with type t
   )
-in
 
 letd main (n :  int) : t n -> (int -> int) =
   fun f ->
@@ -74,6 +71,3 @@ letd main (n :  int) : t n -> (int -> int) =
       else (loop (i - 1)) i
     in
     loop (n - 2)
-in
-
-t

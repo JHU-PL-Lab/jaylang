@@ -3,15 +3,12 @@ let t =
   { f : int -> bool
    ; g : int -> int
    ; x : bool }
-in
 
 # Dummy implementation because we don't have side effects
 let get_current_time ignore = 0
-in
 
 # Dummy implementation because we don't have side effects
 let print ignore = 0
-in
 
 let make_timer_decorator (x : t) : t =
   let time f =
@@ -26,6 +23,4 @@ let make_timer_decorator (x : t) : t =
   ; g = time x.g
   ; x = x.x
   }
-in
-
-make_timer_decorator
+  

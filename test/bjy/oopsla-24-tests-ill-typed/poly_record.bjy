@@ -2,10 +2,8 @@
 let t a b =
   { la : a
    ; lb : b }
-in
 
 let f (type a) (x : t a a) : a =
   x.la
-in
 
-f (int) { la = 0 ; lb = true } # ERROR: lb should have type int
+let res = f (int) { la = 0 ; lb = true } # ERROR: lb should have type int

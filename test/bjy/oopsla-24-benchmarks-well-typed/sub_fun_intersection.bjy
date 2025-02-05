@@ -2,7 +2,6 @@
 # wrap is helpful for catching error; but I'm not sure why
 
 let t = { ((``Int int) -> int) && ((``Bool bool) -> bool) | fun f -> f (`Bool true) }
-in
 
 # this is a subtype of t
 # error in this file still gets caught if we have `let (f : t) =`; but it is slower
@@ -13,13 +12,8 @@ let f =
     | `Int i -> i
     | _ -> 1 :: 2 :: []
     end
-in
 
 let g (h : t) : t =
   fun x -> f x
-in
 
 let x = g f 
-in
-
-x

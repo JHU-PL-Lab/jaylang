@@ -1,23 +1,19 @@
 # Continuation monad -- improper use of bind
 
 let t a r = { continuation : (a -> r) -> r }
-in
 
 let bind (type a_ b_ r_) (ar_r : t a_ r_) : (a_ -> t b_ r_) -> t b_ r_ = 
   fun a_br_r ->
     { continuation = 
       fun br -> ar_r.continuation (fun a -> (a_br_r a).continuation br)
     }
-in
 
 let r = { r : int }
-in
 
 let x =
   { continuation =
     fun ir ->
       { r = (ir 0).r + 1 } }
-in
 
 let f =
   fun i ->
@@ -25,10 +21,8 @@ let f =
       fun lir ->
         lir [ i ]
     }
-in
 
 let y = bind (int) (List int) (r) x f
-in
 
 # I claim that the reason below is violation of the type instantiation of a polymorphic type; so this is a polymorphic type error
 let z = y.continuation (fun ls ->
@@ -37,7 +31,3 @@ let z = y.continuation (fun ls ->
   | hd :: tl -> { b = hd } # ERROR: should have label `r` instead of `b` in order to have correct type for `y.continuation`
   end
 )
-in
-
-z
-

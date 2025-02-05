@@ -3,6 +3,5 @@ let rec f (type a_) (a : a_) (i : int) : a_ =
   if i == 0
   then i # ERROR: should be a
   else f (a_) a (i - 1)
-in
 
-f (int) 1 2
+let res = f (int) 1 2

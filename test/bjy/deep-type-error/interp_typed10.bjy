@@ -3,17 +3,14 @@ let nil =
   { t = unit
   ; v = {}
   }
-in
 
 let pair =
   { t = fun a -> fun b -> { left : a ; right : b }
   }
-in
 
 let triple =
   { t = fun a -> fun b -> fun c -> { first : a ; second : b ; third : c }
   }
-in
 
 let ttype = 
   let tint = `TInt nil.v in
@@ -40,7 +37,6 @@ let ttype =
   ; eq = eq
   ; is_int = eq tint
   }
-in
 
 let ident =
   { t = ``Id int
@@ -50,7 +46,6 @@ let ident =
         let y = match b with `Id i -> i end in
         x == y
   }
-in
 
 let expr =
   { t = Mu tt.
@@ -63,12 +58,10 @@ let expr =
     || ``Equal (pair.t tt tt)
     || ``Appl (pair.t tt tt)
   }
-in
 
 let value =
   { t = ``Int int || ``Function (triple.t ident.t ttype.t expr.t)
   }
-in
 
 let result =
   { t =
@@ -91,7 +84,6 @@ let result =
         | _ -> false
         end
   }
-in
 
 let typecheck e =
   let add_to_env gamma id tau =
@@ -162,12 +154,10 @@ let typecheck e =
     end
   in
   typecheck e (fun ignore_unbound_variable -> result.error)
-in
 
 let is_closed_and_well_typed e =
   result.is_ok (typecheck e)
   # Note we don't actually have to check for closed because that would be an unbound variable when typechecking
-in
 
 #let subst (e : expr.t) (id : ident.t) (v : value.t) : expr.t =
 let subst e id v =
@@ -197,13 +187,11 @@ let subst e id v =
     end
   in
   sub e
-in
 
 let int_exn e =
   match e with
   | `Int i -> i
   end
-in
 
 let rec eval (e : { expr.t | is_closed_and_well_typed }) : value.t =
   let op_ints p op = 
@@ -229,6 +217,3 @@ let rec eval (e : { expr.t | is_closed_and_well_typed }) : value.t =
       else eval trip.third
     end
   end
-in
-
-eval

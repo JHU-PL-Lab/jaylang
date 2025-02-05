@@ -1,14 +1,9 @@
 
 let t = { f : int -> int }
-in
 
 let ob =
   fun self ->
     # NOTE: don't try to precompute `self self` because it diverges
     { f = fun x -> (self self).x + x } # ERROR: `self self` doesn't have label `x`
-in
 
 let (obj : t) = ob ob
-in
-
-obj
