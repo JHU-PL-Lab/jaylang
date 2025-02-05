@@ -14,6 +14,12 @@ The target of the desugaring can be found pushed in the `main` branch in the Jay
 
 Note that we add `type`, `abort`, and `diverge` in this pass, and everything else exists already in Bluejay.
 
+## Statements
+
+Programs are statement lists. Each statement is a let-expression without a continuation.
+
+Statements are desugared exactly like their corresponding let-expressions, except each top-level resulting `let` (e.g. there are many with a recursive function) is its own statement. We need no special cases, and the spec to desugar a statement is inferred from all definitions below and this simple transformation described here.
+
 ## Functions
 
 Note that untyped functions are all the same, but we just don't used typed let expressions.

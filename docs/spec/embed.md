@@ -15,6 +15,12 @@ The target of the embedding can be found pushed in the `main` branch in the Jayl
 
 It is simply desugared Bluejay without the types, but it has gained freeze, thaw, id, and casing (which could be sugar for nested conditionals, but we like that they easily give n-ary branches).
 
+## Statements
+
+Programs are statement lists. A statement is a let-expression without a continuation.
+
+Statements are embedded exactly like their corresponding let-expression as it is defined in this document.
+
 ## Types
 
 ### Int and bool
