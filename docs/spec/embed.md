@@ -212,25 +212,6 @@ Because of the desugaring, we only have types and dependent types instead of pol
     true
   , ~wrap = fun $e -> $e
   }
-
-
-[[singleton(t)]] =
-  { ~gen = freeze @@ t
-  , ~check = [[type]].~check
-  , ~wrap = [[type]].~wrap
-  }
-
-[[ {. tau | e_p }]] =
-  let r = [[ {: ~value : tau , ~dummy = if e_p value then {: :} else bottom :} ]] in
-  { ~gen = freeze @@
-    (thaw r.~gen).~value
-  , ~check = fun $e ->
-    r.~check { ~value = $e , ~dummy = {} }
-  , ~wrap = fun $e ->
-    r.~wrap { ~value = $e , ~dummy = {} }
-  }
-
-
 ```
 
 ### Intersection types
@@ -299,7 +280,7 @@ Here we have a few ideas for extensions, but they are not fully thought through.
 ### Dependent records
 
 ```ocaml
-[[ {:(dep) l_0 : tau_0 , ... , l_n : tau_n :} ]] =
+[[ {: l_0 : tau_0 , ... , l_n : tau_n :} ]] =
   { ~gen = freeze @@
     let l_0 = thaw [[tau_0]].~gen in (* use the name l_0 to put it in scope *)
     ...
@@ -339,7 +320,7 @@ The singleton of a type is just the singleton set containing that type.
 ### Refinement types as dependent records
 
 ```ocaml
-[[ {. tau | e_p }]] =
+[[ { tau | e_p }]] =
   let $r = [[ {: ~value : tau , ~dummy = if e_p value then {: :} else bottom :} ]] in (* supposing this record is dependent *)
   { ~gen = freeze @@
     (thaw $r.~gen).~value

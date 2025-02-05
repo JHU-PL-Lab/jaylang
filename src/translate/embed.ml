@@ -151,6 +151,13 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     (* special cases *)
     | ERecord m -> Map.exists m ~f:loop
     | ETypeRecord m -> Map.exists m ~f:loop
+    | ETypeRecordD m -> List.fold_until m ~init:false ~f:(fun acc (label, e) ->
+        let RecordLabel label_id = label in
+        let res = acc || loop e in
+        if Ident.equal label_id id
+        then Stop res (* stop because id is bound to this label in later labels *)
+        else Continue res (* continue to check remaining labels after this *)
+      ) ~finish:Fn.id
     | ETypeVariant ls -> List.exists ls ~f:(fun (_, e) -> loop e)
     | ETypeIntersect ls -> List.exists ls ~f:(fun (_, e1, e2) -> loop e1 || loop e2)
     | EMatch { subject ; patterns } -> loop subject || List.exists patterns ~f:(fun (_, e) -> loop e)
@@ -290,6 +297,45 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) ~(do_w
                 wrap tau (proj (EVar e) label)
               )
             )
+          )
+        ))
+    | ETypeRecordD ls ->
+      E.make
+        ~ask_for
+        ~gen:(lazy (
+          build @@
+            let%bind () =
+              iter ls ~f:(fun (RecordLabel label_id, tau) ->
+                assign label_id @@ gen tau
+              )
+            in
+            return (ERecord (RecordLabel.Map.of_alist_exn
+              @@ List.map ls ~f:(fun (((RecordLabel label_id) as l), _) -> l, EVar (label_id))
+            ))
+        ))
+        ~check:(lazy (
+          fresh_abstraction "e_dep_rec_check" (fun e ->
+            build @@
+              let%bind () =
+                iter ls ~f:(fun (RecordLabel label_id as l, tau) ->
+                  let%bind () = ignore @@ check tau (proj (EVar e) l) in
+                  assign label_id @@ proj (EVar e) l
+                )
+              in
+              return (EBool true)
+          )
+        ))
+        ~wrap:(lazy (
+          fresh_abstraction "e_dep_rec_wrap" (fun e ->
+            build @@
+              let%bind () =
+                iter ls ~f:(fun (RecordLabel label_id as l, tau) ->
+                  assign label_id @@ wrap tau (proj (EVar e) l)
+                )
+              in
+              return (ERecord (RecordLabel.Map.of_alist_exn
+                @@ List.map ls ~f:(fun (((RecordLabel label_id) as l), _) -> l, EVar (label_id))
+              ))
           )
         ))
     | EType ->

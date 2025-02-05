@@ -38,6 +38,7 @@ module Make (Cell : CELL) (V : T1) = struct
       | VTypeInt : 'a bluejay_or_desugared t
       | VTypeBool : 'a bluejay_or_desugared t
       | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
+      | VTypeRecordD : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
       | VTypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
       | VTypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t

@@ -117,6 +117,8 @@ let desugar_bluejay (names : (module Fresh_names.S)) (expr : Bluejay.t) : Desuga
       ETypeArrowD { binding ; domain = desugar domain ; codomain = desugar codomain }
     | ETypeRecord m ->
       ETypeRecord (Map.map m ~f:desugar)
+    | ETypeRecordD m ->
+      ETypeRecordD (List.map m ~f:(fun (label, e) -> label, desugar e))
     | ETypeRefinement { tau ; predicate } ->
       ETypeRefinement { tau = desugar tau ; predicate = desugar predicate }
     | ETypeIntersect ls_e ->

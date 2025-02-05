@@ -102,18 +102,11 @@ module Funsig = struct
     match fsig with
     | FUntyped { func_id ; params ; body } ->
       { func_id ; tau_opt = None ; params ; body }
-    | FTyped { func_id ; params ; body ; ret_type } ->
-      let param_ids, param_taus = List.unzip @@ List.map params ~f:(fun { var ; tau } -> var, tau) in
-      { func_id ;  body ; params = param_ids
-      ; tau_opt = Some (Utils.tau_list_to_arrow_type param_taus ret_type) }
-    | FPolyTyped { func = { func_id ; params ; ret_type ; body } ; type_vars } ->
+    | FTyped { type_vars ;  func_id ; params ; ret_type ; body } ->
       let param_ids, param_taus = List.unzip @@ List.map params ~f:(fun { var ; tau } -> var, tau) in
       { func_id ; body ; params = type_vars @ param_ids
       ; tau_opt = Some (ETypeForall { type_variables = type_vars ; tau = Utils.tau_list_to_arrow_type param_taus ret_type }) }
-    | FDepTyped { func_id ; params ; ret_type ; body } ->
-      { func_id ; body ; params = [ params.var ]
-      ; tau_opt = Some (ETypeArrowD { binding = params.var ; domain = params.tau ; codomain = ret_type }) }
-    | FPolyDepTyped { func = { func_id ; params ; ret_type ; body } ; type_vars } ->
+    | FDepTyped { type_vars ; func_id ; params ; ret_type ; body } ->
       { func_id ; body ; params = type_vars @ [ params.var ]
       ; tau_opt = Some (
           ETypeForall

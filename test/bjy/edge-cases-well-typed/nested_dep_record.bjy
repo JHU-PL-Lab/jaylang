@@ -1,0 +1,14 @@
+
+let t =
+  {: t : type
+  ; a : type
+  ; r : {: a : a ; b : t :}
+  ; s : a (* this should have the type of a, which is unaffected by `r.a` *)
+  :}
+in
+
+letd f (x : t) : x.a =
+  x.s
+in
+
+f

@@ -1,0 +1,17 @@
+
+let t = {: t : type ; elt : type ; empty : t ; add : t -> elt -> t :}
+in
+
+letd F (x : t) : { of_list : (List x.elt) -> x.t } =
+  { of_list = fun ls -> 
+    let rec loop acc ls =
+      match ls with
+      | [] -> acc
+      | hd :: tl -> loop (x.add acc hd) tl
+      end
+    in
+    loop x.empty ls
+  }
+in
+
+F

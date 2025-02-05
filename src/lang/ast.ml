@@ -167,6 +167,7 @@ module Expr = struct
     | ETypeInt : 'a bluejay_or_desugared t
     | ETypeBool : 'a bluejay_or_desugared t
     | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
+    | ETypeRecordD : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
     | ETypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
     | ETypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
     | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
@@ -189,20 +190,19 @@ module Expr = struct
   and _ funsig =
     | FUntyped : { func_id : Ident.t ; params : Ident.t list ; body : 'a t } -> 'a funsig
     | FTyped : ('a, 'a typed_var list) typed_fun -> 'a funsig
-    | FPolyTyped : { func : ('a, 'a typed_var list) typed_fun ; type_vars : Ident.t list } -> 'a funsig
     | FDepTyped : ('a, 'a typed_var) typed_fun -> 'a funsig
-    | FPolyDepTyped : { func : ('a, 'a typed_var) typed_fun ; type_vars : Ident.t list } -> 'a funsig
 
   (* a variable with its type, where the type is an expression *)
   and 'a typed_var = { var : Ident.t ; tau : 'a t }
 
-  (* the common parts of typed let-function signature *)
-  and ('a, 'p) typed_fun = { func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
+  (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
+  and ('a, 'p) typed_fun = { type_vars : Ident.t list ; func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
 end
 
 module Program = struct
   open Expr
 
+  (* TODO: actually parse programs into statement lists *)
   type _ statement =
     (* all *)
     | SUntyped : { var : Ident.t ; body : 'a t } -> 'a statement
@@ -214,7 +214,7 @@ module Program = struct
     | SFun : 'a funsig -> 'a bluejay_only statement
     | SFunRec : 'a funsig list -> 'a bluejay_only statement
 
-  type 'a t = 'a statement Preface.Nonempty_list.t
+  type 'a t = 'a statement list
 end
 
 module Embedded = struct

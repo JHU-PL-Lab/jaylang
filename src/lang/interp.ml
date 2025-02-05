@@ -97,6 +97,15 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ETypeRecord record_type_body ->
       let%bind new_record = eval_record_body record_type_body env in
       return (VTypeRecord new_record)
+    | ETypeRecordD dep_record_type_body ->
+      let%bind v, _env =
+        List.fold dep_record_type_body ~init:(return (RecordLabel.Map.empty, env)) ~f:(fun acc_m (label, e) ->
+          let%bind (acc, env) = acc_m in
+          let%bind v = eval e env in
+          return (Map.set acc ~key:label ~data:v, Env.add env (let RecordLabel id = label in id) v)
+        )
+      in
+      return (VTypeRecordD v)
     | EThaw e ->
       let%bind v_frozen = eval e env in
       let%orzero (VFrozen { expr = e_frozen ; env }) = v_frozen in
@@ -251,10 +260,10 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       )
   in
   (eval e Env.empty).run (function
-    | Ok r -> Format.printf "OK"; r
+    | Ok r -> Format.printf "OK\n"; r
     | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
-    | Error Abort -> Format.printf "FOUND ABORT"; VAbort
-    | Error Diverge -> Format.printf "DIVERGE"; VDiverge
+    | Error Abort -> Format.printf "FOUND ABORT\n"; VAbort
+    | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge
   )
 
 
