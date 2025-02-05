@@ -202,7 +202,6 @@ end
 module Program = struct
   open Expr
 
-  (* TODO: actually parse programs into statement lists *)
   type _ statement =
     (* all *)
     | SUntyped : { var : Ident.t ; body : 'a t } -> 'a statement
@@ -231,7 +230,7 @@ module Program = struct
 
   let rec pgm_to_expr : type a. a statement list -> a Expr.t = function
     | [] -> ERecord RecordLabel.Map.empty
-    | (hd : a statement) :: (tl : a statement list) ->
+    | hd :: tl ->
       let cont = pgm_to_expr tl in
       stmt_to_expr hd cont
 end

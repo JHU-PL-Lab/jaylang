@@ -234,42 +234,30 @@ record_type_body:
 /* **** Functions **** */
 
 letfun:
-  | LET fun_sig
-  | LET fun_sig_with_type
-  | LET fun_sig_poly_with_type
-  | LET_D fun_sig_dependent
-  | LET_D fun_sig_poly_dep { $2 }
+  | LET fun_sig_non_dep
+  | LET_D fun_sig_dependent { $2 }
 
 letfun_rec:
-  | LET REC separated_nonempty_list(WITH, fun_sig)
-  | LET REC separated_nonempty_list(WITH, fun_sig_with_type)
-  | LET REC separated_nonempty_list(WITH, fun_sig_poly_with_type)
-  | LET_D REC separated_nonempty_list(WITH, fun_sig_dependent)
-  | LET_D REC separated_nonempty_list(WITH, fun_sig_poly_dep) { $3 }
+  | LET REC separated_nonempty_list(WITH, fun_sig_non_dep)
+  | LET_D REC separated_nonempty_list(WITH, fun_sig_dependent) { $3 }
 
 /* let foo x = ... */
-fun_sig:
+/* let foo (x : int) ... : int = ... */
+/* let foo (type a b) (x : int) ... : t = ... */
+fun_sig_non_dep:
   | ident_decl param_list EQUALS expr
       { FUntyped { func_id = $1 ; params = $2 ; body = $4 } : Bluejay.funsig }
-
-/* let foo (x : int) ... : int = ... */
-fun_sig_with_type:
   | ident_decl param_list_with_type COLON expr EQUALS expr
       { FTyped { type_vars = [] ; func_id = $1 ; params = $2 ; ret_type = $4 ; body = $6 } : Bluejay.funsig }
-
-/* letd foo (x : int) ... : t = ... */
-fun_sig_dependent:
-  | ident_decl param_with_type COLON expr EQUALS expr
-      { FDepTyped { type_vars = [] ; func_id = $1 ; params = $2 ; ret_type = $4 ; body = $6 } : Bluejay.funsig }
-
-/* let foo (type a b) (x : int) ... : t = ... */
-fun_sig_poly_with_type:
   | ident_decl OPEN_PAREN TYPE param_list CLOSE_PAREN param_list_with_type COLON expr EQUALS expr 
       { FTyped { type_vars = $4 ; func_id = $1 ; params = $6 ; ret_type = $8 ; body = $10 } : Bluejay.funsig }
 
+/* letd foo (x : int) ... : t = ... */
 /* letd foo (type a b) (x : int) ... : t = ... */
-fun_sig_poly_dep:
-   ident_decl OPEN_PAREN TYPE param_list CLOSE_PAREN param_with_type COLON expr EQUALS expr
+fun_sig_dependent:
+  | ident_decl param_with_type COLON expr EQUALS expr
+      { FDepTyped { type_vars = [] ; func_id = $1 ; params = $2 ; ret_type = $4 ; body = $6 } : Bluejay.funsig }
+  | ident_decl OPEN_PAREN TYPE param_list CLOSE_PAREN param_with_type COLON expr EQUALS expr
       { FDepTyped { type_vars = $4 ; func_id = $1 ; params = $6 ; ret_type = $8 ; body = $10 } : Bluejay.funsig }
 
 /* **** Primary expressions **** */
