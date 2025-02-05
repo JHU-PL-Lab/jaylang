@@ -25,12 +25,12 @@ let () =
   | "" -> ()
   | src_file -> begin
     let pgm =
-      Lang.Parse.parse_single_expr_string
+      Lang.Parse.parse_single_pgm_string
       @@ In_channel.read_all src_file
     in
     match !mode with
-    | "bluejay" -> let _ = Interp.eval_exp pgm in ()
-    | "desugared" -> let _ = Interp.eval_exp @@ Translate.Convert.bjy_to_des pgm in ()
+    | "bluejay" -> let _ = Interp.eval_pgm pgm in ()
+    | "desugared" -> let _ = Interp.eval_pgm @@ Translate.Convert.bjy_to_des pgm in ()
     | "embedded" ->
       let do_wrap =
         match String.lowercase !wrap with
@@ -38,6 +38,6 @@ let () =
         | "no" | "n" -> false
         | _ -> Format.eprintf "Error: bad string given to wrap -w flag. Should be yes/no."; assert false
       in
-      let _ = Interp.eval_exp @@ Translate.Convert.bjy_to_emb pgm ~do_wrap in ()
+      let _ = Interp.eval_pgm @@ Translate.Convert.bjy_to_emb pgm ~do_wrap in ()
     | _ -> Format.eprintf "Error: mode should be one of bluejay, desugared, embedded."; assert false
   end

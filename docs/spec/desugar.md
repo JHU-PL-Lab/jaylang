@@ -116,7 +116,7 @@ let $fn =
 in
 let (f1 : [| tau1_1 -> ... -> tau1_m1 -> tau1 |] (flag: tau knows binding)) = $f1 $f1 $f2 ... $fn in
 ...
-let (fn : [| taun_1 -> ... -> taun_mn -> taun |]) = $fn $f1 $f2 ... $fn in (* same flags )
+let (fn : [| taun_1 -> ... -> taun_mn -> taun |]) = $fn $f1 $f2 ... $fn in (* same flags *)
 [| e |]
 ```
 
@@ -243,7 +243,7 @@ match [| e |] with
 | [| p1 -> e1 |] 
 | ...
 | [| pi -> ei |]
-| `Untouched $ignore -> abort (* catch polymorphic values before any TODO: untouched is not a variant, and `any` should only catch variants *)
+| `~Untouched $ignore -> abort
 | (any or variable) ->
   [| eany |]
 (* the patterns following `any` or a catchall variable are not reachable *)

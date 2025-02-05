@@ -1,6 +1,6 @@
 
-val test_expr : (Lang.Ast.Embedded.t, Status.Terminal.t) Options.Arrow.t
-(** [test_expr pgm] is the result of concolic evaluation on [pgm],
+val test_pgm : (Lang.Ast.Embedded.pgm, Status.Terminal.t) Options.Arrow.t
+(** [test_pgm pgm] is the result of concolic evaluation on [pgm],
     or timeout if the timeout limit was exceeded. The result is printed
     to stdout. *)
 

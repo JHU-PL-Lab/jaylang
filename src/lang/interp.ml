@@ -259,6 +259,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         return (Map.set acc ~key ~data:v)
       )
   in
+
   (eval e Env.empty).run (function
     | Ok r -> Format.printf "OK\n"; r
     | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
@@ -266,5 +267,10 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge
   )
 
+(* TODO: evaluate program for real as a statement list instead of like this *)
+let eval_pgm (type a) (pgm : a Program.t) : a V.t =
+  pgm
+  |> Program.to_expr
+  |> eval_exp
 
 

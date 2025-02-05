@@ -67,12 +67,12 @@ module Report_row (* : Latex_table.ROW *) =
         let t0 = Caml_unix.gettimeofday () in
         let source =
           In_channel.read_all testname
-          |> Lang.Parse.parse_single_expr_string
+          |> Lang.Parse.parse_single_pgm_string
           |> Translate.Convert.bjy_to_emb ~do_wrap:true
         in
         let t1 = Caml_unix.gettimeofday () in
         let test_result =
-          Concolic.Driver.test_expr source ~global_timeout_sec:90.0
+          Concolic.Driver.test_pgm source ~global_timeout_sec:90.0
         in
         let t2 = Caml_unix.gettimeofday () in
         let row =

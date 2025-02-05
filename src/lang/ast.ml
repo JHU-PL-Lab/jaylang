@@ -228,25 +228,36 @@ module Program = struct
     | SFunRec fsigs ->
       ELetFunRec { funcs = fsigs ; cont }
 
-  let rec pgm_to_expr : type a. a statement list -> a Expr.t = function
-    | [] -> ERecord RecordLabel.Map.empty
+  let rec to_expr_with_cont : type a. a Expr.t -> a statement list -> a Expr.t =
+    fun cont -> function
+    | [] -> cont
     | hd :: tl ->
-      let cont = pgm_to_expr tl in
+      let cont = to_expr_with_cont cont tl in
       stmt_to_expr hd cont
+
+
+  let to_expr : type a. a statement list -> a Expr.t =
+    fun pgm ->
+      to_expr_with_cont (ERecord RecordLabel.Map.empty) pgm
 end
 
 module Embedded = struct
   type t = embedded Expr.t
+  type pgm = embedded Program.t
   type pattern = embedded Pattern.t
+  type statement = embedded Program.statement
 end
 
 module Desugared = struct
   type t = desugared Expr.t
+  type pgm = desugared Program.t
   type pattern = desugared Pattern.t
+  type statement = desugared Program.statement
 end
 
 module Bluejay = struct
   type t = bluejay Expr.t
+  type pgm = bluejay Program.t
   type pattern = bluejay Pattern.t
   type funsig = bluejay Expr.funsig
   type typed_var = bluejay Expr.typed_var

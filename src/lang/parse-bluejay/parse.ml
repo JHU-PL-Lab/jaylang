@@ -26,9 +26,9 @@ let parse_expression_string (expr_str : string) =
   in
   Seq.unfold read_expr () |> List.of_seq
 
-let parse_single_expr_string (expr_str : string) =
+let parse_single_pgm_string (expr_str : string) =
   let expr_lst = parse_expression_string expr_str in
   match expr_lst with
-  | [ expr ] -> Ast.Program.pgm_to_expr expr
+  | [ expr ] -> expr
   | [] -> raise @@ Invalid_argument "string is missing expression"
   | _ -> raise @@ Invalid_argument "string has more than one expression"

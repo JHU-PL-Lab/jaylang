@@ -80,7 +80,7 @@ module LetMonad = struct
     )
 end
 
-let desugar_bluejay (names : (module Fresh_names.S)) (expr : Bluejay.t) : Desugared.t =
+let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared.pgm =
   let module Names = (val names) in
   let open LetMonad in
 
@@ -209,48 +209,9 @@ let desugar_bluejay (names : (module Fresh_names.S)) (expr : Bluejay.t) : Desuga
         return (desugar cont)
     end
     | ELetFunRec { funcs ; cont } ->
-      let func_comps = List.map funcs ~f:funsig_to_components in
-      let f_names = List.map func_comps ~f:(fun r -> r.func_id) in
-      let tmp_name_of_name =
-        let m =
-          List.fold f_names ~init:Ident.Map.empty ~f:(fun acc func_id ->
-            Map.set acc ~key:func_id ~data:(let Ident suffix = func_id in Names.fresh_id ~suffix ())
-            )
-        in
-        Map.find_exn m 
-      in
-      let tmp_names = List.map f_names ~f:tmp_name_of_name in
-      (*
-        Creates
-          let f1 = $f1 $f1 $f2 ... $fn in
-          ...
-          let fn = $fn $f1 $f2 ... $fn in
-      *)
-      let create_functions (binding_fun : Desugared.t option -> Binding.Kind.t) : unit m =
-        iter func_comps ~f:(fun { func_id ; tau_opt ; _ } ->
-          assign ~kind:(binding_fun tau_opt) func_id (
-            appl_list
-              (EVar (tmp_name_of_name func_id))
-              (List.map tmp_names ~f:(fun id -> EVar id))
-          )
-        )
-      in
-      build @@
-        let%bind () =
-          iter func_comps ~f:(fun { func_id ; params ; body ; _ } ->
-            assign (tmp_name_of_name func_id) (
-              abstract_over_ids tmp_names (
-                abstract_over_ids params (
-                  build @@ 
-                    let%bind () = create_functions Binding.Kind.rec_no_check_of_tau_opt in
-                    return body
-                )
-              )
-            )
-          )
-        in
-        let%bind () = create_functions Binding.Kind.rec_of_tau_opt in
-        return (desugar cont)
+      (* just roll up the statements and tell it to finish with cont *)
+      Program.to_expr_with_cont (desugar cont)
+      @@ desugar_rec_funs_to_stmt_list funcs
 
   (*
     Breaks a function signature into its id, type (optional), parameter names, and function body, all desugared.
@@ -278,6 +239,80 @@ let desugar_bluejay (names : (module Fresh_names.S)) (expr : Bluejay.t) : Desuga
         let%bind () = assign tl_id (EProject { record = EVar r ; label = Reserved_labels.Records.tl }) in
         return (desugar e)
     | (PAny | PVariable _ | PVariant _) as p -> p, desugar e
+
+  (*
+    Turns mutually recursive functions into many statements.
+    This is useful for both desugaring statements and expressions.
+  *)
+  and desugar_rec_funs_to_stmt_list (fsigs : bluejay funsig list) : Desugared.statement list =
+    let func_comps = List.map fsigs ~f:funsig_to_components in
+    let f_names = List.map func_comps ~f:(fun r -> r.func_id) in
+    let tmp_name_of_name =
+      let m =
+        List.fold f_names ~init:Ident.Map.empty ~f:(fun acc func_id ->
+          Map.set acc ~key:func_id ~data:(let Ident suffix = func_id in Names.fresh_id ~suffix ())
+          )
+      in
+      Map.find_exn m 
+    in
+    let tmp_names = List.map f_names ~f:tmp_name_of_name in
+    (*
+      Creates
+        let f1 = $f1 $f1 $f2 ... $fn in
+        ...
+        let fn = $fn $f1 $f2 ... $fn in
+    *)
+    let create_functions (binding_fun : Desugared.t option -> Binding.Kind.t) : unit m =
+      iter func_comps ~f:(fun { func_id ; tau_opt ; _ } ->
+        assign ~kind:(binding_fun tau_opt) func_id (
+          appl_list
+            (EVar (tmp_name_of_name func_id))
+            (List.map tmp_names ~f:(fun id -> EVar id))
+        )
+      )
+    in
+    List.map func_comps ~f:(fun { func_id ; params ; body ; _ } ->
+      Program.SUntyped { var = tmp_name_of_name func_id ; body = 
+        abstract_over_ids tmp_names (
+          abstract_over_ids params (
+            build @@ 
+              let%bind () = create_functions Binding.Kind.rec_no_check_of_tau_opt in
+              return body
+          )
+        )
+      }
+    )
+    @
+    List.map func_comps ~f:(fun { func_id ; tau_opt ; _ } ->
+      let body =
+        appl_list
+          (EVar (tmp_name_of_name func_id))
+          (List.map tmp_names ~f:(fun id -> EVar id))
+      in
+      match tau_opt with
+      | None ->
+        Program.SUntyped { var = func_id ; body }
+      | Some tau ->
+        Program.SFlagged { flags = LetFlag.Set.singleton TauKnowsBinding ; typed_var = { var = func_id ; tau } ; body }
+    )
+
+  and desugar_statement (stmt : Bluejay.statement) : Desugared.statement list =
+    let open List.Let_syntax in
+    match stmt with
+    | SUntyped { var ; body } ->
+      return @@ Program.SUntyped { var ; body = desugar body }
+    | STyped { typed_var = { var ; tau } ; body } ->
+      return @@ Program.STyped { typed_var = { var ; tau = desugar tau } ; body = desugar body }
+    | SFun fsig -> begin
+      let { func_id ; body ; params ; tau_opt } : desugared Function_components.t = funsig_to_components fsig in
+      let body = abstract_over_ids params body in
+      match tau_opt with
+      | None ->
+        return @@ Program.SUntyped { var = func_id ; body }
+      | Some tau ->
+        return @@ Program.STyped { typed_var = { var = func_id ; tau } ; body }
+      end
+    | SFunRec fsigs -> desugar_rec_funs_to_stmt_list fsigs
   in
 
-  desugar expr
+  List.bind pgm ~f:desugar_statement

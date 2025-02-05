@@ -167,7 +167,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   in
   loop expr
 
-let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) ~(do_wrap : bool) : Embedded.t =
+let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) : Embedded.pgm =
   let module E = Embedded_type (struct let do_wrap = do_wrap end) in
   let module Names = (val names) in
   let open LetMonad (Names) in
@@ -207,16 +207,10 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) ~(do_w
         List.map patterns ~f:(fun (pat, e) -> (embed_pattern pat, embed e))
       }
     (* Let *)
-    | ELetTyped { typed_var = { var = x ; tau } ; body = e ; cont = e' } ->
-      build @@
-        let%bind () = assign x @@ embed_let ~do_wrap ~do_check:true ~tau e in
-        return @@ embed e'
-    | ELetFlagged { flags ; typed_var = { var = x ; tau } ; body = e ; cont = e' } ->
-      let do_check = not @@ Set.mem flags NoCheck in
-      let v_name = if Set.mem flags TauKnowsBinding then x else Names.fresh_id () in
-      build @@
-        let%bind () = assign x @@ embed_let ~v_name ~do_wrap ~do_check ~tau e in
-        return @@ embed e'
+    | ELetTyped { typed_var ; body ; cont } ->
+      Program.stmt_to_expr (embed_statement (STyped { typed_var ; body })) (embed cont)
+    | ELetFlagged { flags ; typed_var ; body ; cont } ->
+      Program.stmt_to_expr (embed_statement (SFlagged { flags ; typed_var ; body })) (embed cont)
     (* types *)
     | ETypeInt ->
       E.make
@@ -617,6 +611,16 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) ~(do_w
 
     and wrap (tau : Desugared.t) (x : Embedded.t) : Embedded.t =
       E.wrap ~tau:(embed ~ask_for:`Wrap  tau) x
-  in
-  embed expr
 
+    and embed_statement (stmt : Desugared.statement) : Embedded.statement =
+      match stmt with
+      | SUntyped { var ; body } ->
+        SUntyped { var ; body = embed body }
+      | STyped { typed_var = { var = x ; tau } ; body } ->
+        SUntyped { var = x ; body = embed_let ~do_wrap ~do_check:true ~tau body }
+      | SFlagged { flags ; typed_var = { var = x ; tau } ; body } ->
+        let do_check = not @@ Set.mem flags NoCheck in
+        let v_name = if Set.mem flags TauKnowsBinding then x else Names.fresh_id () in
+        SUntyped { var = x ; body = embed_let ~v_name ~do_wrap ~do_check ~tau body }
+  in
+  List.map pgm ~f:embed_statement
