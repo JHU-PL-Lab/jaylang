@@ -5,7 +5,7 @@ let rec sum x =
   else x + sum (x - 1)
 in
 
-let main (n : int) : {. int | fun i -> 100 <= i } =
+let main (n : int) : { int | fun i -> 100 <= i } =
   sum n # ERROR: sum can be less than `100` if `n` is less than `14`
 in
 

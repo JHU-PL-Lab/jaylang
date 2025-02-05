@@ -9,7 +9,7 @@ let twice (f : int -> int) (x : int) : int =
   f (f x)
 in
 
-let inc (x : {. int | isPos} ) : {. int | isNeg} =
+let inc (x : { int | isPos} ) : { int | isNeg} =
   x + 1
 in
 

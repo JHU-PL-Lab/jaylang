@@ -1,12 +1,12 @@
 
 let coord =
-  {: x : int
-   , y : int :}
+  { x : int
+   ; y : int }
 in
 
 let t = Mu tt.
-  {: parent : (``Some tt || ``None int)
-   , relative_coord : coord :}
+  { parent : (``Some tt || ``None int)
+   ; relative_coord : coord }
 in
 
 let is_coord_nonzero c = 
@@ -26,7 +26,7 @@ in
 
 letd rec get_abs_coord (r : t)
   : 
-  {. coord | fun abs_coord -> 
+  { coord | fun abs_coord -> 
     match r.parent with
     | `Some p ->
       if is_coord_nonzero (get_abs_coord p) # Note: recursive call here
@@ -39,7 +39,7 @@ letd rec get_abs_coord (r : t)
   match r.parent with
   | `Some parent -> 
     let c = parent.relative_coord in # ERROR: should be `get_abs_coord parent`
-    { x = c.x + r.relative_coord.x , y = c.y + r.relative_coord.y }
+    { x = c.x + r.relative_coord.x ; y = c.y + r.relative_coord.y }
   | `None ignore -> r.relative_coord
   end
 in

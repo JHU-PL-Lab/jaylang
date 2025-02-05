@@ -1,8 +1,8 @@
 
 let set_m = 
   { emptyset = []
-  , add = fun x -> fun s -> x :: s 
-  , remove = 
+  ; add = fun x -> fun s -> x :: s 
+  ; remove = 
       let rec f x s equal =
         match s with
         | [] -> []
@@ -12,7 +12,7 @@ let set_m =
           else hd :: f x tl equal
         end
       in f
-  , contains = 
+  ; contains = 
       let rec f x s equal =
         match s with
         | [] -> false
@@ -28,11 +28,11 @@ in
 let set_m_type = 
   fun a_ -> # any type
     let t = List a_ in
-    {: emptyset : t
-    , add : a_ -> t -> t
-    , remove : a_ -> t -> (a_ -> a_ -> bool) -> t
-    , contains : a_ -> t -> (a_ -> a_ -> bool) -> bool
-    :}
+    { emptyset : t
+    ; add : a_ -> t -> t
+    ; remove : a_ -> t -> (a_ -> a_ -> bool) -> t
+    ; contains : a_ -> t -> (a_ -> a_ -> bool) -> bool
+    }
 in
 
 let (check_type : set_m_type (int)) = set_m

@@ -1,9 +1,9 @@
 
-let rec f (x : int) : {. int | fun i -> (f i) == i } =
+let rec f (x : int) : { int | fun i -> (f i) == i } =
   x
 in
 
-letd rec g (x : int) : {. int | fun i -> (g x) == i } =
+letd rec g (x : int) : { int | fun i -> (g x) == i } =
   x + 1
 in
 

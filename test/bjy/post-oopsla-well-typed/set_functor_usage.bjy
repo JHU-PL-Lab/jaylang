@@ -2,19 +2,19 @@
 letd F (tf : type -> type) : 
   (a : type) ->
     let t = tf a in
-    {: empty : {: :} -> t
-    ,  add   : a -> t -> t
-    :}
+    { empty : unit -> t
+    ;  add   : a -> t -> t
+    }
     ->
-    {: empty   : {: :} -> t
-    , add     : a -> t -> t
-    , of_list : (List a) -> t
-    :}
+    { empty   : unit -> t
+    ; add     : a -> t -> t
+    ; of_list : (List a) -> t
+    }
   =
   fun a r ->
     { empty = r.empty
-    , add = r.add
-    , of_list =
+    ; add = r.add
+    ; of_list =
       fun ls ->
         let rec loop acc ls =
           match ls with
@@ -29,9 +29,9 @@ in
 let M =
   let r = 
     { tf = fun a -> List a
-    , a  = int
-    , empty = fun mt -> [] 
-    , add   = fun a ls -> a :: ls }
+    ; a  = int
+    ; empty = fun mt -> [] 
+    ; add   = fun a ls -> a :: ls }
   in
   F r.tf r.a r
 in

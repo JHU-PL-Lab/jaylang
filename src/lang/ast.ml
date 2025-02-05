@@ -200,6 +200,23 @@ module Expr = struct
   and ('a, 'p) typed_fun = { func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
 end
 
+module Program = struct
+  open Expr
+
+  type _ statement =
+    (* all *)
+    | SUntyped : { var : Ident.t ; body : 'a t } -> 'a statement
+    (* desugared only *)
+    | SFlagged : { flags : LetFlag.Set.t ; typed_var : 'a typed_var ; body : 'a t } -> 'a desugared_only statement
+    (* bluejay or desugared *)
+    | STyped : { typed_var : 'a typed_var ; body : 'a t } -> 'a bluejay_or_desugared statement
+    (* bluejay only *)
+    | SFun : 'a funsig -> 'a bluejay_only statement
+    | SFunRec : 'a funsig list -> 'a bluejay_only statement
+
+  type 'a t = 'a statement Preface.Nonempty_list.t
+end
+
 module Embedded = struct
   type t = embedded Expr.t
   type pattern = embedded Pattern.t

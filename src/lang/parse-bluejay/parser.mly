@@ -15,7 +15,8 @@
 %token EOF
 %token OPEN_BRACE
 %token CLOSE_BRACE
-%token COMMA
+// %token COMMA
+%token SEMICOLON
 %token BACKTICK
 // %token APOSTROPHE
 %token OPEN_PAREN
@@ -49,6 +50,7 @@
 %token NOT
 %token INT_KEYWORD
 %token BOOL_KEYWORD
+%token UNIT_KEYWORD
 %token INPUT
 %token MATCH
 %token END
@@ -70,8 +72,8 @@
 %token NOT_EQUAL
 
 // %token TYPEVAR
-%token OPEN_BRACE_TYPE
-%token CLOSE_BRACE_TYPE
+// %token OPEN_BRACE_COLON
+// %token CLOSE_BRACE_COLON
 // %token OPEN_PAREN_TYPE
 // %token CLOSE_PAREN_TYPE
 
@@ -176,6 +178,8 @@ expr:
       { ETypeInt : Bluejay.t }
   | BOOL_KEYWORD
       { ETypeBool : Bluejay.t }
+  | UNIT_KEYWORD
+      { ETypeRecord empty_record : Bluejay.t }
   | record_type
       { $1 : Bluejay.t }
   | LIST expr %prec prec_list_type
@@ -187,8 +191,8 @@ expr:
       { ETypeArrow { domain = $1 ; codomain = $3 } : Bluejay.t }
   | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr
       { ETypeArrowD { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
-  | OPEN_BRACE DOT expr PIPE expr CLOSE_BRACE
-      { ETypeRefinement { tau = $3 ; predicate = $5 } : Bluejay.t }
+  | OPEN_BRACE expr PIPE expr CLOSE_BRACE
+      { ETypeRefinement { tau = $2 ; predicate = $4 } : Bluejay.t }
   | variant_type_body
       { ETypeVariant $1 : Bluejay.t }
   | intersection_type_body
@@ -208,15 +212,15 @@ variant_type_body:
   | variant_type_label expr DOUBLE_PIPE variant_type_body { ($1, $2) :: $4 }
 
 record_type:
-  | OPEN_BRACE_TYPE record_type_body CLOSE_BRACE_TYPE
+  | OPEN_BRACE record_type_body CLOSE_BRACE
       { ETypeRecord $2 : Bluejay.t }
-  | OPEN_BRACE_TYPE CLOSE_BRACE_TYPE
-      { ETypeRecord empty_record : Bluejay.t }
+//   | OPEN_BRACE_TYPE CLOSE_BRACE_TYPE
+//       { ETypeRecord empty_record : Bluejay.t }
 
 record_type_body:
   | record_label COLON expr
       { new_record $1 $3 }
-  | record_label COLON expr COMMA record_type_body
+  | record_label COLON expr SEMICOLON record_type_body
       { add_record_entry $1 $3 $5 }
 
 // basic_types:
@@ -287,7 +291,7 @@ primary_expr:
       { ERecord $2 : Bluejay.t }
   | OPEN_BRACE CLOSE_BRACE
       { ERecord empty_record : Bluejay.t }
-  | OPEN_BRACKET separated_nonempty_list(COMMA, expr) CLOSE_BRACKET
+  | OPEN_BRACKET separated_nonempty_list(SEMICOLON, expr) CLOSE_BRACKET
       { EList $2 : Bluejay.t }
   | OPEN_BRACKET CLOSE_BRACKET
       { EList [] : Bluejay.t }
@@ -332,7 +336,7 @@ ident_decl:
 record_body:
   | record_label EQUALS expr
       { new_record $1 $3 }
-  | record_label EQUALS expr COMMA record_body
+  | record_label EQUALS expr SEMICOLON record_body
       { add_record_entry $1 $3 $5 }
 ;
 

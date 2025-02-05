@@ -12,7 +12,7 @@ let h y =
   b
 in
 
-let main (n : {. int | fun i -> i > 2 }) : {. bool | fun b -> b } =
+let main (n : { int | fun i -> i > 2 }) : { bool | fun b -> b } =
   h n
 in
 

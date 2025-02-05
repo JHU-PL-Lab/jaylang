@@ -3,8 +3,8 @@ let node =
   { t =
     fun a_t ->
       fun tree_t ->
-        {: v : a_t
-         , children : List tree_t :}
+        { v : a_t
+         ; children : List tree_t }
   }
 in
 
@@ -23,7 +23,7 @@ let tree =
         if n == 123456789
         then ``Node (node.t a tt)
         else ``Leaf (leaf.t a)
-  , t_check =
+  ; t_check =
     fun a ->
       Mu tt. (``Node (node.t a tt) || ``Leaf (leaf.t a))
   }
@@ -34,22 +34,22 @@ let visitor =
   let t tree_t =
     fun a ->
       fun result_type ->
-        {: visit_node : node a (tree_t a) -> result_type 
-         , visit_leaf : leaf a -> result_type :}
+        { visit_node : node a (tree_t a) -> result_type 
+         ; visit_leaf : leaf a -> result_type }
   in
   { t_gen = t tree.t_gen
-  , t_check = t tree.t_check
+  ; t_check = t tree.t_check
   }
 in
 
 let client =
   let t visitor_t =
     fun a -> fun t -> fun result_type ->
-      {: self : t
-      , accept : visitor_t a result_type -> result_type :}
+      { self : t
+      ; accept : visitor_t a result_type -> result_type }
   in
   { t_gen = t visitor.t_gen
-  , t_check = t visitor.t_check
+  ; t_check = t visitor.t_check
   }
 in
 
@@ -71,14 +71,14 @@ let rec make_tree (n : int) : tree.t_check (int) =
       else
         `Node
         { v = n
-        , children = make_list make_tree (n - 1) }
+        ; children = make_list make_tree (n - 1) }
   in
   ob ob
 in
 
 let int_bool_client (tr : tree.t_gen (int)) : client.t_check (int) (tree.t_check (int)) (bool) =
   { self = tr
-  , accept =
+  ; accept =
     fun vis ->
       match tr with
       | `Leaf leaf -> vis.visit_leaf leaf

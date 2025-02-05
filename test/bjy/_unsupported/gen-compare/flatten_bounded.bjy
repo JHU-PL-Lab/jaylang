@@ -2,7 +2,7 @@
 
 (*
   The well-typed version doesn't work here because we need a different gen
-  and check, but wrapping 
+  and check; but wrapping 
 *)
 let any_type a =
   let tt =

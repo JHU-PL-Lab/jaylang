@@ -1,5 +1,5 @@
 
-let t = Mu tt. {: f : int -> tt :}
+let t = Mu tt. { f : int -> tt }
 in
 
 let g (x : t) : bool =

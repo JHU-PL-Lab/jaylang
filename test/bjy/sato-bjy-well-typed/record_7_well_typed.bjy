@@ -5,5 +5,5 @@ let record_constraint re =
     ((re.a + re.b) >= 0)
 in
 let isTrue b = b in
-let test (test_record : {. {: a : int, b : int :} | record_constraint }) : {. bool | isTrue } = test_record.a >= 0 in
+let test (test_record : { { a : int; b : int } | record_constraint }) : { bool | isTrue } = test_record.a >= 0 in
 test

@@ -28,14 +28,15 @@ rule token = parse
 | whitespace           { token lexbuf }
 | newline              { incr_lineno lexbuf; token lexbuf }
 | "{"                  { OPEN_BRACE }
-| "{:"                 { OPEN_BRACE_TYPE }
+(* | "{:"                 { OPEN_BRACE_COLON } *)
 | "}"                  { CLOSE_BRACE }
-| ":}"                 { CLOSE_BRACE_TYPE }
+(* | ":}"                 { CLOSE_BRACE_COLON } *)
 | "("                  { OPEN_PAREN }
 | ")"                  { CLOSE_PAREN }
 | "["                  { OPEN_BRACKET }
 | "]"                  { CLOSE_BRACKET }
-| ","                  { COMMA }
+(* | ","                  { COMMA } *)
+| ";"                  { SEMICOLON }
 | "`"                  { BACKTICK }
 (* | "'"                  { APOSTROPHE } *)
 | "="                  { EQUALS }
@@ -54,6 +55,7 @@ rule token = parse
 | "not"                { NOT }
 | "int"                { INT_KEYWORD }
 | "bool"               { BOOL_KEYWORD }
+| "unit"               { UNIT_KEYWORD }
 | "fun"                { FUNCTION }
 | "function"           { FUNCTION }
 (* | "record"             { RECORD } *)

@@ -1,7 +1,7 @@
 
 let t a = Mu tt.
-  (``Leaf {: leaf : bool :}
-  || ``Node {: v : a , l : tt , r : tt :}
+  (``Leaf { leaf : bool }
+  || ``Node { v : a ; l : tt ; r : tt }
   )
 in
 
@@ -22,15 +22,15 @@ let rec is_braun_tree x =
   end
 in
 
-let bt a = {. t a | is_braun_tree } in
+let bt a = { t a | is_braun_tree } in
 
 let rec insert (type a_) (tree : bt a_) (x : a_) : bt a_ =
   match tree with
-  | `Leaf l -> `Node { v = x , l = `Leaf { leaf = true } , r = `Leaf { leaf = true } }
+  | `Leaf l -> `Node { v = x ; l = `Leaf { leaf = true } ; r = `Leaf { leaf = true } }
   | `Node node ->
     if size node.l > size node.r
-    then `Node { l = node.l , r = insert a_ node.r x , v = node.v }
-    else `Node { l = insert a_ node.l x , r = node.r , v = node.v }
+    then `Node { l = node.l ; r = insert a_ node.r x ; v = node.v }
+    else `Node { l = insert a_ node.l x ; r = node.r ; v = node.v }
   end
 in
 

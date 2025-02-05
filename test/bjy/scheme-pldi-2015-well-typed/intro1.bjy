@@ -1,19 +1,16 @@
 
-let unit_type = {: :} in
-let unit = { } in
-
 let f x g =
   g (x + 1)
 in
 
-let h (y : {. int | fun c -> c > 1 }) : unit_type =
-  unit
+let h (y : { int | fun c -> c > 1 }) : unit =
+  {}
 in
 
-let main (n : int) : unit_type =
+let main (n : int) : unit =
   if n > 0
   then f n h
-  else unit
+  else {}
 in
 
 main

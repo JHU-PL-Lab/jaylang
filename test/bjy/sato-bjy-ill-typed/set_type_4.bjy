@@ -11,8 +11,8 @@ in
 let val = userinput
 in
 
-let (x : {. List int | testFun } ) =
-  [ val , val ]
+let (x : { List int | testFun } ) =
+  [ val ; val ]
 in
 
 x

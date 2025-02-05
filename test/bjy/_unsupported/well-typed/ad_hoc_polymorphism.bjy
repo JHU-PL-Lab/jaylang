@@ -19,7 +19,7 @@ let plus =
 in
 
 let nonempty_list a =
-  {. List a | fun ls ->
+  { List a | fun ls ->
     match ls with
     | [] -> false
     | hd :: tl -> true

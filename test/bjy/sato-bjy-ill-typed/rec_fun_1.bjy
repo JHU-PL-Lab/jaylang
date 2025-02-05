@@ -11,7 +11,7 @@ let getHead l =
   end
 in
 
-let main (n : {. int | fun a -> a >= 0}) : {. int | fun a -> a > 0} =
+let main (n : { int | fun a -> a >= 0}) : { int | fun a -> a > 0} =
   let l = makeList n in
   if n > 0
   then getHead l

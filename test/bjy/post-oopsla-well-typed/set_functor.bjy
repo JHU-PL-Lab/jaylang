@@ -2,12 +2,12 @@
 letd F (tf : type -> type) : 
   (a : type) ->
     let t = tf a in
-    {: empty : {: :} -> t
-    ,  add   : a -> t -> t
-    :}
+    { empty : unit -> t
+    ;  add   : a -> t -> t
+    }
     ->
-    {: of_list : (List a) -> t
-    :}
+    { of_list : (List a) -> t
+    }
   =
   fun a r ->
     { of_list =

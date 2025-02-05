@@ -1,5 +1,5 @@
 
-let (x : ``R {: a : bool :} || ``I int) =
+let (x : ``R { a : bool } || ``I int) =
   true
 in
 

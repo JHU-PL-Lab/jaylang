@@ -1,11 +1,5 @@
 
-let unit = {: :}
-in
-
-let u = { }
-in
-
-# We don't actually have an "any" type, so this is an attempt to enumerate a few types we might use
+# We don't actually have an "any" type; so this is an attempt to enumerate a few types we might use
 let any = Mu t.
   ``U unit
   || ``I int 
@@ -21,37 +15,37 @@ let id =
       end
   in
   { t = ``Id int
-  , get = get
-  , make =
+  ; get = get
+  ; make =
       fun i ->
         `Id i
-  , eq = 
+  ; eq = 
       fun i1 -> fun i2 ->
         get i1 == get i2
-  , initial = `Id 0
+  ; initial = `Id 0
   }
 in
 
 let poly_map =
   { t =
       List
-        {: key : id.t
-        , data : any
-        :}
-  , empty = []
-  , set = 
+        { key : id.t
+        ; data : any
+        }
+  ; empty = []
+  ; set = 
       fun t -> fun key -> fun data ->
         let rec insert ls =
           match ls with
-          | [] -> [ { key = key , data = data } ]
+          | [] -> [ { key = key ; data = data } ]
           | hd :: tl ->
             if id.eq key hd.key
-            then { key = key , data = data } :: tl
+            then { key = key ; data = data } :: tl
             else hd :: insert tl
           end
         in
         insert t
-  , find = 
+  ; find = 
       fun t -> fun key ->
         let rec look ls =
           match ls with
@@ -63,7 +57,7 @@ let poly_map =
           end
         in
         look t
-  , size =
+  ; size =
       fun t ->
         let rec length ls =
           match ls with
@@ -81,29 +75,29 @@ let state =
       poly_map.size t.map
   in
   { t =
-    {: map    : poly_map.t
-    , next_id : id.t
-    :}
-  , size = size
-  , is_progression =
+    { map    : poly_map.t
+    ; next_id : id.t
+    }
+  ; size = size
+  ; is_progression =
       fun t1 -> fun t2 ->
         id.get t2.next_id >= id.get t1.next_id
         and size t2 >= size t1 # ERROR idea: I had accidentally switched the order of t1 and t2 in this
-  , incr_id =
+  ; incr_id =
       fun t ->
-        { map = t.map , next_id = id.make (id.get t.next_id + 1) }
-  , set_map =
+        { map = t.map ; next_id = id.make (id.get t.next_id + 1) }
+  ; set_map =
       fun t -> fun pm ->
-        { map = pm , next_id = t.next_id }
-  , initial = { map = poly_map.empty , next_id = id.initial }
+        { map = pm ; next_id = t.next_id }
+  ; initial = { map = poly_map.empty ; next_id = id.initial }
   }
 in
 
 let m a = 
   (s : state.t) ->
-    {: new_state : {. state.t | state.is_progression s }
-     , value     : a
-    :}
+    { new_state : { state.t | state.is_progression s }
+     ; value     : a
+    }
 in
 
 #let bind (type a b) (x : m a) (f : a -> m b) : m b = 
@@ -115,7 +109,7 @@ in
 
 let return a =
   fun s ->
-    { new_state = s , value = a }
+    { new_state = s ; value = a }
 in
 
 let fmap x f = bind x (fun a -> return (f a))
@@ -124,7 +118,7 @@ in
 #let (read : m state.t) =
 let read =
   fun s ->
-    { new_state = s , value = s }
+    { new_state = s ; value = s }
 in
 
 let run x = (x state.initial).value
@@ -132,7 +126,7 @@ in
 
 let modify f =
   fun s ->
-    { new_state = f s , value = u }
+    { new_state = f s ; value = {} }
 in
 
 #let deref (ref_id : id.t) : m any =
@@ -154,7 +148,7 @@ let new_ref x =
   fun s ->
     let new_id = s.next_id in
     { value     = new_id
-    , new_state =
+    ; new_state =
         state.set_map
           (state.incr_id s)
           (poly_map.set s.map new_id x)
@@ -176,8 +170,8 @@ let res =
       let ref0_m = set_ref ref0_id new_v in
 
       bind ref0_m          (fun ignore_unit  ->
-      bind (deref ref1_id) (fun ref1_v ->       # reading the value from the other cell, should be 3
-      bind (deref ref0_id) (fun ref0_v ->       # getting the (previously ignored) value, should be 7
+      bind (deref ref1_id) (fun ref1_v ->       # reading the value from the other cell; should be 3
+      bind (deref ref0_id) (fun ref0_v ->       # getting the (previously ignored) value; should be 7
 
       match ref1_v with
       | `I ref1_i ->

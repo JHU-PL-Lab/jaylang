@@ -3,7 +3,7 @@ let rec loop (x : int) : bool =
   loop x
 in
 
-# This is easy to check, but we get stuck on loop above and never get here.
+# This is easy to check; but we get stuck on loop above and never get here.
 let f (y : int) : bool = 
   y
 in

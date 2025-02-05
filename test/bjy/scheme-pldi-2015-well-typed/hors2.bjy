@@ -1,15 +1,9 @@
 # This is another well-typed version of `hors`
 
-let unit_type = {: :}
+let zero_type = { int | fun i -> i == 0 }
 in
 
-let zero_type = {. int | fun i -> i == 0 }
-in
-
-let (unit : unit_type) = { }
-in
-
-let c x = unit
+let c x = {}
 in
 
 let b x =
@@ -17,7 +11,7 @@ let b x =
     x 1
 in
 
-let a (x : zero_type -> unit_type) (y : int -> unit_type) (q : zero_type) : unit_type =
+let a (x : zero_type -> unit) (y : int -> unit) (q : zero_type) : unit =
   let ignore = x 0 in
   y 0
 in
@@ -32,7 +26,7 @@ let s n q =
   f n c q
 in
 
-let main (n : zero_type) : unit_type =
+let main (n : zero_type) : unit =
   s n n
 in
 

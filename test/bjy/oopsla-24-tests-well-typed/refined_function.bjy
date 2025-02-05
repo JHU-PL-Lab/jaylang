@@ -1,5 +1,5 @@
 
-let t = {. (int -> int) | fun f -> (f 0) == 0 }
+let t = { (int -> int) | fun f -> (f 0) == 0 }
 in
 
 let g (x : t) : int =

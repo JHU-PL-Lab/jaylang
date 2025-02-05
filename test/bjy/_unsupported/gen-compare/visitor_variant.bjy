@@ -1,26 +1,26 @@
 
-let city = {: population : int :}
+let city = { population : int }
 in
 
-let shop = {: inventory : int :}
+let shop = { inventory : int }
 in
 
-let sight = {: is_open : bool :}
+let sight = { is_open : bool }
 in
 
 let node_kind = ``City city || ``Shop shop || ``Sight sight
 in
 
-let node = Mu tt. ({: kind : node_kind , neighbors : List tt :})
+let node = Mu tt. ({ kind : node_kind ; neighbors : List tt })
 in
 
-let result_type = {: result : int :}
+let result_type = { result : int }
 in
 
 let visitor =
-  {: visit_city : city -> result_type
-   , visit_shop : shop -> result_type
-   , visit_sight : sight -> result_type :}
+  { visit_city : city -> result_type
+   ; visit_shop : shop -> result_type
+   ; visit_sight : sight -> result_type }
 in
 
 let visit (v : visitor) (start_node : node) : result_type =

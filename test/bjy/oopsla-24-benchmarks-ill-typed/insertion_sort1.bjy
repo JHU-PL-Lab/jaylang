@@ -35,7 +35,7 @@ let rec insert x l =
 in
 
 let ret_type xs =
-  {. List int | fun l ->
+  { List int | fun l ->
     ne_sorted l
     and
       if is_nonempty xs

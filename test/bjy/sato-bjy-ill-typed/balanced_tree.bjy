@@ -25,24 +25,24 @@ let rec is_balanced t =
 in
 
 let tree_type = Mu tt.
-  (  ``Node {: left : tt, right : tt :}
-  || ``Leaf {: leaf : int :}
+  (  ``Node { left : tt; right : tt }
+  || ``Leaf { leaf : int }
   )
 in
 
-let (x : {. tree_type | is_balanced }) = 
+let (x : { tree_type | is_balanced }) = 
   `Node
   { left = 
     `Node { left = 
             `Node { left = 
                   `Node { left = `Leaf {leaf = 0}
-                        , right = `Leaf {leaf = 0}
+                        ; right = `Leaf {leaf = 0}
                         }
-                  , right = `Leaf {leaf = 0}
+                  ; right = `Leaf {leaf = 0}
                   }
-          , right = `Leaf {leaf = 0}
+          ; right = `Leaf {leaf = 0}
           }
-  , right = `Leaf { leaf = 0 }
+  ; right = `Leaf { leaf = 0 }
   }
 in
 

@@ -1,8 +1,8 @@
 
 let t =
-  {: f : int -> bool
-   , g : int -> int
-   , x : bool :}
+  { f : int -> bool
+   ; g : int -> int
+   ; x : bool }
 in
 
 # Dummy implementation because we don't have side effects
@@ -23,8 +23,8 @@ let make_timer_decorator (x : t) : t =
       r
   in
   { f = time x.f
-  , g = time x.g
-  , x = time x.x # ERROR: should be `x.x` without the `time`
+  ; g = time x.g
+  ; x = time x.x # ERROR: should be `x.x` without the `time`
   }
 in
 

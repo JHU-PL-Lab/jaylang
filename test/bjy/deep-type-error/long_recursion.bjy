@@ -3,7 +3,7 @@
 let is_100_000_000 x = x == 100000000
 in
 
-let f (x : {. int | is_100_000_000}) : bool = 
+let f (x : { int | is_100_000_000}) : bool = 
   let rec g (x : int) : int =
     if x == 0
     then 0

@@ -1,41 +1,41 @@
 
-let city = {: population : int :}
+let city = { population : int }
 in
 
-let shop = {: inventory : int :}
+let shop = { inventory : int }
 in
 
-let sight = {: is_open : bool :}
+let sight = { is_open : bool }
 in
 
 let node_kind = ``City city || ``Shop shop || ``Sight sight
 in
 
 (*
-  This one feels tricky to bound, but if we just think of lists
-  as variants (so this has a nested recursion), then we know the
+  This one feels tricky to bound; but if we just think of lists
+  as variants (so this has a nested recursion); then we know the
   base case is empty list.
 
-  Also, we potentially just can't bound this one because it is
-  has no variants in it, so we instead would leave the bounding
+  Also; we potentially just can't bound this one because it is
+  has no variants in it; so we instead would leave the bounding
   up to the List. Tricky.
 *)
 let node =
   Mu tt.
     let n = input in
     if n == 123456789
-    then {: kind : node_kind , neighbors : List tt :}
+    then { kind : node_kind ; neighbors : List tt }
     else (* force the base case with empty list *)
-      {: kind : node_kind , neighbors : {. List tt | fun ls -> match ls with [] -> true | _ -> false end } :}
+      { kind : node_kind ; neighbors : { List tt | fun ls -> match ls with [] -> true | _ -> false end } }
 in
 
-let result_type = {: result : int :}
+let result_type = { result : int }
 in
 
 let visitor =
-  {: visit_city : city -> result_type
-   , visit_shop : shop -> result_type
-   , visit_sight : sight -> result_type :}
+  { visit_city : city -> result_type
+   ; visit_shop : shop -> result_type
+   ; visit_sight : sight -> result_type }
 in
 
 let visit (v : visitor) (start_node : node) : result_type =

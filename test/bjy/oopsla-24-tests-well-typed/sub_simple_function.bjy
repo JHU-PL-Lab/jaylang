@@ -1,9 +1,9 @@
 # subtyping of functions
 
-let t = ({: a : int , b : int :} -> int) -> int
+let t = ({ a : int ; b : int } -> int) -> int
 in
 
-let f (h : {: a : int , b : int :} -> int) : int =
+let f (h : { a : int ; b : int } -> int) : int =
   0
 in
 

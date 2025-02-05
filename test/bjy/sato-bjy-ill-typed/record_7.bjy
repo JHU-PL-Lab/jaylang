@@ -10,7 +10,7 @@ in
 let isTrue b = b
 in
 
-let test (test_record : {. {: a : int, b : int :} | record_constraint }) : {. bool | isTrue } =
+let test (test_record : { { a : int; b : int } | record_constraint }) : { bool | isTrue } =
   test_record.a > 0
 in
 

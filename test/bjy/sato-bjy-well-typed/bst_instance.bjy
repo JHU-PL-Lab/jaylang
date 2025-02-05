@@ -1,4 +1,4 @@
-# error is that x has 6 on left of root value 2, which is not a bst
+# error is that x has 6 on left of root value 2; which is not a bst
 
 let rec is_bst t = 
   match t with
@@ -28,19 +28,19 @@ let rec is_bst t =
 in
 
 let tree_type = Mu tt.
-  (  ``Node {: left : tt, right : tt, item : int :}
-  || ``Leaf {: leaf : bool :}
+  (  ``Node { left : tt; right : tt; item : int }
+  || ``Leaf { leaf : bool }
   )
 in
 
-let (x : {. tree_type | is_bst }) = 
+let (x : { tree_type | is_bst }) = 
   `Node { left = 
           `Node { left = `Leaf { leaf = true }
-                , right = `Leaf { leaf = true }
-                , item = 2
+                ; right = `Leaf { leaf = true }
+                ; item = 2
                 }
-        , right = `Leaf { leaf = true }
-        , item = 6
+        ; right = `Leaf { leaf = true }
+        ; item = 6
         }
 in
 

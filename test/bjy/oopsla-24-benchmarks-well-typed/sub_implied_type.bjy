@@ -1,5 +1,5 @@
 
-let zero_type = {. int | fun i -> i == 0 }
+let zero_type = { int | fun i -> i == 0 }
 in
 
 # ignored arg must be 0. Applies 0 to g

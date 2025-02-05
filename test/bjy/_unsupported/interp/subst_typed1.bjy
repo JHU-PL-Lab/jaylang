@@ -1,17 +1,17 @@
 
 let nil =
   { t = int
-  , v = 00
+  ; v = 00
   }
 in
 
 let pair =
-  { t = fun a -> fun b -> {: left : a , right : b :}
+  { t = fun a -> fun b -> { left : a ; right : b }
   }
 in
 
 let triple =
-  { t = fun a -> fun b -> fun c -> {: first : a , second : b , third : c :}
+  { t = fun a -> fun b -> fun c -> { first : a ; second : b ; third : c }
   }
 in
 
@@ -40,20 +40,20 @@ let ttype =
           ``TArrow (pair.t tt tt)
         else
           ``TInt nil.t
-  , t_check =
+  ; t_check =
       Mu tt.
         (  ``TArrow (pair.t tt tt)
         || ``TInt nil.t
         )
-  , tint = tint
-  , eq = eq
-  , is_int = eq tint
+  ; tint = tint
+  ; eq = eq
+  ; is_int = eq tint
   }
 in
 
 let ident =
   { t = ``Id int
-  , eq =
+  ; eq =
       fun a -> fun b -> 
         let x = match a with | `Id i -> i end in
         let y = match b with | `Id i -> i end in
@@ -76,7 +76,7 @@ let expr =
           )
         else
           ( ``Int int || ``Var ident.t )
-  , t_check =
+  ; t_check =
       Mu tt.
         ( ``Int int
         || ``Var ident.t
@@ -144,8 +144,8 @@ let value =
     || ``Function (triple.t ident.t ttype_t expr_t)
     )
   in
-  { t_gen = t ({. expr.t_gen | is_closed }) ttype.t_gen
-  , t_check = t ({. expr.t_check | is_closed }) ttype.t_check
+  { t_gen = t ({ expr.t_gen | is_closed }) ttype.t_gen
+  ; t_check = t ({ expr.t_check | is_closed }) ttype.t_check
   }
 in
 
@@ -153,17 +153,17 @@ let result =
   { t =
       fun a ->
         ``Ok a || ``Error nil.t
-  , bind = 
+  ; bind = 
       fun x -> fun f ->
         match x with
         | `Error e -> x
         | `Ok a -> f a
         end
-  , return = 
+  ; return = 
       fun a -> `Ok a
-  , error =
+  ; error =
       `Error nil.v
-  , is_ok =
+  ; is_ok =
       fun x ->
         match x with
         | `Ok a -> true
@@ -190,7 +190,7 @@ let typecheck e =
     # Functions
     | `Function trip ->
       result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
-        result.return (`TArrow { left = trip.second , right = tau })
+        result.return (`TArrow { left = trip.second ; right = tau })
       )
     | `Appl p ->
       result.bind (tc p.left) (fun res ->
@@ -298,7 +298,7 @@ let free_vars e =
         end
       in
       loop p.left bound_ids acc (fun res ->
-        loop p.right bound_ids res k # previous ERROR: I had trip.right but should be p.right, I also had acc instead of res (failing to propogate)
+        loop p.right bound_ids res k # previous ERROR: I had trip.right but should be p.right; I also had acc instead of res (failing to propogate)
       )
     end
   in
@@ -306,8 +306,8 @@ let free_vars e =
 in
 *)
 
-# after subst, the expression has the same free variables as e, minus id
-letd subst (e : expr.t_gen) : (id : ident.t) -> value.t_gen -> {. expr.t_check | fun new_expr ->
+# after subst; the expression has the same free variables as e; minus id
+letd subst (e : expr.t_gen) : (id : ident.t) -> value.t_gen -> { expr.t_check | fun new_expr ->
   let new_free_vars = free_vars new_expr in
   let old_free_vars = free_vars e in
   set_eq new_free_vars (list_remove old_free_vars id ident.eq) ident.eq
@@ -315,7 +315,7 @@ letd subst (e : expr.t_gen) : (id : ident.t) -> value.t_gen -> {. expr.t_check |
   let rec sub e =
     let sub_pair p =
       { left = sub p.left
-      , right = sub p.right }
+      ; right = sub p.right }
     in
     match e with
     | `Var var_id ->
@@ -326,13 +326,13 @@ letd subst (e : expr.t_gen) : (id : ident.t) -> value.t_gen -> {. expr.t_check |
     | `Function trip ->
         if ident.eq trip.first id
         then e
-        else `Function { first = trip.first , second = trip.second , third = sub trip.third }
+        else `Function { first = trip.first ; second = trip.second ; third = sub trip.third }
     | `Plus p -> `Plus (sub_pair p)
     | `Minus p -> `Minus (sub_pair p)
     | `Equal p -> `Equal (sub_pair p)
     | `Appl p -> `Appl (sub_pair p)
-    #| `If_then_else trip -> `If_then_else { first = sub trip.first , second = sub trip.second , third = sub trip.third } # well-typed
-    | `If_then_else trip -> `If_then_else { first = sub trip.second , second = sub trip.second , third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label
+    #| `If_then_else trip -> `If_then_else { first = sub trip.first ; second = sub trip.second ; third = sub trip.third } # well-typed
+    | `If_then_else trip -> `If_then_else { first = sub trip.second ; second = sub trip.second ; third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label
     # This gets caught nearly instantly with types on subst
     end
   in
@@ -340,8 +340,8 @@ letd subst (e : expr.t_gen) : (id : ident.t) -> value.t_gen -> {. expr.t_check |
 in
 
 # Archive this error
-    #| `If_then_else trip -> `If_then_else { first = sub trip.second , second = sub trip.second , third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label
-      # Without types on subst, this error is very difficult because we need something like
+    #| `If_then_else trip -> `If_then_else { first = sub trip.second ; second = sub trip.second ; third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label
+      # Without types on subst; this error is very difficult because we need something like
       #    (fun x : int -> if x then fun y : int -> y else fun y : int -> y) 0
       # So that the condition evaluates to a non-int after the substitution
 
@@ -351,7 +351,7 @@ let int_exn e =
   end
 in
 
-#let rec eval (e : {. expr.t_gen | is_closed_and_well_typed }) : value.t_check =
+#let rec eval (e : { expr.t_gen | is_closed_and_well_typed }) : value.t_check =
 let rec eval e =
   let op_ints p op = 
     let i1 = int_exn (eval p.left) in
@@ -371,7 +371,7 @@ let rec eval e =
   | `If_then_else trip ->
     match eval trip.first with
     | `Int i ->
-      if i <> 0 # non-zero int is true, like in C
+      if i <> 0 # non-zero int is true; like in C
       then eval trip.second
       else eval trip.third
     end

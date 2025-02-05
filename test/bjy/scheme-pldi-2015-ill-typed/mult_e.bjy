@@ -5,8 +5,8 @@ let rec mult x y =
   else x + mult x (y - 1)
 in
 
-let main (n : int) : {. int | fun i -> 600 <= i } =
-  mult 100 n # ERROR: `n` should be at least `6`, or remove refinement
+let main (n : int) : { int | fun i -> 600 <= i } =
+  mult 100 n # ERROR: `n` should be at least `6`; or remove refinement
 in
 
 main

@@ -7,7 +7,7 @@ let is_nonempty ls =
   end
 in
 
-let rec foldl1 (type a_) (f : a_ -> a_ -> a_) (xs : {. List a_ | is_nonempty } ) : a_ =
+let rec foldl1 (type a_) (f : a_ -> a_ -> a_) (xs : { List a_ | is_nonempty } ) : a_ =
   match xs with
   | z :: zs ->
     match zs with 

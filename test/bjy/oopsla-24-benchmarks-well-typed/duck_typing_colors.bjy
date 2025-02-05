@@ -1,30 +1,24 @@
 let color =
   { t =
-    {. int | fun i -> i >= 0 and i < 256 }
-  }
-in
-
-let unit =
-  { t = {: :}
-  , x = { }
+    { int | fun i -> i >= 0 and i < 256 }
   }
 in
 
 let point =
   { t =
-    {: x : int
-     , y : int
-     , get_deg : unit.t -> int
-     :}
+    { x : int
+     ; y : int
+     ; get_deg : unit -> int
+     }
   }
 in
 
 let colored_point =
   { t =
-    {: x : int
-     , y : int
-     , get_deg : unit.t -> int
-     , c : color.t :}
+    { x : int
+     ; y : int
+     ; get_deg : unit -> int
+     ; c : color.t }
   }
 in
 
@@ -32,13 +26,13 @@ let (obj : colored_point.t) =
   let ob =
     fun self ->
       { x = 10
-      , y = 20
-      , get_deg = 
+      ; y = 20
+      ; get_deg = 
         fun ignore_unit ->
           let s = (self self) in
           let tan = s.y / s.x in
           tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 # approx arctan with taylor expansion
-      , c = 255 }
+      ; c = 255 }
   in
   ob ob
 in

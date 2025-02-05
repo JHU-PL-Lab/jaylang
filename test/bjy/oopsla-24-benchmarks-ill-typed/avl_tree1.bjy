@@ -1,17 +1,17 @@
-# This is an avl tree program, where insert on balanced tree returns a balanced tree
+# This is an avl tree program; where insert on balanced tree returns a balanced tree
 # There is a type error in `insert`. See the comment
 # Other ways to introduce a type error:
 # 1. Don't rotate at all
-# 2. Rotate left only on left insert, and right only on right insert (this was my first bug)
+# 2. Rotate left only on left insert; and right only on right insert (this was my first bug)
 
 # NOTE: the current seed is just unlucky on this one. That's all.
 
 let t = Mu tt. 
   ``Leaf int
-  ||  ``Node {: left : tt
-             , right : tt
-             , item : int
-             :}
+  ||  ``Node { left : tt
+             ; right : tt
+             ; item : int
+             }
 in
 
 let empty = `Leaf 00
@@ -72,7 +72,7 @@ in
 let is_balanced x =
   let rec check_balanced x =
     match x with
-    | `Leaf l -> { b = true , h = 0 }
+    | `Leaf l -> { b = true ; h = 0 }
     | `Node node ->
       let left_res = check_balanced node.left in
       if left_res.b
@@ -80,11 +80,11 @@ let is_balanced x =
         let right_res = check_balanced node.right in
         if right_res.b
         then
-          { b = abs (left_res.h - right_res.h) < 2 , h = max left_res.h right_res.h + 1 }
+          { b = abs (left_res.h - right_res.h) < 2 ; h = max left_res.h right_res.h + 1 }
         else
-          { b = false , h = 00 } # height ignored if not balanced
+          { b = false ; h = 00 } # height ignored if not balanced
       else
-        { b = false , h = 00 } # height ignored if not balanced
+        { b = false ; h = 00 } # height ignored if not balanced
     end
   in
   (check_balanced x).b
@@ -114,11 +114,11 @@ let is_bst x =
   is_increasing_strictly (to_list x [])
 in
 
-let avl_tree = {. t | fun tree -> is_balanced tree and is_bst tree }
+let avl_tree = { t | fun tree -> is_balanced tree and is_bst tree }
 in
 
 let create_node item left right =
-  `Node { item = item , left = left , right = right }
+  `Node { item = item ; left = left ; right = right }
 in
 
 let rotate_left x = 

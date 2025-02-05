@@ -1,13 +1,13 @@
 
-let rec mult (x : {: n : int , m : int :}) : {. int | fun i -> i >= 0 } =
+let rec mult (x : { n : int ; m : int }) : { int | fun i -> i >= 0 } =
   if x.n <= 0 or x.m <= 0
   then 0
-  else x.n + mult { n = x.n , m = (x.m - 1) } 
+  else x.n + mult { n = x.n ; m = (x.m - 1) } 
 in
 
 # ERROR: `n` as 0 or 1 fails predicate. `n > 1` fixes
-letd sqr (n : int) : {. int | fun c -> c >= n + 1 } =
-  mult { n = n , m = n }
+letd sqr (n : int) : { int | fun c -> c >= n + 1 } =
+  mult { n = n ; m = n }
 in
 
 sqr

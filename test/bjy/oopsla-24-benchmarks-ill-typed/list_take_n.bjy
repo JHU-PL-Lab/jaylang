@@ -1,7 +1,7 @@
 # Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program.
 # This has been trimmed down to remove any code that had no intersection with the erroring code.
 
-let pos_int = {. int | fun i -> i > 0 }
+let pos_int = { int | fun i -> i > 0 }
 in
 
 let rec len ls = 
@@ -11,7 +11,7 @@ let rec len ls =
   end
 in
 
-letd rec take (type a_) (n : pos_int) : (List a_) -> {. List a_ | fun ls -> len ls <= n } =
+letd rec take (type a_) (n : pos_int) : (List a_) -> { List a_ | fun ls -> len ls <= n } =
   fun l ->
     match l with
     | [] -> []

@@ -1,4 +1,4 @@
-# Error is that 100 should always be less than sum, but easily `sum 0` breaks that.
+# Error is that 100 should always be less than sum; but easily `sum 0` breaks that.
 
 let rec sum x =
   if x <= 0
@@ -6,7 +6,7 @@ let rec sum x =
   else x + sum (x - 1)
 in
 
-let main (n : {. int | fun i -> i >= 14 }) : {. int | fun i -> 100 <= i } =
+let main (n : { int | fun i -> i >= 14 }) : { int | fun i -> 100 <= i } =
   sum n
 in
 

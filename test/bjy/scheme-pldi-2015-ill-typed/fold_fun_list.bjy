@@ -17,7 +17,7 @@ let compose f g =
     f (g x)
 in
 
-let main (n : int) : {. int -> int | fun f -> f 0 >= 0 } =
+let main (n : int) : { int -> int | fun f -> f 0 >= 0 } =
   let xs = mk_list n in
   foldr compose (fun x -> x) xs
 in

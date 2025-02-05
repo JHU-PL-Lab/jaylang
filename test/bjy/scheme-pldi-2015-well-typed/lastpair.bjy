@@ -6,7 +6,7 @@ let is_nonempty ls =
   end
 in
 
-let rec lastpair (type a_) (x : {. List a_ | is_nonempty }) : {. List a_ | is_nonempty } =
+let rec lastpair (type a_) (x : { List a_ | is_nonempty }) : { List a_ | is_nonempty } =
   match x with
   | h :: xs ->
     match xs with

@@ -20,7 +20,7 @@ let rec map2 (type a_ b_ c_) (ls1 : List a_) (ls2 : List b_) (f : a_ -> b_ -> c_
     match ls2 with
     | [] -> []
     | hd2 :: tl2 -> 
-      f hd1 hd2 :: map2 a_ b_ c_ tl2 tl1 f # ERROR: should be `map2 a_ b_ c_ tl1 tl2 f` because right now, `f` is wrong wrt polymorphic types
+      f hd1 hd2 :: map2 a_ b_ c_ tl2 tl1 f # ERROR: should be `map2 a_ b_ c_ tl1 tl2 f` because right now; `f` is wrong wrt polymorphic types
     end
   end
 in

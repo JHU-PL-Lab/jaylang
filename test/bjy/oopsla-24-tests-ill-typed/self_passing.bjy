@@ -1,5 +1,5 @@
 
-let t = {: f : int -> int :}
+let t = { f : int -> int }
 in
 
 let ob =

@@ -1,8 +1,8 @@
-# error is that item is always inserted on the left, so it doesn't stay balanced
+# error is that item is always inserted on the left; so it doesn't stay balanced
 
 let t a = Mu tt.
-  (``Leaf {: leaf : bool :}
-  || ``Node {: v : a , l : tt , r : tt :}
+  (``Leaf { leaf : bool }
+  || ``Node { v : a ; l : tt ; r : tt }
   )
 in
 
@@ -23,13 +23,13 @@ let rec is_braun_tree x =
   end
 in
 
-let bt a = {. t a | is_braun_tree } in
+let bt a = { t a | is_braun_tree } in
 
 let rec insert (type a_) (tree : bt a_) (x : a_) : bt a_ =
   match tree with
-  | `Leaf l -> `Node { v = x , l = `Leaf { leaf = true } , r = `Leaf { leaf = true } }
+  | `Leaf l -> `Node { v = x ; l = `Leaf { leaf = true } ; r = `Leaf { leaf = true } }
   | `Node node ->
-    `Node { l = insert a_ node.l x , r = node.r , v = node.v } # ERROR: only inserts to left, so won't be balanced
+    `Node { l = insert a_ node.l x ; r = node.r ; v = node.v } # ERROR: only inserts to left; so won't be balanced
   end
 in
 

@@ -1,8 +1,8 @@
 # Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program.
 # This has been trimmed down to remove any code that had no intersection with the erroring code.
-# We would like to keep types on the helper functions, but we currently don't handle that well.
+# We would like to keep types on the helper functions; but we currently don't handle that well.
 
-let pos_int = {. int | fun i -> i > 0 }
+let pos_int = { int | fun i -> i > 0 }
 in
 
 # Parametric map
@@ -20,14 +20,14 @@ let rec len ls =
   end
 in
 
-let ngram n a = {. List a | fun ls -> (len ls == n) and n >= 0 }
+let ngram n a = { List a | fun ls -> (len ls == n) and n >= 0 }
 in
 
 let distribution n a = map (ngram (n - 1) a) (bag a)
 in
 
 let rec take n =
-#letd rec take (type a_) (n : pos_int) : (List a_) -> {. List a_ | fun ls -> len ls <= n } =
+#letd rec take (type a_) (n : pos_int) : (List a_) -> { List a_ | fun ls -> len ls <= n } =
   fun l ->
     if n == 0 then [] else if n < 0 then assert false else
     match l with
@@ -74,11 +74,11 @@ let rec compare_list compare l1 l2 =
   end
 in
 
-let tuple a b = {: fst : a , snd : b :}
+let tuple a b = { fst : a ; snd : b }
 in
 
 let rec last_exn ls = 
-#let rec last_exn (type a_) (ls : {. List a_ | fun l -> len l > 0 }) : a_ = 
+#let rec last_exn (type a_) (ls : { List a_ | fun l -> len l > 0 }) : a_ = 
   match ls with
   | hd :: tl ->
     match tl with
@@ -109,7 +109,7 @@ letd make_dist (type a_) (n : pos_int) : (List a_) -> (a_ -> a_ -> int) -> distr
     fun compare ->
       let ngrams = make_ngrams n l in
       let tup_of_ng ng =
-        { fst = last_exn ng , snd = take (n - 1) ng } # ERROR: fst and snd are switched here. fst here is a_, but we use compare_list below
+        { fst = last_exn ng ; snd = take (n - 1) ng } # ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below
       in
       let rec map_ng_to_tups ls =
         match ls with

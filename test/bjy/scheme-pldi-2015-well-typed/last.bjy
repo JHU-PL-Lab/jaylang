@@ -15,7 +15,7 @@ let is_nonempty ls =
   end
 in
 
-let last (type a_) (l : {. List a_ | is_nonempty }) : a_ =
+let last (type a_) (l : { List a_ | is_nonempty }) : a_ =
   ycomb (
     fun self x ->
       match x with

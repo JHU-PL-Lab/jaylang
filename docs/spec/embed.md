@@ -381,7 +381,7 @@ This is really just a desugaring and should be done during the desugar pass, but
 
 ```ocaml
 (* with this flag, we don't run the checker--only wrap *)
-[[ let (x : tau (wrap_only)) = e in e' ]] =
+[[ let (x : tau (no check)) = e in e' ]] =
   let x =
     [[tau]].~wrap [[ e ]]
   in
@@ -398,7 +398,7 @@ This is really just a desugaring and should be done during the desugar pass, but
   [[ e' ]]
 
 (* combine both of the above flags *)
-[[ let (x : tau (wrap only, tau knows binding)) = e in e' ]] =
+[[ let (x : tau (no check, tau knows binding)) = e in e' ]] =
   let x =
     let x = [[ e ]] in (* use x so that tau can know about it *)
     [[tau]].~wrap x

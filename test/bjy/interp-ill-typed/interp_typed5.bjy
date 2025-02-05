@@ -1,17 +1,17 @@
 
 let nil =
-  { t = {: :}
-  , v = {}
+  { t = unit
+  ; v = {}
   }
 in
 
 let pair =
-  { t = fun a -> fun b -> {: left : a , right : b :}
+  { t = fun a -> fun b -> { left : a ; right : b }
   }
 in
 
 let triple =
-  { t = fun a -> fun b -> fun c -> {: first : a , second : b , third : c :}
+  { t = fun a -> fun b -> fun c -> { first : a ; second : b ; third : c }
   }
 in
 
@@ -36,15 +36,15 @@ let ttype =
   { t = Mu tt.
     ``TArrow (pair.t tt tt)
     || ``TInt nil.t
-  , tint = tint
-  , eq = eq
-  , is_int = eq tint
+  ; tint = tint
+  ; eq = eq
+  ; is_int = eq tint
   }
 in
 
 let ident =
   { t = ``Id int
-  , eq =
+  ; eq =
       fun a -> fun b -> 
         let x = match a with `Id i -> i end in
         let y = match b with `Id i -> i end in
@@ -74,17 +74,17 @@ let result =
   { t =
       fun a ->
         ``Ok a || ``Error nil.t
-  , bind = 
+  ; bind = 
       fun x -> fun f ->
         match x with
         | `Error e -> x
         | `Ok a -> f a
         end
-  , return = 
+  ; return = 
       fun a -> `Ok a
-  , error =
+  ; error =
       `Error nil.v
-  , is_ok =
+  ; is_ok =
       fun x ->
         match x with
         | `Ok a -> true
@@ -111,7 +111,7 @@ let typecheck e =
     # Functions
     | `Function trip ->
       result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
-        `TArrow { left = trip.second , right = tau } # ERROR: forgot to return. This would be correct if using map instead of bind
+        `TArrow { left = trip.second ; right = tau } # ERROR: forgot to return. This would be correct if using map instead of bind
       )
     | `Appl p ->
       result.bind (tc p.left) (fun res ->
@@ -174,7 +174,7 @@ let subst e id v =
   let rec sub e =
     let sub_pair p =
       { left = sub p.left
-      , right = sub p.right }
+      ; right = sub p.right }
     in
     match e with
     | `Var var_id ->
@@ -185,12 +185,12 @@ let subst e id v =
     | `Function trip ->
         if ident.eq trip.first id
         then e
-        else `Function { first = trip.first , second = trip.second ,  third = sub trip.third }
+        else `Function { first = trip.first ; second = trip.second ;  third = sub trip.third }
     | `Plus p -> `Plus (sub_pair p)
     | `Minus p -> `Minus (sub_pair p)
     | `Equal p -> `Equal (sub_pair p)
     | `Appl p -> `Appl (sub_pair p)
-    | `If_then_else trip -> `If_then_else { first = sub trip.first , second = sub trip.second , third = sub trip.third }
+    | `If_then_else trip -> `If_then_else { first = sub trip.first ; second = sub trip.second ; third = sub trip.third }
     end
   in
   sub e
@@ -202,7 +202,7 @@ let int_exn e =
   end
 in
 
-let rec eval (e : {. expr.t | is_closed_and_well_typed }) : value.t =
+let rec eval (e : { expr.t | is_closed_and_well_typed }) : value.t =
   let op_ints p op = 
     let i1 = int_exn (eval p.left) in
     let i2 = int_exn (eval p.right) in
@@ -221,7 +221,7 @@ let rec eval (e : {. expr.t | is_closed_and_well_typed }) : value.t =
   | `If_then_else trip ->
     match eval trip.first with
     | `Int i ->
-      if i <> 0 # non-zero int is true, like in C
+      if i <> 0 # non-zero int is true; like in C
       then eval trip.second
       else eval trip.third
     end

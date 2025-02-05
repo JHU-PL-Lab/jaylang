@@ -10,7 +10,7 @@ let f x y =
   else y
 in
 
-letd main (x : int) : int -> int -> {. int | fun c -> c == f x c } =
+letd main (x : int) : int -> int -> { int | fun c -> c == f x c } =
   fun y -> fun z -> 
     max f y x z 
 in

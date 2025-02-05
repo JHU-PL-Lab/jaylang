@@ -6,7 +6,7 @@ let eq i =
 in
 
 let one_of i =
-  {. int | eq i }
+  { int | eq i }
 in
 
 let lock (st : one_of 0) : one_of 1 = 1 in

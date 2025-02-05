@@ -1,20 +1,17 @@
 
-let unit_type = {: :} in
-let unit = { } in
-
 let f x g =
   g (x + 1)
 in
 
-letd h (z : int) : {. int | fun y -> z > y } -> unit_type = # ERROR: should be `z < y` instead of other way around
+letd h (z : int) : { int | fun y -> z > y } -> unit = # ERROR: should be `z < y` instead of other way around
   fun y -> 
-    unit
+    {}
 in
 
-let main (n : int) : unit_type =
+let main (n : int) : unit =
   if n > 0
   then f n (h n)
-  else unit
+  else {}
 in
 
 main

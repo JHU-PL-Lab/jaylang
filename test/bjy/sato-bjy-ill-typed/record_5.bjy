@@ -8,7 +8,7 @@ in
 let isNeg n = n < 0
 in
 
-let access_record (r : {. {: a : int, b : bool :} | aIsPos }) : {. int | isNeg } =
+let access_record (r : { { a : int; b : bool } | aIsPos }) : { int | isNeg } =
   r.a
 in
 

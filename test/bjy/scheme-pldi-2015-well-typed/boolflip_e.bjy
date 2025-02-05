@@ -1,4 +1,4 @@
-# error is because we can look at assert as `assert : {. bool | fun b -> b } -> 'a`
+# error is because we can look at assert as `assert : { bool | fun b -> b } -> 'a`
 
 let h x =
   assert x
