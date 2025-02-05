@@ -35,7 +35,7 @@ let () =
       (* @ make_tests_ill_typed "interp-ill-typed" *)
       (* @ make_tests_well_typed "interp-well-typed" *)
 
-      (* @ make_tests_ill_typed "post-oopsla-ill-typed" *)
+      @ make_tests_ill_typed "post-oopsla-ill-typed"
       @ make_tests_well_typed "post-oopsla-well-typed"
 
       @ make_tests_ill_typed "edge-cases-ill-typed"

@@ -14,4 +14,7 @@ letd F (x : t) : { of_list : (List x.elt) -> x.t } =
   }
 in
 
-F
+let (M : t) = { elt = int ; t = List int ; empty = [] ; add = fun ls a -> a :: ls }
+in
+
+F M
