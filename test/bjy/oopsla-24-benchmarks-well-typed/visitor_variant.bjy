@@ -7,7 +7,7 @@ let sight = { is_open : bool }
 
 let node_kind = ``City city || ``Shop shop || ``Sight sight
 
-let node = Mu tt. ({ kind : node_kind ; neighbors : List tt })
+let node = Mu tt. ({ kind : node_kind ; neighbors : list tt })
 
 let result_type = { result : int }
 

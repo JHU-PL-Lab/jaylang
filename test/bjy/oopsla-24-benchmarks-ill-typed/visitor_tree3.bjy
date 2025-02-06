@@ -4,7 +4,7 @@ let node =
     fun a_t ->
       fun tree_t ->
         { v : a_t
-         ; children : List tree_t }
+         ; children : list tree_t }
   }
 
 let leaf =

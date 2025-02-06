@@ -15,6 +15,7 @@ module Reserved_labels = struct
     let cons : VariantLabel.t = VariantLabel (Ident "~Cons") 
     let nil : VariantLabel.t = VariantLabel (Ident "~Nil") 
     let untouched : VariantLabel.t = VariantLabel (Ident "~Untouched")
+    let top : VariantLabel.t = VariantLabel (Ident "~Top")
   end
 
   module VariantTypes = struct

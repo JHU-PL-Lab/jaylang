@@ -1,5 +1,5 @@
 
-let (obj : (((``A unit) -> int) && ((``B unit) -> int) && ((``C int) -> List int))) =
+let (obj : (((``A unit) -> int) && ((``B unit) -> int) && ((``C int) -> list int))) =
   let ob =
     fun self ->
       fun arg ->

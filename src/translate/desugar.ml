@@ -87,7 +87,7 @@ let desugar_bluejay (names : (module Fresh_names.S)) (expr : Bluejay.t) : Desuga
   let rec desugar (expr : Bluejay.t) : Desugared.t =
     match expr with
     (* Base cases *)
-    | (EInt _ | EBool _ | EVar _ | EPick_i | ETypeInt | ETypeBool | EType) as e -> e
+    | (EInt _ | EBool _ | EVar _ | EPick_i | ETypeInt | ETypeBool | EType | ETypeTop | ETypeBottom) as e -> e
     (* Simple propogation *)
     | EBinop { left ; binop ; right } -> begin
       match binop with
@@ -129,6 +129,8 @@ let desugar_bluejay (names : (module Fresh_names.S)) (expr : Bluejay.t) : Desuga
       ETypeVariant (List.map ls_e ~f:(fun (label, e) -> label, desugar e))
     | ELetTyped { typed_var = { var ; tau } ; body ; cont } ->
       ELetTyped { typed_var = { var ; tau = desugar tau } ; body = desugar body ; cont = desugar cont }
+    | ETypeSingle tau ->
+      ETypeSingle (desugar tau)
     (* Assert/assume *)
     | EAssert assert_expr ->
       EIf

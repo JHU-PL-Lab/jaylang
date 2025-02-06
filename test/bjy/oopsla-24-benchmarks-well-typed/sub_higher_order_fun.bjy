@@ -1,8 +1,8 @@
 # functions on records
 
-let t = ({ a : int ; b : bool } -> { x : List int }) -> { y : List bool }
+let t = ({ a : int ; b : bool } -> { x : list int }) -> { y : list bool }
 
-let f (a : { a : int ; b : bool } -> { x : List int }) : { y : List bool } =
+let f (a : { a : int ; b : bool } -> { x : list int }) : { y : list bool } =
   match (a { a = 0 ; b = false }).x with
   | [] -> { y = [] }
   | hd :: tl -> if hd == 0 then { y = [ false ] } else { y = [ true ] }

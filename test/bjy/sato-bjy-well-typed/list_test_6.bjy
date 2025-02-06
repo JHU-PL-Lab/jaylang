@@ -1,2 +1,2 @@
 
-let (int_list : List int) = [1] 
+let (int_list : list int) = [1] 

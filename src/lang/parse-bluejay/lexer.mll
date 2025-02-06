@@ -50,6 +50,9 @@ rule token = parse
 | "int"                { INT_KEYWORD }
 | "bool"               { BOOL_KEYWORD }
 | "unit"               { UNIT_KEYWORD }
+| "top"                { TOP_KEYWORD }
+| "bottom"             { BOTTOM_KEYWORD }
+| "singlet"            { SINGLET_KEYWORD }
 | "fun"                { FUNCTION }
 | "function"           { FUNCTION }
 | "with"               { WITH }
@@ -70,7 +73,7 @@ rule token = parse
 | "assume"             { ASSUME }
 | "type"               { TYPE }
 | "Mu"                 { MU }
-| "List"               { LIST }
+| "list"               { LIST }
 | "+"                  { PLUS }
 | "-"                  { MINUS }
 | "*"                  { ASTERISK }

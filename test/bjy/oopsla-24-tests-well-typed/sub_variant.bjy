@@ -1,4 +1,4 @@
 # subtype of union type
 
-let f (type a_) (i : int) (b : bool) (a : a_) : (``Int int || ``Bool bool || ``L List a_) =
+let f (type a_) (i : int) (b : bool) (a : a_) : (``Int int || ``Bool bool || ``L list a_) =
   `L (a :: [])

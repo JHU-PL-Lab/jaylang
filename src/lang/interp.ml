@@ -44,6 +44,8 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | EVar id -> return @@ Env.fetch env id
     | ETypeInt -> return VTypeInt
     | ETypeBool -> return VTypeBool
+    | ETypeTop -> return VTypeTop
+    | ETypeBottom -> return VTypeBottom
     | ETypeForall { type_variables ; tau } -> return (VTypeForall { type_variables ; tau = { expr = tau ; env } })
     | EType -> return VType
     | EAbort -> abort ()
@@ -65,6 +67,9 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ETypeList tau ->
       let%bind vtau = eval tau env in
       return (VTypeList vtau)
+    | ETypeSingle tau ->
+      let%bind vtau = eval tau env in
+      return (VTypeSingle vtau)
     | ETypeArrow { domain ; codomain } ->
       let%bind domain = eval domain env in
       let%bind codomain = eval codomain env in

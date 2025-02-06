@@ -126,7 +126,7 @@ end
 let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   let rec loop (e : Desugared.t) : bool =
     match e with
-    | (EInt _ | EBool _ | EPick_i | EAbort | EDiverge | EType | ETypeInt | ETypeBool) -> false
+    | (EInt _ | EBool _ | EPick_i | EAbort | EDiverge | EType | ETypeInt | ETypeBool | ETypeTop | ETypeBottom) -> false
     | EVar id' -> Ident.equal id id'
     (* capturing variables *)
     | ELet { var ; body ; _ } when Ident.equal var id -> loop body
@@ -140,6 +140,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | ENot e
     | EVariant { payload = e ; _ }
     | ETypeMu { body = e ; _ }
+    | ETypeSingle e
     | EProject { record = e ; _ } -> loop e
     (* simple binary cases *)
     | ELet { body = e1 ; cont = e2 ; _ }
@@ -590,6 +591,34 @@ let embed_desugared (names : (module Fresh_names.S)) (expr : Desugared.t) ~(do_w
             )
           )
         ))
+    | ETypeTop ->
+      E.make
+        ~ask_for
+        ~gen:(lazy (EVariant { label = Reserved_labels.Variants.top ; payload = EInt 0 }))
+        ~check:(lazy (fresh_abstraction "e_top_check" (fun _ -> EBool (true))))
+        ~wrap:(lazy EId)
+    | ETypeBottom ->
+      E.make
+        ~ask_for
+        ~gen:(lazy EDiverge)
+        ~check:(lazy (fresh_abstraction "e_top_check" (fun _ -> EAbort)))
+        ~wrap:(lazy EId)
+    | ETypeSingle tau ->
+      E.make
+        ~ask_for
+        ~gen:(lazy (embed tau))
+        (* Note: check and wrap are just copied code from the EType embedding *)
+        ~check:(lazy (
+          fresh_abstraction "e_singlet_check" (fun e ->
+            build @@  
+              let e = EVar e in
+              let%bind () = ignore @@ proj e Reserved_labels.Records.gen in
+              let%bind () = ignore @@ proj e Reserved_labels.Records.check in
+              let%bind () = ignore @@ proj e Reserved_labels.Records.wrap in
+              return (EBool true)
+          )
+        ))
+        ~wrap:(lazy EId)
 
     and embed_let ?(v_name : Ident.t = Names.fresh_id ()) ~(do_check : bool)
       ~(do_wrap : bool) ~(tau : Desugared.t) (body : Desugared.t) : Embedded.t =

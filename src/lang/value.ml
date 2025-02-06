@@ -37,6 +37,8 @@ module Make (Cell : CELL) (V : T1) = struct
       | VType : 'a bluejay_or_desugared t
       | VTypeInt : 'a bluejay_or_desugared t
       | VTypeBool : 'a bluejay_or_desugared t
+      | VTypeTop : 'a bluejay_or_desugared t
+      | VTypeBottom : 'a bluejay_or_desugared t
       | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
       | VTypeRecordD : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
       | VTypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
@@ -45,6 +47,7 @@ module Make (Cell : CELL) (V : T1) = struct
       | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_or_desugared t
       | VTypeMu : { var : Ident.t ; body : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
+      | VTypeSingle : 'a t -> 'a bluejay_or_desugared t
       (* types in bluejay only *)
       | VTypeList : 'a t -> 'a bluejay_only t
       | VTypeForall : { type_variables : Ident.t list ; tau : 'a closure } -> 'a bluejay_only t

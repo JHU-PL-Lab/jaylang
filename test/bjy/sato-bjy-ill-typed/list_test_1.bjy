@@ -1,5 +1,5 @@
 
-let list_test (lst : List int) : int =
+let list_test (lst : list int) : int =
   match lst with
   | [] -> false
   | hd :: tl -> 5

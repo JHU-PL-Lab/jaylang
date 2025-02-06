@@ -1,2 +1,2 @@
 
-let (lst : List int) = [true]
+let (lst : list int) = [true]

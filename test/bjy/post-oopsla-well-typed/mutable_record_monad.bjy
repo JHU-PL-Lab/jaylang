@@ -56,7 +56,7 @@ let any = Mu t.
   ``U unit
   || ``I int 
   || ``B bool
-  || ``L (List t)
+  || ``L (list t)
 
 let id = 
   let get =
@@ -90,7 +90,7 @@ let data =
 
 let poly_map =
   { t =
-      List
+      list
         { key : id.t
         ; data : any
         }

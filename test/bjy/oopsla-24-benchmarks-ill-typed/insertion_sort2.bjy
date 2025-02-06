@@ -32,7 +32,7 @@ let rec insert x l =
   end
 
 let ret_type xs =
-  { List int | fun l ->
+  { list int | fun l ->
     ne_sorted l
     and
       if is_nonempty xs
@@ -40,5 +40,5 @@ let ret_type xs =
       else not (is_nonempty l)
   }
 
-letd sort (xs : List int) : ret_type xs =
+letd sort (xs : list int) : ret_type xs =
   foldl insert [] xs

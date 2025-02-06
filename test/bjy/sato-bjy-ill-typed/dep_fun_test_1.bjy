@@ -5,6 +5,6 @@ let rec sum x acc =
     | hd :: tl -> sum tl (acc + hd)
     end
 
-letd f (x : List int) : ({ int | fun a -> (a == (sum x 0))}) =
+letd f (x : list int) : ({ int | fun a -> (a == (sum x 0))}) =
     sum x 1
     

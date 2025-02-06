@@ -8,5 +8,5 @@ let userinput = input
 
 let val = userinput
 
-let (x : { List int | testFun } ) =
+let (x : { list int | testFun } ) =
   [ val ; val ]

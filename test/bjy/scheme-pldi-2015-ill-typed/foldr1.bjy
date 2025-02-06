@@ -1,6 +1,6 @@
 # error is that xs should be nonempty
 
-let rec foldr1 (type a_) (f : a_ -> a_ -> a_) (xs : List a_) : a_ =
+let rec foldr1 (type a_) (f : a_ -> a_ -> a_) (xs : list a_) : a_ =
   match xs with
   | [] -> assert false # ERROR: xs chould be empty
   | z :: zs ->

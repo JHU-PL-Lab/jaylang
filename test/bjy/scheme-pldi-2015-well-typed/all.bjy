@@ -1,6 +1,6 @@
 # simple error with return type in singleton case
 
-let rec all (type a_) (p : a_ -> bool) (xs : List a_) : bool =
+let rec all (type a_) (p : a_ -> bool) (xs : list a_) : bool =
   match xs with
   | [] -> true
   | x :: xss -> 

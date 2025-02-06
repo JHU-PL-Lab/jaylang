@@ -1,5 +1,5 @@
 
-let rec prepend (l1 : List int) (l2 : List bool) : List int = 
+let rec prepend (l1 : list int) (l2 : list bool) : list int = 
     match l2 with
     | [] -> l1
     | hd :: tl -> prepend (hd :: l1) tl
