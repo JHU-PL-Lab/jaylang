@@ -20,6 +20,16 @@ let[@landmark] test_pgm : (Lang.Ast.Embedded.pgm, Status.Terminal.t) Options.Arr
   <<^ (fun pgm -> Lang.Ast.Program.to_expr pgm)
   >>^ (fun res -> Format.printf "\n%s\n" (Status.to_loud_string res); res)
 
+let test_bjy : (Lang.Ast.Bluejay.pgm, do_wrap:bool -> Status.Terminal.t) Options.Arrow.t =
+  Options.Arrow.make
+  @@ fun r -> fun bjy -> fun ~do_wrap ->
+    let programs = Translate.Convert.bjy_to_emb bjy ~do_wrap in
+    match programs with
+    | [] -> failwith "no programs"
+    | [ pgm ] -> Options.Arrow.appl test_pgm r pgm
+    | _ -> failwith "too many programs"
+
+
 (*
   -------------------
   TESTING BY FILENAME
@@ -31,5 +41,4 @@ let test : (string, do_wrap:bool -> Status.Terminal.t) Options.Arrow.t =
   @@ fun r -> fun s -> fun ~do_wrap ->
     In_channel.read_all s
     |> Lang.Parse.parse_single_pgm_string
-    |> Translate.Convert.bjy_to_emb ~do_wrap
-    |> Options.Arrow.appl test_pgm r
+    |> Options.Arrow.appl test_bjy r ~do_wrap

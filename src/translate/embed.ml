@@ -168,7 +168,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   in
   loop expr
 
-let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) : Embedded.pgm =
+let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) : Embedded.pgm list =
   let module E = Embedded_type (struct let do_wrap = do_wrap end) in
   let module Names = (val names) in
   let open LetMonad (Names) in
@@ -618,14 +618,14 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       ~(do_wrap : bool) ~(tau : Desugared.t) (body : Desugared.t) : Embedded.t =
       build @@
         let%bind () = assign v_name @@ embed body in
-        let%bind r = capture ~suffix:"r" @@ embed tau in
+        (* let%bind r = capture ~suffix:"r" @@ embed tau in *)
         let%bind () = 
           if do_check
-          then ignore @@ E.check ~tau:(EVar r) (EVar v_name)
+          then ignore @@ check tau (EVar v_name)
           else return ()
         in
         if do_wrap
-        then return @@ E.wrap ~tau:(EVar r) (EVar v_name)
+        then return @@ wrap tau (EVar v_name)
         else return (EVar v_name)
 
     and embed_pattern (pat : Desugared.pattern) : Embedded.pattern =
@@ -651,5 +651,56 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         let do_check = not @@ Set.mem flags NoCheck in
         let v_name = if Set.mem flags TauKnowsBinding then x else Names.fresh_id () in
         SUntyped { var = x ; body = embed_let ~v_name ~do_wrap ~do_check ~tau body }
+    in
+
+  let embed_single_program (pgm : Desugared.pgm) =
+    List.map pgm ~f:embed_statement
   in
-  List.map pgm ~f:embed_statement
+
+  (* 
+    Split the program into many different programs, where each one has a different check turned on, and the rest are off.
+
+    Note:
+    * This is somewhat inefficient because we translate the program once for each version, so we are duplicating work.
+    * We could do this really intelligently, but right now it doesn't matter.
+    *)
+  let split_checks (stmt_ls : Desugared.statement list) : Embedded.pgm list =
+    let has_check (stmt : Desugared.statement) : bool =
+      match stmt with
+      | SUntyped _ -> false
+      | STyped _ -> true
+      | SFlagged { flags ; _ } -> not @@ Set.mem flags NoCheck
+    in
+    let turn_off_check (stmt : Desugared.statement) : Desugared.statement =
+      match stmt with
+      | SUntyped _ -> stmt
+      | STyped { typed_var ; body } ->
+        SFlagged { flags = LetFlag.Set.singleton NoCheck ; typed_var ; body }
+      | SFlagged { flags ; typed_var ; body } ->
+        SFlagged { flags = Set.add flags NoCheck ; typed_var ; body }
+    in
+    (*
+      Now for each statement with a check, we want to return the program with only that check on.
+    *)
+    let rec go pgms prev_stmts stmts =
+      match stmts with
+      | [] -> pgms
+      | stmt :: tl ->
+        if has_check stmt
+        then
+          let new_pgm =
+            prev_stmts
+            @ [ stmt ]
+            @ List.map tl ~f:turn_off_check
+          in
+          go (new_pgm :: pgms) (prev_stmts @ [ turn_off_check stmt ]) tl
+        else
+          go pgms (prev_stmts @ [ stmt ]) tl
+    in
+    match go [] [] stmt_ls with
+    | [] -> (* no statements had a check. We still need to run the program though *)
+      [ embed_single_program pgm ]
+    | pgm_ls -> List.map pgm_ls ~f:embed_single_program
+
+  in
+  split_checks pgm
