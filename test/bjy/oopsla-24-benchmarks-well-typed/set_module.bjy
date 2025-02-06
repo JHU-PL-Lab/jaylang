@@ -33,4 +33,4 @@ let set_m_type =
     ; contains : a_ -> t -> (a_ -> a_ -> bool) -> bool
     }
 
-let (check_type : set_m_type (int)) = set_m
+let (check_type : set_m_type int) = set_m

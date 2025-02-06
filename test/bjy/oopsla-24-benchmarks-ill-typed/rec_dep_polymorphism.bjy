@@ -11,4 +11,4 @@ letd rec f (type a_ b_) (i : int) : a_ -> b_ -> t (a_) (b_) i =
     then b
     else f (a_) (b_) (i - 1) b a # ERROR: need to flip a_ and b_
 
-let res = f (int) (bool) 2 0 true
+let res = f int bool 2 0 true

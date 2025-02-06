@@ -121,4 +121,4 @@ let compare_bool a b =
     then 1
     else 0 # both false
 
-let (res : distribution 3 (bool)) = make_dist 3 [ true ; false ; true; false ; false ] compare_bool
+let (res : distribution 3 bool) = make_dist 3 [ true ; false ; true; false ; false ] compare_bool

@@ -8,9 +8,9 @@ let id (type a) (a_ : a) : a =
 
 let r =
   compose
-    (int)
-    (bool) # ERROR: should be (int)
-    (int)
-    (id (int))
-    (id (int))
+    int
+    bool # ERROR: should be int
+    int
+    (id int)
+    (id int)
     4 

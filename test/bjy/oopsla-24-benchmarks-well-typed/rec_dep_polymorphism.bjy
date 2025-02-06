@@ -11,4 +11,4 @@ letd rec f (type a_ b_) (i : int) : a_ -> b_ -> t (a_) (b_) i =
     then b
     else f (b_) (a_) (i - 1) b a
 
-let res = f (int) (bool) 2 0 true
+let res = f int bool 2 0 true

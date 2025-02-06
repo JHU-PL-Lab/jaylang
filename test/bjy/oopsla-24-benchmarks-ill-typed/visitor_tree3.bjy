@@ -40,7 +40,7 @@ let make_list f n =
   loop n
 
 # Makes big tree recursively with many children
-let rec make_tree (n : int) : tree.t (int) =
+let rec make_tree (n : int) : tree.t int =
   let ob =
     fun self ->
       if n == 0
@@ -52,7 +52,7 @@ let rec make_tree (n : int) : tree.t (int) =
   in
   ob ob
 
-let int_bool_client (tr : tree.t (int)) : client (int) (tree.t (int)) (bool) =
+let int_bool_client (tr : tree.t int) : client int (tree.t int) bool =
   { self = tr
   ; accept =
     fun vis ->

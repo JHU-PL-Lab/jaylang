@@ -8,4 +8,4 @@ let g (type a_) (x : a_) (y : int) : int =
   then f x # ERROR: polymorphic variable applied where int is expected
   else y
 
-let z = g (int) 10 0
+let z = g int 10 0
