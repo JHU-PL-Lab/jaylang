@@ -122,7 +122,7 @@ let compare_bool a b =
 
 let res = make_dist 3 [ true ; false ; true; false ; false ] compare_bool
 
-let (x : distribution 3 (bool)) = res
+let (x : distribution 3 bool) = res
 
 # None of the following fail; which shows the behavior is as expected for the concrete example.
 let (y : { list bool | fun ls -> compare_list compare_bool ls [true ; false] == 0 }) = res [true; false]

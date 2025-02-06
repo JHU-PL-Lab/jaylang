@@ -8,4 +8,4 @@ let g (type a_) (x : a_) (y : int) : (``A a_ || ``I int) =
   then `A (f x)
   else `I y
 
-let z = g (int) 10 0
+let z = g int 10 0

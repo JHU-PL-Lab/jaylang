@@ -3,5 +3,5 @@ let f (type a_ b_) (a : a_) (b : b_) : b_ =
   b
 
 let g (type b_) (i : int) (b : b_) : b_ =
-  f (int) (b_) b i # ERROR: arguments `b` and `i` are in wrong order
+  f int (b_) b i # ERROR: arguments `b` and `i` are in wrong order
       

@@ -58,7 +58,7 @@ let t n =
           )
       )
     in
-    state_monad.run (loop (state_monad.return (int))) n
+    state_monad.run (loop (state_monad.return int)) n
     # EXAMPLE ERROR: don't use run. Just apply state by self (and thereby forget to project the result from the record)
     # But such an error is instant to catch just in the generation of a value with type t
   )
