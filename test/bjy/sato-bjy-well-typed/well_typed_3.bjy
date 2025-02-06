@@ -1,2 +1,2 @@
 
-let (x : List int) = [1]
+let (x : list int) = [1]

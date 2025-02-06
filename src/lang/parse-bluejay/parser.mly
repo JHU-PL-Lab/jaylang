@@ -45,6 +45,9 @@
 %token INT_KEYWORD
 %token BOOL_KEYWORD
 %token UNIT_KEYWORD
+%token TOP_KEYWORD
+%token BOTTOM_KEYWORD
+%token SINGLET_KEYWORD
 %token INPUT
 %token MATCH
 %token END
@@ -74,7 +77,6 @@
 %nonassoc prec_let prec_fun   /* Let-ins and functions */
 %nonassoc prec_if             /* Conditionals */
 %nonassoc prec_mu             /* mu types */
-%nonassoc prec_list_type      /* list types */
 %left OR                      /* Or */
 %left AND                     /* And */
 %right NOT                    /* Not */
@@ -83,7 +85,7 @@
 %right DOUBLE_COLON           /* :: */
 %left PLUS MINUS              /* + - */
 %left ASTERISK SLASH PERCENT  /* * / % */
-%right ASSERT ASSUME prec_variant    /* Asserts, Assumes, and variants */
+%right ASSERT ASSUME prec_variant prec_list_type   /* Asserts, Assumes, variants, lists */
 %right ARROW                  /* -> for type declaration */
 %right DOUBLE_AMPERSAND      /* && for type intersection */
 
@@ -179,12 +181,8 @@ expr:
   | MATCH expr WITH PIPE? separated_nonempty_list(PIPE, match_expr) END
       { EMatch { subject = $2 ; patterns = $5 } : Bluejay.t }
   // Types expressions
-  | INT_KEYWORD
-      { ETypeInt : Bluejay.t }
-  | BOOL_KEYWORD
-      { ETypeBool : Bluejay.t }
-  | UNIT_KEYWORD
-      { ETypeRecord empty_record : Bluejay.t }
+  | SINGLET_KEYWORD expr %prec prec_list_type
+      { ETypeSingle $2 : Bluejay.t }
   | LIST expr %prec prec_list_type
       { ETypeList $2 : Bluejay.t } 
   | MU ident_decl DOT expr %prec prec_mu
@@ -193,8 +191,6 @@ expr:
       { ETypeArrow { domain = $1 ; codomain = $3 } : Bluejay.t }
   | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr
       { ETypeArrowD { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
-  | OPEN_BRACE expr PIPE expr CLOSE_BRACE
-      { ETypeRefinement { tau = $2 ; predicate = $4 } : Bluejay.t }
   | variant_type_body
       { ETypeVariant $1 : Bluejay.t }
   | intersection_type_body
@@ -275,12 +271,24 @@ primary_expr:
       { EInt $1 : Bluejay.t }
   | BOOL
       { EBool $1 : Bluejay.t }
+  | ident_usage
+      { $1 : Bluejay.t }
+  (* keywords *)
   | INPUT
       { EPick_i : Bluejay.t }
   | TYPE
       { EType : Bluejay.t }
-  | ident_usage
-      { $1 : Bluejay.t }
+  | INT_KEYWORD
+      { ETypeInt : Bluejay.t }
+  | BOOL_KEYWORD
+      { ETypeBool : Bluejay.t }
+  | UNIT_KEYWORD
+      { ETypeRecord empty_record : Bluejay.t }
+  | TOP_KEYWORD
+      { ETypeTop : Bluejay.t }
+  | BOTTOM_KEYWORD
+      { ETypeBottom : Bluejay.t }
+  (* braces/parens *)
   | OPEN_BRACE record_body CLOSE_BRACE
       { ERecord $2 : Bluejay.t }
   | OPEN_BRACE CLOSE_BRACE
@@ -291,6 +299,8 @@ primary_expr:
       { EList [] : Bluejay.t }
   | OPEN_PAREN expr CLOSE_PAREN
       { $2 }
+  | OPEN_BRACE expr PIPE expr CLOSE_BRACE
+      { ETypeRefinement { tau = $2 ; predicate = $4 } : Bluejay.t }
   | record_type
       { $1 : Bluejay.t }
   | primary_expr DOT record_label

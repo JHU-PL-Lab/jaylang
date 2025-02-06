@@ -5,7 +5,7 @@ letd F (tf : type -> type) :
     ;  add   : a -> tf a -> tf a
     }
     ->
-    { of_list : (List a) -> tf a
+    { of_list : (list a) -> tf a
     }
   =
   fun a r ->

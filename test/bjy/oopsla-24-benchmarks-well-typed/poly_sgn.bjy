@@ -2,7 +2,7 @@
 
 let sign = (``Even { even : bool } || ``Odd { odd : bool })
 
-let rec list_count (type a_) (ls : List a_) (f : a_ -> bool) : int =
+let rec list_count (type a_) (ls : list a_) (f : a_ -> bool) : int =
   match ls with
   | [] -> 0
   | hd :: tl ->
@@ -11,7 +11,7 @@ let rec list_count (type a_) (ls : List a_) (f : a_ -> bool) : int =
   end
 
 # Computes sgn of permutation
-let sgn (type a_) (ls : List a_) (compare : a_ -> a_ -> int) : sign =
+let sgn (type a_) (ls : list a_) (compare : a_ -> a_ -> int) : sign =
   let rec num_inversions l =
     match l with
     | [] -> 0

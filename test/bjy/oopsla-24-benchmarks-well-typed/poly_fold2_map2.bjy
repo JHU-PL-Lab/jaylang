@@ -1,7 +1,7 @@
 # Polymorphic types in higher order functions are wrong
 
 # No error in this. It is here to slow down the concolic evaluator and make a bigger haystack in which to find the needle
-let rec fold2 (type a_ b_ acc_) (ls1 : List a_) (ls2 : List b_) (init : acc_) (f : acc_ -> a_ -> b_ -> acc_) : acc_ =
+let rec fold2 (type a_ b_ acc_) (ls1 : list a_) (ls2 : list b_) (init : acc_) (f : acc_ -> a_ -> b_ -> acc_) : acc_ =
   match ls1 with
   | [] -> init
   | hd1 :: tl1 ->
@@ -12,7 +12,7 @@ let rec fold2 (type a_ b_ acc_) (ls1 : List a_) (ls2 : List b_) (init : acc_) (f
     end
   end
 
-let rec map2 (type a_ b_ c_) (ls1 : List a_) (ls2 : List b_) (f : a_ -> b_ -> c_) : List c_ =
+let rec map2 (type a_ b_ c_) (ls1 : list a_) (ls2 : list b_) (f : a_ -> b_ -> c_) : list c_ =
   match ls1 with
   | [] -> []
   | hd1 :: tl1 -> 

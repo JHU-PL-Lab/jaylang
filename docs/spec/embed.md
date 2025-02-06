@@ -271,7 +271,7 @@ Here we have a few ideas for extensions, but they are not fully thought through.
 
 ```ocaml
 [[ top ]] = 
-  { ~gen = freeze @@ `~Top 0 (* TODO: how does this affect pattern matching? *)
+  { ~gen = freeze @@ `~Top 0
   , ~check = fun _ -> true (* anything is in top *)
   , ~wrap = fun $e -> $e
   }
@@ -316,18 +316,21 @@ Notes:
 The singleton of a type is just the singleton set containing that type.
 
 ```ocaml
-[[singleton(tau)]] =
+[[singlet tau]] =
   { ~gen = freeze @@ [[tau]]
   , ~check = [[type]].~check
   , ~wrap = [[type]].~wrap
   }
 ```
 
+Note:
+* The word `singlet` is used instead of `singleton` because it only works on types. e.g. `singlet 5` is bad, whereas a programmer might expect `singleton 5` to work.
+
 ### Refinement types as dependent records
 
 ```ocaml
 [[ { tau | e_p }]] =
-  let $r = [[ {: ~value : tau , ~dummy = if e_p value then {: :} else bottom :} ]] in (* supposing this record is dependent *)
+  let $r = [[ {: ~value : tau , ~dummy = if e_p value then unit else bottom :} ]] in (* note this is a dependent record *)
   { ~gen = freeze @@
     (thaw $r.~gen).~value
   , ~check = fun $e ->

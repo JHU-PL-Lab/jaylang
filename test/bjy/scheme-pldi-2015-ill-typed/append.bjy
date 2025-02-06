@@ -6,7 +6,7 @@ let is_nonempty ls =
   | _ -> true
   end
 
-let rec append (type a_) (a : List a_) (b : List a_) : { List a_ | is_nonempty } =
+let rec append (type a_) (a : list a_) (b : list a_) : { list a_ | is_nonempty } =
   match a with
   | [] -> b # ERROR: `b` could be empty
   | hd :: tl -> hd :: append a_ tl b

@@ -26,7 +26,7 @@ let set_m =
 
 let set_m_type = 
   fun a_ -> # any type
-    let t = List a_ in
+    let t = list a_ in
     { emptyset : t
     ; add : a_ -> t -> t
     ; remove : a_ -> t -> (a_ -> a_ -> bool) -> t

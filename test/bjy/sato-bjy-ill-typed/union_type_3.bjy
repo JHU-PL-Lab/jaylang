@@ -1,3 +1,3 @@
 
-let (x : List (``I int || ``B bool)) =
+let (x : list (``I int || ``B bool)) =
   [{a = 1}]

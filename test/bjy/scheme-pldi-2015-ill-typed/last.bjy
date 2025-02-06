@@ -7,7 +7,7 @@ let rec ycomb f =
     (fun x -> f (fun z -> (x x) z))
     y
 
-let last (type a_) (l : List a_) : a_ =
+let last (type a_) (l : list a_) : a_ =
   ycomb (
     fun self x ->
       match x with

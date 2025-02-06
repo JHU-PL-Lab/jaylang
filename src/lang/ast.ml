@@ -166,6 +166,8 @@ module Expr = struct
     | EType : 'a bluejay_or_desugared t
     | ETypeInt : 'a bluejay_or_desugared t
     | ETypeBool : 'a bluejay_or_desugared t
+    | ETypeTop : 'a bluejay_or_desugared t
+    | ETypeBottom : 'a bluejay_or_desugared t
     | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
     | ETypeRecordD : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
     | ETypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
@@ -175,6 +177,7 @@ module Expr = struct
     | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
     | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
     | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } -> 'a bluejay_or_desugared t
+    | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
     (* bluejay only *)
     | ETypeList : 'a t -> 'a bluejay_only t
     | EList : 'a t list -> 'a bluejay_only t
