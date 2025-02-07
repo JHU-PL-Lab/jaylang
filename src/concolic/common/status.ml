@@ -39,7 +39,7 @@ let to_string (type a) (x : a t) : string =
   match x with
   | Found_abort _         -> "Found abort"
   | Type_mismatch (_, s)  -> "Type mismatch: " ^ s
-  | Exhausted_full_tree   -> "Exhausted full tree"
+  | Exhausted_full_tree   -> "Exhausted"
   | Exhausted_pruned_tree -> "Exhausted pruned true"
   | Timeout               -> "Timeout"
   | Finished _            -> "Finished interpretation"
