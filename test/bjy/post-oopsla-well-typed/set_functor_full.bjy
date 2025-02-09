@@ -16,7 +16,7 @@ let ( F :
     ; of_list : (list S.a) -> S.t
     })
   =
-  fun S -> (* could add tf; a; and t to this record if desired *)
+  fun S ->
     { tf = S.tf
     ; a = S.a
     ; t = S.t
@@ -53,7 +53,7 @@ let MM = F (M int)
 
 let (r : MM.t) = MM.add 1 (MM.add 2 (MM.empty {}))
 
-let (r2 : MM.t) = MM.of_list ([1;2;3;4;5;6;7])
+let (r2 : (MM.tf) int) = MM.of_list ([1;2;3;4;5;6;7])
 
 let (x : MM.a) = 0
 
