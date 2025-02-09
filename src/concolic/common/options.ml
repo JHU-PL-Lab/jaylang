@@ -15,6 +15,10 @@ include T
 
 let default : t = T.t_of_sexp @@ Sexp.of_string "()"
 
+module type V = sig
+  val r : t 
+end
+
 module Refs = struct
   type t =
     { global_timeout_sec : float ref

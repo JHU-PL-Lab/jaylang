@@ -26,17 +26,21 @@ module type Computation = sig
   type item
   type t
   val default : t
+  val timeout_res : t
   val should_quit : t -> bool
   val merge : t -> t -> t
-  val run : item -> t
+  val run : item -> t (* will not use Lwt *)
+  val run_with_timeout : item -> t (* may use Lwt *)
+  val timeout_sec : float
 end
 
 module Process (C : Computation) = struct
   let process_all ls =
     match ls with
     | [] -> C.default
-    | [ item ] -> C.run item
+    | [ item ] -> C.run_with_timeout item
     | _ ->
+      let t0 = Caml_unix.gettimeofday () in
       let pool = Ws_pool.create ~num_threads:(List.length ls) () in
       let futures = 
         List.map ls ~f:(fun item ->
@@ -44,31 +48,35 @@ module Process (C : Computation) = struct
         )
       in
       let rec go acc unfinished futures =
-        match futures with
-        | [] ->
-          if List.is_empty unfinished
-          then acc (* totally done with work *)
-          else go acc [] unfinished (* done with this pass, so begin new pass *)
-        | promise :: tl ->
-          if Fut.is_done promise
-          then begin
-            let res = Fut.await promise in
-            if C.should_quit res
-            then res
-            else go (C.merge res acc) unfinished tl
-          end
-          else go acc (promise :: unfinished) tl
+        if Float.(Caml_unix.gettimeofday () - t0 > C.timeout_sec)
+        then C.timeout_res
+        else
+          match futures with
+          | [] ->
+            if List.is_empty unfinished
+            then acc (* totally done with work *)
+            else go acc [] unfinished (* done with this pass, so begin new pass *)
+          | promise :: tl ->
+            if Fut.is_done promise
+            then begin
+              let res = Fut.await promise in
+              if C.should_quit res
+              then res
+              else go (C.merge res acc) unfinished tl
+            end
+            else go acc (promise :: unfinished) tl
       in
       let res = go C.default [] futures in
       Ws_pool.shutdown_without_waiting pool;
       res
 end
 
-module Compute (O : sig val r : Options.t end) = struct
+module Compute (O : Options.V) = struct
   type item = Lang.Ast.Embedded.t
   type t = Status.Terminal.t
 
   let default : t = Exhausted_full_tree
+  let timeout_res : t = Timeout
 
   let should_quit : t -> bool = Status.is_error_found
 
@@ -84,9 +92,18 @@ module Compute (O : sig val r : Options.t end) = struct
       | Exhausted_pruned_tree, _ | _, Exhausted_pruned_tree -> Exhausted_pruned_tree
       | Exhausted_full_tree, Exhausted_full_tree -> Exhausted_full_tree
 
-  let run : item -> t =
+  let run_with_timeout : item -> t =
     fun expr ->
       Options.Arrow.appl test_with_timeout O.r expr
+
+  module E = Evaluator.Make (Pause.Id) (O)
+
+  let run : item -> t =
+    fun expr ->
+      Pause.Id.run
+      @@ E.eval expr
+
+  let timeout_sec = O.r.global_timeout_sec
 end
 
 (*
@@ -112,11 +129,6 @@ let test_bjy : (Lang.Ast.Bluejay.pgm, do_wrap:bool -> Status.Terminal.t) Options
     let res = P.process_all programs in
     Format.printf "\n%s\n" (Status.to_loud_string res);
     res
-    (* match programs with
-    | [] -> failwith "no programs"
-    | [ pgm ] -> Options.Arrow.appl test_pgm r pgm
-    | _ -> failwith "too many programs" *)
-
 
 (*
   -------------------

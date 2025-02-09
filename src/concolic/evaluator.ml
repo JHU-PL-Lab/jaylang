@@ -4,8 +4,6 @@ open Lang.Ast
 open Expr
 open Value
 
-open Options.Arrow.Infix
-
 module C_result = struct
   (* a state for the step and session would be really nice, but it is too slow *)
   type 'a t = { v : 'a ; step : int ; session : Eval_session.t }
@@ -236,34 +234,38 @@ let eval_exp
 
   This eval spans multiple symbolic sessions, trying to hit the branches.
 *)
-let rec loop (e : Embedded.t) (main_session : Intra_session.t) (session : Eval_session.t) : Status.Terminal.t Lwt.t =
-  let open Lwt.Infix in
-  let%lwt () = Lwt.pause () in
-  (* CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session)); *)
-  (* let t0 = Caml_unix.gettimeofday () in *)
-  let res = eval_exp ~session e in
-  (* let t1 = Caml_unix.gettimeofday () in *)
-  (* CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0)); *)
-  Intra_session.next
-  @@ Intra_session.accum_eval main_session res
-  >>= begin function
-    | `Done status ->
-        (* CLog.app (fun m -> m "\n------------------------------\nFinishing concolic evaluation...\n\n"); *)
-        (* CLog.app (fun m -> m "Ran %d interpretations.\n" (Session.run_num session)); *)
-        (* CLog.app (fun m -> m "Session status: %s.\n" (Session.Status.to_string status)); *)
-        Lwt.return status
-    | `Next (session, symb_session) -> loop e session symb_session
-    end
+module Make (P : Pause.S) (O : Options.V) = struct
+  module Intra = Intra_session.Make (P) (O)
+  let rec loop (e : Embedded.t) (main_session : Intra.t) (session : Eval_session.t) : Status.Terminal.t P.t =
+    let open P in
+    let* () = pause () in
+    (* CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session)); *)
+    (* let t0 = Caml_unix.gettimeofday () in *)
+    let res = eval_exp ~session e in
+    (* let t1 = Caml_unix.gettimeofday () in *)
+    (* CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0)); *)
+    Intra.next
+    @@ Intra.accum_eval main_session res
+    >>= begin function
+      | `Done status ->
+          (* CLog.app (fun m -> m "\n------------------------------\nFinishing concolic evaluation...\n\n"); *)
+          (* CLog.app (fun m -> m "Ran %d interpretations.\n" (Session.run_num session)); *)
+          (* CLog.app (fun m -> m "Session status: %s.\n" (Session.Status.to_string status)); *)
+          return status
+      | `Next (session, symb_session) -> loop e session symb_session
+      end
+
+  let eval : Embedded.t -> Status.Terminal.t P.t =
+    fun e ->
+      C_sudu.set_timeout (Core.Time_float.Span.of_sec O.r.solver_timeout_sec);
+      if not O.r.random then C_random.reset ();
+      let session = Options.Arrow.appl Eval_session.with_options O.r Eval_session.empty in
+      P.with_timeout O.r.global_timeout_sec
+      @@ fun () -> loop e Intra.empty session
+end
 
 let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
-  (* Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug }; *)
-  Intra_session.of_options
-  >>> (Options.Arrow.make
-  @@ fun r (session, symb_session) (e : Embedded.t) ->
-      C_sudu.set_timeout (Core.Time_float.Span.of_sec r.solver_timeout_sec);
-      if not r.random then C_random.reset ();
-      (* CLog.app (fun m -> m "\nStarting concolic execution...\n"); *)
-      Lwt_unix.with_timeout r.global_timeout_sec
-      @@ fun () -> loop e session symb_session (* repeatedly evaluate program *)
-  )
-  |> Options.Arrow.thaw
+  Options.Arrow.make
+  @@ fun r e ->
+    let module E = Make (Pause.Lwt) (struct let r = r end) in
+    E.eval e

@@ -177,7 +177,7 @@ and Edge : EDGE with type node := Node.t = struct
     ; goes_to     : Node.t }
 end
 
-module Make (TQ : Target_queue.S) = struct
+module Make (TQ : Target_queue.S) (P : Pause.S) (O : Options.V) = struct
   type t = 
     { root : Node.t
     ; target_queue : TQ.t }
@@ -188,12 +188,15 @@ module Make (TQ : Target_queue.S) = struct
     >>^ (fun target_queue ->
       { root = Node.empty ; target_queue })
 
+  let empty : t =
+    Options.Arrow.appl of_options O.r ()
+
   let add_stem ({ root ; target_queue } : t) (stem : Stem.t) : t =
     let new_root, new_targets = Node.add_stem root stem in
     { root = new_root
     ; target_queue = TQ.push_list target_queue new_targets }
 
-  let pop_sat_target (r : t) : (t * Target.t * Input_feeder.t) option Lwt.t =
+  let pop_sat_target (r : t) : (t * Target.t * Input_feeder.t) option P.t =
     let pop_target ({ target_queue ; _ } as r : t) : (t * Target.t) option =
       Option.map (TQ.pop target_queue) ~f:(fun (target, queue) ->
         { r with target_queue = queue }, target
@@ -201,16 +204,17 @@ module Make (TQ : Target_queue.S) = struct
     in
 
     let rec next (r : t) =
-      let%lwt () = Lwt.pause () in
+      let open P in
+      let* () = pause () in
       match pop_target r with
-      | None -> Lwt.return None
+      | None -> return None
       | Some ({ root ; _ } as r, target) ->
         Node.formulas_of_target root target
         |> C_sudu.solve
         |> function
           | C_sudu.Solve_status.Unsat -> next { r with root = Node.set_unsat_target root target }
           | Unknown -> failwith "unimplemented solver timeout" (* would want to convey that we pruned the tree if this happens *)
-          | Sat model -> Lwt.return @@ Option.return ({ r with root }, target, Input_feeder.from_model model )
+          | Sat model -> return @@ Option.return ({ r with root }, target, Input_feeder.from_model model )
     in
 
     next r

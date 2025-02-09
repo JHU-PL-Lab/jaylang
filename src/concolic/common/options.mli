@@ -14,6 +14,10 @@ type t = T.t
 
 val default : t
 
+module type V = sig
+  val r : t
+end
+
 module Refs : sig
   type t =
     { global_timeout_sec : float ref
