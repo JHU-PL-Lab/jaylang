@@ -114,11 +114,8 @@ module Resolve = struct
   *)
   let e_to_formula (type a) (i : int conv) (b : bool conv) (x : a e) : a C_sudu.E.t =
     match x with
-    | Key key -> begin
-      match key with
-      | I id -> C_sudu.int_var id
-      | B id -> C_sudu.bool_var id
-    end
+    | Key I id -> C_sudu.int_var id
+    | Key B id -> C_sudu.bool_var id
     | Not y -> C_sudu.not_ (b y)
     | Binop (binop, e1, e2) ->
       let to_formula = binop_opkind_to_converter i b binop in

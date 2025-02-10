@@ -1,8 +1,8 @@
 
-open Core
+(* open Core *)
 open Lang
 open Ast
-open Ast_tools
+(* open Ast_tools *)
 
 module Fresh_names = struct
   module type S = sig
@@ -11,20 +11,22 @@ module Fresh_names = struct
   end
 
   module Make () : S = struct
+    module C = Utils.Counter.Make ()
+
     (* suffixes are strictly for readability of target code *)
     let fresh_id : ?suffix : string -> unit -> Ident.t = 
-      let count = ref 0 in
+      let count = C.create () in
       fun ?(suffix : string = "") () ->
-        incr count;
-        Ident (Format.sprintf "~%d%s" !count suffix)
+        let c = C.next count in
+        Ident (Format.sprintf "~%d%s" c suffix)
 
     let fresh_poly_value : unit -> int =
-      let count = ref 0 in
-      fun () ->
-        incr count;
-        !count
+      let count = C.create () in
+      fun () -> C.next count
   end
 end
+
+open Ast_tools
 
 module Desugared_functions = struct
   (*
