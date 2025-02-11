@@ -38,8 +38,8 @@ let () =
         | "no" | "n" -> false
         | _ -> Format.eprintf "Error: bad string given to wrap -w flag. Should be yes/no."; assert false
       in
-      List.iter (Translate.Convert.bjy_to_emb pgm ~do_wrap) ~f:(fun pgm ->
+      Preface.Nonempty_list.iter (fun pgm ->
         let _ = Interp.eval_pgm pgm in ()
-      )
+      ) (Translate.Convert.bjy_to_emb pgm ~do_wrap) 
     | _ -> Format.eprintf "Error: mode should be one of bluejay, desugared, embedded."; assert false
   end

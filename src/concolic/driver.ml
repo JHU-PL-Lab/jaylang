@@ -35,16 +35,18 @@ module type Computation = sig
 end
 
 module Process (C : Computation) = struct
-  let process_all ls =
+  let process_all (ls : C.item Preface.Nonempty_list.t) =
+    let open Preface.Nonempty_list in
     match ls with
-    | [] -> C.default
-    | [ item ] -> C.run_with_timeout item
+    | Last item -> C.run_with_timeout item
     | _ ->
       (* let ls = [ List.hd_exn ls ] in FIXME: delete this to run more threads *)
       let t0 = Caml_unix.gettimeofday () in
-      let pool = Ws_pool.create ~num_threads:(List.length ls) () in
+      let pool = Ws_pool.create ~num_threads:(Preface.Nonempty_list.length ls) () in
       let futures = 
-        List.map ls ~f:(fun item ->
+        ls
+        |> Preface.Nonempty_list.to_list
+        |> List.map ~f:(fun item ->
           Fut.spawn ~on:pool (fun () -> C.run item)
         )
       in
@@ -118,7 +120,7 @@ let test_bjy : (Lang.Ast.Bluejay.pgm, do_wrap:bool -> Status.Terminal.t) Options
   @@ fun r -> fun bjy -> fun ~do_wrap ->
     let programs =
       Translate.Convert.bjy_to_emb bjy ~do_wrap
-      |> List.map ~f:Lang.Ast.Program.to_expr
+      |> Preface.Nonempty_list.map Lang.Ast.Program.to_expr
     in
     let module C = Compute (struct let r = r end) in
     let module P = Process (C) in

@@ -168,7 +168,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   in
   loop expr
 
-let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) : Embedded.pgm list =
+let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) : Embedded.pgm Preface.Nonempty_list.t =
   let module E = Embedded_type (struct let do_wrap = do_wrap end) in
   let module Names = (val names) in
   let open LetMonad (Names) in
@@ -664,7 +664,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     * This is somewhat inefficient because we translate the program once for each version, so we are duplicating work.
     * We could do this really intelligently, but right now it doesn't matter.
     *)
-  let split_checks (stmt_ls : Desugared.statement list) : Embedded.pgm list =
+  let split_checks (stmt_ls : Desugared.statement list) : Embedded.pgm Preface.Nonempty_list.t =
     let has_check (stmt : Desugared.statement) : bool =
       match stmt with
       | SUntyped _ -> false
@@ -697,10 +697,11 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         else
           go pgms (prev_stmts @ [ stmt ]) tl
     in
-    match go [] [] stmt_ls with
-    | [] -> (* no statements had a check. We still need to run the program though *)
-      [ embed_single_program pgm ]
-    | pgm_ls -> List.map pgm_ls ~f:embed_single_program
+    match Preface.Nonempty_list.from_list @@ go [] [] stmt_ls with
+    | None -> (* no statements had a check. We still need to run the program though *)
+      Preface.Nonempty_list.Last (embed_single_program pgm)
+    | Some pgm_ls ->
+      Preface.Nonempty_list.map embed_single_program pgm_ls
 
   in
   split_checks pgm

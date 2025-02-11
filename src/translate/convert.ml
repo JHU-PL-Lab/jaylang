@@ -2,7 +2,7 @@
 open Lang
 open Ast
 
-let[@landmark] bjy_to_emb (bjy : Bluejay.pgm) ~(do_wrap : bool) : Embedded.pgm list =
+let[@landmark] bjy_to_emb (bjy : Bluejay.pgm) ~(do_wrap : bool) : Embedded.pgm Preface.Nonempty_list.t =
   let module Names = Translation_tools.Fresh_names.Make () in
   bjy
   |> Desugar.desugar_pgm (module Names)
