@@ -28,6 +28,10 @@ let ( F :
     ; ta = S.ta
     ; tb = S.tb
     ; empty = S.empty
+    (* ; empty = let dummy = S.map (S.empty {}) (fun x -> x) in S.empty  *)
+    (* replacing with the commented version fails.
+       should be a no-op but id doesn't take an S.a to an S.b.
+       Issue is we have a negative existential type not a negative forall.  *)
     ; add = S.add
     ; map = S.map
     ; of_list =
@@ -83,5 +87,5 @@ let (x : MM.a) = 0
 
 let (list_is_visible : MM.ta) = [2]
 
-(* The above fixes the map type too early perhaps.  In general it might be good to program more like this, instantiate functor each time it is used to allow maps etc over arbitrary types.  This is more like the way List.map etc works now in OCaml: *)
+(* The above fixes the map type too early perhaps.  In general it might be good to program more like this, instantiate module each time it is used to allow maps etc over arbitrary types.  This is more like the way List.map etc works now in OCaml: *)
 let (r3 : ((F (M int int)).tf) int) = (F (M int int)).map r2 (fun x -> x + 1)
