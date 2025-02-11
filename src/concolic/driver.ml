@@ -99,7 +99,8 @@ module Compute (O : Options.V) = struct
 
   let run : item -> t =
     fun expr ->
-      let module E = Evaluator.Make (Pause.Id) (O) () in
+      let module M = Evaluator.New_context () in
+      let module E = M.Make (Pause.Id) (O) in
       Pause.Id.run
       @@ E.eval expr
 
@@ -111,11 +112,6 @@ end
   TESTING PROGRAMS
   ----------------
 *)
-
-(* let[@landmark] test_pgm : (Lang.Ast.Embedded.pgm, Status.Terminal.t) Options.Arrow.t =
-  test_with_timeout
-  <<^ (fun pgm -> Lang.Ast.Program.to_expr pgm)
-  >>^ (fun res -> Format.printf "\n%s\n" (Status.to_loud_string res); res) *)
 
 let test_bjy : (Lang.Ast.Bluejay.pgm, do_wrap:bool -> Status.Terminal.t) Options.Arrow.t =
   Options.Arrow.make

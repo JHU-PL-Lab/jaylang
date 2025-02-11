@@ -234,37 +234,36 @@ let eval_exp
 
   This eval spans multiple symbolic sessions, trying to hit the branches.
 *)
-module Make (P : Pause.S) (O : Options.V) () = struct
-  module Intra = Intra_session.Make (P) (O) ()
-  let rec loop (e : Embedded.t) (main_session : Intra.t) (session : Eval_session.t) : Status.Terminal.t P.t =
-    let open P in
-    let* () = pause () in
-    (* CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session)); *)
-    (* let t0 = Caml_unix.gettimeofday () in *)
-    let res = eval_exp ~session e in
-    (* let t1 = Caml_unix.gettimeofday () in *)
-    (* CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0)); *)
-    Intra.next
-    @@ Intra.accum_eval main_session res
-    >>= begin function
-      | `Done status ->
-          (* CLog.app (fun m -> m "\n------------------------------\nFinishing concolic evaluation...\n\n"); *)
-          (* CLog.app (fun m -> m "Ran %d interpretations.\n" (Session.run_num session)); *)
-          (* CLog.app (fun m -> m "Session status: %s.\n" (Session.Status.to_string status)); *)
-          return status
-      | `Next (session, symb_session) -> loop e session symb_session
-      end
+module New_context () = struct
+  module Intra_make = Intra_session.New_context ()
+  module Make (P : Pause.S) (O : Options.V) = struct
+    module Intra = Intra_make.Make (P) (O)
 
-  let eval : Embedded.t -> Status.Terminal.t P.t =
-    fun e ->
-      if not O.r.random then C_random.reset ();
-      let session = Options.Arrow.appl Eval_session.with_options O.r Eval_session.empty in
-      P.with_timeout O.r.global_timeout_sec
-      @@ fun () -> loop e Intra.empty session
+    let rec loop (e : Embedded.t) (main_session : Intra.t) (session : Eval_session.t) : Status.Terminal.t P.t =
+      let open P in
+      let* () = pause () in
+      let res = eval_exp ~session e in
+      Intra.next
+      @@ Intra.accum_eval main_session res
+      >>= begin function
+        | `Done status -> return status
+        | `Next (session, symb_session) -> loop e session symb_session
+        end
+
+    let eval : Embedded.t -> Status.Terminal.t P.t =
+      fun e ->
+        if not O.r.random then C_random.reset ();
+        let session = Options.Arrow.appl Eval_session.with_options O.r Eval_session.empty in
+        P.with_timeout O.r.global_timeout_sec
+        @@ fun () -> loop e Intra.empty session
+  end
 end
+
+module M = New_context ()
+module F = M.Make (Pause.Lwt)
 
 let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
   Options.Arrow.make
   @@ fun r e ->
-    let module E = Make (Pause.Lwt) (struct let r = r end) () in
+    let module E = F (struct let r = r end) in
     E.eval e
