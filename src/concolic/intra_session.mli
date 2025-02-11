@@ -1,5 +1,5 @@
 
-module Make (P : Pause.S) (_ : Options.V) : sig
+module Make (P : Pause.S) (_ : Options.V) () : sig
   type t
   (** [t] holds program info between interpretations and helps generate the evaluation session
       for the next run. *)

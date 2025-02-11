@@ -2,7 +2,6 @@
 module T : sig
   type t =
     { global_timeout_sec : float
-    ; solver_timeout_sec : float
     ; global_max_step    : int
     ; max_tree_depth     : int
     ; random             : bool
@@ -21,7 +20,6 @@ end
 module Refs : sig
   type t =
     { global_timeout_sec : float ref
-    ; solver_timeout_sec : float ref
     ; global_max_step    : int ref
     ; max_tree_depth     : int ref
     ; random             : bool ref
@@ -38,7 +36,6 @@ end
 module Arrow : sig
   type ('a, 'b) t =
     ?global_timeout_sec    : float
-    -> ?solver_timeout_sec : float
     -> ?global_max_step    : int
     -> ?max_tree_depth     : int
     -> ?random             : bool

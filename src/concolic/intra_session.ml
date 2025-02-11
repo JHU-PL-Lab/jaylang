@@ -1,7 +1,7 @@
 open Core
 
-module Make (P : Pause.S) (O : Options.V) = struct
-  module Tree = Path_tree.Make (Target_queue.All) (P) (O)
+module Make (P : Pause.S) (O : Options.V) () = struct
+  module Tree = Path_tree.Make (Target_queue.All) (P) (O) ()
 
   (* ignore warning about prev_res not used *)
   type[@ocaml.warning "-69"] t =

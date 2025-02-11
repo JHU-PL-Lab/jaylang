@@ -37,9 +37,10 @@ module Typed_binop = struct
     let op
       : type a b. (a -> a -> b) -> (b -> b Const.t) -> a Const.t -> a Const.t -> b Const.t
       = fun op ret x y ->
+        ret @@
           match x, y with
-          | (I a), (I b) -> ret (op a b)
-          | (B a), (B b) -> ret (op a b)
+          | (I a), (I b) -> op a b
+          | (B a), (B b) -> op a b
     in
     match binop with
     | Plus -> op ( + ) box_int
@@ -56,23 +57,6 @@ module Typed_binop = struct
     | Not_equal -> op ( <> ) box_bool
     | And -> op ( && ) box_bool
     | Or -> op ( || ) box_bool
-
-  let to_z3_expr (type a b) (binop : (a * a * b) t) : a C_sudu.E.t -> a C_sudu.E.t -> b C_sudu.E.t =
-    match binop with
-    | Plus -> C_sudu.plus
-    | Minus -> C_sudu.minus
-    | Times -> C_sudu.times
-    | Divide -> C_sudu.divide
-    | Modulus -> C_sudu.modulus
-    | Less_than -> C_sudu.less_than
-    | Less_than_eq -> C_sudu.less_than_eq
-    | Greater_than -> Fn.flip C_sudu.less_than (* note the flip *)
-    | Greater_than_eq -> Fn.flip C_sudu.less_than_eq (* note the flip *)
-    | Equal_int -> C_sudu.eq
-    | Equal_bool -> C_sudu.eq
-    | Not_equal -> C_sudu.neq
-    | And -> C_sudu.and_
-    | Or -> C_sudu.or_
 end
 
 type _ t =
@@ -91,6 +75,7 @@ let is_const : type a. a t -> bool = function
 
 let const_bool b = Const (B b)
 let true_ = const_bool true
+let false_ = const_bool false
 let const_int i = Const (I i)
 let key key = Abstract (Key key)
 
@@ -104,8 +89,25 @@ let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t)
   | Const cx, Const cy -> Const (Typed_binop.to_arithmetic binop cx cy)
   | _ -> Abstract (Binop (binop, left, right))
 
-module Resolve = struct
-  type 'a conv = 'a t -> 'a C_sudu.E.t
+module Solve (Expr : Z3_intf.S) = struct
+  type 'a conv = 'a t -> 'a Expr.t
+
+  let binop_to_z3_expr (type a b) (binop : (a * a * b) Typed_binop.t) : a Expr.t -> a Expr.t -> b Expr.t =
+    match binop with
+    | Plus -> Expr.plus
+    | Minus -> Expr.minus
+    | Times -> Expr.times
+    | Divide -> Expr.divide
+    | Modulus -> Expr.modulus
+    | Less_than -> Expr.less_than
+    | Less_than_eq -> Expr.less_than_eq
+    | Greater_than -> Fn.flip Expr.less_than (* note the flip *)
+    | Greater_than_eq -> Fn.flip Expr.less_than_eq (* note the flip *)
+    | Equal_int -> Expr.eq_ints
+    | Equal_bool -> Expr.eq_bools
+    | Not_equal -> Expr.neq
+    | And -> Expr.and_
+    | Or -> Expr.or_
 
   (* It's dumb how I cannot combine cases here *)
   let binop_opkind_to_converter (type a b) (i : int conv) (b : bool conv) (binop : (a * a * b) Typed_binop.t) : a conv =
@@ -129,21 +131,16 @@ module Resolve = struct
     Because of issues with mutual recursion and locally abstract types, I have to do this
     weird hack where I pass in each "t_to_formula" converter.
   *)
-  let e_to_formula (type a) (i : int conv) (b : bool conv) (x : a e) : a C_sudu.E.t =
+  let e_to_formula (type a) (i : int conv) (b : bool conv) (x : a e) : a Expr.t =
     match x with
-    | Key I id -> C_sudu.int_var id
-    | Key B id -> C_sudu.bool_var id
-    | Not y -> C_sudu.not_ (b y)
+    | Key k -> Expr.var_of_key k
+    | Not y -> Expr.not_ (b y)
     | Binop (binop, e1, e2) ->
       let to_formula = binop_opkind_to_converter i b binop in
-      Typed_binop.to_z3_expr binop (to_formula e1) (to_formula e2)
+      binop_to_z3_expr binop (to_formula e1) (to_formula e2)
 
   let rec t_to_formula : type a. a conv = function
-    | Const (I i) -> C_sudu.box_int i
-    | Const (B b) -> C_sudu.box_bool b
+    | Const (I i) -> Expr.box_int i
+    | Const (B b) -> Expr.box_bool b
     | Abstract ex -> e_to_formula t_to_formula t_to_formula ex
 end
-
-include Resolve
-
-

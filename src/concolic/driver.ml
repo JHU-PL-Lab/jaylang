@@ -40,6 +40,7 @@ module Process (C : Computation) = struct
     | [] -> C.default
     | [ item ] -> C.run_with_timeout item
     | _ ->
+      (* let ls = [ List.hd_exn ls ] in FIXME: delete this to run more threads *)
       let t0 = Caml_unix.gettimeofday () in
       let pool = Ws_pool.create ~num_threads:(List.length ls) () in
       let futures = 
@@ -96,10 +97,9 @@ module Compute (O : Options.V) = struct
     fun expr ->
       Options.Arrow.appl test_with_timeout O.r expr
 
-  module E = Evaluator.Make (Pause.Id) (O)
-
   let run : item -> t =
     fun expr ->
+      let module E = Evaluator.Make (Pause.Id) (O) () in
       Pause.Id.run
       @@ E.eval expr
 

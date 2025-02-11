@@ -1,5 +1,6 @@
 
-module Make (_ : Target_queue.S) (P : Pause.S) (_ : Options.V) : sig
+(* This is generative because there is a generative functor application inside to make a new Z3 solver context *)
+module Make (_ : Target_queue.S) (P : Pause.S) (_ : Options.V) () : sig
   type t
 
   val empty : t

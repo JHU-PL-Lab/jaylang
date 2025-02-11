@@ -16,7 +16,7 @@ module type NODE = sig
 
   val add_stem : t -> Stem.t -> t * Target.t list
 
-  val formulas_of_target : t -> Target.t -> bool C_sudu.E.t list
+  val formulas_of_target : t -> Target.t -> bool Expression.t list
 
   val set_unsat_target : t -> Target.t -> t
 end
@@ -130,7 +130,7 @@ module rec Node : NODE with type 'a edge := 'a Edge.t = struct
     IMO to abstract this because of the number of captured parameters during the tracing of the
     path, and it is not a simple "map".
   *)
-  let formulas_of_target (tree : t) (target : Target.t) : bool C_sudu.E.t list =
+  let formulas_of_target (tree : t) (target : Target.t) : bool Expression.t list =
     let rec loop (tree : t) (path : Path.t) =
       match path.forward_path with
       | [] -> []
@@ -159,8 +159,8 @@ module rec Node : NODE with type 'a edge := 'a Edge.t = struct
           | _ -> failwith "Wrong type of branching in path tree; path is not compatible with the tree"
         in
         match edge with
-        | `B e -> (Claim.to_formula e.constraint_) :: loop e.goes_to tl_path
-        | `I e -> (Claim.to_formula e.constraint_) :: loop e.goes_to tl_path
+        | `B e -> (Claim.to_expression e.constraint_) :: loop e.goes_to tl_path
+        | `I e -> (Claim.to_expression e.constraint_) :: loop e.goes_to tl_path
     in
     loop tree
     @@ Target.to_path target
@@ -177,7 +177,9 @@ and Edge : EDGE with type node := Node.t = struct
     ; goes_to     : Node.t }
 end
 
-module Make (TQ : Target_queue.S) (P : Pause.S) (O : Options.V) = struct
+module Make (TQ : Target_queue.S) (P : Pause.S) (O : Options.V) () = struct
+  module Solver = Solve.Make ()
+
   type t = 
     { root : Node.t
     ; target_queue : TQ.t }
@@ -210,11 +212,12 @@ module Make (TQ : Target_queue.S) (P : Pause.S) (O : Options.V) = struct
       | None -> return None
       | Some ({ root ; _ } as r, target) ->
         Node.formulas_of_target root target
-        |> C_sudu.solve
+        |> List.map ~f:(Solver.Expression.t_to_formula)
+        |> Solver.solve
         |> function
-          | C_sudu.Solve_status.Unsat -> next { r with root = Node.set_unsat_target root target }
+          | Z3_intf.Solve_status.Unsat -> next { r with root = Node.set_unsat_target root target }
           | Unknown -> failwith "unimplemented solver timeout" (* would want to convey that we pruned the tree if this happens *)
-          | Sat model -> return @@ Option.return ({ r with root }, target, Input_feeder.from_model model )
+          | Sat model -> return @@ Option.return ({ r with root }, target, Solver.Input_feeder.from_model model )
     in
 
     next r

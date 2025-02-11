@@ -234,8 +234,8 @@ let eval_exp
 
   This eval spans multiple symbolic sessions, trying to hit the branches.
 *)
-module Make (P : Pause.S) (O : Options.V) = struct
-  module Intra = Intra_session.Make (P) (O)
+module Make (P : Pause.S) (O : Options.V) () = struct
+  module Intra = Intra_session.Make (P) (O) ()
   let rec loop (e : Embedded.t) (main_session : Intra.t) (session : Eval_session.t) : Status.Terminal.t P.t =
     let open P in
     let* () = pause () in
@@ -257,7 +257,6 @@ module Make (P : Pause.S) (O : Options.V) = struct
 
   let eval : Embedded.t -> Status.Terminal.t P.t =
     fun e ->
-      C_sudu.set_timeout (Core.Time_float.Span.of_sec O.r.solver_timeout_sec);
       if not O.r.random then C_random.reset ();
       let session = Options.Arrow.appl Eval_session.with_options O.r Eval_session.empty in
       P.with_timeout O.r.global_timeout_sec
@@ -267,5 +266,5 @@ end
 let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
   Options.Arrow.make
   @@ fun r e ->
-    let module E = Make (Pause.Lwt) (struct let r = r end) in
+    let module E = Make (Pause.Lwt) (struct let r = r end) () in
     E.eval e
