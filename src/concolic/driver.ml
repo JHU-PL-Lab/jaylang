@@ -42,7 +42,6 @@ module Process (C : Computation) = struct
     match ls with
     | Last item -> C.run_with_timeout item
     | _ ->
-      (* let ls = [ List.hd_exn ls ] in FIXME: delete this to run more threads *)
       let t0 = Caml_unix.gettimeofday () in
       let pool = Ws_pool.create ~num_threads:(Preface.Nonempty_list.length ls) () in
       let futures = 

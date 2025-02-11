@@ -38,7 +38,7 @@ module New_context () = struct
     let finish_status (x : t) : Status.Terminal.t =
       match x.status with
       | (Found_abort _ | Type_mismatch _) as res -> res
-      | Diverge | In_progress -> (* TODO: fix the sloppiness here. Diverge is an artifact from eval session *)
+      | Diverge | In_progress -> (* This here is a little sloppy. Diverge is an artifact from eval session *)
         if x.has_pruned
         then Exhausted_pruned_tree
         else Exhausted_full_tree

@@ -220,7 +220,7 @@ let eval_exp
 
   (eval ~session ~step:0 expr Env.empty).run (function
     | Ok r -> C_result.get_session r |> Eval_session.finish
-    | Error status -> status (* TODO: log the error message *)
+    | Error status -> status
     )
 
 

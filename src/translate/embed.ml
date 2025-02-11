@@ -178,7 +178,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     EFunction { param = id ; body = e id }
   in
 
-  let cur_mu_vars : Ident.t list ref = ref [] in (* FIXME : don't use ref for this *)
+  let cur_mu_vars : Ident.t Stack.t = Stack.create () in
 
   let rec embed ?(ask_for : E.labels = `All) (expr : Desugared.t) : Embedded.t =
     match expr with
@@ -460,7 +460,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           in
           let unlikely, likely =
             List.partition_tf e_variant_ls ~f:(fun (_, tau) -> 
-              List.exists !cur_mu_vars ~f:(fun id -> uses_id tau id)
+              Stack.exists cur_mu_vars ~f:(fun id -> uses_id tau id)
             )
           in
           match unlikely, likely with
@@ -496,7 +496,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           )
         ))
     | ETypeMu { var = b ; body = tau } ->
-      cur_mu_vars := b :: !cur_mu_vars;
+      Stack.push cur_mu_vars b;
       let res =
         apply (
           apply Embedded_functions.y_comb (
@@ -523,7 +523,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           )
         ) (EInt 0)
       in
-      cur_mu_vars := List.tl_exn !cur_mu_vars;
+      let _ = Stack.pop_exn cur_mu_vars in
       res
     | ETypeIntersect e_intersect_type ->
       let e_intersect_ls = 
