@@ -1,6 +1,17 @@
 
 open Core
 
+module Const = struct
+  type _ t =
+    | I : int -> int t
+    | B : bool -> bool t
+
+  let box_int i = I i
+  let box_bool b = B b
+end
+
+open Const
+
 module Typed_binop = struct
   type iii = int * int * int
   type iib = int * int * bool
@@ -22,23 +33,29 @@ module Typed_binop = struct
     | And : bbb t
     | Or : bbb t
 
-  let to_arithmetic (type a b) (binop : (a * a * b) t) : (a -> a -> b) * b C_sudu.box =
-    let open C_sudu in
+  let to_arithmetic (type a b) (binop : (a * a * b) t) : a Const.t -> a Const.t -> b Const.t =
+    let op
+      : type a b. (a -> a -> b) -> (b -> b Const.t) -> a Const.t -> a Const.t -> b Const.t
+      = fun op ret x y ->
+          match x, y with
+          | (I a), (I b) -> ret (op a b)
+          | (B a), (B b) -> ret (op a b)
+    in
     match binop with
-    | Plus -> ( + ), box_int
-    | Minus -> ( - ), box_int
-    | Times -> ( * ), box_int
-    | Divide -> ( / ), box_int
-    | Modulus -> ( mod ), box_int
-    | Less_than -> ( < ), box_bool
-    | Less_than_eq -> ( <= ), box_bool
-    | Greater_than -> ( > ), box_bool
-    | Greater_than_eq -> ( >= ), box_bool
-    | Equal_int -> ( = ), box_bool
-    | Equal_bool -> Bool.( = ), box_bool
-    | Not_equal -> ( <> ), box_bool
-    | And -> ( && ), box_bool
-    | Or -> ( || ), box_bool
+    | Plus -> op ( + ) box_int
+    | Minus -> op ( - ) box_int
+    | Times -> op ( * ) box_int
+    | Divide -> op ( / ) box_int
+    | Modulus -> op ( mod ) box_int
+    | Less_than -> op ( < ) box_bool
+    | Less_than_eq -> op ( <= ) box_bool
+    | Greater_than -> op ( > ) box_bool
+    | Greater_than_eq -> op ( >= ) box_bool
+    | Equal_int -> op ( = ) box_bool
+    | Equal_bool -> op Bool.( = ) box_bool
+    | Not_equal -> op ( <> ) box_bool
+    | And -> op ( && ) box_bool
+    | Or -> op ( || ) box_bool
 
   let to_z3_expr (type a b) (binop : (a * a * b) t) : a C_sudu.E.t -> a C_sudu.E.t -> b C_sudu.E.t =
     match binop with
@@ -59,7 +76,7 @@ module Typed_binop = struct
 end
 
 type _ t =
-  | Const : 'a * ('a -> 'a C_sudu.E.t) -> 'a t
+  | Const : 'a Const.t -> 'a t
   | Abstract : 'a e -> 'a t
 
 (* abstract expressions only *)
@@ -72,19 +89,19 @@ let is_const : type a. a t -> bool = function
   | Const _ -> true
   | _ -> false
 
-let const_bool b = Const (b, C_sudu.box_bool)
+let const_bool b = Const (B b)
 let true_ = const_bool true
-let const_int i = Const (i, C_sudu.box_int)
+let const_int i = Const (I i)
 let key key = Abstract (Key key)
 
-let not_ (x : bool t) : bool t = 
-  match x with 
-  | Const (b, box) -> Const (not b, box)
+let not_ (x : bool t) : bool t =
+  match x with
+  | Const B b -> Const (B (not b))
   | _ -> Abstract (Not x)
 
 let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t) : b t =
   match left, right with
-  | Const (cx, _), Const (cy, _) -> let f, box = Typed_binop.to_arithmetic binop in Const (f cx cy, box)
+  | Const cx, Const cy -> Const (Typed_binop.to_arithmetic binop cx cy)
   | _ -> Abstract (Binop (binop, left, right))
 
 module Resolve = struct
@@ -122,7 +139,8 @@ module Resolve = struct
       Typed_binop.to_z3_expr binop (to_formula e1) (to_formula e2)
 
   let rec t_to_formula : type a. a conv = function
-    | Const (c, f_box) -> f_box c
+    | Const (I i) -> C_sudu.box_int i
+    | Const (B b) -> C_sudu.box_bool b
     | Abstract ex -> e_to_formula t_to_formula t_to_formula ex
 end
 
