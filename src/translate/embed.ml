@@ -168,7 +168,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   in
   loop expr
 
-let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) : Embedded.pgm Preface.Nonempty_list.t =
+let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) : Embedded.pgm =
   let module E = Embedded_type (struct let do_wrap = do_wrap end) in
   let module Names = (val names) in
   let open LetMonad (Names) in
@@ -337,7 +337,6 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       E.make
         ~ask_for
         ~gen:(lazy (
-          (* let a = Names.fresh_poly_value () in *)
           build @@
             let%bind i = capture EPick_i in
             return @@
@@ -657,51 +656,52 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     List.map pgm ~f:embed_statement
   in
 
-  (* 
-    Split the program into many different programs, where each one has a different check turned on, and the rest are off.
+  embed_single_program pgm
 
-    Note:
-    * This is somewhat inefficient because we translate the program once for each version, so we are duplicating work.
-    * We could do this really intelligently, but right now it doesn't matter.
-    *)
-  let split_checks (stmt_ls : Desugared.statement list) : Embedded.pgm Preface.Nonempty_list.t =
-    let has_check (stmt : Desugared.statement) : bool =
-      match stmt with
-      | SUntyped _ -> false
-      | STyped _ -> true
-      | SFlagged { flags ; _ } -> not @@ Set.mem flags NoCheck
-    in
-    let turn_off_check (stmt : Desugared.statement) : Desugared.statement =
-      match stmt with
-      | SUntyped _ -> stmt
-      | STyped { typed_var ; body } ->
-        SFlagged { flags = LetFlag.Set.singleton NoCheck ; typed_var ; body }
-      | SFlagged { flags ; typed_var ; body } ->
-        SFlagged { flags = Set.add flags NoCheck ; typed_var ; body }
-    in
-    (*
-      Now for each statement with a check, we want to return the program with only that check on.
-    *)
-    let rec go pgms prev_stmts stmts =
-      match stmts with
-      | [] -> pgms
-      | stmt :: tl ->
-        if has_check stmt
-        then
-          let new_pgm =
-            prev_stmts
-            @ [ stmt ]
-            @ List.map tl ~f:turn_off_check
-          in
-          go (new_pgm :: pgms) (prev_stmts @ [ turn_off_check stmt ]) tl
-        else
-          go pgms (prev_stmts @ [ stmt ]) tl
-    in
-    match Preface.Nonempty_list.from_list @@ go [] [] stmt_ls with
-    | None -> (* no statements had a check. We still need to run the program though *)
-      Preface.Nonempty_list.Last (embed_single_program pgm)
-    | Some pgm_ls ->
-      Preface.Nonempty_list.map embed_single_program pgm_ls
+(* 
+  Split the program into many different programs, where each one has a different check turned on, and the rest are off.
 
+  Note:
+  * This is somewhat inefficient because we translate the program once for each version, so we are duplicating work.
+  * We could do this really intelligently, but right now it doesn't matter.
+  *)
+let split_checks (stmt_ls : Desugared.statement list) : Desugared.pgm Preface.Nonempty_list.t =
+  let has_check (stmt : Desugared.statement) : bool =
+    match stmt with
+    | SUntyped _ -> false
+    | STyped _ -> true
+    | SFlagged { flags ; _ } -> not @@ Set.mem flags NoCheck
   in
-  split_checks pgm
+  let turn_off_check (stmt : Desugared.statement) : Desugared.statement =
+    match stmt with
+    | SUntyped _ -> stmt
+    | STyped { typed_var ; body } ->
+      SFlagged { flags = LetFlag.Set.singleton NoCheck ; typed_var ; body }
+    | SFlagged { flags ; typed_var ; body } ->
+      SFlagged { flags = Set.add flags NoCheck ; typed_var ; body }
+  in
+  (*
+    Now for each statement with a check, we want to return the program with only that check on.
+  *)
+  let rec go pgms prev_stmts stmts =
+    match stmts with
+    | [] -> pgms
+    | stmt :: tl ->
+      if has_check stmt
+      then
+        let new_pgm =
+          prev_stmts
+          @ [ stmt ]
+          @ List.map tl ~f:turn_off_check
+        in
+        go (new_pgm :: pgms) (prev_stmts @ [ turn_off_check stmt ]) tl
+      else
+        go pgms (prev_stmts @ [ stmt ]) tl
+  in
+  match Preface.Nonempty_list.from_list @@ go [] [] stmt_ls with
+  | None -> Preface.Nonempty_list.Last stmt_ls
+  | Some pgm_ls -> pgm_ls
+
+let embed_fragmented (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) : Embedded.pgm Preface.Nonempty_list.t =
+  Preface.Nonempty_list.map (fun pgm -> embed_pgm names pgm ~do_wrap)
+  @@ split_checks pgm

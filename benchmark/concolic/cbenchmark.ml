@@ -71,7 +71,7 @@ module Report_row (* : Latex_table.ROW *) =
         in
         let t1 = Caml_unix.gettimeofday () in
         let test_result =
-          Concolic.Driver.test_bjy source ~global_timeout_sec:90.0 ~do_wrap:true
+          Concolic.Driver.test_bjy source ~global_timeout_sec:90.0 ~do_wrap:true ~in_parallel:true
         in
         let t2 = Caml_unix.gettimeofday () in
         let row =

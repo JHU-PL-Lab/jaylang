@@ -4,12 +4,13 @@ open Concolic
 
 let usage_msg =
   {|
-  ceval <file> [-t <total timeout>] [-m <max_step>] [-d <max_tree_depth>] [-n <n_depth_increments>] [-r] [-w yes/no]
+  ceval <file> [-t <total timeout>] [-m <max_step>] [-d <max_tree_depth>] [-n <n_depth_increments>] [-r] [-w yes/no] [-p]
   |}
 
 let source_file = ref "" 
 let optional_args = Options.Refs.create_default ()
 let wrap = ref "yes"
+let do_parallel = ref false
 
 let read_anon_arg src_file_raw =
   source_file := src_file_raw
@@ -21,7 +22,8 @@ let speclist =
   ; ("-d", Arg.Set_int   optional_args.max_tree_depth    , "Max tree depth")
   ; ("-r", Arg.Set       optional_args.random            , "Random")
   ; ("-n", Arg.Set_int   optional_args.n_depth_increments, "Num depth increments")
-  ; ("-w", Arg.Set_string wrap, "Wrap flag: yes or no. Default is yes.") ]
+  ; ("-w", Arg.Set_string wrap, "Wrap flag: yes or no. Default is yes.")
+  ; ("-p", Arg.Set       do_parallel, "Run checks in parallel") ]
 
 let () = 
   Arg.parse speclist read_anon_arg usage_msg;
@@ -40,5 +42,6 @@ let () =
         (Options.Refs.without_refs optional_args)
         src_file
         ~do_wrap
+        ~in_parallel:!do_parallel
     in
     ()

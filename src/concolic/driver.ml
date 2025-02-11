@@ -3,6 +3,8 @@ open Core
 open Options.Arrow.Infix (* expose infix operators *)
 open Moonpool
 
+type 'a test = ('a, do_wrap:bool -> in_parallel:bool -> Status.Terminal.t) Options.Arrow.t
+
 (*
   ----------------------
   TESTING BY EXPRESSIONS   
@@ -115,16 +117,17 @@ end
   ----------------
 *)
 
-let test_bjy : (Lang.Ast.Bluejay.pgm, do_wrap:bool -> Status.Terminal.t) Options.Arrow.t =
+let test_bjy : Lang.Ast.Bluejay.pgm test =
   Options.Arrow.make
-  @@ fun r -> fun bjy -> fun ~do_wrap ->
+  @@ fun r -> fun bjy -> fun ~do_wrap ~in_parallel ->
     let programs =
-      Translate.Convert.bjy_to_emb bjy ~do_wrap
-      |> Preface.Nonempty_list.map Lang.Ast.Program.to_expr
+      if in_parallel
+      then Translate.Convert.bjy_to_many_emb bjy ~do_wrap
+      else Preface.Nonempty_list.Last (Translate.Convert.bjy_to_emb bjy ~do_wrap)
     in
     let module C = Compute (struct let r = r end) in
     let module P = Process (C) in
-    let res = P.process_all programs in
+    let res = P.process_all @@ Preface.Nonempty_list.map Lang.Ast.Program.to_expr programs in
     Format.printf "\n%s\n" (Status.to_loud_string res);
     res
 
@@ -134,7 +137,7 @@ let test_bjy : (Lang.Ast.Bluejay.pgm, do_wrap:bool -> Status.Terminal.t) Options
   -------------------
 *)
 
-let test : (string, do_wrap:bool -> Status.Terminal.t) Options.Arrow.t =
+let test : Filename.t test =
   Options.Arrow.make
   @@ fun r -> fun s -> fun ~do_wrap ->
     In_channel.read_all s
