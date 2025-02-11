@@ -1,0 +1,60 @@
+(* This is a set functor where we can pass in a generic set module 
+to extend, not one that works on only e.g. ints.   *)
+let ( F : 
+    (S : {: tf : type -> type 
+    ; a : type
+    ; t : singlet (tf a)
+    ; empty : unit -> t
+    ; add   : a -> t -> t
+    :})
+    ->
+    { tf : type -> type
+    ; a : type
+    ; t : singlet (S.t)
+    ; empty   : unit -> S.t
+    ; add     : S.a -> S.t -> S.t
+    ; of_list : (list S.a) -> S.t
+    })
+  =
+  fun S ->
+    { tf = S.tf
+    ; a = S.a
+    ; t = S.t
+    ; empty = S.empty
+    ; add = S.add
+    ; of_list =
+      fun ls ->
+        let rec loop acc ls =
+          match ls with
+         | [] -> acc
+          | hd :: tl -> loop (S.add hd acc) tl
+          end
+        in 
+        loop (S.empty {}) ls
+    }
+
+let (M : (a : type) -> 
+  {: tf : type -> type 
+  ; a : type
+  ; t : singlet (tf a)
+  ; empty : unit -> t
+  ; add   : a -> t -> t
+  :})
+ = fun a ->
+    let tf = fun a -> list a in
+    let t = tf a in
+    { tf = tf
+    ; a  = a
+    ; t = t
+    ; empty = fun mt -> [] 
+    ; add   = fun a ls -> a :: ls }
+
+let MM = F (M int)
+
+let (r : MM.t) = MM.add 1 (MM.add 2 (MM.empty {}))
+
+let (r2 : (MM.tf) int) = MM.of_list ([1;2;3;4;5;6;7])
+
+let (x : MM.a) = 0
+
+let (list_is_visible : MM.t) = [2]
