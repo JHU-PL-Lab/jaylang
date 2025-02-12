@@ -102,8 +102,7 @@ module Compute (O : Options.V) = struct
 
   let run : item -> t =
     fun expr ->
-      let module M = Evaluator.New_context () in
-      let module E = M.Make (Pause.Id) (O) in
+      let module E = Evaluator.Make (Solve.Make ()) (Pause.Id) (O) in
       Pause.Id.run
       @@ E.eval expr
 

@@ -234,33 +234,30 @@ let eval_exp
 
   This eval spans multiple symbolic sessions, trying to hit the branches.
 *)
-module New_context () = struct
-  module Intra_make = Intra_session.New_context ()
-  module Make (P : Pause.S) (O : Options.V) = struct
-    module Intra = Intra_make.Make (P) (O)
 
-    let rec loop (e : Embedded.t) (main_session : Intra.t) (session : Eval_session.t) : Status.Terminal.t P.t =
-      let open P in
-      let* () = pause () in
-      let res = eval_exp ~session e in
-      Intra.next
-      @@ Intra.accum_eval main_session res
-      >>= begin function
-        | `Done status -> return status
-        | `Next (session, symb_session) -> loop e session symb_session
-        end
+module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
+  module Intra = Intra_session.Make (S) (P) (O)
 
-    let eval : Embedded.t -> Status.Terminal.t P.t =
-      fun e ->
-        if not O.r.random then C_random.reset ();
-        let session = Options.Arrow.appl Eval_session.with_options O.r Eval_session.empty in
-        P.with_timeout O.r.global_timeout_sec
-        @@ fun () -> loop e Intra.empty session
-  end
+  let rec loop (e : Embedded.t) (main_session : Intra.t) (session : Eval_session.t) : Status.Terminal.t P.t =
+    let open P in
+    let* () = pause () in
+    let res = eval_exp ~session e in
+    Intra.next
+    @@ Intra.accum_eval main_session res
+    >>= begin function
+      | `Done status -> return status
+      | `Next (session, symb_session) -> loop e session symb_session
+      end
+
+  let eval : Embedded.t -> Status.Terminal.t P.t =
+    fun e ->
+      if not O.r.random then C_random.reset ();
+      let session = Options.Arrow.appl Eval_session.with_options O.r Eval_session.empty in
+      P.with_timeout O.r.global_timeout_sec
+      @@ fun () -> loop e Intra.empty session
 end
 
-module M = New_context ()
-module F = M.Make (Pause.Lwt)
+module F = Make (Solve.Default) (Pause.Lwt)
 
 let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
   Options.Arrow.make
