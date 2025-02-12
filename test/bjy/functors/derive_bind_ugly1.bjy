@@ -1,0 +1,82 @@
+
+(*
+  OCaml
+
+    module type BASIC = sig
+      type 'a m
+      val return : 'a -> 'a m
+      val join   : 'a m m -> 'a m
+      val map    : 'a m -> ('a -> 'b) -> 'b m
+    end
+
+
+    module Derive_bind (M : BASIC) = struct
+      include M
+      let bind x f = M.join (M.map x f)
+    end
+*)
+
+(*
+  Parametrized BASIC
+
+  i.e. we hoist the types out, and they must be applied to use the module.
+
+  However, this is horrible because we need an application for each different use of the functions.
+  Not only is that annoying, but it's a new application, so it doesn't even work...
+*)
+
+let BASIC = (a : type) -> (b : type) ->
+  {: m : type -> type
+  ;  ma : singlet (m a)
+  ;  mb : singlet (m b)
+  ;  mma : singlet (m ma)
+  ;  map  : ma -> (a -> b) -> mb
+  ;  join : mma -> ma
+  ;  return : a -> ma
+  :}
+
+let (Id_example : BASIC) = fun a b ->
+  let m a = ``Id a in
+  { m = m
+  ; ma = m a
+  ; mb = m b
+  ; mma = m (m a)
+  ; map = fun x f ->
+      match x with
+      | `Id z -> `Id (f z)
+      end
+  ; join = fun x ->
+      match x with
+      | `Id m -> m
+      end
+  ; return = fun x -> `Id x
+  }
+
+let Derive_bind (M : BASIC) :
+  (a : type) -> (b : type) ->
+    {: m : type -> type
+    ;  ma : singlet (m a)
+    ;  mb : singlet (m b)
+    ;  mma : singlet (m ma)
+    ;  map  : ma -> (a -> b) -> mb
+    ;  join : mma -> ma
+    ;  return : a -> ma
+    ;  bind : ma -> (a -> mb) -> mb
+    :}
+  =
+  fun a b ->
+    let X = M a b in
+    { m = X.m
+    ; ma = X.ma
+    ; mb = X.mb
+    ; mma = X.mma
+    ; map = X.map
+    ; join = X.join
+    ; return = X.return
+    ; bind = fun x f ->
+      let X_map = M a (X.mb) in (* need to be able to map with `m (m b)` return type *)
+      let X_join = M b b in (* need to be able to join with `m (m b)` argument type *)
+      (* The issue is that now we have several applications of `M`, so these don't correspond, and we fail the wrap check. *)
+      X_join.join (X_map.map x f)
+    } 
+
