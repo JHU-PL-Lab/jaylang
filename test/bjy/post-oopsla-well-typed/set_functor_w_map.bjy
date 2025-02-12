@@ -79,7 +79,7 @@ let MM = F (M int int) (* now need to pass in both a and b types *)
 
 let (r : MM.ta) = MM.add 1 (MM.add 2 (MM.empty {}))
 
-let (r2 : (MM.tf) int) = MM.of_list ([1;2;3;4;5;6;7])
+let (r2 : (MM.tf) int) = MM.of_list ([1;2;3])
 
 let (rmapp : (MM.tf) int) = MM.map r2 (fun x -> x + 1)
 
@@ -87,5 +87,5 @@ let (x : MM.a) = 0
 
 let (list_is_visible : MM.ta) = [2]
 
-(* The above fixes the map type too early perhaps.  In general it might be good to program more like this, instantiate module each time it is used to allow maps etc over arbitrary types.  This is more like the way List.map etc works now in OCaml: *)
-let (r3 : ((F (M int int)).tf) int) = (F (M int int)).map r2 (fun x -> x + 1)
+(* The above fixes the map type too early perhaps.  In general it might be good to program more like this, instantiate module each time it is used to allow maps etc over arbitrary types.  This is more like the way List.map etc works now in OCaml but the quantifiers are inside the module functions not outside : *)
+let (r3 : ((F (M int bool)).tf) bool) = (F (M int bool)).map r2 (fun x -> x == 1)
