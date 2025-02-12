@@ -232,7 +232,7 @@ let eval_exp
   This sections starts up and runs the concolic evaluator (see the eval_exp above)
   repeatedly to hit all the branches.
 
-  This eval spans multiple symbolic sessions, trying to hit the branches.
+  This eval spans multiple interpretations, trying to hit the branches.
 *)
 
 module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
