@@ -6,7 +6,8 @@ module T = struct
     ; global_max_step    : int   [@default Int.(10**5)]
     ; max_tree_depth     : int   [@default 30]
     ; random             : bool  [@default false]
-    ; n_depth_increments : int   [@default 6] }
+    ; n_depth_increments : int   [@default 6]
+    ; in_parallel        : bool  [@default false] }
     [@@deriving sexp]
 end
 
@@ -24,21 +25,24 @@ module Refs = struct
     ; global_max_step    : int ref
     ; max_tree_depth     : int ref
     ; random             : bool ref
-    ; n_depth_increments : int ref }
+    ; n_depth_increments : int ref
+    ; in_parallel        : bool ref }
 
   let create_default () : t =
     { global_timeout_sec = ref default.global_timeout_sec
     ; global_max_step    = ref default.global_max_step
     ; max_tree_depth     = ref default.max_tree_depth
     ; random             = ref default.random
-    ; n_depth_increments = ref default.n_depth_increments }
+    ; n_depth_increments = ref default.n_depth_increments
+    ; in_parallel        = ref default.in_parallel }
 
   let without_refs (x : t) : T.t =
     { global_timeout_sec = !(x.global_timeout_sec)
     ; global_max_step    = !(x.global_max_step)
     ; max_tree_depth     = !(x.max_tree_depth)
     ; random             = !(x.random)
-    ; n_depth_increments = !(x.n_depth_increments) }
+    ; n_depth_increments = !(x.n_depth_increments)
+    ; in_parallel        = !(x.in_parallel) }
 end
 
 (* `Arrow` for optional arguments on functions *)
@@ -50,6 +54,7 @@ module Arrow = struct
       -> ?max_tree_depth     : int
       -> ?random             : bool
       -> ?n_depth_increments : int
+      -> ?in_parallel        : bool
       -> 'a
       -> 'b
 
@@ -60,6 +65,7 @@ module Arrow = struct
         ~max_tree_depth:r.max_tree_depth
         ~random:r.random
         ~n_depth_increments:r.n_depth_increments
+        ~in_parallel:r.in_parallel
 
     let make : 'a 'b. (T.t -> 'a -> 'b) -> ('a, 'b) t =
       fun f ->
@@ -69,12 +75,14 @@ module Arrow = struct
         ?(max_tree_depth     : int   = default.max_tree_depth)
         ?(random             : bool  = default.random)
         ?(n_depth_increments : int   = default.n_depth_increments)
+        ?(in_parallel        : bool  = default.in_parallel)
         ->
         { global_timeout_sec
         ; global_max_step
         ; max_tree_depth
         ; random
-        ; n_depth_increments }
+        ; n_depth_increments
+        ; in_parallel }
         |> f 
 
     let[@ocaml.warning "-27"] id : 'a. ('a, 'a) t =
@@ -84,6 +92,7 @@ module Arrow = struct
       ?(max_tree_depth     : int   = default.max_tree_depth)
       ?(random             : bool  = default.random)
       ?(n_depth_increments : int   = default.n_depth_increments)
+      ?(in_parallel        : bool  = default.in_parallel)
       a -> a
 
     let compose

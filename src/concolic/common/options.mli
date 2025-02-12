@@ -5,7 +5,8 @@ module T : sig
     ; global_max_step    : int
     ; max_tree_depth     : int
     ; random             : bool
-    ; n_depth_increments : int }
+    ; n_depth_increments : int
+    ; in_parallel        : bool }
     [@@deriving sexp]
 end
 
@@ -23,7 +24,8 @@ module Refs : sig
     ; global_max_step    : int ref
     ; max_tree_depth     : int ref
     ; random             : bool ref
-    ; n_depth_increments : int ref }
+    ; n_depth_increments : int ref
+    ; in_parallel        : bool ref }
 
   val create_default : unit -> t
   (** [create_default ()] has the default values from [default]. *)
@@ -40,6 +42,7 @@ module Arrow : sig
     -> ?max_tree_depth     : int
     -> ?random             : bool
     -> ?n_depth_increments : int
+    -> ?in_parallel        : bool
     -> 'a
     -> 'b
   (** [t] is an arrow *)

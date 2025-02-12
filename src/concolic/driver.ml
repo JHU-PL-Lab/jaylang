@@ -3,7 +3,7 @@ open Core
 open Options.Arrow.Infix (* expose infix operators *)
 open Moonpool
 
-type 'a test = ('a, do_wrap:bool -> in_parallel:bool -> Status.Terminal.t) Options.Arrow.t
+type 'a test = ('a, do_wrap:bool -> Status.Terminal.t) Options.Arrow.t
 
 (*
   ----------------------
@@ -102,6 +102,7 @@ module Compute (O : Options.V) = struct
 
   let run : item -> t =
     fun expr ->
+      (* makes a new solver for this thread *)
       let module E = Evaluator.Make (Solve.Make ()) (Pause.Id) (O) in
       Pause.Id.run
       @@ E.eval expr
@@ -117,9 +118,9 @@ end
 
 let test_bjy : Lang.Ast.Bluejay.pgm test =
   Options.Arrow.make
-  @@ fun r -> fun bjy -> fun ~do_wrap ~in_parallel ->
+  @@ fun r -> fun bjy -> fun ~do_wrap ->
     let programs =
-      if in_parallel
+      if r.in_parallel
       then Translate.Convert.bjy_to_many_emb bjy ~do_wrap
       else Preface.Nonempty_list.Last (Translate.Convert.bjy_to_emb bjy ~do_wrap)
     in
