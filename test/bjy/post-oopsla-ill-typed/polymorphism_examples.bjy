@@ -16,7 +16,9 @@ let f (g : (a : type) -> a -> a) : int =
 *)
 
 (* Here is an example usage *)
-let x = f (fun a x -> x)
+let (g : ((a : type) -> a -> a)) = fun a x -> x
+
+let x = f g
 
 (* This function is ill-typed because the positive forall is violated *)
 let f (type a) (g : a -> a) : int =
