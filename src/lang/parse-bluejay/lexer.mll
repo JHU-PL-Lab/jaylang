@@ -23,7 +23,7 @@ let ident_cont = alpha | digit | '_'
 rule token = parse
 | eof                  { EOF }
 | "#"                  { single_line_comment lexbuf }
-| "(*"                 { multi_line_comment lexbuf }
+| "(*"                 { multi_line_comment 1 lexbuf }
 | whitespace           { token lexbuf }
 | newline              { incr_lineno lexbuf; token lexbuf }
 | "{"                  { OPEN_BRACE }
@@ -93,10 +93,11 @@ and single_line_comment = parse
 | eof { EOF }
 | _ { single_line_comment lexbuf }
 
-and multi_line_comment = parse
-| "*)" { token lexbuf }
-| newline { incr_lineno lexbuf; multi_line_comment lexbuf }
+and multi_line_comment depth = parse
+| "(*" { multi_line_comment (depth + 1) lexbuf }
+| "*)" { if depth = 1 then token lexbuf else multi_line_comment (depth - 1) lexbuf }
+| newline { incr_lineno lexbuf; multi_line_comment depth lexbuf }
 | eof { failwith "Lexer - unexpected EOF in multi-line comment" }
-| _ { multi_line_comment lexbuf }
+| _ { multi_line_comment depth lexbuf }
 
 {}
