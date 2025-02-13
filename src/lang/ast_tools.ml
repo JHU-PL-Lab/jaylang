@@ -16,6 +16,8 @@ module Reserved_labels = struct
     let nil : VariantLabel.t = VariantLabel (Ident "~Nil") 
     let untouched : VariantLabel.t = VariantLabel (Ident "~Untouched")
     let top : VariantLabel.t = VariantLabel (Ident "~Top")
+    let bottom : VariantLabel.t = VariantLabel (Ident "~Bottom")
+    let predicate_failed : VariantLabel.t = VariantLabel (Ident "~Predicate_failed")
   end
 
   module VariantTypes = struct
@@ -29,7 +31,7 @@ module Reserved_labels = struct
 end
 
 module Utils = struct
-  let dummy_value : type a. a Expr.t = EInt 0
+  let unit_value : type a. a Expr.t = ERecord RecordLabel.Map.empty
 
   (*
     [ tau1 ; ... ; taun ], tau |->

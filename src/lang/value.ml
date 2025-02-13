@@ -11,11 +11,16 @@ module type CELL = sig
   val get : 'a t -> 'a
 end
 
+module type V = sig
+  type 'a t
+  val to_string : ('a -> string) -> 'a t -> string
+end
+
 (*
   V is the payload of int and bool. We do this so that we can
   inject Z3 expressions into the values of the concolic evaluator.
 *)
-module Make (Cell : CELL) (V : T1) = struct
+module Make (Cell : CELL) (V : V) = struct
   module T = struct
     type _ t =
       (* all languages *)
@@ -40,7 +45,7 @@ module Make (Cell : CELL) (V : T1) = struct
       | VTypeTop : 'a bluejay_or_desugared t
       | VTypeBottom : 'a bluejay_or_desugared t
       | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
-      | VTypeRecordD : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
+      (* | VTypeRecordD : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t *)
       | VTypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
       | VTypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
@@ -61,6 +66,41 @@ module Make (Cell : CELL) (V : T1) = struct
 
   include T
 
+  let rec to_string : type a. a t -> string = function
+    | VInt i -> V.to_string Int.to_string i
+    | VBool b -> V.to_string Bool.to_string b
+    | VFunClosure { param = Ident s ; _ } -> Format.sprintf "(fun %s -> <expr>)" s
+    | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
+    | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
+    | VTypeMismatch -> "Type_mismatch"
+    | VAbort -> "Abort"
+    | VDiverge -> "Diverge"
+    | VId -> "(fun x -> x)"
+    | VFrozen _ -> "(Freeze <expr>)"
+    | VList ls -> Format.sprintf "[ %s ]" (String.concat ~sep:" ; " @@ List.map ~f:to_string ls)
+    | VMultiArgFunClosure { params ; _ } -> Format.sprintf "(fun %s -> <expr>)" (String.concat ~sep:" ; " @@ List.map ~f:(fun (Ident s) -> s) params)
+    | VType -> "type"
+    | VTypeInt -> "int"
+    | VTypeBool -> "bool"
+    | VTypeTop -> "top"
+    | VTypeBottom -> "bottom"
+    | VTypeRecord record_body -> RecordLabel.record_body_to_string ~sep:":" record_body to_string
+    | VTypeArrow { domain ; codomain } -> Format.sprintf "(%s -> %s)" (to_string domain) (to_string codomain)
+    | VTypeArrowD { binding = Ident s ; domain ; _ } -> Format.sprintf "((%s : %s) -> <expr>)" s (to_string domain)
+    | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (to_string tau) (to_string predicate)
+    | VTypeSingle v -> Format.sprintf "(singlet (%s))" (to_string v)
+    | VTypeList v -> Format.sprintf "(list (%s))" (to_string v)
+    | VTypeForall { type_variables ; _ } -> Format.sprintf "(Forall %s. <expr>)" (String.concat ~sep:" " @@ List.map ~f:(fun (Ident s) -> s) type_variables)
+    | VRecStub -> "Rec_Stub"
+    | VTypeIntersect ls ->
+      Format.sprintf "(%s)"
+        (String.concat ~sep:" && " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((``%s (%s)) -> %s)" s (to_string tau1) (to_string tau2)))
+    | VTypeMu { var = Ident s ; _ } -> Format.sprintf "(Mu %s. <expr>)" s
+    | VTypeVariant ls ->
+      Format.sprintf "(%s)"
+        (String.concat ~sep: "|| " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(``%s (%s))" s (to_string tau)))
+
+
   module Env = struct
     type 'a t = 'a T.env
 
@@ -80,7 +120,7 @@ module Make (Cell : CELL) (V : T1) = struct
   end
 end
 
-module Constrain (C : sig type constrain end) (Cell : CELL) (V : T1) = struct
+module Constrain (C : sig type constrain end) (Cell : CELL) (V : V) = struct
   module M = Make (Cell) (V)
 
   module T = struct
@@ -88,6 +128,8 @@ module Constrain (C : sig type constrain end) (Cell : CELL) (V : T1) = struct
   end
   
   include T
+
+  let to_string = M.to_string
 
   module Env = struct
     type t = C.constrain M.Env.t
@@ -111,7 +153,7 @@ end
 
 module Embedded = Constrain (struct type constrain = Ast.Constraints.embedded end) (Id_cell)
 
-module Desugared (V : T1) = struct
+module Desugared (V : V) = struct
   include Constrain (struct type constrain = Ast.Constraints.desugared end) (Ref_cell) (V)
   module Env = struct
     include Env
@@ -119,7 +161,7 @@ module Desugared (V : T1) = struct
   end
 end 
 
-module Bluejay (V : T1) = struct
+module Bluejay (V : V) = struct
   include Constrain (struct type constrain = Ast.Constraints.bluejay end) (Ref_cell) (V)
   module Env = struct
     include Env

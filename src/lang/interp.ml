@@ -5,7 +5,7 @@ open Expr
 
 exception InvariantFailure of string
 
-module V = Value.Make (Value.Ref_cell) (struct type 'a t = 'a end)
+module V = Value.Make (Value.Ref_cell) (struct type 'a t = 'a let to_string f x = f x end)
 open V
 
 (* 
@@ -102,15 +102,16 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ETypeRecord record_type_body ->
       let%bind new_record = eval_record_body record_type_body env in
       return (VTypeRecord new_record)
-    | ETypeRecordD dep_record_type_body ->
-      let%bind v, _env =
+    | ETypeRecordD _dep_record_type_body -> failwith "unimplemented interp dependent record type"
+      (* TODO *)
+      (* let%bind v, _env =
         List.fold dep_record_type_body ~init:(return (RecordLabel.Map.empty, env)) ~f:(fun acc_m (label, e) ->
           let%bind (acc, env) = acc_m in
           let%bind v = eval e env in
           return (Map.set acc ~key:label ~data:v, Env.add env (let RecordLabel id = label in id) v)
         )
       in
-      return (VTypeRecordD v)
+      return (VTypeRecordD v) *)
     | EThaw e ->
       let%bind v_frozen = eval e env in
       let%orzero (VFrozen { expr = e_frozen ; env }) = v_frozen in

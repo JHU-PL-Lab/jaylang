@@ -221,7 +221,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           fresh_abstraction "e_int_check" (fun e ->
             build @@
               let%bind () = ignore (EBinop { left = EVar e ; binop = BPlus ; right = EInt 0 }) in
-              return (EBool true)
+              return unit_value
           )
         ))
         ~wrap:(lazy EId)
@@ -233,7 +233,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           fresh_abstraction "e_bool_check" (fun e ->
             build @@
               let%bind () = ignore (ENot (EVar e)) in
-              return (EBool true)
+              return unit_value
           
           )
         ))
@@ -243,11 +243,9 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ~ask_for
         ~gen:(lazy (
           fresh_abstraction "arg_arrow_gen" (fun arg ->
-            EIf
-              { cond = check tau1 (EVar arg)
-              ; true_body = gen tau2
-              ; false_body = EAbort
-              }
+            build @@
+              let%bind () = ignore (check tau1 (EVar arg)) in
+              return @@ gen tau2
           )
         ))
         ~check:(lazy (
@@ -260,13 +258,11 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ~wrap:(lazy (
           fresh_abstraction "e_arrow_wrap" (fun e ->
             fresh_abstraction "x_arrow_wrap" (fun x ->
-              EIf
-                { cond = check tau1 (EVar x)
-                ; true_body = wrap tau2 (
+              build @@
+                let%bind () = ignore (check tau1 (EVar x)) in
+                return @@ wrap tau2 (
                   apply (EVar e) (wrap tau1 (EVar x))
                 )
-                ; false_body = EAbort
-                }
             )
           )
         ))
@@ -282,7 +278,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                   ignore (check tau (proj (EVar e) label))
                 )
                 in
-                return (EBool true)
+                return unit_value
           )
         ))
         ~wrap:(lazy (
@@ -317,7 +313,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                   assign label_id @@ proj (EVar e) l
                 )
               in
-              return (EBool true)
+              return unit_value
           )
         ))
         ~wrap:(lazy (
@@ -350,8 +346,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                     [ (PVariant { variant_label = Reserved_labels.Variants.untouched ; payload_id = v }
                       , EIf
                           { cond = EBinop { left = EVar v ; binop = BEqual ; right = EVar i }
-                          ; true_body = EBool true
-                          ; false_body = EAbort 
+                          ; true_body = unit_value
+                          ; false_body =  EBinop { left = EVar e ; binop = BEqual ; right = EVariant { label = Reserved_labels.Variants.untouched ; payload = EVar i }}
                           })
                     ]
                   }
@@ -366,7 +362,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               let%bind () = ignore @@ proj e Reserved_labels.Records.gen in
               let%bind () = ignore @@ proj e Reserved_labels.Records.check in
               let%bind () = ignore @@ proj e Reserved_labels.Records.wrap in
-              return (EBool true)
+              return unit_value
           )
         ))
         ~wrap:(lazy EId)
@@ -375,11 +371,9 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ~ask_for
         ~gen:(lazy (
           fresh_abstraction "xp_arrowd_gen" (fun x' ->
-            EIf
-              { cond = check tau1 (EVar x')
-              ; true_body = apply (EFunction { param = x ; body = gen tau2}) (EVar x')
-              ; false_body = EAbort
-              }
+            build @@
+              let%bind () = ignore (check tau1 (EVar x')) in
+              return @@ apply (EFunction { param = x ; body = gen tau2 }) (EVar x')
           )
         ))
         ~check:(lazy (
@@ -395,14 +389,12 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ~wrap:(lazy (
           fresh_abstraction "e_arrowd_wrap" (fun e ->
             fresh_abstraction "xp_arrowd_wrap" (fun x' ->
-              EIf
-                { cond = check tau1 (EVar x')
-                ; true_body = 
+              build @@
+                let%bind () = ignore (check tau1 (EVar x')) in
+                return @@
                   appl_list
                     (EFunction { param = x ; body = proj (embed tau2) Reserved_labels.Records.wrap })
                     [ (EVar x') ; apply (EVar e) (wrap tau1 (EVar x')) ]
-                ; false_body = EAbort
-                }
             )
           )
         ))
@@ -425,8 +417,11 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               let%bind () = ignore @@ check tau (EVar e) in
               return (EIf
                 { cond = apply (embed e_p) (EVar e)
-                ; true_body = EBool true
-                ; false_body = EAbort
+                ; true_body = unit_value
+                ; false_body =
+                  apply 
+                    (EVariant { label = Reserved_labels.Variants.predicate_failed ; payload = EVar e })
+                    (embed e_p)
                 }
               )
           )
@@ -539,11 +534,9 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               let v = Names.fresh_id () in
               List.map e_intersect_ls ~f:(fun (label, tau, tau') ->
                 PVariant { variant_label = label ; payload_id = v }
-                , EIf
-                    { cond = check tau (EVar v)
-                    ; true_body = gen tau'
-                    ; false_body = EAbort
-                    }
+                , build @@
+                    let%bind () = ignore (check tau (EVar v)) in
+                    return @@ gen tau'
               )
             }
           )
@@ -588,13 +581,19 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       E.make
         ~ask_for
         ~gen:(lazy (EVariant { label = Reserved_labels.Variants.top ; payload = EInt 0 }))
-        ~check:(lazy (fresh_abstraction "e_top_check" (fun _ -> EBool (true))))
+        ~check:(lazy (fresh_abstraction "e_top_check" (fun _ -> unit_value)))
         ~wrap:(lazy EId)
     | ETypeBottom ->
       E.make
         ~ask_for
         ~gen:(lazy EDiverge)
-        ~check:(lazy (fresh_abstraction "e_top_check" (fun _ -> EAbort)))
+        ~check:(lazy (
+          fresh_abstraction "e_top_check" (fun _ ->
+            apply
+              (EVariant { label = Reserved_labels.Variants.bottom ; payload = unit_value })
+              (EVariant { label = Reserved_labels.Variants.bottom ; payload = unit_value })
+          )
+        ))
         ~wrap:(lazy EId)
     | ETypeSingle tau ->
       E.make
@@ -608,7 +607,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               let%bind () = ignore @@ proj e Reserved_labels.Records.gen in
               let%bind () = ignore @@ proj e Reserved_labels.Records.check in
               let%bind () = ignore @@ proj e Reserved_labels.Records.wrap in
-              return (EBool true)
+              return unit_value
           )
         ))
         ~wrap:(lazy EId)

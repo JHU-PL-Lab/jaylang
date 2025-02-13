@@ -28,13 +28,13 @@ Statements are embedded exactly like their corresponding let-expression as it is
 ```ocaml
 [[int]] =
   { ~gen = freeze pick_i
-  ; ~check = fun $e -> let _ = 0 + $e in true (* attempt to use as integer to check it *)
+  ; ~check = fun $e -> let _ = 0 + $e in {} (* attempt to use as integer to check it *)
   ; ~wrap = fun $e -> $e
   }
 
 [[bool]] =
   { ~gen = freeze pick_b
-  ; ~check = fun $e -> let _ = not $e in true (* attempt to use as bool to check it *)
+  ; ~check = fun $e -> let _ = not $e in {} (* attempt to use as bool to check it *)
   ; ~wrap = fun $e -> $e
   }
 ```
@@ -45,16 +45,14 @@ Statements are embedded exactly like their corresponding let-expression as it is
 [[tau1 -> tau2]]
   { ~gen = freeze @@
     fun $arg -> 
-      if [[tau1]].~check $arg
-      then thaw [[tau2]].~gen
-      else abort
+      let _ = [[tau1]].~check $arg in
+      thaw [[tau2]].~gen
   ; ~check = fun $e ->
     [[tau2]].~check ($e (thaw [[tau1]].~gen))
   ; ~wrap = fun $e ->
     fun $x ->
-      if [[tau1]].~check $x
-      then [[tau2]].~wrap ($e ([[tau1]].~wrap $x))
-      else abort
+      let _ = [[tau1]].~check $x in
+      [[tau2]].~wrap ($e ([[tau1]].~wrap $x))
   }
 ```
 
@@ -64,18 +62,18 @@ Statements are embedded exactly like their corresponding let-expression as it is
 [[Mu B. tau]] =
   Y (fun $self -> fun $dummy ->
     { ~gen = freeze @@
-      (fun B -> thaw [[tau]].~gen) ($self 0)
+      (fun B -> thaw [[tau]].~gen) ($self {})
     ; ~check = fun $e ->
-      (fun B -> [[tau]].~check $e) ($self 0)
+      (fun B -> [[tau]].~check $e) ($self {})
     ; ~wrap = fun $e ->
-      (fun B -> [[tau]].~wrap $e) ($self 0)
+      (fun B -> [[tau]].~wrap $e) ($self {})
     }
   ) 0
 
 Y = 
   fun f ->
-    (fun x -> fun dummy -> f (x x) dummy)
-    (fun x -> fun dummy -> f (x x) dummy)
+    (fun x -> fun dummy -> f (x x) {})
+    (fun x -> fun dummy -> f (x x) {})
 ```
 
 Notes:
@@ -129,7 +127,7 @@ Notes:
     let _ = [[tau_0]].~check $e.l_0 in
     ...
     let _ = [[tau_n]].~check $e.l_n in
-    true
+    {}
   ; ~wrap = fun $e ->
     { l_0 = [[tau_0]].~wrap $e.l_0 ; ... ; l_n = [[tau_n]].~wrap $e.l_n }
   }
@@ -147,8 +145,8 @@ Notes:
   ; ~check = fun $e ->
     let _ = [[tau]].~check $e in
     if [[ e_p ]] $e
-    then true
-    else abort (* unsafely quit *)
+    then {}
+    else (`~Predicate_failed $e) e_p (* unsafely quit with a type mismatch *)
   ; ~wrap = fun $e ->
     [[tau]].~wrap $e
   }
@@ -160,17 +158,15 @@ Notes:
 [[(x : tau_1) -> tau_2]] =
   { ~gen = freeze @@
     fun $x' -> 
-      if [[tau1]].~check $x'
-      then thaw [[tau_2[$x'/x]]].~gen
-      else abort
+      let _ = [[tau1]].~check $x' in
+      thaw [[tau_2[$x'/x]]].~gen
   ; ~check = fun $e ->
     let $arg = thaw [[tau_1]].~gen in
     [[tau_2[$arg/x]]].~check ($e $arg)
   ; ~wrap = fun $e ->
     fun $x' ->
-      if [[tau1]].~check $x'
-      then [[tau_2[$x'/x]]].~wrap ($e ([[tau_1]].~wrap $x'))
-      else abort
+      let _ = [[tau1]].~check $x' in
+      [[tau_2[$x'/x]]].~wrap ($e ([[tau_1]].~wrap $x'))
   }
 ```
 
@@ -180,17 +176,15 @@ Or alternatively, if we do the substitution at interpretation time (which is ind
 [[(x : tau_1) -> tau_2]] =
   { ~gen = freeze @@
     fun $x' -> 
-      if [[tau1]].check $x'
-      then (fun x -> thaw [[tau_2]].~gen) $x'
-      else abort
+      let _ = [[tau1]].check $x' in
+      (fun x -> thaw [[tau_2]].~gen) $x'
   ; ~check = fun $e ->
     let $arg = thaw [[tau_1]].~gen in
     (fun x -> [[tau_2]].~check) $arg ($e $arg)
   ; ~wrap = fun $e ->
     fun $x' ->
-      if [[tau1]].~check $x'
-      then (fun x -> [[tau_2]].~wrap) $x' ($e ([[tau_1]].~wrap $x'))
-      else abort
+      let _ = [[tau1]].~check $x' in
+      (fun x -> [[tau_2]].~wrap) $x' ($e ([[tau_1]].~wrap $x'))
   }
 ```
 
@@ -207,18 +201,21 @@ Because of the desugaring, we only have types and dependent types instead of pol
       match $e with
       | `~Untouched v ->
         if v == i
-        then true
-        else abort
+        then {}
+        else $e == `~Untouched i
     ; ~wrap = fun $e -> $e
     }
   , ~check = fun $e ->
     let _ = $e.~gen in
     let _ = $e.~check in
     let _ = $e.~wrap in
-    true
+    {}
   , ~wrap = fun $e -> $e
   }
 ```
+
+Notes:
+* The `else` case (the only one in the code above) is a nice way to fail unsafely with a type mismatch instead of an `abort`, and if the error finder is instrumented with a way to show the reason for the type mismatch, then this yields a nice error message. `$e` is `~Untouched v`, and `==` only works on int and bool, so this causes a type mismatch suredly.
 
 ### Intersection types
 
@@ -227,14 +224,12 @@ Because of the desugaring, we only have types and dependent types instead of pol
   { ~gen = freeze @@ fun $arg ->
     match $arg with
     | V_0 $v ->
-      if [[tau_0]].~check $v
-      then thaw [[tau_0']].~gen
-      else abort
+      let _ = [[tau_0]].~check $v in
+      thaw [[tau_0']].~gen
     | ...
     | V_n $v ->
-      if [[tau_n]].~check $v
-      then thaw [[tau_n']].~gen
-      else abort
+      let _ = [[tau_n]].~check $v in
+      thaw [[tau_n']].~gen
     end
   ; ~check = fun $e ->
     case pick_i on
@@ -246,14 +241,12 @@ Because of the desugaring, we only have types and dependent types instead of pol
   ; ~wrap = fun $e -> fun $arg ->
     match $arg with
     | V_0 $v ->
-      if [[tau_0]].~check $v
-      then [[tau_0']].~wrap ($e (V_0 ([[tau_0]].~wrap v)))
-      else abort
+      let _ = [[tau_0]].~check $v in
+      [[tau_0']].~wrap ($e (V_0 ([[tau_0]].~wrap v)))
     | ...
     | V_n $v ->
-      if [[tau_n]].~check $v
-      then [[tau_n']].~wrap ($e (V_n ([[tau_n]].~wrap v)))
-      else abort
+      let _ = [[tau_n]].~check $v in
+      [[tau_n']].~wrap ($e (V_n ([[tau_n]].~wrap v)))
     end
   }
 ```
@@ -272,13 +265,13 @@ Here we have a few ideas for extensions, but they are not fully thought through.
 ```ocaml
 [[ top ]] = 
   { ~gen = freeze @@ `~Top 0
-  , ~check = fun _ -> true (* anything is in top *)
+  , ~check = fun _ -> {} (* anything is in top *)
   , ~wrap = fun $e -> $e
   }
 
 [[ bottom ]] =
   { ~gen = freeze @@ diverge (* can't make a value of type bottom, so exit safely *)
-  , ~check = fun _ -> abort (* nothing is in bottom *)
+  , ~check = fun _ -> (`~Bottom {}) (`~Bottom {}) (* nothing is in bottom *)
   , ~wrap = fun $e -> $e
   }
 ```
@@ -299,7 +292,7 @@ Here we have a few ideas for extensions, but they are not fully thought through.
     let _ = [[tau_(n-1)]].~check $e.l_(n-1) in
     let l_(n-1) = $e.l_(n-1) in (* put the name l_(n-1) in scope *)
     let _ = [[tau_n]].~check $e.l_n in
-    true
+    {}
   , ~wrap = fun $e ->
     let l_0 = = [[tau_0]].~wrap $e.l_0 in (* put the name l_0 in scope *)
     ...

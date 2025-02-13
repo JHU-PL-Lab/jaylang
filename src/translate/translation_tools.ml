@@ -1,8 +1,6 @@
 
-(* open Core *)
 open Lang
 open Ast
-(* open Ast_tools *)
 
 module Fresh_names = struct
   module type S = sig
@@ -58,8 +56,8 @@ module Embedded_functions = struct
     Y-combinator for Mu types: 
 
       fun f ->
-        (fun x -> fun dummy -> f (x x) dummy)
-        (fun x -> fun dummy -> f (x x) dummy)
+        (fun x -> fun dummy -> f (x x) {})
+        (fun x -> fun dummy -> f (x x) {})
     
     Notes:
     * f is a function, so it has be captured with a closure, so there is nothing
@@ -81,7 +79,7 @@ module Embedded_functions = struct
                 { func = EVar f
                 ; arg = EAppl { func = EVar x ; arg = EVar x }
                 }
-            ; arg = EVar dummy
+            ; arg = Ast_tools.Utils.unit_value
             }
         }
       }

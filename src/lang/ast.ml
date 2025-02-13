@@ -74,15 +74,20 @@ module RecordLabel = struct
 
   include T
   module Map = Map.Make (T)
-end
 
-(* module RecordPatternBody = struct
-  type t = Ident.t RecordLabel.Map.t
-end *)
+  let to_string (RecordLabel Ident s) = s
+
+  let record_body_to_string ?(sep : string = "=") m f =
+    Core.Map.to_alist m
+    |> List.map ~f:(fun (l, x) -> Format.sprintf "%s %s %s" (to_string l) sep (f x))
+    |> fun ls -> "{ " ^ String.concat ~sep:" ; " ls ^ " }"
+end
 
 module VariantLabel = struct
   type t = VariantLabel of Ident.t
     [@@unboxed] [@@deriving equal, compare, sexp, hash]
+
+  let to_string (VariantLabel Ident s) = s
 end
 
 module VariantTypeLabel = struct
@@ -120,6 +125,21 @@ module Binop = struct
     | BGeq
     | BAnd
     | BOr
+
+  let to_string = function
+    | BPlus -> "+"
+    | BMinus -> "-"
+    | BTimes -> "*"
+    | BDivide -> "/"
+    | BModulus -> "mod"
+    | BEqual -> "="
+    | BNeq -> "<>"
+    | BLessThan -> "<"
+    | BLeq -> "<="
+    | BGreaterThan -> ">"
+    | BGeq -> ">="
+    | BAnd -> "and"
+    | BOr -> "or"
 end
 
 module Pattern = struct
@@ -131,6 +151,13 @@ module Pattern = struct
     (* only Bluejay *)
     | PEmptyList : 'a bluejay_only t
     | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_only t
+
+  let to_string : type a. a t -> string = function
+    | PAny -> "any"
+    | PVariable Ident s -> Format.sprintf "var %s" s
+    | PVariant { variant_label  = VariantLabel Ident s ; _ } -> Format.sprintf "variant `%s" s
+    | PEmptyList -> "[]"
+    | PDestructList { hd_id = Ident hd ; tl_id = Ident tl } -> Format.sprintf "%s :: %s" hd tl
 end
 
 module Expr = struct
