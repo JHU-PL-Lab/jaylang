@@ -1,0 +1,62 @@
+
+(*
+  OCaml
+
+    module type BASIC = sig
+      type 'a m
+      val return : 'a -> 'a m
+      val join   : 'a m m -> 'a m
+      val map    : 'a m -> ('a -> 'b) -> 'b m
+    end
+
+
+    module Derive_bind (M : BASIC) = struct
+      include M
+      let bind x f = M.join (M.map x f)
+    end
+
+  IMPORTANT:
+    This code *looks* like it is well-typed, and indeed it will behave
+    correctly without types, but we cannot type-check it.
+*)
+
+(*
+  The following is my most ideal, OCaml-like Bluejay code, but it doesn't work.
+*)
+
+let BASIC =
+  {: m : type -> type
+  ;  map  : (a : type) -> (b : type) -> m a -> (a -> b) -> m b
+  ;  join : (a : type) -> m (m a) -> m a
+  ;  return : (a : type) -> a -> m a
+  :}
+
+(* this works well *)
+let (Id_example : BASIC) =
+  let m a = ``Id a in
+  { m = m
+  ; map = fun a b x f ->
+      match x with
+      | `Id z -> `Id (f z)
+      end
+  ; join = fun a x ->
+      match x with
+      | `Id m -> m
+      end
+  ; return = fun a x -> `Id x
+  }
+
+(*
+  This doesn't work because the checker for the functions M.join and M.map use different instances
+  of the application `M.m a`, or similar, than what is in the return type of this Derive_bind.
+ *)
+letd Derive_bind (M : BASIC) : { bind : (a : type) -> (b : type) -> let mb = M.m b in M.m a -> (a -> mb) -> mb } =
+  { bind = fun a b x f -> M.join b (M.map a (M.m b) x f)
+  }
+
+(*
+  Ideally, we can get rid of the `let mb = ...`, which would have the following code (which still cannot type check)
+*)
+letd Derive_bind (M : BASIC) : { bind : (a : type) -> (b : type) -> M.m a -> (a -> M.m b) -> M.m b } =
+  { bind = fun a b x f -> M.join b (M.map a (M.m b) x f)
+  }

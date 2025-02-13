@@ -1,0 +1,51 @@
+
+(* # 1 *)
+let rec map (type a b) (ls : list a) (f : a -> b) : list b =
+  match ls with
+  | [] -> []
+  | hd :: tl -> f hd :: map a b tl f
+  end
+
+(* # 2 *)
+let rec map (type a b) (ls : list a) (f : a -> b) : list b =
+  match ls with
+  | [] -> []
+  | hd :: tl -> f hd :: map a b tl f
+  end
+
+(* # 3 *)
+let rec map (type a b) (ls : list a) (f : a -> b) : list b =
+  match ls with
+  | [] -> []
+  | hd :: tl -> f hd :: map a b tl f
+  end
+
+(* # 4 *)
+let rec map (type a b) (ls : list a) (f : a -> b) : list b =
+  match ls with
+  | [] -> []
+  | hd :: tl -> f hd :: map a b tl f
+  end
+
+(* # 5 *)
+let rec map (type a b) (ls : list a) (f : a -> b) : list b =
+  match ls with
+  | [] -> []
+  | hd :: tl -> f hd :: map a b tl f
+  end
+
+(* # 6 *)
+let rec map (type a b) (ls : list a) (f : a -> b) : list b =
+  match ls with
+  | [] -> []
+  | hd :: tl -> f hd :: map a b tl f
+  end
+
+(* # 7 *)
+(* It seems that on my machine, we handle up to 6 statements very quickly, and at 7 something goes awry *)
+(* Noting that I have 14 cores, but (and I don't know what this means) only 6 are "performance cores". I am also on WSL2, which might matter. *)
+(* let rec map (type a b) (ls : list a) (f : a -> b) : list b =
+  match ls with
+  | [] -> []
+  | hd :: tl -> f hd :: map a b tl f
+  end *)

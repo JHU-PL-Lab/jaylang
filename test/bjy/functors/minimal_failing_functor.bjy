@@ -1,0 +1,34 @@
+
+(*
+  We really wish that this could work so that we have polymorphism in
+  S, but it doesn't, and we'd have to hoist out the type `a`.
+*)
+let S =
+  {: t : type -> type
+  ;  f : (a : type) -> a -> t a
+  :}
+
+letd F (X : S) : { g : (a : type) -> a -> X.t a } =
+  { g = X.f
+  }
+
+(* The following is when we hoist out `a`, which makes this well-typed. *)
+let S a =
+  {: t : type -> type
+  ;  ta : singlet (t a)
+  ;  f : a -> ta
+  :}
+
+(* now this finally works, but it is not useful *)
+letd F (type a) (X : S a) : { g : a -> X.ta } =
+  { g = X.f
+  }
+
+(* and here is some example usage *)
+let Id =
+  fun a ->
+    { t = fun a -> a
+    ; ta = a
+    ; f = fun x -> x }
+
+let x = (F int (Id int)).g 0

@@ -1,0 +1,62 @@
+
+(*
+  OCaml
+
+    module type BASIC = sig
+      type 'a m
+      val return : 'a -> 'a m
+      val join   : 'a m m -> 'a m
+      val map    : 'a m -> ('a -> 'b) -> 'b m
+    end
+
+
+    module Derive_bind (M : BASIC) = struct
+      include M
+      let bind x f = M.join (M.map x f)
+    end
+*)
+
+(*
+  Existential types inside module.
+*)
+
+let BASIC =
+  {: m : type -> type
+  ;  a : type
+  ;  b : type
+  ;  ma : singlet (m a)
+  ;  mb : singlet (m b)
+  ;  mma : singlet (m ma)
+  ;  map  : ma -> (a -> b) -> mb
+  ;  join : mma -> ma
+  ;  return : a -> ma
+  :}
+
+(* this works *)
+let (Id_example : (a : type) -> (b : type) -> BASIC) = fun a b ->
+  let m a = ``Id a in
+  { m = m
+  ; a = a
+  ; b = b
+  ; ma = m a
+  ; mb = m b
+  ; mma = m (m a)
+  ; map = fun x f ->
+      match x with
+      | `Id z -> `Id (f z)
+      end
+  ; join = fun x ->
+      match x with
+      | `Id m -> m
+      end
+  ; return = fun x -> `Id x
+  }
+
+(*
+  This doesn't work because M.map only allows `f` to have type `a -> b`.
+  Here, we need it to typecheck with type `a -> m b`, which is not the same,
+  so we fail the wrap check when calling `M.map x f`.
+*)
+letd Derive_bind (M : BASIC) : { bind : M.ma -> (M.a -> M.mb) -> M.mb } =
+  { bind = fun x f -> M.join (M.map x f)
+  }

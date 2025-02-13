@@ -1,0 +1,43 @@
+
+(* This function is well-typed, and it has a negative forall. *)
+let f (g : (a : type) -> a -> a) : int =
+  let (ignore : int) = g int 0 in
+  let (ignore : bool) = g bool true in
+  0
+
+(*
+  The equivalent OCaml code is as follows, also well-typed.
+
+    type t = { g : 'a. 'a -> 'a }
+    let f (r : t) : int =
+      let _ : int = r.g 0 in
+      let _ : bool = r.g true in
+      0
+*)
+
+(* Here is an example usage *)
+let (g : ((a : type) -> a -> a)) = fun a x -> x
+
+let x = f g
+
+(* This function is ill-typed because the positive forall is violated *)
+let f (type a) (g : a -> a) : int =
+  let ignore = g true in (* bad because `a` is not guaranteed to be `bool` *)
+  0
+
+(*
+  The equivalent OCaml code is exactly the same, and it is also ill-typed.
+  That is, Bluejay and OCaml code are identical here.
+*)
+
+(* Here is a proper usage, supposing `f` were not ill-typed. *)
+let x = f int (fun a -> a) 
+
+(*
+  The following OCaml code has no equivalence in Bluejay because it has an existential type 'a,
+  which is unified with `bool`. This OCaml code is well-typed.
+
+    let f (g : 'a -> 'a) : int =
+      let _ : bool = g true in
+      0
+*)

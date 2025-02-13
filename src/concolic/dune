@@ -12,7 +12,9 @@
   translate
   preface
   psq
-  utils)
+  utils
+  moonpool
+ )
  (synopsis "Concolic evaluator on embedded-type programs")
  (inline_tests)
  (preprocess

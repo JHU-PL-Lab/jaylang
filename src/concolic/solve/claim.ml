@@ -3,15 +3,17 @@ open Core
 
 type 'a t = Equality : 'a Expression.t * 'a Direction.t -> 'a t
 
-let to_formula (type a) (Equality (expr, dir) : a t) : bool C_sudu.E.t =
-  let z3_expr = Expression.t_to_formula expr in
+let to_expression (type a) (Equality (expr, dir) : a t) : bool Expression.t =
+  let eq_int a b = Expression.op a b Expression.Typed_binop.Equal_int in
+  let eq_bool a b = Expression.op a b Expression.Typed_binop.Equal_bool in
   match dir with
-  | True_direction -> C_sudu.eq z3_expr (C_sudu.box_bool true)
-  | False_direction -> C_sudu.eq z3_expr (C_sudu.box_bool false)
-  | Case_int i -> C_sudu.eq z3_expr (C_sudu.box_int i)
+  | True_direction -> eq_bool expr Expression.true_
+  | False_direction -> eq_bool expr Expression.false_
+  | Case_int i -> eq_int expr (Expression.const_int i)
   | Case_default { not_in } ->
-    List.fold not_in ~init:(C_sudu.box_bool true) ~f:(fun acc i ->
-      C_sudu.and_ acc (C_sudu.neq z3_expr (C_sudu.box_int i))
+    List.fold not_in ~init:Expression.true_ ~f:(fun acc i ->
+      let neq = Expression.op expr (Expression.const_int i) Expression.Typed_binop.Not_equal in
+      Expression.op acc neq Expression.Typed_binop.And
     )
 
 let flip (Equality (e, dir) : bool t) : bool t =

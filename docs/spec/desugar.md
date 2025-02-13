@@ -203,14 +203,14 @@ let filter_list x =
 
 [| List tau |] =
   Mu $t.
-  ``Nil int (* This is a unique variant name that the user cannot create, and int is a dummy payload *)
+  ``Nil unit (* This is a unique variant name that the user cannot create, and unit is a dummy payload *)
   || ``Cons {: ~hd : [| tau |] , ~tl : $t :} (* so is this *)
 
 [| x :: xs |] =
   `Cons { ~hd = x , ~tl = filter_list [| x |] }
 
 [| [] |] =
-  `Nil 0 
+  `Nil {} 
 
 [| [ x1 , ... , xn ] |] =
   [| x1 :: ... :: xn :: [] |]

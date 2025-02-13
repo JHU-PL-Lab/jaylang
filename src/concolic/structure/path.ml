@@ -15,8 +15,7 @@ include T
 
 let empty : t = { forward_path = [] }
 
-module Reverse =
-struct
+module Reverse = struct
   (* Branches at the front are the leaves of the tree *)
   type t = { backward_path : Direction.Packed.t list }
     [@@unboxed][@@deriving compare]
@@ -42,5 +41,4 @@ struct
 
   let of_forward_path x =
     { backward_path = List.rev x.forward_path }
-  
 end

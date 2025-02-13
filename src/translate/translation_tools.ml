@@ -1,8 +1,6 @@
 
-open Core
 open Lang
 open Ast
-open Ast_tools
 
 module Fresh_names = struct
   module type S = sig
@@ -11,20 +9,22 @@ module Fresh_names = struct
   end
 
   module Make () : S = struct
+    module C = Utils.Counter.Make ()
+
     (* suffixes are strictly for readability of target code *)
     let fresh_id : ?suffix : string -> unit -> Ident.t = 
-      let count = ref 0 in
+      let count = C.create () in
       fun ?(suffix : string = "") () ->
-        incr count;
-        Ident (Format.sprintf "~%d%s" !count suffix)
+        let c = C.next count in
+        Ident (Format.sprintf "~%d%s" c suffix)
 
     let fresh_poly_value : unit -> int =
-      let count = ref 0 in
-      fun () ->
-        incr count;
-        !count
+      let count = C.create () in
+      fun () -> C.next count
   end
 end
+
+open Ast_tools
 
 module Desugared_functions = struct
   (*
@@ -56,8 +56,8 @@ module Embedded_functions = struct
     Y-combinator for Mu types: 
 
       fun f ->
-        (fun x -> fun dummy -> f (x x) dummy)
-        (fun x -> fun dummy -> f (x x) dummy)
+        (fun x -> fun dummy -> f (x x) {})
+        (fun x -> fun dummy -> f (x x) {})
     
     Notes:
     * f is a function, so it has be captured with a closure, so there is nothing
@@ -79,7 +79,7 @@ module Embedded_functions = struct
                 { func = EVar f
                 ; arg = EAppl { func = EVar x ; arg = EVar x }
                 }
-            ; arg = EVar dummy
+            ; arg = Ast_tools.Utils.unit_value
             }
         }
       }

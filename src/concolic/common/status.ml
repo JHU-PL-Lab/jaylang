@@ -38,8 +38,8 @@ let is_error_found (type a) (x : a t) : bool =
 let to_string (type a) (x : a t) : string =
   match x with
   | Found_abort _         -> "Found abort"
-  | Type_mismatch (_, s)  -> "Type mismatch: " ^ s
-  | Exhausted_full_tree   -> "Exhausted full tree"
+  | Type_mismatch (_, s)  -> Format.sprintf "Type mismatch:\n  %s" s
+  | Exhausted_full_tree   -> "Exhausted"
   | Exhausted_pruned_tree -> "Exhausted pruned true"
   | Timeout               -> "Timeout"
   | Finished _            -> "Finished interpretation"
@@ -59,7 +59,7 @@ let to_loud_string (type a) (x : a t) : string =
   in
   match String.split (to_string x) ~on:':' with
   | [ s ] -> make_loud s
-  | before_colon :: after_colon :: [] -> make_loud before_colon ^ ": " ^ after_colon
+  | before_colon :: after_colon :: [] -> make_loud before_colon ^ ":" ^ after_colon
   | _ -> failwith "this doesn't make sense"
 
 module In_progress = struct

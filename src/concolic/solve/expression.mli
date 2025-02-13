@@ -26,6 +26,7 @@ type 'a t
 val is_const : 'a t -> bool
 
 val true_ : bool t
+val false_ : bool t
 
 val const_int : int -> int t
 val const_bool : bool -> bool t
@@ -36,4 +37,6 @@ val not_ : bool t -> bool t
 
 val op : 'a t -> 'a t -> ('a * 'a * 'b) Typed_binop.t -> 'b t
 
-val t_to_formula : 'a t -> 'a C_sudu.E.t
+module Solve (Expr : Z3_intf.S) : sig
+  val t_to_formula : 'a t -> 'a Expr.t
+end

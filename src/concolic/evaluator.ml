@@ -4,8 +4,6 @@ open Lang.Ast
 open Expr
 open Value
 
-open Options.Arrow.Infix
-
 module C_result = struct
   (* a state for the step and session would be really nice, but it is too slow *)
   type 'a t = { v : 'a ; step : int ; session : Eval_session.t }
@@ -34,6 +32,40 @@ module CPS_Result_M = struct
 
   let reach_max_step (session : Eval_session.t) : 'a m =
     fail @@ Eval_session.reach_max_step session
+end
+
+module Error_msg = struct
+  let project_non_record label v =
+    Format.sprintf "Label %s not found in non-record `%s`" (RecordLabel.to_string label) (Value.to_string v)
+
+  let project_missing_label label record =
+    Format.sprintf "Label %s not found in record %s" (RecordLabel.to_string label) (Value.to_string record)
+
+  let thaw_non_frozen v =
+    Format.sprintf "Thaw non-frozen value `%s`" (Value.to_string v)
+
+  let pattern_not_found patterns v =
+    Format.sprintf "Value `%s` not in pattern list [ %s ]"
+      (Value.to_string v)
+      (String.concat ~sep:", " @@ List.map patterns ~f:(fun (p, _) -> Pattern.to_string p))
+
+  let bad_appl vfunc varg =
+    Format.sprintf "Apply `%s` to non-function `%s`" (Value.to_string varg) (Value.to_string vfunc)
+
+  let bad_binop vleft binop vright =
+    Format.sprintf "Bad binop %s %s %s"
+      (Value.to_string vleft)
+      (Binop.to_string binop)
+      (Value.to_string vright)
+
+  let bad_not v =
+    Format.sprintf "Bad unary operation `not %s`" (Value.to_string v)
+
+  let cond_non_bool v = 
+    Format.sprintf "Condition on non-bool `%s`" (Value.to_string v)
+
+  let case_non_int v = 
+    Format.sprintf "Case on non-int `%s`" (Value.to_string v)
 end
 
 (*
@@ -90,15 +122,16 @@ let eval_exp
         | VRecord record_body -> begin
           match Map.find record_body label with
           | Some v -> next ~step ~session v
-          | None -> type_mismatch session "label not found in record"
+          | None -> type_mismatch session @@ Error_msg.project_missing_label label v
         end
-        | _ -> type_mismatch session "project non record"
+        | _ ->
+          type_mismatch session @@ Error_msg.project_non_record label v
       end
       | EThaw e_frozen -> begin
         let%bind { v ; step ; session } = eval ~session ~step e_frozen env in
         match v with
         | VFrozen { expr ; env } -> eval ~step ~session expr env
-        | _ -> type_mismatch session "thaw non frozen"
+        | _ -> type_mismatch session @@ Error_msg.thaw_non_frozen v
       end
       | ERecord record_body ->
         let%bind C_result.{ v = value_record_body ; step ; session } = 
@@ -127,7 +160,7 @@ let eval_exp
             )
         with
         | Some (e, env) -> eval ~step ~session e env
-        | None -> type_mismatch session (Format.sprintf "expression not in pattern list")
+        | None -> type_mismatch session @@ Error_msg.pattern_not_found patterns v
       end
       | ELet { var ; body ; cont } ->
         let%bind { v ; step ; session } = eval ~step ~session body env in
@@ -139,7 +172,7 @@ let eval_exp
         | VId -> next ~step ~session varg
         | VFunClosure { param ; body } ->
           eval ~step ~session body.expr (Env.add body.env param varg)
-        | _ -> type_mismatch session "apply non fun"
+        | _ -> type_mismatch session @@ Error_msg.bad_appl vfunc varg
       end
       (* Operations -- build new expressions *)
       | EBinop { left ; binop ; right } -> begin
@@ -166,14 +199,14 @@ let eval_exp
         | BGeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 >= n2)) e1 e2 Greater_than_eq
         | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 && b2)) e1 e2 And
         | BOr          , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 || b2)) e1 e2 And
-        | _ -> type_mismatch session "bad binop, which may be mod or divide by 0"
+        | _ -> type_mismatch session @@ Error_msg.bad_binop vleft binop vright
       end
       | ENot e_not_body -> begin
         let%bind { v ; step ; session } = eval ~step ~session e_not_body env in
         match v with
         | VBool (b, e_b) ->
           next ~step ~session @@ VBool (not b, Expression.not_ e_b) 
-        | _ -> type_mismatch session "not non bool"
+        | _ -> type_mismatch session @@ Error_msg.bad_not v
       end
       (* Branching *)
       | EIf { cond ; true_body ; false_body } -> begin
@@ -184,7 +217,7 @@ let eval_exp
           let new_session = Eval_session.hit_branch (Direction.of_bool b) e session in
           let%bind { v = res ; step ; session } = eval ~step ~session:new_session body env in
           next ~step ~session res
-        | _ -> type_mismatch session "non bool condition"
+        | _ -> type_mismatch session @@ Error_msg.cond_non_bool v
       end
       | ECase { subject ; cases ; default } -> begin
         let%bind { v ; step ; session } = eval ~step ~session subject env in
@@ -203,7 +236,7 @@ let eval_exp
             let%bind { v = res ; step ; session } = eval ~step ~session:new_session default env in
             next ~step ~session res
         end
-        | _ -> type_mismatch session "non int case"
+        | _ -> type_mismatch session @@ Error_msg.case_non_int v
       end
       (* Inputs *)
       | EPick_i ->
@@ -222,7 +255,7 @@ let eval_exp
 
   (eval ~session ~step:0 expr Env.empty).run (function
     | Ok r -> C_result.get_session r |> Eval_session.finish
-    | Error status -> status (* TODO: log the error message *)
+    | Error status -> status
     )
 
 
@@ -234,36 +267,35 @@ let eval_exp
   This sections starts up and runs the concolic evaluator (see the eval_exp above)
   repeatedly to hit all the branches.
 
-  This eval spans multiple symbolic sessions, trying to hit the branches.
+  This eval spans multiple interpretations, trying to hit the branches.
 *)
-let rec loop (e : Embedded.t) (main_session : Intra_session.t) (session : Eval_session.t) : Status.Terminal.t Lwt.t =
-  let open Lwt.Infix in
-  let%lwt () = Lwt.pause () in
-  (* CLog.app (fun m -> m "\n------------------------------\nRunning interpretation (%d) ...\n\n" (Session.run_num session)); *)
-  (* let t0 = Caml_unix.gettimeofday () in *)
-  let res = eval_exp ~session e in
-  (* let t1 = Caml_unix.gettimeofday () in *)
-  (* CLog.app (fun m -> m "Interpretation finished in %fs.\n\n" (t1 -. t0)); *)
-  Intra_session.next
-  @@ Intra_session.accum_eval main_session res
-  >>= begin function
-    | `Done status ->
-        (* CLog.app (fun m -> m "\n------------------------------\nFinishing concolic evaluation...\n\n"); *)
-        (* CLog.app (fun m -> m "Ran %d interpretations.\n" (Session.run_num session)); *)
-        (* CLog.app (fun m -> m "Session status: %s.\n" (Session.Status.to_string status)); *)
-        Lwt.return status
-    | `Next (session, symb_session) -> loop e session symb_session
-    end
+
+module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
+  module Intra = Intra_session.Make (S) (P) (O)
+
+  let rec loop (e : Embedded.t) (main_session : Intra.t) (session : Eval_session.t) : Status.Terminal.t P.t =
+    let open P in
+    let* () = pause () in
+    let res = eval_exp ~session e in
+    Intra.next
+    @@ Intra.accum_eval main_session res
+    >>= begin function
+      | `Done status -> return status
+      | `Next (session, symb_session) -> loop e session symb_session
+      end
+
+  let eval : Embedded.t -> Status.Terminal.t P.t =
+    fun e ->
+      if not O.r.random then C_random.reset ();
+      let session = Options.Arrow.appl Eval_session.with_options O.r Eval_session.empty in
+      P.with_timeout O.r.global_timeout_sec
+      @@ fun () -> loop e Intra.empty session
+end
+
+module F = Make (Solve.Default) (Pause.Lwt)
 
 let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
-  (* Dj_common.Log.init { Dj_common.Global_config.default_config with log_level_concolic = Some Debug }; *)
-  Intra_session.of_options
-  >>> (Options.Arrow.make
-  @@ fun r (session, symb_session) (e : Embedded.t) ->
-      C_sudu.set_timeout (Core.Time_float.Span.of_sec r.solver_timeout_sec);
-      if not r.random then C_random.reset ();
-      (* CLog.app (fun m -> m "\nStarting concolic execution...\n"); *)
-      Lwt_unix.with_timeout r.global_timeout_sec
-      @@ fun () -> loop e session symb_session (* repeatedly evaluate program *)
-  )
-  |> Options.Arrow.thaw
+  Options.Arrow.make
+  @@ fun r e ->
+    let module E = F (struct let r = r end) in
+    E.eval e

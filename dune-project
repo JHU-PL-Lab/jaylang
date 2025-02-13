@@ -31,6 +31,7 @@
   alcotest-lwt
   psq
   preface
+  moonpool
   z3
   (ocaml-monadic
    (>= 0.4.1))

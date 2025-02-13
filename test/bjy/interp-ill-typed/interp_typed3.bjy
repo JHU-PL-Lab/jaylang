@@ -51,7 +51,7 @@ let expr =
   { t = Mu tt.
     ``Int int
     || ``Var ident.t
-    || ``Functio (triple.t ident.t ttype.t_check tt) # ERROR: deleted the 'n' (I really did this accidentally one time)
+    || ``Functio (triple.t ident.t ttype.t tt) # ERROR: deleted the 'n' (I really did this accidentally one time)
     || ``If_then_else (triple.t tt tt tt)
     || ``Plus (pair.t tt tt)
     || ``Minus (pair.t tt tt)
