@@ -45,7 +45,7 @@ module Make (Cell : CELL) (V : V) = struct
       | VTypeTop : 'a bluejay_or_desugared t
       | VTypeBottom : 'a bluejay_or_desugared t
       | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
-      (* | VTypeRecordD : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t *)
+      | VTypeRecordD : (RecordLabel.t * 'a closure) list -> 'a bluejay_or_desugared t
       | VTypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
       | VTypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
@@ -85,6 +85,7 @@ module Make (Cell : CELL) (V : V) = struct
     | VTypeTop -> "top"
     | VTypeBottom -> "bottom"
     | VTypeRecord record_body -> RecordLabel.record_body_to_string ~sep:":" record_body to_string
+    | VTypeRecordD ls -> Format.sprintf "{: %s :}" (String.concat ~sep:" ; " @@ List.map ls ~f:(fun (label, _) -> Format.sprintf "%s : <expr>" (RecordLabel.to_string label)))
     | VTypeArrow { domain ; codomain } -> Format.sprintf "(%s -> %s)" (to_string domain) (to_string codomain)
     | VTypeArrowD { binding = Ident s ; domain ; _ } -> Format.sprintf "((%s : %s) -> <expr>)" s (to_string domain)
     | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (to_string tau) (to_string predicate)
