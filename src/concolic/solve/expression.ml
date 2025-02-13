@@ -109,38 +109,14 @@ module Solve (Expr : Z3_intf.S) = struct
     | And -> Expr.and_
     | Or -> Expr.or_
 
-  (* It's dumb how I cannot combine cases here *)
-  let binop_opkind_to_converter (type a b) (i : int conv) (b : bool conv) (binop : (a * a * b) Typed_binop.t) : a conv =
-    match binop with
-    | Plus -> i
-    | Minus -> i
-    | Times -> i
-    | Divide -> i
-    | Modulus -> i
-    | Less_than -> i
-    | Less_than_eq -> i
-    | Greater_than -> i
-    | Greater_than_eq -> i
-    | Equal_int -> i
-    | Not_equal -> i
-    | Equal_bool -> b
-    | And -> b
-    | Or -> b
-
-  (*
-    Because of issues with mutual recursion and locally abstract types, I have to do this
-    weird hack where I pass in each "t_to_formula" converter.
-  *)
-  let e_to_formula (type a) (i : int conv) (b : bool conv) (x : a e) : a Expr.t =
-    match x with
-    | Key k -> Expr.var_of_key k
-    | Not y -> Expr.not_ (b y)
-    | Binop (binop, e1, e2) ->
-      let to_formula = binop_opkind_to_converter i b binop in
-      binop_to_z3_expr binop (to_formula e1) (to_formula e2)
-
   let rec t_to_formula : type a. a conv = function
     | Const (I i) -> Expr.box_int i
     | Const (B b) -> Expr.box_bool b
-    | Abstract ex -> e_to_formula t_to_formula t_to_formula ex
+    | Abstract ex -> e_to_formula ex
+  
+  and e_to_formula : type a. a e -> a Expr.t = function
+    | Key k -> Expr.var_of_key k
+    | Not y -> Expr.not_ (t_to_formula y)
+    | Binop (binop, e1, e2) ->
+      binop_to_z3_expr binop (t_to_formula e1) (t_to_formula e2)
 end
