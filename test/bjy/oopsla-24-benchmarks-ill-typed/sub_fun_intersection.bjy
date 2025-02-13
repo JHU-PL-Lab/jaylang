@@ -2,6 +2,15 @@
 
 let t = { ((``Int int) -> int) && ((``Bool bool) -> bool) | fun x -> x (`Bool true) }
 
+let t =
+  { (v : ``Int int || ``Bool bool) ->
+      match v with
+      | `Int i -> int
+      | `Bool b -> bool
+      end
+  | fun f -> f (`Bool true)
+  }
+
 # this is a subtype of t
 # error in this file still gets caught if we have `let (f : t) =`; but it is slower
 let f =
