@@ -90,8 +90,6 @@ let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t)
   | _ -> Abstract (Binop (binop, left, right))
 
 module Solve (Expr : Z3_intf.S) = struct
-  type 'a conv = 'a t -> 'a Expr.t
-
   let binop_to_z3_expr (type a b) (binop : (a * a * b) Typed_binop.t) : a Expr.t -> a Expr.t -> b Expr.t =
     match binop with
     | Plus -> Expr.plus
@@ -109,7 +107,7 @@ module Solve (Expr : Z3_intf.S) = struct
     | And -> Expr.and_
     | Or -> Expr.or_
 
-  let rec t_to_formula : type a. a conv = function
+  let rec t_to_formula : type a. a t -> a Expr.t = function
     | Const (I i) -> Expr.box_int i
     | Const (B b) -> Expr.box_bool b
     | Abstract ex -> e_to_formula ex
@@ -117,6 +115,5 @@ module Solve (Expr : Z3_intf.S) = struct
   and e_to_formula : type a. a e -> a Expr.t = function
     | Key k -> Expr.var_of_key k
     | Not y -> Expr.not_ (t_to_formula y)
-    | Binop (binop, e1, e2) ->
-      binop_to_z3_expr binop (t_to_formula e1) (t_to_formula e2)
+    | Binop (binop, e1, e2) -> binop_to_z3_expr binop (t_to_formula e1) (t_to_formula e2)
 end
