@@ -3,13 +3,13 @@
 # This has been trimmed down to remove any code that had no intersection with the erroring code.
 # We would like to keep types on the helper functions; but we currently don't handle that well.
 
-let pos_int = { int | fun i -> i > 0 }
+let (pos_int : type) = { int | fun i -> i > 0 }
 
 # Parametric map
-let map a b = a -> b
+let (map : type -> type -> type) = fun a b -> a -> b
 
 # Parametric bag
-let bag a = list a
+let (bag : type -> type) = fun a -> list a
 
 let rec len ls = 
   match ls with
@@ -17,12 +17,11 @@ let rec len ls =
   | hd :: tl -> 1 + len tl
   end
 
-let ngram n a = { list a | fun ls -> (len ls == n) and n >= 0 }
+let (ngram : int -> type -> type) = fun n a -> { list a | fun ls -> (len ls == n) and n >= 0 }
 
-let distribution n a = map (ngram (n - 1) a) (bag a)
+let (distribution : int -> type -> type) = fun n a -> map (ngram (n - 1) a) (bag a)
 
 let rec take n =
-#letd rec take (type a_) (n : pos_int) : (list a_) -> { list a_ | fun ls -> len ls <= n } =
   fun l ->
     if n == 0 then [] else if n < 0 then assert false else
     match l with
@@ -34,7 +33,6 @@ let rec take n =
     end
 
 let make_ngrams n =
-#letd make_ngrams (type a_) (n : pos_int) : (list a_) -> list (ngram n a_) =
   fun ls ->
     let rec loop l m =
       match l with
@@ -48,7 +46,6 @@ let make_ngrams n =
     loop ls (len ls)
 
 let rec compare_list compare l1 l2 =
-#let rec compare_list (type a_) (compare : a_ -> a_ -> int) (l1 : list a_) (l2 : list a_) : int =
   match l1 with
   | [] ->
     match l2 with
@@ -69,7 +66,6 @@ let rec compare_list compare l1 l2 =
 let tuple a b = { fst : a ; snd : b }
 
 let rec last_exn ls = 
-#let rec last_exn (type a_) (ls : { list a_ | fun l -> len l > 0 }) : a_ = 
   match ls with
   | hd :: tl ->
     match tl with
@@ -78,7 +74,6 @@ let rec last_exn ls =
     end
   end
 
-#letd rec make_dist (type a_) (n : pos_int) : (list a_) -> (a_ -> a_ -> int) -> distribution n a_ =
 let rec make_dist n =
   fun l ->
     fun compare ->
@@ -92,10 +87,8 @@ let rec make_dist n =
         | ng :: tl -> tup_of_ng ng :: map_ng_to_tups tl
         end
       in
-      #bag_map_of_list (ngram (n - 1) a_) a_ (map_ng_to_tups ngrams) (compare_list compare) # Notice we need to instantiate the types because `bag_map_of_list` is typed
       bag_map_of_list (map_ng_to_tups ngrams) (compare_list compare)
       
-#with bag_map_of_list (type a_ b_) (ls : list (tuple a_ b_)) : (a_ -> a_ -> int) -> map a_ (bag b_) =
 with bag_map_of_list tup_list =
   fun compare ->
     fun a ->

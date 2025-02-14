@@ -1,35 +1,35 @@
 
-let node = 
+let (node : { t : type -> type -> type }) = 
   { t =
     fun a_t ->
       fun tree_t ->
         { v : a_t
-         ; children : list tree_t }
+        ; children : list tree_t }
   }
 
-let leaf =
+let (leaf : { t : type -> type }) =
   { t = 
     fun a ->
       a
   }
 
-let tree =
+let (tree : { t : type -> type }) =
   { t =
     fun a ->
       Mu tt. (``Node (node.t a tt) || ``Leaf (leaf.t a))
   }
 
-let visitor = 
+let (visitor : { t : type -> type -> type }) = 
   { t =
     fun a ->
       fun result_type ->
         { visit_node : node.t a (tree.t a) -> result_type 
-         ; visit_leaf : leaf.t a -> result_type } 
+        ; visit_leaf : leaf.t a -> result_type }
   }
 
-let client a t result_type =
+let (client : type -> type -> type -> type) = fun a t result_type ->
   { self : t
-   ; accept : visitor.t a result_type -> result_type }
+  ; accept : visitor.t a result_type -> result_type }
 
 let make_list f n = 
   let rec loop i =

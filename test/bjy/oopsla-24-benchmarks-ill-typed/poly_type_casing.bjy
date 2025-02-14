@@ -1,7 +1,7 @@
 
-let t = ((``Int int) -> int) && ((``Bool bool) -> bool)
+let (t : type) = ((``Int int) -> int) && ((``Bool bool) -> bool)
 
-let t = (v : ``Int int || ``Bool bool) ->
+let (t : type) = (v : ``Int int || ``Bool bool) ->
   match v with
   | `Int i -> int
   | `Bool b -> bool

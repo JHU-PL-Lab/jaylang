@@ -1,9 +1,9 @@
 
-let coord =
+let (coord : type) =
   { x : int
    ; y : int }
 
-let t = Mu tt.
+let (t : type) = Mu tt.
   { parent : (``Some tt || ``None int)
    ; relative_coord : coord }
 

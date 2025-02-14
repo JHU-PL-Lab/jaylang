@@ -1,7 +1,7 @@
 # Continuation monad -- improper definition of bind
 # Has same well-typed version as continuation_bind1
 
-let t a r = { continuation : (a -> r) -> r }
+let (t : type -> type -> type) = fun a r -> { continuation : (a -> r) -> r }
 
 let bind (type a_ b_ r_) (ar_r : t a_ r_) : (a_ -> t b_ r_) -> t r_ b_ = # ERROR: should be `t b_ r_` return type
   fun a_br_r ->

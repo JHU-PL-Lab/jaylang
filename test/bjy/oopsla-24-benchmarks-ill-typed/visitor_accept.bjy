@@ -3,17 +3,17 @@ let result_type = { result : int }
 
 let city =
   { population : int
-   ; show_population : bool -> bool }
+  ; show_population : bool -> bool }
 
 let sight =
   { is_open : bool }
 
 let visitor =
   { visit_city : city -> result_type
-   ; visit_sight : sight -> result_type }
+  ; visit_sight : sight -> result_type }
 
 let client =
-   { accept : visitor -> result_type }
+  { accept : visitor -> result_type }
 
 let make_city_client (i : int) : client =
   let s = 

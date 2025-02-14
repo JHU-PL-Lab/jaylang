@@ -24,7 +24,7 @@ let set_m =
       in f
   }
 
-let set_m_type = 
+let (set_m_type : type -> type) = 
   fun a_ -> # any type
     let t = list a_ in
     { emptyset : t

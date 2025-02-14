@@ -1,6 +1,6 @@
 # functions on records
 
-let t = ({ a : int ; b : bool } -> { x : list int }) -> { y : list bool }
+let (t : type) = ({ a : int ; b : bool } -> { x : list int }) -> { y : list bool }
 
 let f (a : { a : int ; b : bool } -> { x : list int }) : { y : list bool } =
   match (a { a = 0 ; b = false }).x with

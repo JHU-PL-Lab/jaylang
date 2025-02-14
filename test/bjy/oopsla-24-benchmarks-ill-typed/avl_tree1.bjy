@@ -6,7 +6,7 @@
 
 # NOTE: the current seed is just unlucky on this one. That's all.
 
-let t = Mu tt. 
+let (t : type) = Mu tt. 
   ``Leaf int
   ||  ``Node { left : tt
              ; right : tt

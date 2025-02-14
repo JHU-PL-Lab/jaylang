@@ -1,10 +1,10 @@
 
-let color =
+let (color : { t : type }) =
   { t =
     { int | fun i -> i >= 0 and i < 256 }
   }
 
-let point =
+let (point : { t : type }) =
   { t =
     { x : int
      ; y : int
@@ -12,7 +12,7 @@ let point =
      }
   }
 
-let colored_point =
+let (colored_point : { t : type }) =
   { t =
     { x : int
      ; y : int

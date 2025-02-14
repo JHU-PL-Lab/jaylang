@@ -4,7 +4,7 @@
 # 1. Don't rotate at all
 # 2. Rotate left only on left insert; and right only on right insert (this was my first bug)
 
-let t = Mu tt. 
+let (t : type) = Mu tt. 
   ``Leaf int
   || ``Node { left : tt
             ; right : tt

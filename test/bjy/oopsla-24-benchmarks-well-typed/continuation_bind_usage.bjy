@@ -1,6 +1,6 @@
 # Continuation monad -- improper use of bind
 
-let t a r = { continuation : (a -> r) -> r }
+let (t : type -> type -> type) = fun a r -> { continuation : (a -> r) -> r }
 
 let bind (type a_ b_ r_) (ar_r : t a_ r_) : (a_ -> t b_ r_) -> t b_ r_ = 
   fun a_br_r ->

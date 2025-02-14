@@ -1,7 +1,7 @@
 # This is an avl tree program; where insert on balanced tree returns a balanced tree.
 # We check that the insert works on some tree instance. It doesn't ... 
 
-let t = Mu tt. 
+let (t : type) = Mu tt. 
   (  ``Node { left : tt
             ; right : tt
             ; item : int

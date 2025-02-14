@@ -1,18 +1,18 @@
 
-let nil =
+let (nil : {: t : type ; v : t :}) =
   { t = unit
   ; v = {}
   }
 
-let pair =
+let (pair : { t : type -> type -> type }) =
   { t = fun a -> fun b -> { left : a ; right : b }
   }
 
-let triple =
+let (triple : { t : type -> type -> type -> type }) =
   { t = fun a -> fun b -> fun c -> { first : a ; second : b ; third : c }
   }
 
-let ttype = 
+let (ttype : {: t : type ; tint : (``TInt nil.t) ; eq : t -> t -> bool ; is_int : t -> bool :}) = 
   let tint = `TInt nil.v in
   let rec eq a b =
     match a with
@@ -38,7 +38,7 @@ let ttype =
   ; is_int = eq tint
   }
 
-let ident =
+let (ident : {: t : type ; eq : t -> t -> bool :}) =
   { t = ``Id int
   ; eq =
       fun a -> fun b -> 
@@ -47,7 +47,7 @@ let ident =
         x == y
   }
 
-let expr =
+let (expr : { t : type }) =
   { t = Mu tt.
     ``Int int
     || ``Var ident.t

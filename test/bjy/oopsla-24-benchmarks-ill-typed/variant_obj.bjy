@@ -1,7 +1,7 @@
 
-let t = (((``A unit) -> int) && ((``B unit) -> int) && ((``C int) -> list int))
+let (t : type) = (((``A unit) -> int) && ((``B unit) -> int) && ((``C int) -> list int))
 
-let t =
+let (t : type) =
   (v : ``A unit || ``B unit || ``C int) ->
     match v with
     | `A u -> int

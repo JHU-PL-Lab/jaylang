@@ -1,8 +1,8 @@
 # subtyping of refined intersection type.
 
-let t = { ((``Int int) -> int) && ((``Bool bool) -> bool) | fun x -> x (`Bool true) }
+let (t : type) = { ((``Int int) -> int) && ((``Bool bool) -> bool) | fun x -> x (`Bool true) }
 
-let t =
+let (t : type) =
   { (v : ``Int int || ``Bool bool) ->
       match v with
       | `Int i -> int
