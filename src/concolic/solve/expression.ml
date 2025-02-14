@@ -61,13 +61,10 @@ end
 
 type _ t =
   | Const : 'a Const.t -> 'a t
-  | Abstract : 'a e -> 'a t
-
-(* abstract expressions only *)
-and _ e =
-  | Key : 'a Stepkey.t -> 'a e
-  | Not : bool t -> bool e
-  | Binop : ('a * 'a * 'b) Typed_binop.t * 'a t * 'a t -> 'b e
+  (* The following constructors form abstract expressions *)
+  | Key : 'a Stepkey.t -> 'a t
+  | Not : bool t -> bool t
+  | Binop : ('a * 'a * 'b) Typed_binop.t * 'a t * 'a t -> 'b t
 
 let is_const : type a. a t -> bool = function
   | Const _ -> true
@@ -77,17 +74,17 @@ let const_bool b = Const (B b)
 let true_ = const_bool true
 let false_ = const_bool false
 let const_int i = Const (I i)
-let key key = Abstract (Key key)
+let key key = Key key
 
 let not_ (x : bool t) : bool t =
   match x with
   | Const B b -> Const (B (not b))
-  | _ -> Abstract (Not x)
+  | _ -> Not x
 
 let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t) : b t =
   match left, right with
   | Const cx, Const cy -> Const (Typed_binop.to_arithmetic binop cx cy)
-  | _ -> Abstract (Binop (binop, left, right))
+  | _ -> Binop (binop, left, right)
 
 module Solve (Expr : Z3_intf.S) = struct
   let binop_to_z3_expr (type a b) (binop : (a * a * b) Typed_binop.t) : a Expr.t -> a Expr.t -> b Expr.t =
@@ -107,13 +104,10 @@ module Solve (Expr : Z3_intf.S) = struct
     | And -> Expr.and_
     | Or -> Expr.or_
 
-  let rec t_to_formula : type a. a t -> a Expr.t = function
+  let rec to_formula : type a. a t -> a Expr.t = function
     | Const (I i) -> Expr.box_int i
     | Const (B b) -> Expr.box_bool b
-    | Abstract ex -> e_to_formula ex
-  
-  and e_to_formula : type a. a e -> a Expr.t = function
     | Key k -> Expr.var_of_key k
-    | Not y -> Expr.not_ (t_to_formula y)
-    | Binop (binop, e1, e2) -> binop_to_z3_expr binop (t_to_formula e1) (t_to_formula e2)
+    | Not y -> Expr.not_ (to_formula y)
+    | Binop (binop, e1, e2) -> binop_to_z3_expr binop (to_formula e1) (to_formula e2)
 end

@@ -3,7 +3,7 @@ module type S = sig
   include Z3_intf.S
 
   module Expression : sig
-    val t_to_formula : 'a Expression.t -> 'a t
+    val to_formula : 'a Expression.t -> 'a t
   end
 
   module Input_feeder : sig

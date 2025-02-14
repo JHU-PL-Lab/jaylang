@@ -38,5 +38,5 @@ val not_ : bool t -> bool t
 val op : 'a t -> 'a t -> ('a * 'a * 'b) Typed_binop.t -> 'b t
 
 module Solve (Expr : Z3_intf.S) : sig
-  val t_to_formula : 'a t -> 'a Expr.t
+  val to_formula : 'a t -> 'a Expr.t
 end

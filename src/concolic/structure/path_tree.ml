@@ -210,7 +210,7 @@ module Make (S : Solve.S) (TQ : Target_queue.S) (P : Pause.S) (O : Options.V) = 
       | None -> return None
       | Some ({ root ; _ } as r, target) ->
         Node.formulas_of_target root target
-        |> List.map ~f:(S.Expression.t_to_formula)
+        |> List.map ~f:(S.Expression.to_formula)
         |> S.solve
         |> function
           | Z3_intf.Solve_status.Unsat -> next { r with root = Node.set_unsat_target root target }
