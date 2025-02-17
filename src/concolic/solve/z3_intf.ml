@@ -56,7 +56,7 @@ module type S = sig
     SOLVE
     -----
   *)
-  val solve : 'a t list -> Solve_status.t
+  val solve : bool t list -> Solve_status.t
 end
 
 module Make () : S = struct
