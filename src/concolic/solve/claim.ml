@@ -1,7 +1,7 @@
 
 open Core
 
-type 'a t = Equality : 'a Expression.t * 'a Direction.t -> 'a t
+type 'a t = Equality of ('a Expression.t * 'a Direction.t) [@@unboxed]
 
 let to_expression (type a) (Equality (expr, dir) : a t) : bool Expression.t =
   let eq_int a b = Expression.op a b Expression.Typed_binop.Equal_int in

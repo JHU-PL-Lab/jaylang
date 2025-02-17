@@ -13,12 +13,6 @@ module C_result = struct
 end
 
 module CPS_Result_M = struct
-  (* module C = struct
-    type 'a m = 'a
-    let bind x f = f x
-    let return x = x
-  end *)
-
   include Utils.Cps_result.Make (Status.Eval)
 
   let abort (session : Eval_session.t) : 'a m =

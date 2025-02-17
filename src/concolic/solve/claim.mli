@@ -1,5 +1,5 @@
 
-type 'a t = Equality : 'a Expression.t * 'a Direction.t -> 'a t
+type 'a t = Equality of ('a Expression.t * 'a Direction.t) [@@unboxed]
 
 val flip : bool t -> bool t
 
