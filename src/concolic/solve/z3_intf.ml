@@ -1,13 +1,6 @@
 
 open Core
 
-module Solve_status = struct
-  type t =
-    | Sat of Z3.Model.model (* should this be generated in the functor because of model? *)
-    | Unknown
-    | Unsat
-end
-
 module type S = sig
   type 'a t (* expressions *)
 
@@ -56,14 +49,19 @@ module type S = sig
     SOLVE
     -----
   *)
+  module Solve_status : sig
+    type t =
+      | Sat of Z3.Model.model
+      | Unknown
+      | Unsat
+  end
+
   val solve : bool t list -> Solve_status.t
 end
 
 module Make () : S = struct
   include Utils.Z3_api.Make (struct let ctx = Z3.mk_context [] end) 
   type 'a t = 'a E.t
-
-  let solver = Z3.Solver.mk_solver ctx None
 
   let var_of_key (type a) (key : a Stepkey.t) : a E.t =
     match key with
@@ -74,22 +72,4 @@ module Make () : S = struct
     key
     |> var_of_key
     |> value_of_expr model
-
-  let set_timeout time =
-    time
-    |> Time_float.Span.to_ms
-    |> Float.iround_up_exn
-    |> Int.to_string
-    |> Z3.Params.update_param_value ctx "timeout"
-
-  let solve bool_formulas =
-    Z3.Solver.add solver (E.extract_list bool_formulas);
-    (* Format.printf "Model is %s\n" (Z3.Solver.to_string solver); *)
-    let res = Z3.Solver.check solver [] in
-    match res with
-    | Z3.Solver.SATISFIABLE ->
-      let model = Z3.Solver.get_model solver in
-      Z3.Solver.reset solver;
-      Solve_status.Sat (Option.value_exn model)
-    | _ -> Z3.Solver.reset solver; Unsat
 end

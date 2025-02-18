@@ -1,13 +1,6 @@
 
 open Core
 
-module Solve_status : sig
-  type t =
-    | Sat of Z3.Model.model (* should this be generated in the functor because of model? *)
-    | Unknown
-    | Unsat
-end
-
 module type S = sig
   type 'a t (* expressions *)
 
@@ -56,6 +49,13 @@ module type S = sig
     SOLVE
     -----
   *)
+  module Solve_status : sig
+    type t =
+      | Sat of Z3.Model.model
+      | Unknown
+      | Unsat
+  end
+
   val solve : bool t list -> Solve_status.t
 end
 

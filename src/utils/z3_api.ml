@@ -83,6 +83,36 @@ module Make_datatype_builders (C : Context) = struct
   let or_ = op_two_bools bool_ @@ list_curry @@ Boolean.mk_or ctx
 end
 
+module Make_solver (C : Context) = struct
+  include Make_datatype_builders (C)  
+
+  module Solve_status = struct
+    type t =
+      | Sat of Z3.Model.model
+      | Unknown
+      | Unsat
+  end
+
+  let solver = Z3.Solver.mk_simple_solver ctx
+
+  let set_timeout time =
+    time
+    |> Time_float.Span.to_ms
+    |> Float.iround_up_exn
+    |> Int.to_string
+    |> Z3.Params.update_param_value ctx "timeout"
+
+  let solve : bool E.t list -> Solve_status.t = fun bool_formulas ->
+    Z3.Solver.add solver (E.extract_list bool_formulas);
+    let res = Z3.Solver.check solver [] in
+    match res with
+    | Z3.Solver.SATISFIABLE ->
+      let model = Z3.Solver.get_model solver in
+      Z3.Solver.reset solver;
+      Solve_status.Sat (Option.value_exn model)
+    | _ -> Z3.Solver.reset solver; Unsat
+end
+
 module Make (C : Context) = struct
-  include Make_datatype_builders (C)
+  include Make_solver (C)
 end
