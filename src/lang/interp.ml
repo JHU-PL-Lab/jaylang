@@ -54,7 +54,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | EMultiArgFunction { params ; body } -> return (VMultiArgFunClosure { params ; body = { expr = body ; env } })
     | EFreeze expr -> return (VFrozen { expr ; env })
     | EId -> return VId
-    (* inputs *) (* TODO: use an input stream to determine inputs *)
+    (* inputs *) (* Consider: use an input stream to allow user to provide inputs *)
     | EPick_i -> return (VInt 0)
     | EPick_b -> return (VBool false)
     (* simple propogation *)
@@ -265,7 +265,6 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge
   )
 
-(* TODO: evaluate program for real as a statement list instead of like this *)
 let eval_pgm (type a) (pgm : a Program.t) : a V.t =
   pgm
   |> Program.to_expr

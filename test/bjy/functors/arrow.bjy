@@ -46,12 +46,11 @@ let ARROW =
    ; compose : (a : type) -> (b : type) -> (c : type) -> t b c -> t a b -> t a c
   :}
 
-let (Make_split
-  : (A : ARROW) ->
-      { split :
-        (a : type) -> (b : type) -> (c : type) -> (d : type) ->
-          A.t a b -> A.t c d -> A.t (tup a c) (tup b d)
-      } )
+let (Make_split : (A : ARROW) ->
+  { split :
+    (a : type) -> (b : type) -> (c : type) -> (d : type) ->
+      A.t a b -> A.t c d -> A.t (tup a c) (tup b d)
+  } )
   = fun A ->
     { split =
         fun a b c d ->
