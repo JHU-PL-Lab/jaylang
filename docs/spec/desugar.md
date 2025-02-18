@@ -272,6 +272,17 @@ Notes:
 * This involves desugaring list patterns, which is why we capture the whole `pat -> expr` instead of pattern and expression separately.
 * We assume that Untouched is a unique variant name the user cannot create.
 
+## Intersection types
+
+```ocaml
+[| ((V_0 of tau_0) -> tau_0') && ... && ((V_n of tau_n) -> tau_n') |] =
+  [| ($x : V_0 of tau_0 | ... | V_n of tau_n)  ->
+        match $x with
+        | V_0 _ -> tau_0'
+        | ...
+        | V_n _ -> tau_n' |]
+```
+
 ## Assert/assume
 
 ```ocaml

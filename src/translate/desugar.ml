@@ -121,8 +121,6 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       ETypeRecordD (List.map m ~f:(fun (label, e) -> label, desugar e))
     | ETypeRefinement { tau ; predicate } ->
       ETypeRefinement { tau = desugar tau ; predicate = desugar predicate }
-    | ETypeIntersect ls_e ->
-      ETypeIntersect (List.map ls_e ~f:(fun (label, e_tau1, e_tau2) -> label, desugar e_tau1, desugar e_tau2))
     | ETypeMu { var ; body } ->
       ETypeMu { var ; body = desugar body }
     | ETypeVariant ls_e ->
@@ -197,6 +195,20 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       List.fold_right type_variables ~init:(desugar tau) ~f:(fun alpha acc ->
         ETypeArrowD { binding = alpha ; domain = EType ; codomain = acc }
       )
+    (* Intersection type *)
+    | ETypeIntersect ls_e ->
+      desugar @@
+        let x = Names.fresh_id ~suffix:"x_match_type" () in
+        let open List.Let_syntax in
+        ETypeArrowD
+          { binding = x 
+          ; domain = ETypeVariant (ls_e >>| fun (label, tau, _) -> label, tau)
+          ; codomain = EMatch { subject = EVar x ; patterns = 
+              ls_e >>| fun (label, _, tau') ->
+                PVariant { variant_label = VariantTypeLabel.to_variant_label label ; payload_id = Reserved_labels.Idents.catchall }
+                , tau'
+            }
+          }
     (* Functions *)
     | EMultiArgFunction { params ; body } ->
       abstract_over_ids params (desugar body)
@@ -247,8 +259,9 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     This is useful for both desugaring statements and expressions.
   *)
   and desugar_rec_funs_to_stmt_list (fsigs : bluejay funsig list) : Desugared.statement list =
-    let func_comps = List.map fsigs ~f:funsig_to_components in
-    let f_names = List.map func_comps ~f:(fun r -> r.func_id) in
+    let (>>|) = List.Let_syntax.(>>|) in
+    let func_comps = fsigs >>| funsig_to_components in
+    let f_names = func_comps >>| fun r -> r.func_id in
     let tmp_name_of_name =
       let m =
         List.fold f_names ~init:Ident.Map.empty ~f:(fun acc func_id ->
@@ -257,7 +270,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       in
       Map.find_exn m 
     in
-    let tmp_names = List.map f_names ~f:tmp_name_of_name in
+    let tmp_names = f_names >>| tmp_name_of_name in
     (*
       Creates
         let f1 = $f1 $f1 $f2 ... $fn in
@@ -269,11 +282,11 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
         assign ~kind:(binding_fun tau_opt) func_id (
           appl_list
             (EVar (tmp_name_of_name func_id))
-            (List.map tmp_names ~f:(fun id -> EVar id))
+            (tmp_names >>| fun id -> EVar id)
         )
       )
     in
-    List.map func_comps ~f:(fun { func_id ; params ; body ; _ } ->
+    (func_comps >>| fun { func_id ; params ; body ; _ } ->
       Program.SUntyped { var = tmp_name_of_name func_id ; body = 
         abstract_over_ids tmp_names (
           abstract_over_ids params (
@@ -284,12 +297,11 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
         )
       }
     )
-    @
-    List.map func_comps ~f:(fun { func_id ; tau_opt ; _ } ->
+    @ (func_comps >>| fun { func_id ; tau_opt ; _ } ->
       let body =
         appl_list
           (EVar (tmp_name_of_name func_id))
-          (List.map tmp_names ~f:(fun id -> EVar id))
+          (tmp_names >>| fun id -> EVar id)
       in
       match tau_opt with
       | None ->

@@ -1,12 +1,6 @@
 
 let (t : type) = ((``Int int) -> int) && ((``Bool bool) -> bool)
 
-let (t : type) = (v : ``Int int || ``Bool bool) ->
-  match v with
-  | `Int i -> int
-  | `Bool b -> bool
-  end
-
 let (f : t) = 
   fun x ->
     match x with

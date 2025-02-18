@@ -49,13 +49,13 @@ module Make (Cell : CELL) (V : V) = struct
       | VTypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
       | VTypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
-      | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_or_desugared t
       | VTypeMu : { var : Ident.t ; body : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
       | VTypeSingle : 'a t -> 'a bluejay_or_desugared t
       (* types in bluejay only *)
       | VTypeList : 'a t -> 'a bluejay_only t
       | VTypeForall : { type_variables : Ident.t list ; tau : 'a closure } -> 'a bluejay_only t
+      | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
       (* recursive function stub for bluejay and mu type for desugared *)
       | VRecStub : 'a bluejay_or_desugared t
 

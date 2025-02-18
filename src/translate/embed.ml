@@ -160,7 +160,6 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
         else Continue res (* continue to check remaining labels after this *)
       ) ~finish:Fn.id
     | ETypeVariant ls -> List.exists ls ~f:(fun (_, e) -> loop e)
-    | ETypeIntersect ls -> List.exists ls ~f:(fun (_, e1, e2) -> loop e1 || loop e2)
     | EMatch { subject ; patterns } -> loop subject || List.exists patterns ~f:(fun (_, e) -> loop e)
     | EIf { cond ; true_body ; false_body } -> loop cond || loop true_body || loop false_body
     | ELetFlagged { typed_var = { tau ; _ } ; body ; cont ; _ }
@@ -520,63 +519,6 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       in
       let _ = Stack.pop_exn cur_mu_vars in
       res
-    | ETypeIntersect e_intersect_type ->
-      let e_intersect_ls = 
-        List.map e_intersect_type ~f:(fun (type_label, tau, tau') ->
-          VariantTypeLabel.to_variant_label type_label, tau, tau'
-        )
-      in
-      E.make
-        ~ask_for
-        ~gen:(lazy (
-          fresh_abstraction "arg_inter_gen" (fun arg ->
-            EMatch { subject = EVar arg ; patterns =
-              let v = Names.fresh_id () in
-              List.map e_intersect_ls ~f:(fun (label, tau, tau') ->
-                PVariant { variant_label = label ; payload_id = v }
-                , build @@
-                    let%bind () = ignore (check tau (EVar v)) in
-                    return @@ gen tau'
-              )
-            }
-          )
-        ))
-        ~check:(lazy (
-          fresh_abstraction "e_inter_check" (fun e ->
-            ECase
-              { subject = EPick_i
-              ; cases =
-                List.tl_exn e_intersect_type
-                |> List.mapi ~f:(fun i (label, tau, tau') ->
-                  i + 1, check (
-                    ETypeArrow { domain = ETypeVariant [ (label, tau) ] ; codomain = tau' }
-                ) (EVar e) 
-              )
-              ; default =
-                let (last_label, last_tau, last_tau') = List.hd_exn e_intersect_type in
-                check (
-                  ETypeArrow { domain = ETypeVariant [ (last_label, last_tau) ] ; codomain = last_tau' }
-                ) (EVar e)
-              }
-          )
-        ))
-        ~wrap:(lazy (
-          fresh_abstraction "e_inter_wrap" (fun e ->
-            fresh_abstraction "arg_inter_wrap" (fun arg ->
-              EMatch { subject = EVar arg ; patterns = 
-                let v = Names.fresh_id () in
-                List.map e_intersect_ls ~f:(fun (label, tau, tau') ->
-                  PVariant { variant_label = label ; payload_id = v }
-                  , EIf
-                      { cond = check tau (EVar v)
-                      ; true_body = wrap tau' (apply (EVar e) (EVariant { label ; payload = wrap tau (EVar v) }))
-                      ; false_body = EAbort
-                      }
-                )
-              }
-            )
-          )
-        ))
     | ETypeTop ->
       E.make
         ~ask_for

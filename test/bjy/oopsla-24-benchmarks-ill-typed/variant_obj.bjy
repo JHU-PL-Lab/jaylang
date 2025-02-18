@@ -1,14 +1,6 @@
 
 let (t : type) = (((``A unit) -> int) && ((``B unit) -> int) && ((``C int) -> list int))
 
-let (t : type) =
-  (v : ``A unit || ``B unit || ``C int) ->
-    match v with
-    | `A u -> int
-    | `B u -> int
-    | `C i -> list int
-    end
-
 let (obj : t) =
   let ob =
     fun self ->

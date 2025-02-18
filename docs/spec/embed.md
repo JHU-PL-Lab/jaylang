@@ -219,41 +219,12 @@ Notes:
 
 ### Intersection types
 
-```ocaml
-[[((V_0 of tau_0) -> tau_0') && ... && ((V_n of tau_n) -> tau_n')]] =
-  { ~gen = freeze @@ fun $arg ->
-    match $arg with
-    | V_0 $v ->
-      let _ = [[tau_0]].~check $v in
-      thaw [[tau_0']].~gen
-    | ...
-    | V_n $v ->
-      let _ = [[tau_n]].~check $v in
-      thaw [[tau_n']].~gen
-    end
-  ; ~check = fun $e ->
-    case pick_i on
-    | 1 -> [[(V_1 of tau_1) -> tau_1']].~check $e
-    | ...
-    | n -> [[(V_n of tau_n) -> tau_n']].~check $e
-    | _ -> [[(V_0 of tau_0) -> tau_0']].~check $e
-    end
-  ; ~wrap = fun $e -> fun $arg ->
-    match $arg with
-    | V_0 $v ->
-      let _ = [[tau_0]].~check $v in
-      [[tau_0']].~wrap ($e (V_0 ([[tau_0]].~wrap v)))
-    | ...
-    | V_n $v ->
-      let _ = [[tau_n]].~check $v in
-      [[tau_n']].~wrap ($e (V_n ([[tau_n]].~wrap v)))
-    end
-  }
-```
+The "intersection" type has been desugared into a dependent function, so nothing is needed here.
 
 ### List type
 
 The `List` type has been desugared into a variant, so nothing is needed here.
+
 
 
 ## Extensions

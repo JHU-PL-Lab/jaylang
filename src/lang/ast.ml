@@ -200,13 +200,13 @@ module Expr = struct
     | ETypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
     | ETypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
     | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
-    | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_or_desugared t
     | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
     | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
     | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } -> 'a bluejay_or_desugared t
     | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
     (* bluejay only *)
     | ETypeList : 'a t -> 'a bluejay_only t
+    | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
     | EList : 'a t list -> 'a bluejay_only t
     | EListCons : 'a t * 'a t -> 'a bluejay_only t
     | EAssert : 'a t -> 'a bluejay_only t
