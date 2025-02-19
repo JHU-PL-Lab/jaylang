@@ -77,6 +77,7 @@
 %nonassoc prec_let prec_fun   /* Let-ins and functions */
 %nonassoc prec_if             /* Conditionals */
 %nonassoc prec_mu             /* mu types */
+// %left DOUBLE_PIPE             /* || for variant type */
 %left OR                      /* Or */
 %left AND                     /* And */
 %right NOT                    /* Not */
@@ -85,9 +86,10 @@
 %right DOUBLE_COLON           /* :: */
 %left PLUS MINUS              /* + - */
 %left ASTERISK SLASH PERCENT  /* * / % */
-%right ASSERT ASSUME prec_variant prec_list_type   /* Asserts, Assumes, variants, lists */
+%right ASSERT ASSUME          /* Asserts, Assumes */
+%right prec_variant prec_list_type   /* variants, lists */
 %right ARROW                  /* -> for type declaration */
-%right DOUBLE_AMPERSAND      /* && for type intersection */
+// %right DOUBLE_AMPERSAND      /* && for type intersection */
 
 %start <Bluejay.statement list> prog
 %start <Bluejay.statement list option> delim_expr
@@ -165,8 +167,8 @@ expr:
       { EIf { cond = $2 ; true_body = $4 ; false_body = $6 } : Bluejay.t }
   | FUNCTION ident_decl ARROW expr %prec prec_fun 
       { EFunction { param = $2 ; body = $4 } : Bluejay.t }
-  | FUNCTION param_list ARROW expr %prec prec_fun
-      { EMultiArgFunction { params = $2 ; body = $4 } : Bluejay.t }
+  | FUNCTION ident_decl param_list ARROW expr %prec prec_fun
+      { EMultiArgFunction { params = $2 :: $3 ; body = $5 } : Bluejay.t }
   // Let
   | LET ident_decl EQUALS expr IN expr %prec prec_let
       { ELet { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
@@ -197,21 +199,36 @@ expr:
       { ETypeIntersect $1 : Bluejay.t } 
 ;
 
-(* doesn't *really* need parens, but without them we would never get a meaningful intersection type *)
+(* doesn't *really* need parens I think, but without them we would never get a meaningful intersection type *)
+single_intersection_type:
+  | OPEN_PAREN OPEN_PAREN single_variant_type CLOSE_PAREN ARROW expr CLOSE_PAREN
+      { let (a, b) = $3 in [ (a, b, $6) ] }
+
+(* Note that there is no such single intersection type because that is just an arrow type *)
 intersection_type_body:
-  | OPEN_PAREN OPEN_PAREN variant_type_label expr CLOSE_PAREN ARROW expr CLOSE_PAREN
-      { [ ($3, $4, $7) ] }
-  | OPEN_PAREN OPEN_PAREN variant_type_label expr CLOSE_PAREN ARROW expr CLOSE_PAREN DOUBLE_AMPERSAND intersection_type_body
-      { ($3, $4, $7) :: $10 }
+  | single_intersection_type DOUBLE_AMPERSAND single_intersection_type
+      { $1 @ $3 }
+  | single_intersection_type DOUBLE_AMPERSAND intersection_type_body
+      { $1 @ $3 }
 ;
 
-variant_type_body:
-  | variant_type_label expr { [($1, $2)] }
-  | variant_type_label expr DOUBLE_PIPE variant_type_body { ($1, $2) :: $4 }
+single_variant_type:
+  | variant_type_label expr %prec prec_variant { $1, $2 }
 
-record_type:
-  | OPEN_BRACE record_type_body CLOSE_BRACE
-      { ETypeRecord $2 : Bluejay.t }
+variant_type_body:
+  | single_variant_type { [$1] }
+  | single_variant_type DOUBLE_PIPE variant_type_body { $1 :: $3 }
+
+record_type_or_refinement:
+  (* exactly one label *)
+  | OPEN_BRACE record_label COLON expr CLOSE_BRACE
+      { ETypeRecord (new_record $2 $4)}
+  (* more than one label *)
+  | OPEN_BRACE record_label COLON expr SEMICOLON record_type_body CLOSE_BRACE
+      { ETypeRecord (add_record_entry $2 $4 $6) }
+  (* refinement type with binding for tau, which looks like a record type at first, so that's why we expand the rules above *)
+  | OPEN_BRACE ident_decl COLON expr PIPE expr CLOSE_BRACE
+      { ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } : Bluejay.t }
   | OPEN_BRACE_COLON separated_nonempty_list(SEMICOLON, record_type_item) COLON_CLOSE_BRACE
       { ETypeRecordD $2 : Bluejay.t }
 
@@ -301,7 +318,7 @@ primary_expr:
       { $2 }
   | OPEN_BRACE expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $2 ; predicate = $4 } : Bluejay.t }
-  | record_type
+  | record_type_or_refinement
       { $1 : Bluejay.t }
   | primary_expr DOT record_label
       { EProject { record = $1 ; label = $3} : Bluejay.t }
@@ -324,15 +341,15 @@ param_list:
   | ident_decl { [ $1 ] }
 ;
 
-record_label:
+%inline record_label:
   | ident_decl { RecordLabel.RecordLabel $1 }
 ;
 
-ident_usage:
+%inline ident_usage:
   | ident_decl { EVar $1 : Bluejay.t }
 ;
 
-ident_decl:
+%inline ident_decl:
   | IDENTIFIER { Ident.Ident $1 }
 ;
 

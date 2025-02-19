@@ -21,7 +21,7 @@ let has_parent x =
 
 letd rec get_abs_coord (r : t)
   : 
-  { coord | fun abs_coord -> 
+  { abs_coord : coord |
     match r.parent with
     | `Some p ->
       if is_coord_nonzero (get_abs_coord p) # Note: recursive call here

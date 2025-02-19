@@ -4,5 +4,5 @@ let rec mult x y =
   then 0
   else x + mult x (y - 1)
 
-let main (n : int) : { int | fun i -> 600 <= i } =
+let main (n : int) : { i : int | 600 <= i } =
   mult 100 n # ERROR: `n` should be at least `6`; or remove refinement

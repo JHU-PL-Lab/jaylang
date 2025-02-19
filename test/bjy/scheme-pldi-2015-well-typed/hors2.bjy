@@ -1,6 +1,6 @@
 # This is another well-typed version of `hors`
 
-let zero_type = { int | fun i -> i == 0 }
+let zero_type = { i : int | i == 0 }
 
 let c x = {}
 

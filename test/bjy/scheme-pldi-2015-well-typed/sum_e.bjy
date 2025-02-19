@@ -5,5 +5,5 @@ let rec sum x =
   then 0
   else x + sum (x - 1)
 
-let main (n : { int | fun i -> i >= 14 }) : { int | fun i -> 100 <= i } =
+let main (n : { i : int | i >= 14 }) : { i : int | 100 <= i } =
   sum n

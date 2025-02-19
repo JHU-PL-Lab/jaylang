@@ -3,7 +3,7 @@
 let f x g =
   g (x + 1)
 
-letd h (z : int) : { int | fun y -> z < y } -> unit =
+letd h (z : int) : { y : int | z < y } -> unit =
   fun y -> 
     {}
 

@@ -9,7 +9,7 @@ let max x y =
   then x
   else y
 
-let rec depth (tree : t) : { int | fun i -> i >= 0 } =
+let rec depth (tree : t) : { i : int | i >= 0 } =
   match tree with
   | `Leaf leaf -> 0
   | `Node node -> 1 + max (depth node.left) (depth node.right)

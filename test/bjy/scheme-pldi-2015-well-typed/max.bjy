@@ -8,6 +8,6 @@ let f x y =
   then x
   else y
 
-letd main (x : int) : int -> int -> { int | fun c -> c == f x c } =
+letd main (x : int) : int -> int -> { c : int | c == f x c } =
   fun y -> fun z -> 
     max f y x z 

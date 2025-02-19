@@ -5,5 +5,5 @@ let rec f g x =
   then g x
   else f (fun x -> f g x) (g x)
 
-let main (n : { int | fun i -> i >= 0 }) : { int | fun i -> i >= 0 } =
+let main (n : { i : int | i >= 0 }) : { i : int | i >= 0 } =
   f (fun x -> x + 1) n

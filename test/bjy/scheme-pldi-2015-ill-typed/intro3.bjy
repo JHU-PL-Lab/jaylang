@@ -2,7 +2,7 @@
 let f x g =
   g (x + 1)
 
-letd h (z : int) : { int | fun y -> z > y } -> unit = # ERROR: should be `z < y` instead of other way around
+letd h (z : int) : { y : int | z > y } -> unit = # ERROR: should be `z < y` instead of other way around
   fun y -> 
     {}
 

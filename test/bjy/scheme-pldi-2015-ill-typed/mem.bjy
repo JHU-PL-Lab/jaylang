@@ -7,7 +7,7 @@ let rec mem x xs =
   end
 
 let ret_type x =
-  { list int | fun l -> 
+  { l : list int |
     match l with  
     | [] -> true
     | a :: b -> mem x l

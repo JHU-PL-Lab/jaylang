@@ -5,7 +5,7 @@ let b x =
   fun y ->
     x 1
 
-let a (x : int -> unit) (y : int -> unit) (q : { int | fun i -> i == 0 }) : unit =
+let a (x : int -> unit) (y : int -> unit) (q : { i : int | i == 0 }) : unit =
   let ignore = x 0 in
   y 0
 

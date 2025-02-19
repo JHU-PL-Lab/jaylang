@@ -100,7 +100,7 @@ let is_bst x =
   in
   is_increasing_strictly (to_list x [])
 
-let avl_tree = { t | fun tree -> is_balanced tree and is_bst tree }
+let avl_tree = { tree : t | is_balanced tree and is_bst tree }
 
 let create_node item left right =
   `Node { item = item ; left = left ; right = right }

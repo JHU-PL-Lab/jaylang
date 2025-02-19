@@ -5,5 +5,5 @@ let rec f g x =
   then g x
   else f (fun x -> f g x) (g x)
 
-let main (n : int) : { int | fun i -> i >= 0 } =
+let main (n : int) : { i : int | i >= 0 } =
   f (fun x -> x + 1) n # ERROR: could be negative when `n` is negative
