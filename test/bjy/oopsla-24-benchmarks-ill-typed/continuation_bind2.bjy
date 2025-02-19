@@ -23,7 +23,7 @@ let f =
         lir [ i ]
     }
 
-let y = bind int (list int) (r) x f
+let y = bind int (list int) r x f
 
 let z = y.continuation (fun ls ->
   match ls with

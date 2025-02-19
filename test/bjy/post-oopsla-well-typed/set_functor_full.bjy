@@ -13,7 +13,7 @@ let ( F :
     ; t : singlet (S.t)
     ; empty   : unit -> S.t
     ; add     : S.a -> S.t -> S.t
-    ; of_list : (list S.a) -> S.t
+    ; of_list : list S.a -> S.t
     })
   =
   fun S ->

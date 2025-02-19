@@ -87,8 +87,8 @@
 %left PLUS MINUS              /* + - */
 %left ASTERISK SLASH PERCENT  /* * / % */
 %right ASSERT ASSUME          /* Asserts, Assumes */
-%right prec_variant prec_list_type   /* variants, lists */
 %right ARROW                  /* -> for type declaration */
+%right prec_variant   /* variants, lists */
 // %right DOUBLE_AMPERSAND      /* && for type intersection */
 
 %start <Bluejay.statement list> prog
@@ -183,10 +183,6 @@ expr:
   | MATCH expr WITH PIPE? separated_nonempty_list(PIPE, match_expr) END
       { EMatch { subject = $2 ; patterns = $5 } : Bluejay.t }
   // Types expressions
-  | SINGLET_KEYWORD expr %prec prec_list_type
-      { ETypeSingle $2 : Bluejay.t }
-  | LIST expr %prec prec_list_type
-      { ETypeList $2 : Bluejay.t } 
   | MU ident_decl DOT expr %prec prec_mu
       { ETypeMu { var = $2 ; body = $4 } : Bluejay.t}
   | expr ARROW expr
@@ -278,6 +274,9 @@ fun_sig_dependent:
 /* (fun x -> x) y */
 appl_expr:
   | appl_expr primary_expr { EAppl { func = $1 ; arg = $2 } : Bluejay.t }
+  /* Give `singlet` and `list` keywords the same precedence as function application */
+  | SINGLET_KEYWORD primary_expr { ETypeSingle $2 : Bluejay.t }
+  | LIST primary_expr { ETypeList $2 : Bluejay.t } 
   | primary_expr { $1 : Bluejay.t }
 ;
 

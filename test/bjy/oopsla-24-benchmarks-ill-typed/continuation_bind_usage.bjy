@@ -22,7 +22,7 @@ let f =
         lir [ i ]
     }
 
-let y = bind int (list int) (r) x f
+let y = bind int (list int) r x f
 
 # I claim that the reason below is violation of the type instantiation of a polymorphic type; so this is a polymorphic type error
 let z = y.continuation (fun ls ->

@@ -21,7 +21,7 @@ let (ngram : int -> type -> type) = fun n a -> { list a | fun ls -> (len ls == n
 let (distribution : int -> type -> type) = fun n a -> map (ngram (n - 1) a) (bag a)
 
 let rec take n =
-#letd rec take (type a_) (n : pos_int) : (list a_) -> { list a_ | fun ls -> len ls <= n } =
+#letd rec take (type a_) (n : pos_int) : list a_ -> { list a_ | fun ls -> len ls <= n } =
   fun l ->
     if n == 0 then [] else if n < 0 then assert false else
     match l with
@@ -33,7 +33,7 @@ let rec take n =
     end
 
 let make_ngrams n =
-#letd make_ngrams (type a_) (n : pos_int) : (list a_) -> list (ngram n a_) =
+#letd make_ngrams (type a_) (n : pos_int) : list a_ -> list (ngram n a_) =
   fun ls ->
     let rec loop l m =
       match l with
@@ -92,7 +92,7 @@ let bag_map_of_list tup_list =
       in
       loop tup_list
 
-letd make_dist (type a_) (n : pos_int) : (list a_) -> (a_ -> a_ -> int) -> distribution n a_ =
+letd make_dist (type a_) (n : pos_int) : list a_ -> (a_ -> a_ -> int) -> distribution n a_ =
   fun l ->
     fun compare ->
       let ngrams = make_ngrams n l in

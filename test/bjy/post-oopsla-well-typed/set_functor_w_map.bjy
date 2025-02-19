@@ -18,7 +18,7 @@ let ( F :
     ; empty   : unit -> S.ta
     ; add     : S.a -> S.ta -> S.ta
     ; map : S.ta -> (S.a -> S.b) -> S.tb
-    ; of_list : (list S.a) -> S.ta
+    ; of_list : list S.a -> S.ta
     })
   =
   fun S ->

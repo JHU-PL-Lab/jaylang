@@ -1,7 +1,7 @@
 
 # state monad bind
 
-let t a b = (list b) -> { value : a ; store : list b }
+let t a b = list b -> { value : a ; store : list b }
 
 let bind (type a_ b_ c_) (x : t a_ b_) (f : a_ -> t c_ b_) : t c_ b_ =
   fun ss ->

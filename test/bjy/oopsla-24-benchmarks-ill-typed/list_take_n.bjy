@@ -9,7 +9,7 @@ let rec len ls =
   | hd :: tl -> 1 + len tl
   end
 
-letd rec take (type a_) (n : pos_int) : (list a_) -> { ls : list a_ | len ls <= n } =
+letd rec take (type a_) (n : pos_int) : list a_ -> { ls : list a_ | len ls <= n } =
   fun l ->
     match l with
     | [] -> []
