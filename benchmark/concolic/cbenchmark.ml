@@ -151,10 +151,25 @@ module Result_table =
   end
 
 let run dirs =
-  dirs
-  |> Result_table.of_dirs 10
+  let tbl = Result_table.of_dirs 10 dirs in
+  let times =
+    List.filter_map tbl.rows ~f:(function
+      | Row row -> Some (Time_float.Span.to_ms row.total_time)
+      | Hline -> None
+    )
+  in
+  let mean =
+    let total = List.fold times ~init:0.0 ~f:(+.) in
+    total /. Int.to_float (List.length times)
+  in
+  let median =
+    List.sort times ~compare:Float.compare
+    |> Fn.flip List.nth_exn (List.length times / 2)
+  in
+  tbl
   |> Latex_tbl.show
-  |> Format.printf "%s\n"
+  |> Format.printf "%s\n";
+  Format.printf "Mean time of all tests: %fms\nMedian time of all tests: %fms\n" mean median
 
 let () =
   run [ "test/bjy/oopsla-24-benchmarks-ill-typed" ];
