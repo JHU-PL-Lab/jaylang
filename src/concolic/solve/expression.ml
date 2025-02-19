@@ -96,11 +96,24 @@ let rec equal : type a. a t -> a t -> bool =
     | Key k1, Key k2 ->
       Stepkey.equal k1 k2
     | Not e1, Not e2 -> equal e1 e2
-    (* Type checking is hard here. Just don't compare binops for now. Say they are always different *)
-    (* | Binop (op1, left1, right1), Binop (op2, left2, right2) ->
-      Typed_binop.equal op1 op2
-      && equal left1 left2
-      && equal right1 right2 *)
+    | Binop (op1, l1, r1), Binop (op2, l2, r2) -> begin
+      match op1, op2 with
+      | Plus, Plus -> equal l1 l2 && equal r1 r2
+      | Minus, Minus -> equal l1 l2 && equal r1 r2
+      | Times, Times -> equal l1 l2 && equal r1 r2
+      | Divide, Divide -> equal l1 l2 && equal r1 r2
+      | Modulus, Modulus -> equal l1 l2 && equal r1 r2
+      | Less_than, Less_than -> equal l1 l2 && equal r1 r2
+      | Less_than_eq, Less_than_eq -> equal l1 l2 && equal r1 r2
+      | Greater_than, Greater_than -> equal l1 l2 && equal r1 r2
+      | Greater_than_eq, Greater_than_eq -> equal l1 l2 && equal r1 r2
+      | Equal_int, Equal_int -> equal l1 l2 && equal r1 r2
+      | Equal_bool, Equal_bool -> equal l1 l2 && equal r1 r2
+      | Not_equal, Not_equal -> equal l1 l2 && equal r1 r2
+      | And, And -> equal l1 l2 && equal r1 r2
+      | Or, Or -> equal l1 l2 && equal r1 r2
+      | _ -> false
+    end
     | _ -> false
 
 let is_const : type a. a t -> bool = function
