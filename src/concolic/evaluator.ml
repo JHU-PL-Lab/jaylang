@@ -102,7 +102,7 @@ let eval_exp
       | EVar id -> 
         next @@ Env.fetch env id
       | EFunction { param ; body } ->
-        next @@ VFunClosure { param ; body = { expr = body ; env } }
+        next @@ VFunClosure (ref (param, { expr = body ; env }, []))
       | EId -> 
         next VId
       | EFreeze e_freeze_body -> 
@@ -164,8 +164,20 @@ let eval_exp
         let%bind { v = varg ; step ; session } = eval ~step ~session arg env in
         match vfunc with
         | VId -> next ~step ~session varg
-        | VFunClosure { param ; body } ->
-          eval ~step ~session body.expr (Env.add body.env param varg)
+        | VFunClosure c1 -> begin
+          let (param, body, mappings) = !c1 in
+          List.find_map mappings ~f:(fun (m_arg, m_res) ->
+            if Value.equal m_arg varg
+            then Some m_res
+            else None
+          )
+          |> function
+            | Some res -> next ~step ~session res
+            | None ->
+              let%bind { v = res ; step ; session } = eval ~step ~session body.expr (Env.add body.env param varg) in
+              c1 := param, body, (varg, res) :: mappings;
+              next ~step ~session res 
+        end
         | _ -> type_mismatch session @@ Error_msg.bad_appl vfunc varg
       end
       (* Operations -- build new expressions *)

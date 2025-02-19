@@ -5,13 +5,13 @@ module Make (Err : sig type t end) = struct
   module C = Preface.Continuation.Monad
   type 'a m = ('a, Err.t) result C.t
 
-  let[@inline_always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m = 
+  let[@inline always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m = 
     C.bind (function
       | Ok r -> f r
       | Error e -> C.return (Error e)
     ) x
 
-  let[@inline_always] return (a : 'a) : 'a m =
+  let[@inline always] return (a : 'a) : 'a m =
     C.return
     @@ Result.return a
 
@@ -22,7 +22,7 @@ module Make (Err : sig type t end) = struct
       return (b :: acc)
     )
 
-  let fail (e : Err.t) : 'a m =
+  let[@inline always] fail (e : Err.t) : 'a m =
     C.return
     @@ Result.fail e
 end

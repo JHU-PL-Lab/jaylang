@@ -6,6 +6,11 @@ module Const = struct
     | I : int -> int t
     | B : bool -> bool t
 
+  let equal (type a) (x : a t) (y : a t) : bool =
+    match x, y with
+    | I i1, I i2 -> i1 = i2
+    | B b1, B b2 -> Bool.(b1 = b2)
+
   let box_int i = I i
   let box_bool b = B b
 end
@@ -32,6 +37,24 @@ module Typed_binop = struct
     | Not_equal : iib t
     | And : bbb t
     | Or : bbb t
+
+  let equal (type a) (x : a t) (y : a t) : bool =
+    match x, y with
+    | Plus, Plus
+    | Minus, Minus
+    | Times, Times
+    | Divide, Divide
+    | Modulus, Modulus
+    | Less_than, Less_than
+    | Less_than_eq, Less_than_eq
+    | Greater_than, Greater_than
+    | Greater_than_eq, Greater_than_eq
+    | Equal_int, Equal_int
+    | Equal_bool, Equal_bool
+    | Not_equal, Not_equal
+    | And, And
+    | Or, Or -> true
+    | _ -> false
 
   let to_arithmetic (type a b) (binop : (a * a * b) t) : a Const.t -> a Const.t -> b Const.t =
     let op
@@ -65,6 +88,20 @@ type _ t =
   | Key : 'a Stepkey.t -> 'a t
   | Not : bool t -> bool t
   | Binop : ('a * 'a * 'b) Typed_binop.t * 'a t * 'a t -> 'b t
+
+let rec equal : type a. a t -> a t -> bool =
+  fun x y ->
+    match x, y with
+    | Const c1, Const c2 -> Const.equal c1 c2
+    | Key k1, Key k2 ->
+      Stepkey.equal k1 k2
+    | Not e1, Not e2 -> equal e1 e2
+    (* Type checking is hard here. Just don't compare binops for now. Say they are always different *)
+    (* | Binop (op1, left1, right1), Binop (op2, left2, right2) ->
+      Typed_binop.equal op1 op2
+      && equal left1 left2
+      && equal right1 right2 *)
+    | _ -> false
 
 let is_const : type a. a t -> bool = function
   | Const _ -> true

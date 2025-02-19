@@ -23,6 +23,8 @@ end
 
 type 'a t
 
+val equal : 'a t -> 'a t -> bool
+
 val is_const : 'a t -> bool
 
 val true_ : bool t

@@ -125,6 +125,7 @@ module Binop = struct
     | BGeq
     | BAnd
     | BOr
+    [@@deriving compare, equal]
 
   let to_string = function
     | BPlus -> "+"

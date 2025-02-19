@@ -26,7 +26,7 @@ module Make (Cell : CELL) (V : V) = struct
       (* all languages *)
       | VInt : int V.t -> 'a t
       | VBool : bool V.t -> 'a t
-      | VFunClosure : { param : Ident.t ; body : 'a closure } -> 'a t
+      | VFunClosure : (Ident.t * 'a closure * ('a t * 'a t) list) ref -> 'a t
       | VVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
       | VRecord : 'a t RecordLabel.Map.t -> 'a t
       | VTypeMismatch : 'a t
@@ -69,7 +69,7 @@ module Make (Cell : CELL) (V : V) = struct
   let rec to_string : type a. a t -> string = function
     | VInt i -> V.to_string Int.to_string i
     | VBool b -> V.to_string Bool.to_string b
-    | VFunClosure { param = Ident s ; _ } -> Format.sprintf "(fun %s -> <expr>)" s
+    | VFunClosure c -> let Ident s, _, _ = !c in Format.sprintf "(fun %s -> <expr>)" s
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
     | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
     | VTypeMismatch -> "Type_mismatch"

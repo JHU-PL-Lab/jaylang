@@ -50,7 +50,8 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | EType -> return VType
     | EAbort -> abort ()
     | EDiverge -> diverge ()
-    | EFunction { param ; body } -> return (VFunClosure { param ; body = { expr = body ; env } })
+    | EFunction _ -> failwith "unimplemented"
+    (* | EFunction { param ; body } -> return (VFunClosure { param ; body = { expr = body ; env } }) *)
     | EMultiArgFunction { params ; body } -> return (VMultiArgFunClosure { params ; body = { expr = body ; env } })
     | EFreeze expr -> return (VFrozen { expr ; env })
     | EId -> return VId
@@ -109,7 +110,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%orzero (VFrozen { expr = e_frozen ; env }) = v_frozen in
       eval e_frozen env
     (* bindings *)
-    | EAppl { func ; arg } -> begin
+    (* | EAppl { func ; arg } -> begin
       let%bind vfunc = eval func env in
       let%bind arg = eval arg env in
       match vfunc with
@@ -125,7 +126,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
           eval (EMultiArgFunction { params ; body = body.expr }) (Env.add body.env param arg)
         end
       | _ -> type_mismatch ()
-    end
+    end *)
     | ELet { var ; body ; cont } -> eval_let var ~body ~cont env
     | ELetTyped { typed_var = { var ; _ } ; body ; cont } -> eval_let var ~body ~cont env
     | ELetFlagged { typed_var = { var ; _ } ; body ; cont ; _ } -> eval_let var ~body ~cont env
@@ -221,7 +222,8 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         | None -> eval default env
     end
     (* let funs *)
-    | ELetFunRec { funcs ; cont } -> begin
+    | _ -> failwith "unimplemented"
+    (* | ELetFunRec { funcs ; cont } -> begin
       let stub_and_comps_ls, env =
         List.fold funcs ~init:([], env) ~f:(fun (acc, env) fsig ->
           let comps = Ast_tools.Funsig.to_components fsig in
@@ -244,7 +246,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         | EFunction { param ; body } ->
           eval cont
           @@ Env.add env comps.func_id (VFunClosure { param ; body = { expr = body ; env } })
-        | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
+        | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters" *)
 
     and eval_let (var : Ident.t) ~(body : a Expr.t) ~(cont : a Expr.t) (env : a Env.t) : a V.t m =
       let%bind v = eval body env in
