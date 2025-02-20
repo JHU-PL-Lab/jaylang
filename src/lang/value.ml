@@ -1,3 +1,19 @@
+(**
+  Module [Value].
+
+  This module defines the values for each programming language
+  in this system. It also provides an environment, which is
+  recursive with the values because of closures.
+
+  Individual uses of the programming languages have different
+  requirements, so we parametrize the values stored in the
+  [VInt] and [VBool] constructors, as well as the cells used 
+  in the environments (e.g. Bluejay has recursion and benefits
+  from ref cells in the environment).
+
+  We use type constraints (from [Ast]) and GADTs to allow
+  subtyping and reuse of constructors.
+*)
 
 open Core
 open Ast

@@ -1,3 +1,18 @@
+(**
+  Module [Separate].
+
+  Commonly in this repo, we have a type [t] with an underlying
+  [int] or [bool] "meaning" to it (e.g. a Z3 expression representing
+  an int or bool is all under the umbrella of [Z3.Expr.expr]).
+
+  It's helpful to have the type checker do some work for us so
+  that we don't have to remember that underlying "meaning". We
+  let the types remember it.
+
+  This module generalizes the pattern of separating a type [t] into
+  and [int] case and a [bool] case. It is abstracted into a functor
+  over a type [t], and another where [t] is comparable.
+*)
 
 module Make (X : sig type t end) = struct
   type _ t =

@@ -1,3 +1,13 @@
+(**
+  Module [Ast].
+
+  Here we define the languages used in this repo. They are
+  defined using type constraints and GADTs to allow reuse
+  of constructors.
+
+  It's suggested to read the comments from top to bottom if
+  the reader is unfamiliar with this use of GADTs.
+*)
 
 open Core
 

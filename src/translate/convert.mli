@@ -1,3 +1,9 @@
+(**
+  Module [Convert].
+
+  An interface to convert Bluejay programs in desugared
+  or type-embedded programs.
+*)
 
 val bjy_to_des : Lang.Ast.Bluejay.pgm -> Lang.Ast.Desugared.pgm
 (** [bjy_to_des bjy] is a desugared program that is identical to [bjy]. *)

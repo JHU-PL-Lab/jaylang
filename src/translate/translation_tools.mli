@@ -1,3 +1,9 @@
+(**
+  Module [Translation_tools].
+
+  Provided are some common utilities used during translation.
+  We have support for fresh names and define some constant functions.
+*)
 
 module Fresh_names : sig
   module type S = sig

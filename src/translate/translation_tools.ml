@@ -9,18 +9,16 @@ module Fresh_names = struct
   end
 
   module Make () : S = struct
-    module C = Utils.Counter.Make ()
-
     (* suffixes are strictly for readability of target code *)
     let fresh_id : ?suffix : string -> unit -> Ident.t = 
-      let count = C.create () in
+      let count = Utils.Counter.create () in
       fun ?(suffix : string = "") () ->
-        let c = C.next count in
+        let c = Utils.Counter.next count in
         Ident (Format.sprintf "~%d%s" c suffix)
 
     let fresh_poly_value : unit -> int =
-      let count = C.create () in
-      fun () -> C.next count
+      let count = Utils.Counter.create () in
+      fun () -> Utils.Counter.next count
   end
 end
 

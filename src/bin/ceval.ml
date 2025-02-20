@@ -1,3 +1,9 @@
+(**
+  Bin [ceval].
+
+  This executable runs the concolic evaluator on the Bluejay
+  program at the given file path.
+*)
 
 open Core
 open Concolic

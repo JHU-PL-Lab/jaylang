@@ -1,3 +1,9 @@
+(**
+  Module [Cloc_lib].
+
+  Count lines of code in Bluejay files (note this is
+  outdated now and doesn't ignored OCaml-like comments).
+*)
 
 open Core
 

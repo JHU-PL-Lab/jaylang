@@ -11,7 +11,8 @@
 
     That is, most symbolic information is stored here, and that
     way the interpreter only has to think about actually concretely
-    interpreting the program.
+    interpreting the program, and it hands over some details of
+    symbolic evaluation to this module.
 *)
 
 type t

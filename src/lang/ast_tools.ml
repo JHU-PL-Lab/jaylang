@@ -1,3 +1,13 @@
+(**
+  Module [Ast_tools].
+
+  Defined here are general tools that are helpful to manipulate
+  programs.
+
+  There are the labels and names that are reserved to be introduced
+  during translation, tools to abstract, apply, and project, and
+  methods to extract the function components from a function signature.
+*)
 
 open Core
 open Ast
