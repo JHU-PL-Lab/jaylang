@@ -1,3 +1,21 @@
+(**
+  File: path.mli
+  Purpose: represent program paths
+
+  Detailed description:
+    Program paths are just a list of directions taken during interpretation.
+    Most of the time, it is most efficient to store them bottom-up as a
+    reverse path.
+
+    Forward paths are top down with respect to the tree; branches that are
+    found earlier during interpretation are earlier in the list of directions.
+
+    Backward paths are the opposite. The last branch hit is stored at the front
+    of the list.
+
+  Dependencies:
+    Direction -- paths are a list of directions
+*)
 
 module T : sig 
   type t = { forward_path : Direction.Packed.t list }

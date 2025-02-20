@@ -1,3 +1,24 @@
+(**
+  File: stem.mli
+  Purpose: store the results of interpretation to be added to the path tree
+
+  Detailed description:
+    An interpretation tends to have a target (or it is the first run and just
+    begins from the program root), and once that target is found, we start
+    remembering the branches encountered. This way, we can extend the path
+    tree with all the new information, while everything encountered *before*
+    we hit the target was already known.
+
+    Consequently, we build a "stem" that we can place onto the path tree,
+    replacing the spot where the target used to exist.
+
+  Dependencies:
+    Target -- stems tend to begin from a target, extending the target's path
+    Direction -- stems are built by pushing branches
+    Expression -- stems remember the symbolic constraints of the path taken
+    Path -- we often want to know full path that a stem represents
+*)
+
 type t =
   | Root
   | Beginning_from of Target.t

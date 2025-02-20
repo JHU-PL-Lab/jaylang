@@ -1,3 +1,31 @@
+(**
+  File: target.mli
+  Purpose: represent the target of solves
+
+  Detailed description:
+    The concolic evaluator solves to hit program paths, but sometimes
+    we want a little extra information than just the path.
+
+    Targets do that, storing a unique identifier and the length of the
+    path to avoid recomputation.
+
+    SUPER IMPORTANT NOTE:
+      It is an invariant in this implementation of concolic evaluation
+      that each target is only created once, and therefore we use an
+      internal state to attach a unique identifier to each target for
+      efficient comparison later (since they are stored in priority
+      search queues, they get compared a lot).
+
+      This will break if the concolic evaluator does not have this
+      property, and it won't break loudly, so the developer must be
+      very careful that this assumption continues to hold. That is, 
+      the entire concolic evaluation system will be very quietly
+      incorrect if this property is violated.
+
+  Dependencies:
+    Path -- targets are really just paths with some precomputation when creating
+    Direction -- implicitly because of path
+*)
 
 type t
 

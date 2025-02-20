@@ -1,3 +1,18 @@
+(**
+  File: eval_session.mli
+  Purpose: track one evaluation of a program
+
+  Detailed description:
+    The actual interpreter would be a mess if it had to handle
+    the symbolic logic and options, so as much as possible is
+    extracted into an "evaluation session". This builds up a
+    stem, knows the concrete inputs needed to hit the target,
+    and conveys the status after interpretation.
+
+    That is, most symbolic information is stored here, and that
+    way the interpreter only has to think about actually concretely
+    interpreting the program.
+*)
 
 type t
 

@@ -1,4 +1,26 @@
+(**
+  File: options.mli
+  Purpose: contain options for concolic evaluation
 
+  Detailed description:
+    The concolic evaluator can run with many options, such as
+    how long to run until timeout, how deep of a bound to put
+    on the path tree, etc. This module contains those options
+    and provides defaults whenever they are not given.
+
+    There is a functional record and record of ref cells for
+    ease of argument parsing, as well as for passing in to a
+    functor as a singleton module to initialize a sort of "state".
+
+    The is also an optional argument [Arrow] module to work with
+    these parameters as optional arguments, filling in the default
+    whenever not given.
+
+    Note: sometimes the [Arrow] module is overused, and it makes it
+      appear as if a behavior can be affected by *all* of the arguments.
+      This is often not the case, and it is used for ease to pass in
+      just two or three of them. This is not documented well when done.
+*)
 module T : sig
   type t =
     { global_timeout_sec : float
