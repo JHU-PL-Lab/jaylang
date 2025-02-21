@@ -1,11 +1,11 @@
-# simple error with return type in singleton case
+(* simple error with return type in singleton case *)
 
 let rec all (type a_) (p : a_ -> a_) (xs : list a_) : bool =
   match xs with
   | [] -> true
   | x :: xss -> 
     match xss with
-    | [] -> p x # ERROR: this needs to be a boolean
+    | [] -> p x (* ERROR: this needs to be a boolean *)
     | _ -> (p x) and (all a_ p xss)
     end
   end

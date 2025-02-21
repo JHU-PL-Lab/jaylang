@@ -10,4 +10,4 @@ let h y =
   b
 
 let main (n : int) : { b : bool | b } =
-  h n # ERROR: `n` needs to be at least `3` for `h n` to be true
+  h n (* ERROR: `n` needs to be at least `3` for `h n` to be true *)

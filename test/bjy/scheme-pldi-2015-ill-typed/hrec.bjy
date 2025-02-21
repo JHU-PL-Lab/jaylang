@@ -1,4 +1,4 @@
-# error is fixed when `n` param for `main` is non-negative
+(* error is fixed when `n` param for `main` is non-negative *)
 
 let rec f g x =
   if x <= 0
@@ -6,4 +6,4 @@ let rec f g x =
   else f (fun x -> f g x) (g x)
 
 let main (n : int) : { i : int | i >= 0 } =
-  f (fun x -> x + 1) n # ERROR: could be negative when `n` is negative
+  f (fun x -> x + 1) n (* ERROR: could be negative when `n` is negative *)

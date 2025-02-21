@@ -3,7 +3,7 @@ let t = { f : int -> int }
 
 let ob =
   fun self ->
-    # NOTE: don't try to precompute `self self` because it diverges
+    (* NOTE: don't try to precompute `self self` because it diverges *)
     { f = fun x -> (self self).x + x
     ; x = 1 }
 

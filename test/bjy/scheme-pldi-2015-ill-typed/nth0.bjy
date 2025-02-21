@@ -1,6 +1,6 @@
 
 let rec nth n xs =
-  if n == 1 # ERROR: should be `n == 0`
+  if n == 1 (* ERROR: should be `n == 0` *)
   then 
     match xs with
     | hd :: tl -> hd

@@ -29,7 +29,7 @@ let tree =
   }
 in
 
-# ERROR: the node and leaf uses here are all missing the `.t` projection
+(* ERROR: the node and leaf uses here are all missing the `.t` projection *)
 let visitor = 
   let t tree_t =
     fun a ->
@@ -62,7 +62,7 @@ let make_list f n =
   loop n
 in
 
-# Makes big tree recursively with many children
+(* Makes big tree recursively with many children *)
 let rec make_tree (n : int) : tree.t_check (int) =
   let ob =
     fun self ->

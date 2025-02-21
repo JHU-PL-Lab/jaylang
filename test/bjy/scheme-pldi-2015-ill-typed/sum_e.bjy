@@ -5,4 +5,4 @@ let rec sum x =
   else x + sum (x - 1)
 
 let main (n : int) : { i : int | 100 <= i } =
-  sum n # ERROR: sum can be less than `100` if `n` is less than `14`
+  sum n (* ERROR: sum can be less than `100` if `n` is less than `14` *)

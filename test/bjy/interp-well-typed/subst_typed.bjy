@@ -144,10 +144,10 @@ let typecheck e =
       typecheck e gamma
     in
     match e with
-    # Axioms
+    (* Axioms *)
     | `Var id -> gamma id
     | `Int i -> result.return ttype.tint
-    # Functions
+    (* Functions *)
     | `Function trip ->
       result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
         result.return (`TArrow { left = trip.second ; right = tau })
@@ -164,7 +164,7 @@ let typecheck e =
         | _ -> result.error
         end
       )
-    # Conditions
+    (* Conditions *)
     | `If_then_else trip -> 
       result.bind (tc trip.first) (fun tau_cond ->
         if ttype.is_int tau_cond
@@ -178,7 +178,7 @@ let typecheck e =
           )
         else result.error
       )
-    # Simple expressions
+    (* Simple expressions *)
     | _ ->
       let p =
         match e with
@@ -204,7 +204,7 @@ let typecheck e =
 
 let is_closed_and_well_typed e =
   result.is_ok (typecheck e)
-  # Note we don't actually have to check for closed because that would be an unbound variable when typechecking
+  (* Note we don't actually have to check for closed because that would be an unbound variable when typechecking *)
 
 let rec list_remove ls a eq =
   match ls with
@@ -228,7 +228,7 @@ let set_eq ls1 ls2 eq =
   is_subset ls1 ls2
   and is_subset ls2 ls1
 
-# after subst; the expression has the same free variables as e; minus id
+(* after subst; the expression has the same free variables as e; minus id *)
 letd subst (e : expr.t) : (id : ident.t) -> value.t -> { expr.t | fun new_expr ->
   let new_free_vars = free_vars new_expr in
   let old_free_vars = free_vars e in
@@ -263,7 +263,7 @@ let int_exn e =
   | `Int i -> i
   end
 
-#let rec eval (e : { expr.t | is_closed_and_well_typed }) : value.t =
+(*let rec eval (e : { expr.t | is_closed_and_well_typed }) : value.t = *)
 let rec eval e =
   let op_ints p op = 
     let i1 = int_exn (eval p.left) in
@@ -283,7 +283,7 @@ let rec eval e =
   | `If_then_else trip ->
     match eval trip.first with
     | `Int i ->
-      if i <> 0 # non-zero int is true; like in C
+      if i <> 0 (* non-zero int is true; like in C *)
       then eval trip.second
       else eval trip.third
     end

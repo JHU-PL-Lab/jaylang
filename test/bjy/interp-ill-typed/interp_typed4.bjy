@@ -97,13 +97,13 @@ let typecheck e =
       typecheck e gamma
     in
     match e with
-    # Axioms
+    (* Axioms *)
     | `Var id -> gamma id
     | `Int i -> result.return ttype.tint
-    # Functions
+    (* Functions *)
     | `Function trip ->
       result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
-        result.return (`Tarrow { left = trip.second ; right = tau }) # ERROR: The 'a' in Arrow is lowercase and should be uppercase
+        result.return (`Tarrow { left = trip.second ; right = tau }) (* ERROR: The 'a' in Arrow is lowercase and should be uppercase *)
       )
     | `Appl p ->
       result.bind (tc p.left) (fun res ->
@@ -117,7 +117,7 @@ let typecheck e =
         | _ -> result.error
         end
       )
-    # Conditions
+    (* Conditions *)
     | `If_then_else trip -> 
       result.bind (tc trip.first) (fun tau_cond ->
         if ttype.is_int tau_cond
@@ -131,7 +131,7 @@ let typecheck e =
           )
         else result.error
       )
-    # Simple expressions
+    (* Simple expressions *)
     | _ ->
       let p =
         match e with
@@ -157,9 +157,9 @@ let typecheck e =
 
 let is_closed_and_well_typed e =
   result.is_ok (typecheck e)
-  # Note we don't actually have to check for closed because that would be an unbound variable when typechecking
+  (* Note we don't actually have to check for closed because that would be an unbound variable when typechecking *)
 
-#let subst (e : expr.t) (id : ident.t) (v : value.t) : expr.t =
+(*let subst (e : expr.t) (id : ident.t) (v : value.t) : expr.t = *)
 let subst e id v =
   let rec sub e =
     let sub_pair p =
@@ -209,7 +209,7 @@ let rec eval (e : { expr.t | is_closed_and_well_typed }) : value.t =
   | `If_then_else trip ->
     match eval trip.first with
     | `Int i ->
-      if i <> 0 # non-zero int is true; like in C
+      if i <> 0 (* non-zero int is true; like in C *)
       then eval trip.second
       else eval trip.third
     end

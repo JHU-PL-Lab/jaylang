@@ -1,6 +1,6 @@
-# type error is that list can be empty and has no last. An `is_nonempty` predicate fixes it.
+(* type error is that list can be empty and has no last. An `is_nonempty` predicate fixes it. *)
 
-# y combinator
+(* y combinator *)
 let rec ycomb f =
   fun y ->
     (fun x -> f (fun z -> (x x) z))

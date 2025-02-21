@@ -1,5 +1,5 @@
-# This is an avl tree program; where insert on balanced tree returns a balanced tree.
-# We check that the insert works on some tree instance. It doesn't ... 
+(* This is an avl tree program; where insert on balanced tree returns a balanced tree. *)
+(* We check that the insert works on some tree instance. It doesn't ...  *)
 
 let (t : type) = Mu tt. 
   (  ``Node { left : tt
@@ -54,7 +54,7 @@ let abs a =
   then a
   else (0 - a)
 
-# Checks balancedness in linear time by computing height and balance at same time and level
+(* Checks balancedness in linear time by computing height and balance at same time and level *)
 let is_balanced x =
   let rec check_balanced x =
     match x with
@@ -68,14 +68,14 @@ let is_balanced x =
         then
           { b = abs (left_res.h - right_res.h) < 2 ; h = max left_res.h right_res.h + 1 }
         else
-          { b = false ; h = 00 } # height ignored if not balanced
+          { b = false ; h = 00 } (* height ignored if not balanced *)
       else
-        { b = false ; h = 00 } # height ignored if not balanced
+        { b = false ; h = 00 } (* height ignored if not balanced *)
     end
   in
   (check_balanced x).b
 
-# Check search tree property
+(* Check search tree property *)
 let is_bst x = 
   let rec to_list x acc =
     match x with
@@ -163,7 +163,7 @@ let rec insert tree i =
     rebalance i new_node
   end
 
-# This on a correct `insert` gets exhausted between 600 and 700 branches in 18 seconds
+(* This on a correct `insert` gets exhausted between 600 and 700 branches in 18 seconds *)
 let (res : avl_tree) =
   let a =
     `Node {

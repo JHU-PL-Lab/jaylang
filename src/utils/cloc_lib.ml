@@ -1,17 +1,25 @@
 (**
   Module [Cloc_lib].
 
-  Count lines of code in Bluejay files (note this is
-  outdated now and doesn't ignored OCaml-like comments).
+  Count lines of code in Bluejay files.
 *)
 
 open Core
 
 let count_bjy_lines filename =
   In_channel.with_file filename ~f:(fun file ->
-      In_channel.fold_lines file ~init:0 ~f:(fun count line ->
-          (* Ignore empty lines and comment lines *)
-          if String.is_empty (String.strip line) || String.is_prefix line ~prefix:"#" then
-            count
-          else
-            count + 1))
+    In_channel.fold_lines file ~init:(`Depth 0, `Count 0) ~f:(fun (`Depth d, `Count c) s ->
+      let is_empty, depth =
+        let rec loop depth is_empty = function
+          | '(' :: '*' :: tl -> loop (depth + 1) is_empty tl (* entered new comment *)
+          | '*' :: ')' :: tl -> loop (depth - 1) is_empty tl (* exited comment *)
+          | _ :: tl when depth > 0 -> loop depth is_empty tl (* in comment, so don't read character *)
+          | c :: tl -> loop depth (is_empty && Char.is_whitespace c) tl (* character counts toward code if not whitespace *)
+          | [] -> is_empty, depth
+        in
+        loop d true @@ String.to_list s
+      in
+      `Depth depth, `Count (c + if is_empty then 0 else 1) (* only increment line number if not empty *)
+    )
+    |> fun (_, `Count c) -> c
+  )

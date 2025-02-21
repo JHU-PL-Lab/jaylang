@@ -1,5 +1,5 @@
-# Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program.
-# This has been trimmed down to remove any code that had no intersection with the erroring code.
+(* Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program. *)
+(* This has been trimmed down to remove any code that had no intersection with the erroring code. *)
 
 let (pos_int : type) = { i : int | i > 0 }
 

@@ -1,6 +1,6 @@
-# Time to find error:
-# With nil as int: 84ms
-# With nil as bool: 73ms
+(* Time to find error: *)
+(* With nil as int: 84ms *)
+(* With nil as bool: 73ms *)
 
 let nil =
   { t = int
@@ -139,19 +139,19 @@ let typecheck e =
       typecheck e gamma
     in
     match e with
-    # Axioms
+    (* Axioms *)
     | `Var id -> gamma id
     | `Int i -> result.return ttype.tint
-    # Functions
+    (* Functions *)
     | `Function trip ->
       result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
         result.return (`TArrow { left = trip.second ; right = tau })
       )
     | `Appl p ->
-      result.bind (tc p.first) (fun res -> # ERROR: should be p.left
+      result.bind (tc p.first) (fun res -> (* ERROR: should be p.left *)
         match res with
         | `TArrow p_arrow ->
-          result.bind (tc p.second) (fun tau_arg -> # ERROR: should be p.right
+          result.bind (tc p.second) (fun tau_arg -> (* ERROR: should be p.right *)
             if ttype.eq p_arrow.left tau_arg
             then result.return p_arrow.right
             else result.error
@@ -159,7 +159,7 @@ let typecheck e =
         | _ -> result.error
         end
       )
-    # Conditions
+    (* Conditions *)
     | `If_then_else trip -> 
       result.bind (tc trip.first) (fun tau_cond ->
         if ttype.is_int tau_cond
@@ -173,7 +173,7 @@ let typecheck e =
           )
         else result.error
       )
-    # Simple expressions
+    (* Simple expressions *)
     | _ ->
       let p =
         match e with
@@ -200,10 +200,10 @@ in
 
 let is_closed_and_well_typed e =
   result.is_ok (typecheck e)
-  # Note we don't actually have to check for closed because that would be an unbound variable when typechecking
+  (* Note we don't actually have to check for closed because that would be an unbound variable when typechecking *)
 in
 
-#let subst (e : expr.t) (id : ident.t) (v : value.t) : expr.t =
+(*let subst (e : expr.t) (id : ident.t) (v : value.t) : expr.t = *)
 let subst e id v =
   let rec sub e =
     let sub_pair p =
@@ -255,7 +255,7 @@ let rec eval (e : { expr.t_gen | is_closed_and_well_typed }) : value.t_check =
   | `If_then_else trip ->
     match eval trip.first with
     | `Int i ->
-      if i <> 0 # non-zero int is true; like in C
+      if i <> 0 (* non-zero int is true; like in C *)
       then eval trip.second
       else eval trip.third
     end

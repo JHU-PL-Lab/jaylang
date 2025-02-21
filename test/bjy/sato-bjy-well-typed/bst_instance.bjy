@@ -1,4 +1,4 @@
-# error is that x has 6 on left of root value 2; which is not a bst
+(* error is that x has 6 on left of root value 2; which is not a bst *)
 
 let rec is_bst t = 
   match t with

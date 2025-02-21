@@ -1,4 +1,4 @@
-# Continuation monad -- improper use of bind
+(* Continuation monad -- improper use of bind *)
 
 let (t : type -> type -> type) = fun a r -> { continuation : (a -> r) -> r }
 
@@ -24,10 +24,10 @@ let f =
 
 let y = bind int (list int) r x f
 
-# I claim that the reason below is violation of the type instantiation of a polymorphic type; so this is a polymorphic type error
+(* I claim that the reason below is violation of the type instantiation of a polymorphic type; so this is a polymorphic type error *)
 let z = y.continuation (fun ls ->
   match ls with
-  | [] -> { b = 0 } # ERROR: should have label `r` instead of `b` in order to have correct type for `y.continuation`
-  | hd :: tl -> { b = hd } # ERROR: should have label `r` instead of `b` in order to have correct type for `y.continuation`
+  | [] -> { b = 0 } (* ERROR: should have label `r` instead of `b` in order to have correct type for `y.continuation` *)
+  | hd :: tl -> { b = hd } (* ERROR: should have label `r` instead of `b` in order to have correct type for `y.continuation` *)
   end
 )

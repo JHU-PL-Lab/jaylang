@@ -1,4 +1,4 @@
-# error is that max is not performed on `x` but predicate relies on x
+(* error is that max is not performed on `x` but predicate relies on x *)
 
 let max max2 x y z =
   max2 y z

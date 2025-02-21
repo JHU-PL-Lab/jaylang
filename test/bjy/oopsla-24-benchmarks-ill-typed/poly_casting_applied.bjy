@@ -5,7 +5,7 @@ let f =
 
 let g (type a_) (x : a_) (y : int) : int =
   if y == 0
-  then f x # ERROR: polymorphic variable applied where int is expected
+  then f x (* ERROR: polymorphic variable applied where int is expected *)
   else y
 
 let z = g int 10 0

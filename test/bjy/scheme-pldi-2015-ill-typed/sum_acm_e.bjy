@@ -5,4 +5,4 @@ let rec sum x y k =
 
 let check x = assert (x >= 100)
 
-let res = sum 5 0 check # ERROR: assert fails when first arg to `sum` is less than `14`
+let res = sum 5 0 check (* ERROR: assert fails when first arg to `sum` is less than `14` *)

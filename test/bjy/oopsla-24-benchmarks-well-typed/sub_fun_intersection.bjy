@@ -1,10 +1,10 @@
-# subtyping of refined intersection type.
-# wrap is helpful for catching error; but I'm not sure why
+(* subtyping of refined intersection type. *)
+(* wrap is helpful for catching error; but I'm not sure why *)
 
 let (t : type) = { ((``Int int) -> int) && ((``Bool bool) -> bool) | fun f -> f (`Bool true) }
 
-# this is a subtype of t
-# error in this file still gets caught if we have `let (f : t) =`; but it is slower
+(* this is a subtype of t *)
+(* error in this file still gets caught if we have `let (f : t) =`; but it is slower *)
 let f =
   fun x ->
     match x with

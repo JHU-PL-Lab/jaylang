@@ -1,4 +1,4 @@
-# functions on records
+(* functions on records *)
 
 let (t : type) = ({ a : int ; b : bool } -> { x : list int }) -> { y : list bool }
 

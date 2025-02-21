@@ -1,4 +1,4 @@
-# type-error is that mk_list should contain x; but it doesn't
+(* type-error is that mk_list should contain x; but it doesn't *)
 
 let rec mem x xs =
   match xs with

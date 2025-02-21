@@ -4,6 +4,6 @@ let rec mult (x : { n : int ; m : int }) : { i : int | i >= 0 } =
   then 0
   else x.n + mult { n = x.n ; m = (x.m - 1) } 
 
-# ERROR: `n` as 0 or 1 fails predicate. `n > 1` fixes
+(* ERROR: `n` as 0 or 1 fails predicate. `n > 1` fixes *)
 letd sqr (n : int) : { c : int | c >= n + 1 } =
   mult { n = n ; m = n }

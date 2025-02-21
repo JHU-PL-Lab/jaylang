@@ -6,6 +6,6 @@ let h (y : { c : int | c > 1 }) : unit =
   {}
 
 let main (n : int) : unit =
-  if n >= 0 # ERROR: this should be strict >
+  if n >= 0 (* ERROR: this should be strict > *)
   then f n h
   else {}

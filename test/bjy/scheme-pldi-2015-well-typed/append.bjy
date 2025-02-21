@@ -1,4 +1,4 @@
-# ill-typed when a and b are empty
+(* ill-typed when a and b are empty *)
 
 let is_nonempty ls =
   match ls with

@@ -1,4 +1,4 @@
-# flatten the input down to just a list of ints and bools
+(* flatten the input down to just a list of ints and bools *)
 
 (*
   I'm not sure how the well-typed version is actually correct here because
@@ -48,7 +48,7 @@ let rec flatten (type a_) (x : any_type a_) : List a_ =
   | `L ls ->
     match ls with
     | [] -> []
-    | hd :: tl -> append (flatten a_ hd) tl # ERROR: should have `(flatten a_ (`L tl))` instead of `tl`
+    | hd :: tl -> append (flatten a_ hd) tl (* ERROR: should have `(flatten a_ (`L tl))` instead of `tl` *)
     end
   | `A a -> [ a ]
   end

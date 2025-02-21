@@ -1,5 +1,5 @@
 
-# We don't actually have an "any" type; so this is an attempt to enumerate a few types we might use
+(* We don't actually have an "any" type; so this is an attempt to enumerate a few types we might use *)
 let any = Mu t.
   ``U unit
   || ``I int 
@@ -49,7 +49,7 @@ let poly_map =
           match ls with
           | [] -> assume false
           | hd :: tl ->
-            if id.eq key hd.key # ERROR idea: forgot to project key out of hd
+            if id.eq key hd.key (* ERROR idea: forgot to project key out of hd *)
             then hd.data
             else look tl
           end
@@ -79,7 +79,7 @@ let state =
   ; is_progression =
       fun t1 -> fun t2 ->
         id.get t2.next_id >= id.get t1.next_id
-        and size t2 >= size t1 # ERROR idea: I had accidentally switched the order of t1 and t2 in this
+        and size t2 >= size t1 (* ERROR idea: I had accidentally switched the order of t1 and t2 in this *)
   ; incr_id =
       fun t ->
         { map = t.map ; next_id = id.make (id.get t.next_id + 1) }
@@ -95,7 +95,7 @@ let m a =
      ; value     : a
     }
 
-#let bind (type a b) (x : m a) (f : a -> m b) : m b = 
+(*let bind (type a b) (x : m a) (f : a -> m b) : m b =  *)
 let bind x f =
   fun s ->
     let xs = x s in
@@ -107,7 +107,7 @@ let return a =
 
 let fmap x f = bind x (fun a -> return (f a))
 
-#let (read : m state.t) =
+(*let (read : m state.t) = *)
 let read =
   fun s ->
     { new_state = s ; value = s }
@@ -118,7 +118,7 @@ let modify f =
   fun s ->
     { new_state = f s ; value = {} }
 
-#let deref (ref_id : id.t) : m any =
+(*let deref (ref_id : id.t) : m any = *)
 let deref ref_id =
   bind read (fun s ->
     return (poly_map.find s.map ref_id)
@@ -156,8 +156,8 @@ let res =
       let ref0_m = set_ref ref0_id new_v in
 
       bind ref0_m          (fun ignore_unit  ->
-      bind (deref ref1_id) (fun ref1_v ->       # reading the value from the other cell; should be 3
-      bind (deref ref0_id) (fun ref0_v ->       # getting the (previously ignored) value; should be 7
+      bind (deref ref1_id) (fun ref1_v ->       (* reading the value from the other cell; should be 3 *)
+      bind (deref ref0_id) (fun ref0_v ->       (* getting the (previously ignored) value; should be 7 *)
 
       match ref1_v with
       | `I ref1_i ->

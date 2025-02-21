@@ -6,8 +6,6 @@ module type S = sig
 
   val set_timeout : Time_float.Span.t -> unit
 
-  (* val ctx : Z3.context *)
-
   (*
     -------------
     MAKE FORMULAS

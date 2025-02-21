@@ -1,4 +1,4 @@
-# error is fixed when `n` param for `main` is non-negative
+(* error is fixed when `n` param for `main` is non-negative *)
 
 let rec f g x =
   if x <= 0

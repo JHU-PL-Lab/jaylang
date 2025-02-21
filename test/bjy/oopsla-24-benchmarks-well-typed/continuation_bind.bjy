@@ -1,4 +1,4 @@
-# Continuation monad
+(* Continuation monad *)
 
 let (t : type -> type -> type) = fun a r -> { continuation : (a -> r) -> r }
 

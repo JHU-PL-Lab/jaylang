@@ -1,4 +1,4 @@
-# error is tries to get hd of list that is made from "negative length"
+(* error is tries to get hd of list that is made from "negative length" *)
 
 let rec reverse l ac =
   match l with

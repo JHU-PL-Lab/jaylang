@@ -1,4 +1,4 @@
-# error is n should be at least 3
+(* error is n should be at least 3 *)
 
 let rec sum x =
   if x <= 0

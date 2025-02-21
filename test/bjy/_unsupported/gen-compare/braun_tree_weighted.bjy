@@ -1,4 +1,4 @@
-# error is that item is always inserted on the left; so it doesn't stay balanced
+(* error is that item is always inserted on the left; so it doesn't stay balanced *)
 
 let braun_tree a =
   { t_gen =
@@ -49,7 +49,7 @@ let rec insert (type a_) (tree : (bt a_).t_gen) (x : a_) : (bt a_).t_check =
   | `Leaf l -> `Node { v = x ; l = `Leaf { leaf = true } ; r = `Leaf { leaf = true } }
   | `Node node ->
     match node with
-    | { v = v ; l = l ; r = r } -> `Node { l = insert a_ l x ; r = r ; v = v } # ERROR: only inserts to left; so won't be balanced
+    | { v = v ; l = l ; r = r } -> `Node { l = insert a_ l x ; r = r ; v = v } (* ERROR: only inserts to left; so won't be balanced *)
     end
     (* This commented code is the well-typed version so that I can check I bounded it properly *)
     (*

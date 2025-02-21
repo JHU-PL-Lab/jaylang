@@ -1,4 +1,4 @@
-# error is that max is not performed on `x` but predicate relies on x
+(* error is that max is not performed on `x` but predicate relies on x *)
 
 let max max2 x y z =
   max2 y z
@@ -10,4 +10,4 @@ let f x y =
 
 letd main (x : int) : int -> int -> { c : int | c == f x c } =
   fun y -> fun z -> 
-    max f x y z # ERROR: should be `max f y x z`
+    max f x y z (* ERROR: should be `max f y x z` *)

@@ -1,14 +1,14 @@
-# Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program.
-# I have added an instance of an input we'd like the concolic evaluator to generate for this version.
-# This has been trimmed down to remove any code that had no intersection with the erroring code.
-# We would like to keep types on the helper functions; but we currently don't handle that well.
+(* Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program. *)
+(* I have added an instance of an input we'd like the concolic evaluator to generate for this version. *)
+(* This has been trimmed down to remove any code that had no intersection with the erroring code. *)
+(* We would like to keep types on the helper functions; but we currently don't handle that well. *)
 
 let (pos_int : type) = { int | fun i -> i > 0 }
 
-# Parametric map
+(* Parametric map *)
 let (map : type -> type -> type) = fun a b -> a -> b
 
-# Parametric bag
+(* Parametric bag *)
 let (bag : type -> type) = fun a -> list a
 
 let rec len ls = 
@@ -79,7 +79,7 @@ let rec make_dist n =
     fun compare ->
       let ngrams = make_ngrams n l in
       let tup_of_ng ng =
-        { fst = last_exn ng ; snd = take (n - 1) ng } # ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below
+        { fst = last_exn ng ; snd = take (n - 1) ng } (* ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below *)
       in
       let rec map_ng_to_tups ls =
         match ls with
@@ -107,11 +107,11 @@ let compare_bool a b =
   if a
   then
     if b 
-    then 0 # both true
+    then 0 (* both true *)
     else 0 - 1 
   else
     if b
     then 1
-    else 0 # both false
+    else 0 (* both false *)
 
 let (res : distribution 3 bool) = make_dist 3 [ true ; false ; true; false ; false ] compare_bool

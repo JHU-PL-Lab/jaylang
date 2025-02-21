@@ -2,6 +2,6 @@
 let rec foldl (f : int -> bool -> bool) (z : bool) (xs : list int) : bool =
   match xs with
   | [] -> z
-  | x :: rest -> foldl f (f z x) rest # ERROR: should have `(f x z)`
+  | x :: rest -> foldl f (f z x) rest (* ERROR: should have `(f x z)` *)
   end
   

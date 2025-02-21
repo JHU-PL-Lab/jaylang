@@ -8,7 +8,7 @@ let (obj : t) =
         match arg with
         | `A u -> self self (`B {}) + 10
         | `B u -> 0
-        | `C i -> self self (`A {}) :: self (`B {}) :: [ i ] # ERROR: forgot to self-apply on `B call
+        | `C i -> self self (`A {}) :: self (`B {}) :: [ i ] (* ERROR: forgot to self-apply on `B call *)
         end
   in
   ob ob

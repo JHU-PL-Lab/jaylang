@@ -1,4 +1,4 @@
-# it's expected that the evaluator quits before finishing `g 100000000`
+(* it's expected that the evaluator quits before finishing `g 100000000` *)
 
 let is_100_000_000 x = x == 100000000
 
@@ -8,5 +8,4 @@ let f (x : { int | is_100_000_000}) : bool =
     then 0
     else g (x - 1)
   in
-  g x # ERROR: returns int here
-  
+  g x (* ERROR: returns int here *)

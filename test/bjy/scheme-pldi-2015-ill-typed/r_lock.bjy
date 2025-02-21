@@ -16,7 +16,7 @@ let f n st =
   else st
 
 let g n st =
-  if n >= 0 # ERROR: this should be `>` or else tries to unlock an already-unlocked state
+  if n >= 0 (* ERROR: this should be `>` or else tries to unlock an already-unlocked state *)
   then unlock st
   else st
 

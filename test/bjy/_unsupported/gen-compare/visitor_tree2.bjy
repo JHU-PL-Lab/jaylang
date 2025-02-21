@@ -26,7 +26,7 @@ let visitor =
   { t =
     fun a ->
       fun result_type ->
-        { visit_node : node.t a (tree.t a) # ERROR: is not a function
+        { visit_node : node.t a (tree.t a) (* ERROR: is not a function *)
          ; visit_leaf : leaf.t a -> result_type } 
   }
 in
@@ -45,7 +45,7 @@ let make_list f n =
   loop n
 in
 
-# Makes big tree recursively with many children
+(* Makes big tree recursively with many children *)
 let rec make_tree (n : int) : tree.t (int) =
   let ob =
     fun self ->
@@ -65,7 +65,7 @@ let int_bool_client (tr : tree.t (int)) : client (int) (tree.t (int)) (bool) =
     fun vis ->
       match tr with
       | `Leaf leaf -> vis.visit_leaf leaf 
-      | `Node node -> vis.visit_node node # above error is realized here
+      | `Node node -> vis.visit_node node (* above error is realized here *)
       end
   }
 in

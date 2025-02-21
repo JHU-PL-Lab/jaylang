@@ -31,7 +31,7 @@ let rec reduce_plus (type a_) (ls : nonempty_list a_) : a_ =
   | hd :: tl ->
     match tl with
     | [] -> hd
-    | _ -> plus hd (reduce_plus a_ tl) # ERROR: this is type casing on polymorphic type
+    | _ -> plus hd (reduce_plus a_ tl) (* ERROR: this is type casing on polymorphic type *)
     end
   end
 in

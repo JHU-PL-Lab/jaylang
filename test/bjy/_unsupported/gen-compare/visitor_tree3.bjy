@@ -26,8 +26,8 @@ let visitor =
   { t =
     fun a ->
       fun result_type ->
-        { visit_node : node a (tree.t a) -> result_type # ERROR: is missing the `.t` projection
-         ; visit_leaf : leaf a -> result_type } # ERROR: is missing the `.t` projection
+        { visit_node : node a (tree.t a) -> result_type (* ERROR: is missing the `.t` projection *)
+         ; visit_leaf : leaf a -> result_type } (* ERROR: is missing the `.t` projection *)
   }
 in
 
@@ -45,7 +45,7 @@ let make_list f n =
   loop n
 in
 
-# Makes big tree recursively with many children
+(* Makes big tree recursively with many children *)
 let rec make_tree (n : int) : tree.t (int) =
   let ob =
     fun self ->
@@ -64,8 +64,8 @@ let int_bool_client (tr : tree.t (int)) : client (int) (tree.t (int)) (bool) =
   ; accept =
     fun vis ->
       match tr with
-      | `Leaf leaf -> vis.visit_leaf leaf # above error is realized here
-      | `Node node -> vis.visit_node node # leaves it up to the visitor to fold over the children
+      | `Leaf leaf -> vis.visit_leaf leaf (* above error is realized here *)
+      | `Node node -> vis.visit_node node (* leaves it up to the visitor to fold over the children *)
       end
   }
 in

@@ -1,12 +1,12 @@
-# Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program.
-# In this test, we have full types on the helper functions, which makes the error quite deep
+(* Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program. *)
+(* In this test, we have full types on the helper functions, which makes the error quite deep *)
 
 let pos_int = { int | fun i -> i > 0 }
 
-# Parametric map
+(* Parametric map *)
 let map a b = a -> b
 
-# Parametric bag
+(* Parametric bag *)
 let bag a = list a
 
 let rec len ls = 
@@ -91,8 +91,8 @@ letd make_dist (type a_) (n : pos_int) : list a_ -> (a_ -> a_ -> int) -> distrib
     fun compare ->
       let ngrams = make_ngrams a_ n l in
       let tup_of_ng ng =
-        { fst = last_exn a_ ng ; snd = take a_ (n - 1) ng } # ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below
-        #{ snd = last_exn a_ ng ; fst = take a_ (n - 1) ng } # This is the well-typed version
+        { fst = last_exn a_ ng ; snd = take a_ (n - 1) ng } (* ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below *)
+        (*{ snd = last_exn a_ ng ; fst = take a_ (n - 1) ng } # This is the well-typed version *)
       in
       let rec map_ng_to_tups ls =
         match ls with
@@ -100,4 +100,4 @@ letd make_dist (type a_) (n : pos_int) : list a_ -> (a_ -> a_ -> int) -> distrib
         | ng :: tl -> tup_of_ng ng :: map_ng_to_tups tl
         end
       in
-      bag_map_of_list (ngram (n - 1) a_) a_ (map_ng_to_tups ngrams) (compare_list a_ compare) # Notice we need to instantiate the types because `bag_map_of_list` is typed
+      bag_map_of_list (ngram (n - 1) a_) a_ (map_ng_to_tups ngrams) (compare_list a_ compare) (* Notice we need to instantiate the types because `bag_map_of_list` is typed *)

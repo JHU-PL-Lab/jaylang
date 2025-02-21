@@ -12,7 +12,7 @@ let rec mk_list n =
 
 let main (len : int) : int =
   let xs = mk_list len in
-  if not (len == 0) # ERROR: should be `not (len < 0)` so there is no list of "negative length"
+  if not (len == 0) (* ERROR: should be `not (len < 0)` so there is no list of "negative length" *)
   then
     match reverse xs [] with
     | hd :: tl -> hd

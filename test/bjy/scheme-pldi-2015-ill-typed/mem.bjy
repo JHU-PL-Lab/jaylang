@@ -1,4 +1,4 @@
-# type-error is that mk_list should contain x; but it doesn't
+(* type-error is that mk_list should contain x; but it doesn't *)
 
 let rec mem x xs =
   match xs with
@@ -18,4 +18,4 @@ letd rec mk_list (x : int) : int -> ret_type x =
   fun n ->
     if n < 0
     then []
-    else n :: mk_list x (n - 1) #ERROR : the `n :: ...` should be `x :: ...`
+    else n :: mk_list x (n - 1) (*ERROR : the `n :: ...` should be `x :: ...` *)

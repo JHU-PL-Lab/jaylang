@@ -1,4 +1,4 @@
-# simple error that depth should be positive but leaf has depth 0
+(* simple error that depth should be positive but leaf has depth 0 *)
 
 let t = Mu tt.
   ``Node { left : tt ; right : tt }

@@ -1,4 +1,4 @@
-# error is 0 `n` arg to `main` means `g` tries to unclock and already-unlocked state
+(* error is 0 `n` arg to `main` means `g` tries to unclock and already-unlocked state *)
 
 let eq i =
   fun x ->

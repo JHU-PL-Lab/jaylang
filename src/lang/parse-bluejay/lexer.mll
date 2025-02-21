@@ -22,7 +22,6 @@ let ident_cont = alpha | digit | '_'
 
 rule token = parse
 | eof                  { EOF }
-| "#"                  { single_line_comment lexbuf }
 | "(*"                 { multi_line_comment 1 lexbuf }
 | whitespace           { token lexbuf }
 | newline              { incr_lineno lexbuf; token lexbuf }
@@ -87,11 +86,6 @@ rule token = parse
 | ">="                 { GREATER_EQUAL }
 | digit+ as n          { INT (int_of_string n) }
 | ident_start ident_cont* as s     { IDENTIFIER s }
-
-and single_line_comment = parse
-| newline { incr_lineno lexbuf; token lexbuf }
-| eof { EOF }
-| _ { single_line_comment lexbuf }
 
 and multi_line_comment depth = parse
 | "(*" { multi_line_comment (depth + 1) lexbuf }

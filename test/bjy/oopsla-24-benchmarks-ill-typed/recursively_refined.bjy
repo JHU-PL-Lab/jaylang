@@ -24,7 +24,7 @@ letd rec get_abs_coord (r : t)
   { abs_coord : coord |
     match r.parent with
     | `Some p ->
-      if is_coord_nonzero (get_abs_coord p) # Note: recursive call here
+      if is_coord_nonzero (get_abs_coord p) (* Note: recursive call here *)
       then not (coord_equal abs_coord r.relative_coord)
       else true
     | `None ignore -> true
@@ -33,7 +33,7 @@ letd rec get_abs_coord (r : t)
   =
   match r.parent with
   | `Some parent -> 
-    let c = parent.relative_coord in # ERROR: should be `get_abs_coord parent`
+    let c = parent.relative_coord in (* ERROR: should be `get_abs_coord parent` *)
     { x = c.x + r.relative_coord.x ; y = c.y + r.relative_coord.y }
   | `None ignore -> r.relative_coord
   end

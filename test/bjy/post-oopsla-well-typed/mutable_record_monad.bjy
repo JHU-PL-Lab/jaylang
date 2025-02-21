@@ -1,57 +1,58 @@
 
 
-# OCaml code for snapshottable stores
-#
-# type node = data ref
-# and data =
-#   | Mem
-#   | Diff : 'a Ref.t * 'a * int * node -> data
-#
-# let create () = { root = ref Mem ; gen = 0 }
-#
-# module Ref = struct
-#   type 'a t = { mutable v : 'a ; mutable g : int }
-#   let make v = { v ; g = 0 }
-#   let get _s r = r.v
-#   let set s r v =
-#     if r.g = s.gen 
-#     then r.v <- v
-#     else
-#       let root = ref Mem in
-#       s.root := Diff (r; r.v; r.g; root) ;
-#       s.root <- root ;
-#       r.v <- v ;
-#       r.g <- s.gen
-# end
-#
-# type store = { mutable root : node ; mutable gen : int }
-# type snapshot = { root : node ; gen : int }
-#
-# let rec reroot n =
-#   match !n with
-#   | Mem -> ()
-#   | Diff (r; v; g; n') ->
-#     reroot n' ;
-#     n := Mem ;
-#     n' := Diff (r; r.v; r.g; n) ; 
-#     r.v <- v ;
-#     r.g <- g ;
-#
-# let capture ({ root ; gen } as store) = 
-#   let snap = { root ; gen } in
-#   store.gen <- store.gen + 1 ;
-#   snap
-#
-# let restore s snap =
-#   reroot snap.root ;
-#   s.root <- snap.root
-#   s.gen <- snap.gen + 1
-#
-#
-# Now I need to encode this with the ref monad
+(*
+OCaml code for snapshottable stores
+type node = data ref
+and data =
+  | Mem
+  | Diff : 'a Ref.t * 'a * int * node -> data
+ 
+let create () = { root = ref Mem ; gen = 0 }
+ 
+module Ref = struct
+  type 'a t = { mutable v : 'a ; mutable g : int }
+  let make v = { v ; g = 0 }
+  let get _s r = r.v
+  let set s r v =
+    if r.g = s.gen 
+    then r.v <- v
+    else
+      let root = ref Mem in
+      s.root := Diff (r; r.v; r.g; root) ;
+      s.root <- root ;
+      r.v <- v ;
+      r.g <- s.gen
+end
+ 
+type store = { mutable root : node ; mutable gen : int }
+type snapshot = { root : node ; gen : int }
+ 
+let rec reroot n =
+  match !n with
+  | Mem -> ()
+  | Diff (r; v; g; n') ->
+    reroot n' ;
+    n := Mem ;
+    n' := Diff (r; r.v; r.g; n) ; 
+    r.v <- v ;
+    r.g <- g ;
+ 
+let capture ({ root ; gen } as store) = 
+  let snap = { root ; gen } in
+  store.gen <- store.gen + 1 ;
+  snap
+ 
+let restore s snap =
+  reroot snap.root ;
+  s.root <- snap.root
+  s.gen <- snap.gen + 1
+ 
+ 
+Now I need to encode this with the ref monad
+*)
 
 
-# We don't actually have an "any" type; so this is an attempt to enumerate a few types we might use
+(* We don't actually have an "any" type; so this is an attempt to enumerate a few types we might use *)
 let any = Mu t.
   ``U unit
   || ``I int 
@@ -76,17 +77,17 @@ let id =
   ; initial = `Id 0
   }
 
-# Suppose this usually is polymorphic. 
+(* Suppose this usually is polymorphic.  *)
 let a = ``A int
 
 let data =
   ``Diff
-      { cell : id.t     # the id for the ref cell that this diff corresponds to
-        ; val  : a       # the value that got assigned to the ref cell during this diff
-        ; gen  : int     # the generation the diff was done in
-        ; next : id.t    # the id for the ref cell of the child of this node
+      { cell : id.t     (* the id for the ref cell that this diff corresponds to *)
+        ; val  : a       (* the value that got assigned to the ref cell during this diff *)
+        ; gen  : int     (* the generation the diff was done in *)
+        ; next : id.t    (* the id for the ref cell of the child of this node *)
       }
-  || ``Mem unit          # this node is what is currently stored in memory
+  || ``Mem unit          (* this node is what is currently stored in memory *)
 
 let poly_map =
   { t =
@@ -113,7 +114,7 @@ let poly_map =
           match ls with
           | [] -> assume false
           | hd :: tl ->
-            if id.eq key hd.key # ERROR idea: forgot to project key out of hd
+            if id.eq key hd.key (* ERROR idea: forgot to project key out of hd *)
             then hd.data
             else look tl
           end
@@ -143,7 +144,7 @@ let state =
   ; is_progression =
       fun t1 -> fun t2 ->
         id.get t2.next_id >= id.get t1.next_id
-        and size t2 >= size t1 # ERROR idea: I had accidentally switched the order of t1 and t2 in this
+        and size t2 >= size t1 (* ERROR idea: I had accidentally switched the order of t1 and t2 in this *)
   ; incr_id =
       fun t ->
         { map = t.map ; next_id = id.make (id.get t.next_id + 1) }
@@ -159,7 +160,7 @@ let m a =
      ; value     : a
     }
 
-#let bind (type a b) (x : m a) (f : a -> m b) : m b = 
+(*let bind (type a b) (x : m a) (f : a -> m b) : m b =  *)
 let bind x f =
   fun s ->
     let xs = x s in
@@ -171,7 +172,7 @@ let return a =
 
 let fmap x f = bind x (fun a -> return (f a))
 
-#let (read : m state.t) =
+(*let (read : m state.t) = *)
 let read =
   fun s ->
     { new_state = s ; value = s }
@@ -182,7 +183,7 @@ let modify f =
   fun s ->
     { new_state = f s ; value = {} }
 
-#let deref (ref_id : id.t) : m any =
+(*let deref (ref_id : id.t) : m any = *)
 let deref ref_id =
   bind read (fun s ->
     return (poly_map.find s.map ref_id)
@@ -220,8 +221,8 @@ let res =
       let ref0_m = set_ref ref0_id new_v in
 
       bind ref0_m          (fun ignore_unit  ->
-      bind (deref ref1_id) (fun ref1_v ->       # reading the value from the other cell; should be 3
-      bind (deref ref0_id) (fun ref0_v ->       # getting the (previously ignored) value; should be 7
+      bind (deref ref1_id) (fun ref1_v ->       (* reading the value from the other cell; should be 3 *)
+      bind (deref ref0_id) (fun ref0_v ->       (* getting the (previously ignored) value; should be 7 *)
 
       match ref1_v with
       | `I ref1_i ->

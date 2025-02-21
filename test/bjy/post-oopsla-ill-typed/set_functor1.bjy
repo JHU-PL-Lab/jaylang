@@ -18,5 +18,5 @@ letd F (tf : type -> type) :
           | hd :: tl -> loop (r.add hd acc) tl
           end
         in
-        loop r.empty ls # ERROR: forgot to apply empty record to r.empty
+        loop r.empty ls (* ERROR: forgot to apply empty record to r.empty *)
     }

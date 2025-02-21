@@ -4,10 +4,10 @@ let t =
    ; g : int -> int
    ; x : bool }
 
-# Dummy implementation because we don't have side effects
+(* Dummy implementation because we don't have side effects *)
 let get_current_time ignore = 0
 
-# Dummy implementation because we don't have side effects
+(* Dummy implementation because we don't have side effects *)
 let print ignore = 0
 
 let make_timer_decorator (x : t) : t =

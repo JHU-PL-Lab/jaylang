@@ -28,7 +28,7 @@ let (obj : colored_point.t) =
         fun ignore_unit ->
           let s = (self self) in
           let tan = s.y / s.x in
-          tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 # approx arctan with taylor expansion
+          tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 (* approx arctan with taylor expansion *)
       ; c = 255 }
   in
   ob ob

@@ -1,5 +1,5 @@
 
-# state monad bind
+(* state monad bind *)
 
 let t a b = list b -> { value : a ; store : list b }
 

@@ -3,5 +3,5 @@ let t = Mu tt. { f : int -> tt }
 
 let g (x : t) : bool =
   let (y : t) = x in
-  0 # ERROR: should be bool
+  0 (* ERROR: should be bool *)
   

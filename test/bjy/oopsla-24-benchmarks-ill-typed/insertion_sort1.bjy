@@ -26,7 +26,7 @@ let rec insert x l =
   | [] -> [ x ]
   | h :: t ->
     if x <= h
-    then h :: (insert x t) # ERROR: the `then` and `else` cases are switched
+    then h :: (insert x t) (* ERROR: the `then` and `else` cases are switched *)
     else x :: l
   end
 

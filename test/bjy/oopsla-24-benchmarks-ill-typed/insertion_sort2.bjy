@@ -1,4 +1,4 @@
-# Insert into empty list fails
+(* Insert into empty list fails *)
 
 let is_nonempty lst =
   match lst with
@@ -24,7 +24,7 @@ let rec foldl f b l =
 
 let rec insert x l =
   match l with
-  | [] -> [] # ERROR: should be [ x ]
+  | [] -> [] (* ERROR: should be [ x ] *)
   | h :: t ->
     if x <= h
     then x :: l

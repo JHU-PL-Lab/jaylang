@@ -1,7 +1,7 @@
 
-# In this program; we have a function to recursively generate a type (int -> int -> ... -> int)
-# depending on the size of the input.
-# Not only that; but we use a state monad to do it.
+(* In this program; we have a function to recursively generate a type (int -> int -> ... -> int) *)
+(* depending on the size of the input. *)
+(* Not only that; but we use a state monad to do it. *)
 
 let state_monad =
   { m = fun a -> fun s ->
@@ -34,7 +34,7 @@ let state_monad =
       impl
   }
 
-# We don't have polymorphic types that easily to type a record; so I do this little trick
+(* We don't have polymorphic types that easily to type a record; so I do this little trick *)
 let confirm_type_of_state_monad (type a b s) (dummy : a) :
   (let m = state_monad.m in 
   { read : m s s
@@ -59,8 +59,8 @@ let t n =
       )
     in
     state_monad.run (loop (state_monad.return int)) n
-    # EXAMPLE ERROR: don't use run. Just apply state by self (and thereby forget to project the result from the record)
-    # But such an error is instant to catch just in the generation of a value with type t
+    (* EXAMPLE ERROR: don't use run. Just apply state by self (and thereby forget to project the result from the record) *)
+    (* But such an error is instant to catch just in the generation of a value with type t *)
   )
 
 letd main (n :  int) : t n -> (int -> int) =

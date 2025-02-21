@@ -97,10 +97,10 @@ let typecheck e =
       typecheck e gamma
     in
     match e with
-    # Axioms
+    (* Axioms *)
     | `Var id -> gamma id
     | `Int i -> result.return ttype.tint
-    # Functions
+    (* Functions *)
     | `Function trip ->
       result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
         result.return (`TArrow { left = trip.second ; right = tau })
@@ -117,7 +117,7 @@ let typecheck e =
         | _ -> result.error
         end
       )
-    # Conditions
+    (* Conditions *)
     | `If_then_else trip -> 
       result.bind (tc trip.first) (fun tau_cond ->
         if ttype.is_int tau_cond
@@ -131,7 +131,7 @@ let typecheck e =
           )
         else result.error
       )
-    # Simple expressions
+    (* Simple expressions *)
     | _ ->
       let p =
         match e with
@@ -157,9 +157,9 @@ let typecheck e =
 
 let is_closed_and_well_typed e =
   result.is_ok (typecheck e)
-  # Note we don't actually have to check for closed because that would be an unbound variable when typechecking
+  (* Note we don't actually have to check for closed because that would be an unbound variable when typechecking *)
 
-#let subst (e : expr.t) (id : ident.t) (v : value.t) : expr.t =
+(*let subst (e : expr.t) (id : ident.t) (v : value.t) : expr.t = *)
 let subst e id v =
   let rec sub e =
     let sub_pair p =
@@ -180,10 +180,10 @@ let subst e id v =
     | `Minus p -> `Minus (sub_pair p)
     | `Equal p -> `Equal (sub_pair p)
     | `Appl p -> `Appl (sub_pair p)
-    | `If_then_else trip -> `If_then_else { first = sub trip.second ; second = sub trip.second ; third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label
-      # This error is very difficult because we need something like
-      #    (fun x : int -> if x then fun y : int -> y else fun y : int -> y) 0
-      # So that the condition evaluates to a non-int after the substitution
+    | `If_then_else trip -> `If_then_else { first = sub trip.second ; second = sub trip.second ; third = sub trip.third } (* ERROR: trip.second should be trip.first in the `first` label *)
+      (* This error is very difficult because we need something like *)
+      (*    (fun x : int -> if x then fun y : int -> y else fun y : int -> y) 0 *)
+      (* So that the condition evaluates to a non-int after the substitution *)
     end
   in
   sub e
@@ -212,7 +212,7 @@ let rec eval (e : { expr.t | is_closed_and_well_typed }) : value.t =
   | `If_then_else trip ->
     match eval trip.first with
     | `Int i ->
-      if i <> 0 # non-zero int is true; like in C
+      if i <> 0 (* non-zero int is true; like in C *)
       then eval trip.second
       else eval trip.third
     end

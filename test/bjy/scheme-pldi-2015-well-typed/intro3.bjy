@@ -1,4 +1,4 @@
-# error is that > in `h` should be <
+(* error is that > in `h` should be < *)
 
 let f x g =
   g (x + 1)
