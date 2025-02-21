@@ -86,7 +86,7 @@ let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t)
   | Const cx, Const cy -> Const (Typed_binop.to_arithmetic binop cx cy)
   | _ -> Binop (binop, left, right)
 
-module Solve (Expr : Z3_intf.S) = struct
+module Solve (Expr : Z3_api.S) = struct
   let binop_to_z3_expr (type a b) (binop : (a * a * b) Typed_binop.t) : a Expr.t -> a Expr.t -> b Expr.t =
     match binop with
     | Plus -> Expr.plus

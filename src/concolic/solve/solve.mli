@@ -18,7 +18,7 @@
 *)
 
 module type S = sig
-  include Z3_intf.S
+  include Z3_api.S
 
   module Expression : sig
     val to_formula : 'a Expression.t -> 'a t

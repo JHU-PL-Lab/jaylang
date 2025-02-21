@@ -1,5 +1,5 @@
 (**
-  Module [Z3_api].
+  Module [Typed_z3].
 
   This provides a typed interface to the Z3 SMT solver,
   allowing integer and boolean operations.
@@ -12,55 +12,6 @@
 
 open Core
 open Z3
-
-module type S = sig
-  type 'a t (* expressions *)
-
-  val set_timeout : Time_float.Span.t -> unit
-
-  (* val ctx : Z3.context *)
-
-  (*
-    -------------
-    MAKE FORMULAS
-    -------------
-  *)
-  val box_int : int -> int t
-  val box_bool : bool -> bool t
-  
-  (*
-    ----------------
-    COMBINE FORMULAS
-    ----------------
-  *)
-  val not_ : bool t -> bool t
-  val plus : int t -> int t -> int t
-  val minus : int t -> int t -> int t
-  val times : int t -> int t -> int t
-  val divide : int t -> int t -> int t
-  val modulus : int t -> int t -> int t
-  val less_than : int t -> int t -> bool t
-  val less_than_eq : int t -> int t -> bool t
-  val eq_ints : int t -> int t -> bool t
-  val eq_bools : bool t -> bool t -> bool t
-  val neq : int t -> int t -> bool t
-  val and_ : bool t -> bool t -> bool t
-  val or_ : bool t -> bool t -> bool t
-
-  (*
-    -----
-    SOLVE
-    -----
-  *)
-  module Solve_status : sig
-    type t =
-      | Sat of Z3.Model.model
-      | Unknown
-      | Unsat
-  end
-
-  val solve : bool t list -> Solve_status.t
-end
 
 module type Context = sig
   val ctx : Z3.context

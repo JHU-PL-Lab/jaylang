@@ -1,27 +1,3 @@
-(**
-  File: z3_intf.mli
-  Purpose: an interface to Z3 for the concolic evaluator
-
-  Detailed description:
-    The concolic evaluator uses the Z3 SMT solver to solve constraints.
-    It needs only integer and boolean symbolic expressions, as well
-    as some binary operations. That is what is supported here.
-
-    Expressions can be built, identified with stepkeys, and solved for
-    through this interface.
-
-    Much of this behavior comes from Utils.Z3_api, which includes
-    everything that is independent of concolic evaluation (e.g.
-    it includes all except the stepkeys).
-
-    The behavior here is used by [Solve] and [Expression] in a
-    sort of layered architecture. Any solving done by the concolic
-    evaluator is through those modules.
-
-  Dependencies:
-    Stepkey -- identifies the symbolic variables
-
-*)
 
 open Core
 
@@ -83,4 +59,17 @@ module type S = sig
   val solve : bool t list -> Solve_status.t
 end
 
-module Make () : S
+module Make () : S = struct
+  include Utils.Typed_z3.Make (struct let ctx = Z3.mk_context [] end) 
+  type 'a t = 'a E.t
+
+  let var_of_key (type a) (key : a Stepkey.t) : a t =
+    match key with
+    | I id -> int_var id
+    | B id -> bool_var id
+
+  let value_of_key model key =
+    key
+    |> var_of_key
+    |> value_of_expr model
+end

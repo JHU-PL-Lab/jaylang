@@ -12,7 +12,7 @@
     formulas.
 
   Dependencies:
-    Z3_intf -- is the destination of expressions
+    Z3_api -- is the destination of expressions
     Stepkey -- keys represent unconstrained symbolic inputs
 *)
 
@@ -67,7 +67,7 @@ val op : 'a t -> 'a t -> ('a * 'a * 'b) Typed_binop.t -> 'b t
 (** [op e1 e2 binop] is an expression for the result of the binary operation [binop]
     on [e1] and [e2]. *)
 
-module Solve (Expr : Z3_intf.S) : sig
+module Solve (Expr : Z3_api.S) : sig
   val to_formula : 'a t -> 'a Expr.t
   (** [to_formula e] is a Z3 formula equivalent to [e]. *)
 end

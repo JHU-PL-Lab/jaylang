@@ -11,7 +11,7 @@
     within the model.
     
   Dependencies:
-    Z3_intf -- the source of the model
+    Z3_api -- the source of the model
     Stepkey -- how to identify which input is desired
 *)
 
@@ -24,7 +24,7 @@ val zero : t
 val default : t
 (** [default] is random in -10, 10 inclusive or a random bool. *)
 
-module Make (_ : Z3_intf.S) : sig
+module Make (_ : Z3_api.S) : sig
   val from_model : Z3.Model.model -> t
   (** [from_model model] is a feeder that satisfies the given [model]. *)
 end
