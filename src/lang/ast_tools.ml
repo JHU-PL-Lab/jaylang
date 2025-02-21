@@ -42,6 +42,7 @@ end
 
 module Utils = struct
   let unit_value : type a. a Expr.t = ERecord RecordLabel.Map.empty
+  let unit_type : 'a Constraints.bluejay_or_desugared Expr.t = ETypeRecord RecordLabel.Map.empty
 
   (*
     [ tau1 ; ... ; taun ], tau |->

@@ -54,32 +54,29 @@ module Embedded_functions = struct
     Y-combinator for Mu types: 
 
       fun f ->
-        (fun x -> fun dummy -> f (x x) {})
-        (fun x -> fun dummy -> f (x x) {})
+        (fun x -> freeze (thaw (f (x x))))
+        (fun x -> freeze (thaw (f (x x))))
     
     Notes:
     * f is a function, so it has be captured with a closure, so there is nothing
       wrong about using any names here. However, I use tildes to be safe and make
       sure they're fresh.
+    * This y-combinator is unconventional in that it uses freeze and thaw instead of
+      passing an argument. This is because we know the use case is for mu types.
   *)
   let y_comb =
     let open Ident in
     let open Expr in
     let f = Ident "~f_y_comb" in
+    let x = Ident "~x_y_comb" in
     let body =
-      let x = Ident "~x_y_comb" in
-      let dummy = Ident "~dummy_y_comb" in
       EFunction { param = x ; body =
-        EFunction { param = dummy ; body =
+        EFreeze (EThaw (
           EAppl
-            { func =
-              EAppl
-                { func = EVar f
-                ; arg = EAppl { func = EVar x ; arg = EVar x }
-                }
-            ; arg = Ast_tools.Utils.unit_value
+            { func = EVar f
+            ; arg = EAppl { func = EVar x ; arg = EVar x }
             }
-        }
+        ))
       }
     in
     EFunction { param = f ; body =

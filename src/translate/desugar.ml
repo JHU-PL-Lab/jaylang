@@ -133,13 +133,13 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     | EAssert assert_expr ->
       EIf
         { cond = desugar assert_expr
-        ; true_body = ERecord Parsing_tools.empty_record
+        ; true_body = unit_value
         ; false_body = EAbort
         }
     | EAssume assume_expr ->
       EIf
         { cond = desugar assume_expr
-        ; true_body = ERecord Parsing_tools.empty_record
+        ; true_body = unit_value
         ; false_body = EDiverge
         }
     (* Patterns *)
@@ -162,7 +162,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       }
     (* Lists *)
     | EList [] ->
-      EVariant { label = Reserved_labels.Variants.nil ; payload = Utils.unit_value }
+      EVariant { label = Reserved_labels.Variants.nil ; payload = unit_value }
     | EList ls_e ->
       desugar
       @@ List.fold_right ls_e ~init:(EList []) ~f:(fun e acc ->
@@ -180,7 +180,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       let t = Names.fresh_id ~suffix:"list_t" () in
       ETypeMu { var = t ; body =
         ETypeVariant
-          [ (Reserved_labels.VariantTypes.nil, ETypeRecord RecordLabel.Map.empty)
+          [ (Reserved_labels.VariantTypes.nil, unit_type)
           ; (Reserved_labels.VariantTypes.cons,
             ETypeRecord (Parsing_tools.record_of_list
               [ (Reserved_labels.Records.hd, desugar e_tau)

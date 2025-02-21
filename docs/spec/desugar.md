@@ -12,7 +12,7 @@ Definitions:
 
 The target of the desugaring can be found pushed in the `main` branch in the Jaylang repo at `src/lang/ast.ml`.
 
-Note that we add `type`, `abort`, and `diverge` in this pass, and everything else exists already in Bluejay.
+Note that we add `abort`, and `diverge` in this pass, and everything else exists already in Bluejay.
 
 ## Statements
 
@@ -288,12 +288,12 @@ Notes:
 ```ocaml
 [| assert e |] =
   if [| e |]
-  then 0 (* or unit, if we add that *)
+  then {}
   else abort
 
 [| assume e |]
   if [| e |]
-  then 0 (* .. *)
+  then {}
   else diverge
 ```
 

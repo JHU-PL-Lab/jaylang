@@ -492,37 +492,36 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     | ETypeMu { var = b ; body = tau } ->
       Stack.push cur_mu_vars b;
       let res =
-        apply (
-          apply Embedded_functions.y_comb (
-            fresh_abstraction "self_mu" (fun self ->
-              fresh_abstraction "dummy_mu" (fun _dummy ->
-                let appl_self_0 = apply (EVar self) (EInt 0) in
-                E.make
-                  ~ask_for
-                  ~gen:(lazy (
-                    apply (EFunction { param = b ; body = gen tau }) appl_self_0
-                  ))
-                  ~check:(lazy (
-                    fresh_abstraction "e_mu_check" (fun e ->
-                      apply (EFunction { param = b ; body = check tau (EVar e) }) appl_self_0
-                    )
-                  ))
-                  ~wrap:(lazy (
-                    fresh_abstraction "e_mu_wrap" (fun e ->
-                      apply (EFunction { param = b ; body = wrap tau (EVar e) }) appl_self_0
-                    )
-                  ))
+        EThaw (apply Embedded_functions.y_comb (
+          fresh_abstraction "self_mu" (fun self ->
+            EFreeze (
+              let thaw_self = EThaw (EVar self) in
+              E.make
+                ~ask_for
+                ~gen:(lazy (
+                  apply (EFunction { param = b ; body = gen tau }) thaw_self
+                ))
+                ~check:(lazy (
+                  fresh_abstraction "e_mu_check" (fun e ->
+                    apply (EFunction { param = b ; body = check tau (EVar e) }) thaw_self
+                  )
+                ))
+                ~wrap:(lazy (
+                  fresh_abstraction "e_mu_wrap" (fun e ->
+                    apply (EFunction { param = b ; body = wrap tau (EVar e) }) thaw_self
+                  )
+                ))
               )
             )
           )
-        ) (EInt 0)
+        )
       in
       let _ = Stack.pop_exn cur_mu_vars in
       res
     | ETypeTop ->
       E.make
         ~ask_for
-        ~gen:(lazy (EVariant { label = Reserved_labels.Variants.top ; payload = EInt 0 }))
+        ~gen:(lazy (EVariant { label = Reserved_labels.Variants.top ; payload = unit_value }))
         ~check:(lazy (fresh_abstraction "e_top_check" (fun _ -> unit_value)))
         ~wrap:(lazy EId)
     | ETypeBottom ->

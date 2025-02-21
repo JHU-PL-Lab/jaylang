@@ -60,24 +60,25 @@ Statements are embedded exactly like their corresponding let-expression as it is
 
 ```ocaml
 [[Mu B. tau]] =
-  Y (fun $self -> fun $dummy ->
+  thaw @@
+  Y (fun $self -> freeze
     { ~gen = freeze @@
-      (fun B -> thaw [[tau]].~gen) ($self {})
+      (fun B -> thaw [[tau]].~gen) (thaw $self)
     ; ~check = fun $e ->
-      (fun B -> [[tau]].~check $e) ($self {})
+      (fun B -> [[tau]].~check $e) (thaw $self)
     ; ~wrap = fun $e ->
-      (fun B -> [[tau]].~wrap $e) ($self {})
+      (fun B -> [[tau]].~wrap $e) (thaw $self)
     }
-  ) 0
+  )
 
 Y = 
   fun f ->
-    (fun x -> fun dummy -> f (x x) {})
-    (fun x -> fun dummy -> f (x x) {})
+    (fun x -> freeze (thaw (f (x x))))
+    (fun x -> freeze (thaw (f (x x))))
 ```
 
 Notes:
-* Use a dummy argument instead of freeze/thaw for simplicity with combinator
+* This Y-combinator is special-made with freezing and thawing because this is its only use case.
 
 ### Variants
 
@@ -225,17 +226,11 @@ The "intersection" type has been desugared into a dependent function, so nothing
 
 The `List` type has been desugared into a variant, so nothing is needed here.
 
-
-
-## Extensions
-
-Here we have a few ideas for extensions, but they are not fully thought through. They are not in the implementation yet.
-
-#### Top/bottom
+### Top/bottom
 
 ```ocaml
 [[ top ]] = 
-  { ~gen = freeze @@ `~Top 0
+  { ~gen = freeze @@ `~Top {}
   , ~check = fun _ -> {} (* anything is in top *)
   , ~wrap = fun $e -> $e
   }
@@ -272,9 +267,6 @@ Here we have a few ideas for extensions, but they are not fully thought through.
   }
 ```
 
-Notes:
-* Is there a potential issue here that the tau may be a closure, and then the labels don't get put in scope correctly? Does this problem maybe also occur with dependent functions?
-
 ### Singleton
 
 The singleton of a type is just the singleton set containing that type.
@@ -290,6 +282,10 @@ The singleton of a type is just the singleton set containing that type.
 Note:
 * The word `singlet` is used instead of `singleton` because it only works on types. e.g. `singlet 5` is bad, whereas a programmer might expect `singleton 5` to work.
 
+#### Other encodings
+
+These ideas are not in the implementation. The only one here (refinement types as dependent records) is just an encoding we could do, but it is not a simple desugar because it requires nontrivial projection of the `~value` label.
+
 ### Refinement types as dependent records
 
 ```ocaml
@@ -302,20 +298,6 @@ Note:
   , ~wrap = fun $e ->
     $r.~wrap { ~value = $e , ~dummy = {} }
   }
-```
-
-### Intersection types as dependent functions
-
-This is really just a desugaring and should be done during the desugar pass, but because it is an extension we're just thinking about, I put it temporarily here.
-
-```ocaml
-[[((V_0 of tau_0) -> tau_0') && ... && ((V_n of tau_n) -> tau_n')]] =
-  [[ ($x : V_0 of tau_0 | ... | V_n of tau_n) ->
-      match $x with
-      | V_0 _ -> tau_0'
-      | ...
-      | V_n _ -> tau_n'
-  ]]
 ```
 
 ## Semantic expressions
