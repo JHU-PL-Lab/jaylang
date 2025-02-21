@@ -37,12 +37,12 @@ module Desugared_functions = struct
     EFunction { param = x ; body =
       EMatch { subject = EVar x ; patterns =
         [ (PVariant
-            { variant_label = Reserved_labels.Variants.nil
-            ; payload_id = Reserved_labels.Idents.catchall }
+            { variant_label = Reserved.nil
+            ; payload_id = Reserved.catchall }
           , EVar x)
         ; (PVariant
-            { variant_label = Reserved_labels.Variants.cons
-            ; payload_id = Reserved_labels.Idents.catchall }
+            { variant_label = Reserved.cons
+            ; payload_id = Reserved.catchall }
           , EVar x)
         ]
       }

@@ -12,32 +12,34 @@
 open Core
 open Ast
 
-module Reserved_labels = struct
-  module Records = struct
-    let gen : RecordLabel.t = RecordLabel (Ident "~gen")
-    let check : RecordLabel.t = RecordLabel (Ident "~check")
-    let wrap : RecordLabel.t = RecordLabel (Ident "~wrap")
-    let hd : RecordLabel.t = RecordLabel (Ident "~hd")
-    let tl : RecordLabel.t = RecordLabel (Ident "~tl")
-  end
+(*
+  Here are some reserved names that don't parse, so the programmer cannot
+  write them, and we are safe to inject them into the AST.
+*)
+module Reserved = struct
+  (* For conciseness, don't nest modules to separate into the following groups *)
 
-  module Variants = struct
-    let cons : VariantLabel.t = VariantLabel (Ident "~Cons") 
-    let nil : VariantLabel.t = VariantLabel (Ident "~Nil") 
-    let untouched : VariantLabel.t = VariantLabel (Ident "~Untouched")
-    let top : VariantLabel.t = VariantLabel (Ident "~Top")
-    let bottom : VariantLabel.t = VariantLabel (Ident "~Bottom")
-    let predicate_failed : VariantLabel.t = VariantLabel (Ident "~Predicate_failed")
-  end
+  (* Record labels *)
+  let gen : RecordLabel.t = RecordLabel (Ident "~gen")
+  let check : RecordLabel.t = RecordLabel (Ident "~check")
+  let wrap : RecordLabel.t = RecordLabel (Ident "~wrap")
+  let hd : RecordLabel.t = RecordLabel (Ident "~hd")
+  let tl : RecordLabel.t = RecordLabel (Ident "~tl")
 
-  module VariantTypes = struct
-    let cons : VariantTypeLabel.t = VariantTypeLabel (Ident "~Cons") 
-    let nil : VariantTypeLabel.t = VariantTypeLabel (Ident "~Nil") 
-  end
+  (* Variant constructors *)
+  let cons : VariantLabel.t = VariantLabel (Ident "~Cons") 
+  let nil : VariantLabel.t = VariantLabel (Ident "~Nil") 
+  let untouched : VariantLabel.t = VariantLabel (Ident "~Untouched")
+  let top : VariantLabel.t = VariantLabel (Ident "~Top")
+  let bottom : VariantLabel.t = VariantLabel (Ident "~Bottom")
+  let predicate_failed : VariantLabel.t = VariantLabel (Ident "~Predicate_failed")
 
-  module Idents = struct
-    let catchall : Ident.t = Ident "_"
-  end
+  (* Variant type constructors *)
+  let cons_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Cons") 
+  let nil_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Nil") 
+
+  (* Idents *)
+  let catchall : Ident.t = Ident "_"
 end
 
 module Utils = struct

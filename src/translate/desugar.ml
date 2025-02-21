@@ -152,8 +152,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
             Stop (List.rev @@
               desugar_pattern pat e
               :: (PVariant
-                  { variant_label = Reserved_labels.Variants.untouched
-                  ; payload_id = Reserved_labels.Idents.catchall }
+                  { variant_label = Reserved.untouched
+                  ; payload_id = Reserved.catchall }
                 , EAbort)
               :: acc
             )
@@ -162,17 +162,17 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       }
     (* Lists *)
     | EList [] ->
-      EVariant { label = Reserved_labels.Variants.nil ; payload = unit_value }
+      EVariant { label = Reserved.nil ; payload = unit_value }
     | EList ls_e ->
       desugar
       @@ List.fold_right ls_e ~init:(EList []) ~f:(fun e acc ->
         EListCons (e, acc)
       )
     | EListCons (e_hd, e_tl) ->
-      EVariant { label = Reserved_labels.Variants.cons ; payload =
+      EVariant { label = Reserved.cons ; payload =
         ERecord (Parsing_tools.record_of_list
-          [ (Reserved_labels.Records.hd, desugar e_hd)
-          ; (Reserved_labels.Records.tl, EAppl { func = Desugared_functions.filter_list ; arg = desugar e_tl })
+          [ (Reserved.hd, desugar e_hd)
+          ; (Reserved.tl, EAppl { func = Desugared_functions.filter_list ; arg = desugar e_tl })
           ]
         )
       }
@@ -180,11 +180,11 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       let t = Names.fresh_id ~suffix:"list_t" () in
       ETypeMu { var = t ; body =
         ETypeVariant
-          [ (Reserved_labels.VariantTypes.nil, unit_type)
-          ; (Reserved_labels.VariantTypes.cons,
+          [ (Reserved.nil_type, unit_type)
+          ; (Reserved.cons_type,
             ETypeRecord (Parsing_tools.record_of_list
-              [ (Reserved_labels.Records.hd, desugar e_tau)
-              ; (Reserved_labels.Records.tl, EVar t)
+              [ (Reserved.hd, desugar e_tau)
+              ; (Reserved.tl, EVar t)
               ]
             )
           )
@@ -205,7 +205,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
           ; domain = ETypeVariant (ls_e >>| fun (label, tau, _) -> label, tau)
           ; codomain = EMatch { subject = EVar x ; patterns = 
               ls_e >>| fun (label, _, tau') ->
-                PVariant { variant_label = VariantTypeLabel.to_variant_label label ; payload_id = Reserved_labels.Idents.catchall }
+                PVariant { variant_label = VariantTypeLabel.to_variant_label label ; payload_id = Reserved.catchall }
                 , tau'
             }
           }
@@ -238,19 +238,19 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     match pat with
     | PEmptyList ->
       PVariant
-        { variant_label = Reserved_labels.Variants.nil
-        ; payload_id = Reserved_labels.Idents.catchall
+        { variant_label = Reserved.nil
+        ; payload_id = Reserved.catchall
         }
       , desugar e
     | PDestructList { hd_id ; tl_id } ->
       let r = Names.fresh_id () in
       PVariant
-        { variant_label = Reserved_labels.Variants.cons
+        { variant_label = Reserved.cons
         ; payload_id = r
         }
       , build @@
-        let%bind () = assign hd_id (EProject { record = EVar r ; label = Reserved_labels.Records.hd }) in
-        let%bind () = assign tl_id (EProject { record = EVar r ; label = Reserved_labels.Records.tl }) in
+        let%bind () = assign hd_id (EProject { record = EVar r ; label = Reserved.hd }) in
+        let%bind () = assign tl_id (EProject { record = EVar r ; label = Reserved.tl }) in
         return (desugar e)
     | (PAny | PVariable _ | PVariant _) as p -> p, desugar e
 
