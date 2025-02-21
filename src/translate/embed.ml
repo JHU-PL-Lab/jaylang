@@ -118,6 +118,7 @@ module Embedded_type (W : sig val do_wrap : bool end) = struct
     Applies arg to tau's wrap, which is partially evaluated if possible.
   *)
   let wrap ~(tau : Embedded.t) (x : Embedded.t) : Embedded.t =
+    assert W.do_wrap;
     apply
       (proj tau Reserved_labels.Records.wrap)
       x
@@ -360,7 +361,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               let e = EVar e in
               let%bind () = ignore @@ proj e Reserved_labels.Records.gen in
               let%bind () = ignore @@ proj e Reserved_labels.Records.check in
-              let%bind () = ignore @@ proj e Reserved_labels.Records.wrap in
+              let%bind () = if do_wrap then ignore @@ proj e Reserved_labels.Records.wrap else return () in
               return unit_value
           )
         ))
@@ -540,24 +541,14 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       E.make
         ~ask_for
         ~gen:(lazy (embed tau))
-        (* Note: check and wrap are just copied code from the EType embedding *)
-        ~check:(lazy (
-          fresh_abstraction "e_singlet_check" (fun e ->
-            build @@  
-              let e = EVar e in
-              let%bind () = ignore @@ proj e Reserved_labels.Records.gen in
-              let%bind () = ignore @@ proj e Reserved_labels.Records.check in
-              let%bind () = ignore @@ proj e Reserved_labels.Records.wrap in
-              return unit_value
-          )
-        ))
-        ~wrap:(lazy EId)
+        (* Note: check and wrap refer to the EType embedding, per the specification *)
+        ~check:(lazy (proj (embed ~ask_for:`Check EType) Reserved_labels.Records.check))
+        ~wrap:(lazy (proj (embed ~ask_for:`Wrap EType) Reserved_labels.Records.wrap))
 
     and embed_let ?(v_name : Ident.t = Names.fresh_id ()) ~(do_check : bool)
       ~(do_wrap : bool) ~(tau : Desugared.t) (body : Desugared.t) : Embedded.t =
       build @@
         let%bind () = assign v_name @@ embed body in
-        (* let%bind r = capture ~suffix:"r" @@ embed tau in *)
         let%bind () = 
           if do_check
           then ignore @@ check tau (EVar v_name)
