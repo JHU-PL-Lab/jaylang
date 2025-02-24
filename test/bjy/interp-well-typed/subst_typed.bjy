@@ -229,11 +229,11 @@ let set_eq ls1 ls2 eq =
   and is_subset ls2 ls1
 
 (* after subst; the expression has the same free variables as e; minus id *)
-letd subst (e : expr.t) : (id : ident.t) -> value.t -> { expr.t | fun new_expr ->
+let subst (e : expr.t) (id <- ident.t) (v : value.t) : { expr.t | fun new_expr ->
   let new_free_vars = free_vars new_expr in
   let old_free_vars = free_vars e in
   set_eq new_free_vars (list_remove old_free_vars id ident.eq) ident.eq
-  } = fun id -> fun v ->
+  } =
   let rec sub e =
     let sub_pair p =
       { left = sub p.left

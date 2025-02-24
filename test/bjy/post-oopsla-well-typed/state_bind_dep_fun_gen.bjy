@@ -63,11 +63,10 @@ let t n =
     (* But such an error is instant to catch just in the generation of a value with type t *)
   )
 
-letd main (n :  int) : t n -> (int -> int) =
-  fun f ->
-    let rec loop i = 
-      if i <= 0
-      then f
-      else (loop (i - 1)) i
-    in
-    loop (n - 2)
+let main (n <- int) (f : t n) : (int -> int) =
+  let rec loop i = 
+    if i <= 0
+    then f
+    else (loop (i - 1)) i
+  in
+  loop (n - 2)

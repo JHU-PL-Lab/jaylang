@@ -59,10 +59,10 @@ rule token = parse
 | "then"               { THEN }
 | "else"               { ELSE }
 | "let"                { LET }
-| "letd"               { LET_D }
 | "rec"                { REC }
 | "in"                 { IN }
 | "->"                 { ARROW }
+| "<-"                 { BACK_ARROW }
 | "false"              { BOOL false }
 | "true"               { BOOL true }
 | "input"              { INPUT }

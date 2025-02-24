@@ -108,6 +108,14 @@ module Function_components = struct
     }
 end
 
+module Param = struct
+  type 'a t = 'a Expr.param
+
+  let to_id : 'a t -> Ident.t = function
+    | TVar { var ; _ }
+    | TVarDep { var ; _ } -> var
+end
+
 module Funsig = struct
   type 'a t = 'a Expr.funsig
 
@@ -118,15 +126,16 @@ module Funsig = struct
     match fsig with
     | FUntyped { func_id ; params ; body } ->
       { func_id ; tau_opt = None ; params ; body }
-    | FTyped { type_vars ;  func_id ; params ; ret_type ; body } ->
-      let param_ids, param_taus = List.unzip @@ List.map params ~f:(fun { var ; tau } -> var, tau) in
-      { func_id ; body ; params = type_vars @ param_ids
-      ; tau_opt = Some (ETypeForall { type_variables = type_vars ; tau = Utils.tau_list_to_arrow_type param_taus ret_type }) }
-    | FDepTyped { type_vars ; func_id ; params ; ret_type ; body } ->
-      { func_id ; body ; params = type_vars @ [ params.var ]
+    | FTyped { type_vars ; func_id ; params ; ret_type ; body } ->
+      { func_id ; body ; params = type_vars @ List.map params ~f:Param.to_id
       ; tau_opt = Some (
-          ETypeForall
-            { type_variables = type_vars
-            ; tau = ETypeArrowD { binding = params.var ; domain = params.tau ; codomain = ret_type } }
-      )}
+        ETypeForall
+          { type_variables = type_vars
+          ; tau = List.fold_right params ~init:ret_type ~f:(fun tvar codomain ->
+              match tvar with
+              | TVar { var = _ ; tau } -> Expr.ETypeArrow { domain = tau ; codomain }
+              | TVarDep { var ; tau } -> ETypeArrowD { binding = var ; domain = tau ; codomain }
+            )
+          }
+      ) }
 end

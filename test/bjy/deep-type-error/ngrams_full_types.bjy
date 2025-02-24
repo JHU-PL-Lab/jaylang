@@ -19,7 +19,7 @@ let ngram n a = { list a | fun ls -> (len ls == n) and n >= 0 }
 
 let distribution n a = map (ngram (n - 1) a) (bag a)
 
-letd rec take (type a_) (n : { int | fun i -> i >= 0}) : list a_ -> { list a_ | fun ls -> len ls <= n } =
+let rec take (type a_) (n <- { int | fun i -> i >= 0}) : list a_ -> { list a_ | fun ls -> len ls <= n } =
   fun l ->
     if n == 0 then [] else
     match l with
@@ -30,7 +30,7 @@ letd rec take (type a_) (n : { int | fun i -> i >= 0}) : list a_ -> { list a_ | 
       else hd :: take a_ (n - 1) tl
     end
 
-letd make_ngrams (type a_) (n : pos_int) : list a_ -> list (ngram n a_) =
+let make_ngrams (type a_) (n <- pos_int) : list a_ -> list (ngram n a_) =
   fun ls ->
     let rec loop l m =
       match l with
@@ -86,18 +86,16 @@ let bag_map_of_list (type a_ b_) (tup_list : list (tuple a_ b_)) : (a_ -> a_ -> 
       in
       loop tup_list
 
-letd make_dist (type a_) (n : pos_int) : list a_ -> (a_ -> a_ -> int) -> distribution n a_ =
-  fun l ->
-    fun compare ->
-      let ngrams = make_ngrams a_ n l in
-      let tup_of_ng ng =
-        { fst = last_exn a_ ng ; snd = take a_ (n - 1) ng } (* ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below *)
-        (*{ snd = last_exn a_ ng ; fst = take a_ (n - 1) ng } # This is the well-typed version *)
-      in
-      let rec map_ng_to_tups ls =
-        match ls with
-        | [] -> []
-        | ng :: tl -> tup_of_ng ng :: map_ng_to_tups tl
-        end
-      in
-      bag_map_of_list (ngram (n - 1) a_) a_ (map_ng_to_tups ngrams) (compare_list a_ compare) (* Notice we need to instantiate the types because `bag_map_of_list` is typed *)
+let make_dist (type a_) (n <- pos_int) (l : list a_) (compare : a_ -> a_ -> int) : distribution n a_ =
+  let ngrams = make_ngrams a_ n l in
+  let tup_of_ng ng =
+    { fst = last_exn a_ ng ; snd = take a_ (n - 1) ng } (* ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below *)
+    (*{ snd = last_exn a_ ng ; fst = take a_ (n - 1) ng } # This is the well-typed version *)
+  in
+  let rec map_ng_to_tups ls =
+    match ls with
+    | [] -> []
+    | ng :: tl -> tup_of_ng ng :: map_ng_to_tups tl
+    end
+  in
+  bag_map_of_list (ngram (n - 1) a_) a_ (map_ng_to_tups ngrams) (compare_list a_ compare) (* Notice we need to instantiate the types because `bag_map_of_list` is typed *)

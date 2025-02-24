@@ -6,10 +6,9 @@ let (t : type -> type -> int -> type) =
     else a
 
 (* 'a and 'b alternate by call here; so can't assume 'a stays the same in recursive calls *)
-letd rec f (type a_ b_) (i : int) : a_ -> b_ -> t (a_) (b_) i =
-  fun a -> fun b -> 
-    if i == 0
-    then b
-    else f (a_) (b_) (i - 1) b a (* ERROR: need to flip a_ and b_ *)
+let rec f (type a_ b_) (i <- int) (a : a_) (b : b_) : t a_ b_ i =
+  if i == 0
+  then b
+  else f a_ b_ (i - 1) b a (* ERROR: need to flip a_ and b_ *)
 
 let res = f int bool 2 0 true

@@ -57,6 +57,6 @@ let (Id_example : (a : type) -> (b : type) -> BASIC) = fun a b ->
   Here, we need it to typecheck with type `a -> m b`, which is not the same,
   so we fail the wrap check when calling `M.map x f`.
 *)
-letd Derive_bind (M : BASIC) : { bind : M.ma -> (M.a -> M.mb) -> M.mb } =
+let Derive_bind (M <- BASIC) : { bind : M.ma -> (M.a -> M.mb) -> M.mb } =
   { bind = fun x f -> M.join (M.map x f)
   }

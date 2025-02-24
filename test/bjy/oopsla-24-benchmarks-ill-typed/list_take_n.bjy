@@ -9,12 +9,11 @@ let rec len ls =
   | hd :: tl -> 1 + len tl
   end
 
-letd rec take (type a_) (n : pos_int) : list a_ -> { ls : list a_ | len ls <= n } =
-  fun l ->
-    match l with
-    | [] -> []
-    | hd :: tl ->
-      if n == 1
-      then hd (* ERROR: should be `[hd]` here *)
-      else hd :: take a_ (n - 1) tl
-    end
+let rec take (type a_) (n <- pos_int) (l : list a_) : { ls : list a_ | len ls <= n } =
+  match l with
+  | [] -> []
+  | hd :: tl ->
+    if n == 1
+    then hd (* ERROR: should be `[hd]` here *)
+    else hd :: take a_ (n - 1) tl
+  end

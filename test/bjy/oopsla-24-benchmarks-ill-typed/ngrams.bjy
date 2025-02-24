@@ -92,18 +92,16 @@ let bag_map_of_list tup_list =
       in
       loop tup_list
 
-letd make_dist (type a_) (n : pos_int) : list a_ -> (a_ -> a_ -> int) -> distribution n a_ =
-  fun l ->
-    fun compare ->
-      let ngrams = make_ngrams n l in
-      let tup_of_ng ng =
-        { fst = last_exn ng ; snd = take (n - 1) ng } (* ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below *)
-      in
-      let rec map_ng_to_tups ls =
-        match ls with
-        | [] -> []
-        | ng :: tl -> tup_of_ng ng :: map_ng_to_tups tl
-        end
-      in
-      (*bag_map_of_list (ngram (n - 1) a_) a_ (map_ng_to_tups ngrams) (compare_list compare) # Notice we need to instantiate the types because `bag_map_of_list` is typed *)
-      bag_map_of_list (map_ng_to_tups ngrams) (compare_list compare)
+let make_dist (type a_) (n <- pos_int) (l : list a_) (compare : a_ -> a_ -> int) : distribution n a_ =
+  let ngrams = make_ngrams n l in
+  let tup_of_ng ng =
+    { fst = last_exn ng ; snd = take (n - 1) ng } (* ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below *)
+  in
+  let rec map_ng_to_tups ls =
+    match ls with
+    | [] -> []
+    | ng :: tl -> tup_of_ng ng :: map_ng_to_tups tl
+    end
+  in
+  (*bag_map_of_list (ngram (n - 1) a_) a_ (map_ng_to_tups ngrams) (compare_list compare) # Notice we need to instantiate the types because `bag_map_of_list` is typed *)
+  bag_map_of_list (map_ng_to_tups ngrams) (compare_list compare)

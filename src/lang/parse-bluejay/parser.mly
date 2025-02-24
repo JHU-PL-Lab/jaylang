@@ -23,6 +23,7 @@
 %token CLOSE_BRACKET
 %token EQUALS
 %token ARROW
+%token BACK_ARROW
 %token DOT
 %token COLON
 %token DOUBLE_COLON
@@ -33,7 +34,6 @@
 %token FUNCTION
 %token WITH
 %token LET
-%token LET_D
 %token IN
 %token REC
 %token IF
@@ -243,31 +243,21 @@ record_type_body:
 /* **** Functions **** */
 
 letfun:
-  | LET fun_sig_non_dep
-  | LET_D fun_sig_dependent { $2 }
+  | LET fun_sig { $2 }
 
 letfun_rec:
-  | LET REC separated_nonempty_list(WITH, fun_sig_non_dep)
-  | LET_D REC separated_nonempty_list(WITH, fun_sig_dependent) { $3 }
+  | LET REC separated_nonempty_list(WITH, fun_sig) { $3 }
 
 /* let foo x = ... */
 /* let foo (x : int) ... : int = ... */
 /* let foo (type a b) (x : int) ... : t = ... */
-fun_sig_non_dep:
+fun_sig:
   | ident_decl param_list EQUALS expr
       { FUntyped { func_id = $1 ; params = $2 ; body = $4 } : Bluejay.funsig }
   | ident_decl param_list_with_type COLON expr EQUALS expr
       { FTyped { type_vars = [] ; func_id = $1 ; params = $2 ; ret_type = $4 ; body = $6 } : Bluejay.funsig }
   | ident_decl OPEN_PAREN TYPE param_list CLOSE_PAREN param_list_with_type COLON expr EQUALS expr 
       { FTyped { type_vars = $4 ; func_id = $1 ; params = $6 ; ret_type = $8 ; body = $10 } : Bluejay.funsig }
-
-/* letd foo (x : int) ... : t = ... */
-/* letd foo (type a b) (x : int) ... : t = ... */
-fun_sig_dependent:
-  | ident_decl param_with_type COLON expr EQUALS expr
-      { FDepTyped { type_vars = [] ; func_id = $1 ; params = $2 ; ret_type = $4 ; body = $6 } : Bluejay.funsig }
-  | ident_decl OPEN_PAREN TYPE param_list CLOSE_PAREN param_with_type COLON expr EQUALS expr
-      { FDepTyped { type_vars = $4 ; func_id = $1 ; params = $6 ; ret_type = $8 ; body = $10 } : Bluejay.funsig }
 
 /* **** Primary expressions **** */
 
@@ -332,7 +322,9 @@ param_list_with_type:
 
 param_with_type:
   | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN
-      { { var = $2 ; tau = $4 } : Bluejay.typed_var }
+      { TVar { var = $2 ; tau = $4 } : Bluejay.param }
+  | OPEN_PAREN ident_decl BACK_ARROW expr CLOSE_PAREN
+      { TVarDep { var = $2 ; tau = $4 } : Bluejay.param }
 ;
 
 param_list:

@@ -8,7 +8,7 @@ let S =
   ;  f : (a : type) -> a -> t a
   :}
 
-letd F (X : S) : { g : (a : type) -> a -> X.t a } =
+let F (X <- S) : { g : (a : type) -> a -> X.t a } =
   { g = X.f
   }
 
@@ -20,7 +20,7 @@ let S a =
   :}
 
 (* now this finally works, but it is not useful *)
-letd F (type a) (X : S a) : { g : a -> X.ta } =
+let F (type a) (X <- S a) : { g : a -> X.ta } =
   { g = X.f
   }
 

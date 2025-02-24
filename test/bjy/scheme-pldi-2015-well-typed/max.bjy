@@ -8,6 +8,5 @@ let f x y =
   then x
   else y
 
-letd main (x : int) : int -> int -> { c : int | c == f x c } =
-  fun y -> fun z -> 
-    max f y x z 
+let main (x <- int) (y : int) (z : int) : { c : int | c == f x c } =
+  max f y x z 

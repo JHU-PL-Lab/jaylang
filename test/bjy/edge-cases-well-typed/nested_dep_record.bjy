@@ -6,5 +6,5 @@ let t =
   ; s : a (* this should have the type of a, which is unaffected by `r.a` *)
   :}
 
-letd f (x : t) : x.a =
+let f (x <- t) : x.a =
   x.s

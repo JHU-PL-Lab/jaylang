@@ -1,14 +1,13 @@
 
-letd F (tf : type -> type) : 
-  (a : type) ->
-    { empty : unit -> tf a (* ERROR: all of these `tf a` are different *)
-    ;  add   : a -> tf a -> tf a
-    }
-    ->
-    { of_list : list a -> tf a
-    }
+let F (tf <- type -> type) (a <- type) : 
+  { empty : unit -> tf a (* ERROR: all of these `tf a` are different *)
+  ;  add   : a -> tf a -> tf a
+  }
+  ->
+  { of_list : list a -> tf a
+  }
   =
-  fun a r ->
+  fun r ->
     { of_list =
       fun ls ->
         let rec loop acc ls =

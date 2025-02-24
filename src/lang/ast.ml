@@ -229,11 +229,15 @@ module Expr = struct
   (* the let-function signatures *)
   and _ funsig =
     | FUntyped : { func_id : Ident.t ; params : Ident.t list ; body : 'a t } -> 'a funsig
-    | FTyped : ('a, 'a typed_var list) typed_fun -> 'a funsig
-    | FDepTyped : ('a, 'a typed_var) typed_fun -> 'a funsig
+    | FTyped : ('a, 'a param list) typed_fun -> 'a funsig
+
+  and 'a typed_var = { var : Ident.t ; tau : 'a t }
+
+  and _ param =
+    | TVar : 'a typed_var -> 'a bluejay_or_desugared param
+    | TVarDep : 'a typed_var -> 'a bluejay_or_desugared param
 
   (* a variable with its type, where the type is an expression *)
-  and 'a typed_var = { var : Ident.t ; tau : 'a t }
 
   (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
   and ('a, 'p) typed_fun = { type_vars : Ident.t list ; func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
@@ -301,6 +305,7 @@ module Bluejay = struct
   type pattern = bluejay Pattern.t
   type funsig = bluejay Expr.funsig
   type typed_var = bluejay Expr.typed_var
+  type param = bluejay Expr.param
   type statement = bluejay Program.statement
 end
 

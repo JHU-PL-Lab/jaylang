@@ -2,9 +2,8 @@
 let f x g =
   g (x + 1)
 
-letd h (z : int) : { y : int | z > y } -> unit = (* ERROR: should be `z < y` instead of other way around *)
-  fun y -> 
-    {}
+let h (z <- int) (y : { y : int | z > y }) : unit = (* ERROR: should be `z < y` instead of other way around *)
+  {}
 
 let main (n : int) : unit =
   if n > 0

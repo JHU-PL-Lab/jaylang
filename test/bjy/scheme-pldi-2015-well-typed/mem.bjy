@@ -14,8 +14,7 @@ let ret_type x =
     end
   }
 
-letd rec mk_list (x : int) : int -> ret_type x = 
-  fun n ->
-    if n < 0
-    then []
-    else x :: mk_list x (n - 1)
+let rec mk_list (x <- int) (n : int) : ret_type x = 
+  if n < 0
+  then []
+  else x :: mk_list x (n - 1)
