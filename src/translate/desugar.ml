@@ -93,6 +93,14 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       match binop with
       | BAnd -> EIf { cond = desugar left ; true_body = desugar right ; false_body = EBool false }
       | BOr -> EIf { cond = desugar left ; true_body = EBool true ; false_body = desugar right }
+      | BDivide | BModulus -> 
+        build @@
+          let v = Names.fresh_id () in
+          let%bind () = assign v @@ desugar right in
+          return @@ EIf 
+            { cond = EBinop { left = EVar v ; binop = BEqual ; right = EInt 0 }
+            ; true_body = EAbort
+            ; false_body = EBinop { left = desugar left ; binop ; right = EVar v } }
       | _ -> EBinop { left = desugar left ; binop ; right = desugar right }
     end
     | EIf { cond ; true_body ; false_body } ->

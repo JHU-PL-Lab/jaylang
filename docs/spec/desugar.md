@@ -315,6 +315,24 @@ We need to desugar and/or to short-circuit, and this is required so that we can 
 
 I am still unsure if we want to do this. The alternative (which is the old solution) is to not short-circuit at all. Adding the short-circuit introduces branches (but it may help us identify solves to skip that are pinned). I will for now NOT do this desugar here, and instead I will leave and/or as binops in the target language which we might later remove with this. Note, though, that we often add this branch ourselves if we want to short-circuit (which is often) because we want to skip all of the branches in `e'`. I am likely to benchmark how this affects performance.
 
+## Division/modulus
+
+Division and modulus can go wrong if right expression is `0`. We instrument during the desugar process to add this as a branch in the program.
+
+```ocaml
+[| e / e' |] =
+  let $v = [| e' |] in (* only evaluate once *)
+  if $v == 0
+  then abort
+  else [| e |] / $v
+
+[| e % e' |] =
+  let $v = [| e' |] in (* only evaluate once *)
+  if $v == 0
+  then abort
+  else [| e |] % $v
+```
+
 ## Arrow
 
 ```ocaml
