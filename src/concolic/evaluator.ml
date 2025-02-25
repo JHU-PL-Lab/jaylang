@@ -4,47 +4,108 @@ open Lang.Ast
 open Expr
 open Value
 
+(*
+  General state monad that supports error but is significantly more efficient.
+  Credit for this idea goes to the writer of the following post:
+    https://discuss.ocaml.org/t/can-a-state-monad-be-optimized-out-with-flambda/9841/5?u=brandon
+*)
+module FMonad (State : T) (Err : T) = struct
+  type 'a m = {
+    run : 'r. reject:(Err.t -> 'r) -> accept:('a -> State.t -> 'r) -> State.t -> 'r
+  }
+
+  let[@inline always] bind
+    : 'a m -> ('a -> 'b m) -> 'b m 
+    = fun x f ->
+      { run =
+        fun ~reject ~accept s ->
+          x.run s ~reject ~accept:(fun x s ->
+            (f x).run ~reject ~accept s
+          )
+      }
+
+  let[@inline always] return
+    : 'a -> 'a m
+    = fun a ->
+      { run = fun ~reject:_ ~accept s -> accept a s }
+
+  let read : State.t m =
+    { run = fun ~reject:_ ~accept s -> accept s s }
+
+  let[@inline always] modify
+    : (State.t -> State.t) -> unit m
+    = fun f ->
+      { run =
+        fun ~reject:_ ~accept s ->
+          accept () (f s)
+      }
+
+  let[@inline always] fail
+    : Err.t -> 'a m
+    = fun e ->
+      { run = fun ~reject ~accept:_ _ -> reject e }
+end
+
 module State_M = struct
   module State = struct
     type t = { step : int ; session : Eval_session.t }
   end
 
-  type 'a m = State.t -> (State.t * 'a, Status.Eval.t) result
+  module Err = struct
+    type t = Status.Eval.t
+  end
 
-  let[@inline always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
-    fun s ->
-      Result.bind (x s) ~f:(fun (s, a) -> f a s)
-    
-  let[@inline always] return (a : 'a) : 'a m =
-    fun s -> Result.return (s, a)
+  include FMonad (State) (Err)
 
-  let[@inline always] run (x : 'a m) (session : Eval_session.t) : Status.Eval.t =
-    match x { step = 0 ; session } with
-    | Ok ({ session ; _ }, _) -> Eval_session.finish session
-    | Error e -> e
+  let run
+    : 'a m -> Eval_session.t -> Status.Eval.t
+    = fun x session ->
+      x.run
+        ~reject:Fn.id
+        ~accept:(fun _ s -> Eval_session.finish s.session)
+        State.{ step = 0 ; session }
 
-  let[@inline always] modify f : unit m =
-    fun s -> Result.return ({ s with session = f s.session }, ())
+  let[@inline always] modify_session 
+    : (Eval_session.t -> Eval_session.t) -> unit m
+    = fun f ->
+      modify (fun s -> { s with session = f s.session })
 
-  let[@inline always] modify_and_return (f : Eval_session.t -> Eval_session.t * 'a) : 'a m =
-    fun s -> let sess, a = f s.session in Result.return ({ s with session = sess }, a)
+  (*
+    As a general observation, it is more efficient to be hands-on and write this
+    using the structure of FMonad instead of using `read`, `return`, etc.
+    I suppose this is due to better inlining. I consider the tradeoff in favor
+    of more efficiency worth the less abstract code.
+  *)
+  let incr_step : unit m =
+    { run =
+      fun ~reject ~accept s ->
+        let step = s.step + 1 in
+        if step > Eval_session.get_max_step s.session
+        then reject @@ Eval_session.reach_max_step s.session
+        else accept () { s with step }
+    }
 
-  let[@inline always] incr_step : unit m =
-    fun { step ; session } ->
-      let s' = step + 1 in
-      if s' > Eval_session.get_max_step session
-      then Result.fail @@ Eval_session.reach_max_step session
-      else Result.return (State.{ step = s' ; session }, ())
+  let[@inline always] modify_and_return
+    : (Eval_session.t -> Eval_session.t * 'a) -> 'a m
+    = fun f ->
+      { run =
+        fun ~reject:_ ~accept s ->
+          let session, a = f s.session in
+          accept a { s with session }
+      }
 
-  let[@inline always] step : int m =
-    fun s -> Result.return (s, s.step)
+  let step : int m =
+    { run = fun ~reject:_ ~accept s -> accept s.step s }
 
-  let[@inline always] fail (f : Eval_session.t -> Status.Eval.t) : 'a m = 
-    fun { session ; _ } -> Result.fail @@ f session
+  let[@innilne always] fail_map
+    : (Eval_session.t -> Status.Eval.t) -> 'a m
+    = fun f ->
+    let%bind { session ; _ } = read in
+    fail @@ f session
 
-  let abort : 'a m = fail Eval_session.abort
-  let diverge : 'a m = fail Eval_session.diverge
-  let type_mismatch reason : 'a m = fail @@ Fn.flip Eval_session.type_mismatch reason
+  let abort : 'a m = fail_map Eval_session.abort
+  let diverge : 'a m = fail_map Eval_session.diverge
+  let type_mismatch s : 'a m = fail_map @@ Fn.flip Eval_session.type_mismatch s
 end
 
 module Error_msg = struct
@@ -86,7 +147,7 @@ end
   Can I then optimize it to not have to pass it around most of the time?
 *)
 let eval_exp 
-  ~(session : Eval_session.t)
+  (session : Eval_session.t)
   (expr : Embedded.t) 
   : Status.Eval.t
   =
@@ -210,7 +271,7 @@ let eval_exp
       match v with
       | VBool (b, e) ->
         let body = if b then true_body else false_body in
-        let%bind () = modify @@ Eval_session.hit_branch (Direction.of_bool b) e in
+        let%bind () = modify_session @@ Eval_session.hit_branch (Direction.of_bool b) e in
         eval body env
       | _ -> type_mismatch @@ Error_msg.cond_non_bool v
     end
@@ -223,10 +284,10 @@ let eval_exp
         match body_opt with
         | Some body -> (* found a matching case *)
           let other_cases = List.filter int_cases ~f:((<>) i) in
-          let%bind () = modify @@ Eval_session.hit_case (Direction.of_int i) e ~other_cases in
+          let%bind () = modify_session @@ Eval_session.hit_case (Direction.of_int i) e ~other_cases in
           eval body env
         | None -> (* no matching case, so take default case *)
-          let%bind () = modify @@ Eval_session.hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases in
+          let%bind () = modify_session @@ Eval_session.hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases in
           eval default env
       end
       | _ -> type_mismatch @@ Error_msg.case_non_int v
@@ -264,7 +325,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
   let rec loop (e : Embedded.t) (main_session : Intra.t) (session : Eval_session.t) : Status.Terminal.t P.t =
     let open P in
     let* () = pause () in
-    let res = eval_exp ~session e in
+    let res = eval_exp session e in
     Intra.next
     @@ Intra.accum_eval main_session res
     >>= begin function
