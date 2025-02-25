@@ -1,0 +1,74 @@
+
+(*
+  This is well-typed because even though it looks like the
+  type function `m` is used as `m b` in two places, and those
+  are supposed to correspond, this type function `m` is NOT
+  GENERATED.
+
+  This is, this program is totally fine because no non-deterministic
+  type function is ever made, and instead the type checker uses the
+  provided `m`.
+*)
+
+let T = { t : type }
+
+let (F : (State : T) -> (Err : T) ->
+  {: m    : type -> type
+  ;  bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b (* having `m b` twice is safe here *)
+  ;  return : (a : type) -> a -> m a
+  ;  fail   : (a : type) -> Err.t -> m a
+  ;  read   : m State.t
+  ;  modify : (State.t -> State.t) -> m unit
+  :})
+  =
+  fun State Err ->
+    { m = fun a -> (* a is the type parameter *)
+      (r : type) -> (* r is the result forall type *)
+        (Err.t -> r) -> (a -> State.t -> r) -> State.t -> r
+    ; bind = fun a b -> (* a, b aren't actually used. They are only for type-checking *)
+        fun x f ->
+          fun r -> (* This r gets propagated. It stays the same *)
+            fun reject accept s ->
+              x r reject (fun a s ->
+                f a r reject accept s
+              ) s
+    ; return = fun a -> (* again just used for type checking *)
+        fun res ->
+          fun r -> (* result type *)
+            fun reject accept s ->
+              accept res s
+    ; fail = fun a -> (* .. *)
+        fun err -> (* error value *)
+          fun r -> (* result type *)
+              fun reject accept s ->
+                reject err
+    ; read =
+        fun r -> (* result type *)
+          fun reject accept s ->
+            accept s s
+    ; modify = fun f -> (* function on state type *)
+        fun r -> (* result type *)
+          fun reject accept s ->
+            accept {} (f s)
+    }
+
+let M = F { t = int } { t = bool }
+
+let sum n =
+  (* use the state to sum *)
+  let rec loop x =
+    if x <= 0
+    then M.read (* read final state, which holds sum *)
+    else
+      let m = M.modify (fun i -> i + x) in (* add x to sum *)
+      M.bind unit int m (fun ignore ->
+        loop (x - 1)
+      )
+  in
+  (loop n)
+    int (* result type *)
+    (fun i -> assume false) (* handle error *)
+    (fun res state -> res) (* extract result *)
+    0 (* initial state *)
+
+let (x : { i : int | i == 6 }) = sum 3
