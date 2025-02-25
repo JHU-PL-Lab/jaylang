@@ -5,7 +5,8 @@ open Expr
 open Value
 
 (*
-  General state monad that supports error but is significantly more efficient.
+  General state monad that supports error but is significantly more efficient
+  than using the Result monad inside of a normal state monad.
   Credit for this idea goes to the writer of the following post:
     https://discuss.ocaml.org/t/can-a-state-monad-be-optimized-out-with-flambda/9841/5?u=brandon
 *)
@@ -14,36 +15,28 @@ module FMonad (State : T) (Err : T) = struct
     run : 'r. reject:(Err.t -> 'r) -> accept:('a -> State.t -> 'r) -> State.t -> 'r
   }
 
-  let[@inline always] bind
-    : 'a m -> ('a -> 'b m) -> 'b m 
-    = fun x f ->
-      { run =
-        fun ~reject ~accept s ->
-          x.run s ~reject ~accept:(fun x s ->
-            (f x).run ~reject ~accept s
-          )
-      }
+  let[@inline always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
+    { run =
+      fun ~reject ~accept s ->
+        x.run s ~reject ~accept:(fun x s ->
+          (f x).run ~reject ~accept s
+        )
+    }
 
-  let[@inline always] return
-    : 'a -> 'a m
-    = fun a ->
-      { run = fun ~reject:_ ~accept s -> accept a s }
+  let[@inline always] return (a : 'a) : 'a m =
+    { run = fun ~reject:_ ~accept s -> accept a s }
 
   let read : State.t m =
     { run = fun ~reject:_ ~accept s -> accept s s }
 
-  let[@inline always] modify
-    : (State.t -> State.t) -> unit m
-    = fun f ->
-      { run =
-        fun ~reject:_ ~accept s ->
-          accept () (f s)
-      }
+  let[@inline always] modify (f : State.t -> State.t) : unit m =
+    { run =
+      fun ~reject:_ ~accept s ->
+        accept () (f s)
+    }
 
-  let[@inline always] fail
-    : Err.t -> 'a m
-    = fun e ->
-      { run = fun ~reject ~accept:_ _ -> reject e }
+  let[@inline always] fail (e : Err.t) : 'a m =
+    { run = fun ~reject ~accept:_ _ -> reject e }
 end
 
 module State_M = struct
@@ -51,24 +44,16 @@ module State_M = struct
     type t = { step : int ; session : Eval_session.t }
   end
 
-  module Err = struct
-    type t = Status.Eval.t
-  end
+  include FMonad (State) (Status.Eval)
 
-  include FMonad (State) (Err)
+  let run (x : 'a m) (session : Eval_session.t) : Status.Eval.t =
+    x.run
+      ~reject:Fn.id
+      ~accept:(fun _ s -> Eval_session.finish s.session)
+      State.{ step = 0 ; session }
 
-  let run
-    : 'a m -> Eval_session.t -> Status.Eval.t
-    = fun x session ->
-      x.run
-        ~reject:Fn.id
-        ~accept:(fun _ s -> Eval_session.finish s.session)
-        State.{ step = 0 ; session }
-
-  let[@inline always] modify_session 
-    : (Eval_session.t -> Eval_session.t) -> unit m
-    = fun f ->
-      modify (fun s -> { s with session = f s.session })
+  let[@inline always] modify_session (f : Eval_session.t -> Eval_session.t) : unit m =
+    modify (fun s -> { s with session = f s.session })
 
   (*
     As a general observation, it is more efficient to be hands-on and write this
@@ -76,30 +61,23 @@ module State_M = struct
     I suppose this is due to better inlining. I consider the tradeoff in favor
     of more efficiency worth the less abstract code.
   *)
-  let incr_step : unit m =
+  let incr_step : int m =
     { run =
       fun ~reject ~accept s ->
         let step = s.step + 1 in
         if step > Eval_session.get_max_step s.session
         then reject @@ Eval_session.reach_max_step s.session
-        else accept () { s with step }
+        else accept step { s with step }
     }
 
-  let[@inline always] modify_and_return
-    : (Eval_session.t -> Eval_session.t * 'a) -> 'a m
-    = fun f ->
-      { run =
-        fun ~reject:_ ~accept s ->
-          let session, a = f s.session in
-          accept a { s with session }
-      }
+  let[@inline always] modify_and_return (f : Eval_session.t -> Eval_session.t * 'a) : 'a m =
+    { run =
+      fun ~reject:_ ~accept s ->
+        let session, a = f s.session in
+        accept a { s with session }
+    }
 
-  let step : int m =
-    { run = fun ~reject:_ ~accept s -> accept s.step s }
-
-  let[@innilne always] fail_map
-    : (Eval_session.t -> Status.Eval.t) -> 'a m
-    = fun f ->
+  let[@innilne always] fail_map (f : Eval_session.t -> Status.Eval.t) : 'a m =
     let%bind { session ; _ } = read in
     fail @@ f session
 
@@ -155,7 +133,7 @@ let eval_exp
 
   let rec eval (expr : Embedded.t) (env : Env.t) : Value.t m =
     let open Value.M in (* puts the value constructors in scope *)
-    let%bind () = incr_step in
+    let%bind step = incr_step in
     match expr with
     (* Ints and bools -- constant expressions *)
     | EInt i -> 
@@ -293,14 +271,8 @@ let eval_exp
       | _ -> type_mismatch @@ Error_msg.case_non_int v
     end
     (* Inputs *)
-    | EPick_i ->
-      let%bind s = step in
-      let key = Stepkey.I s in
-      modify_and_return @@ Eval_session.get_input key
-    | EPick_b ->
-      let%bind s = step in
-      let key = Stepkey.B s in
-      modify_and_return @@ Eval_session.get_input key
+    | EPick_i -> modify_and_return @@ Eval_session.get_input (Stepkey.I step)
+    | EPick_b -> modify_and_return @@ Eval_session.get_input (Stepkey.B step)
     (* Failure cases *)
     | EAbort -> abort
     | EDiverge -> diverge
