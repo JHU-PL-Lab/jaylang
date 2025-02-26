@@ -34,6 +34,7 @@
 %token FUNCTION
 %token WITH
 %token LET
+%token LET_BIND
 %token IN
 %token REC
 %token IF
@@ -172,6 +173,8 @@ expr:
   // Let
   | LET ident_decl EQUALS expr IN expr %prec prec_let
       { ELet { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
+  | LET_BIND ident_decl EQUALS expr IN expr %prec prec_let
+      { ELetBind { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
   | LET OPEN_PAREN ident_decl COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
       { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 ; cont = $10 } : Bluejay.t }
   // Functions

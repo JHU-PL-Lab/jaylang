@@ -59,6 +59,7 @@ rule token = parse
 | "then"               { THEN }
 | "else"               { ELSE }
 | "let"                { LET }
+| "let%bind"          { LET_BIND}
 | "rec"                { REC }
 | "in"                 { IN }
 | "->"                 { ARROW }
