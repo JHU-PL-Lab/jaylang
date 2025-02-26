@@ -79,6 +79,7 @@ let key key = Key key
 let not_ (x : bool t) : bool t =
   match x with
   | Const B b -> Const (B (not b))
+  | Not e -> e (* cancel a double negation *)
   | _ -> Not x
 
 let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t) : b t =
