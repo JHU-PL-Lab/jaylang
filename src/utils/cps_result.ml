@@ -14,18 +14,18 @@
 open Core
 
 module Make (Err : sig type t end) = struct
-  module C = Preface.Continuation.Monad
-  type 'a m = ('a, Err.t) result C.t
+
+  type 'a m = {
+    cont : 'r. error:(Err.t -> 'r) -> ok:('a -> 'r) -> 'r
+  }
 
   let[@inline always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m = 
-    C.bind (function
-      | Ok r -> f r
-      | Error e -> C.return (Error e)
-    ) x
+    { cont = fun ~error ~ok ->
+      x.cont ~error ~ok:(fun a -> (f a).cont ~error ~ok)
+    }
 
   let[@inline always] return (a : 'a) : 'a m =
-    C.return
-    @@ Result.return a
+    { cont = fun ~error:_ ~ok -> ok a}
 
   let list_map (f : 'a -> 'b m) (ls : 'a list) : 'b list m =
     List.fold_right ls ~init:(return []) ~f:(fun a acc_m ->
@@ -35,6 +35,8 @@ module Make (Err : sig type t end) = struct
     )
 
   let[@inline always] fail (e : Err.t) : 'a m =
-    C.return
-    @@ Result.fail e
+    { cont = fun ~error ~ok:_ -> error e }
+
+  let run (x : 'a m) : ('a, Err.t) result =
+    x.cont ~error:(fun e -> Error e) ~ok:(fun a -> Ok a)
 end

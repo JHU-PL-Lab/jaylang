@@ -268,12 +268,13 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       )
   in
 
-  (eval e Env.empty).run (function
+  eval e Env.empty
+  |> CPS_Error_M.run
+  |> function
     | Ok r -> Format.printf "OK\n"; r
     | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
     | Error Abort -> Format.printf "FOUND ABORT\n"; VAbort
     | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge
-  )
 
 let eval_pgm (type a) (pgm : a Program.t) : a V.t =
   pgm
