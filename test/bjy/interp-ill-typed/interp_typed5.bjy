@@ -23,9 +23,9 @@ let (ttype : {: t : type ; tint : (``TInt nil.t) ; eq : t -> t -> bool ; is_int 
         and eq p1.right p2.right
       | _ -> false
       end
-    | `TInt ignore ->
+    | `TInt _ ->
       match b with
-      | `TInt ignore -> true
+      | `TInt _ -> true
       | _ -> false
       end
     end
@@ -153,7 +153,7 @@ let typecheck e =
       )
     end
   in
-  typecheck e (fun ignore_unbound_variable -> result.error)
+  typecheck e (fun _ -> result.error)
 
 let is_closed_and_well_typed e =
   result.is_ok (typecheck e)

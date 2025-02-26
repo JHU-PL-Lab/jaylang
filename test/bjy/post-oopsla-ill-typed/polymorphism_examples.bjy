@@ -1,8 +1,8 @@
 
 (* This function is well-typed, and it has a negative forall. *)
 let f (g : (a : type) -> a -> a) : int =
-  let (ignore : int) = g int 0 in
-  let (ignore : bool) = g bool true in
+  let (_ : int) = g int 0 in
+  let (_ : bool) = g bool true in
   0
 
 (*
@@ -22,7 +22,7 @@ let x = f g
 
 (* This function is ill-typed because the positive forall is violated *)
 let f (type a) (g : a -> a) : int =
-  let ignore = g true in (* bad because `a` is not guaranteed to be `bool` *)
+  let _ = g true in (* bad because `a` is not guaranteed to be `bool` *)
   0
 
 (*

@@ -34,7 +34,7 @@ let make_obj (cs : common_state.t) (x : int) (y : int) : colored_point.t =
         { x = x
         ; y = y
         ; get_deg = 
-            fun ignore_unit ->
+            fun _ ->
               let s = (self self) in
               let tan = s.intrinsic.y / s.intrinsic.x in (* ERROR: may divide by 0 *)
               tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 (* approx arctan with taylor expansion *)

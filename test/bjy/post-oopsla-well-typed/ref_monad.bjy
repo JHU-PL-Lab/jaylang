@@ -190,8 +190,8 @@ let set_ref ref_id t v =
 let new_ref t v =
   let%bind s = read in
   let new_id = s.next_id in
-  let%bind ignore_unit = modify state.incr_id in 
-  let%bind ignore_unit = set_ref new_id t v in
+  let%bind _ = modify state.incr_id in 
+  let%bind _ = set_ref new_id t v in
   return new_id
 
 let (res : { i : int | i == 10 }) =
@@ -200,7 +200,7 @@ let (res : { i : int | i == 10 }) =
     let%bind ref1_id = new_ref int 3 in
     let%bind ref0_v = deref ref0_id in
 
-    let%bind ignore_unit = set_ref ref0_id int (ref0_v * 3 + 1) in
+    let%bind _ = set_ref ref0_id int (ref0_v * 3 + 1) in
     let%bind ref1_v = deref ref1_id in
     let%bind ref0_v = deref ref0_id in
     return (ref0_v + ref1_v) (* error idea: forgot parentheses here *)

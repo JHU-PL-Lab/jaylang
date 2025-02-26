@@ -8,7 +8,7 @@ let rec mult x y k =
   else x + mult x (y - 1) (acc x k)
 
 let check w =
-  let ignore = assert true in
+  let _ = assert true in
   w
 
 let main (n : int) : int =

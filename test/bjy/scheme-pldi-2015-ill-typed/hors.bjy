@@ -6,7 +6,7 @@ let b x =
     x 1
 
 let a (x : int -> unit) (y : int -> unit) (q : { i : int | i == 0 }) : unit =
-  let ignore = x 0 in
+  let _ = x 0 in
   y 0
 
 let rec f n x q =

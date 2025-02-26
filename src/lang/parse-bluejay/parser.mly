@@ -113,9 +113,9 @@ statement_list:
   | statement statement_list { $1 :: $2 }
 
 statement:
-  | LET ident_decl EQUALS expr
+  | LET l_ident EQUALS expr
       { SUntyped { var = $2 ; body = $4 } : Bluejay.statement }
-  | LET OPEN_PAREN ident_decl COLON expr CLOSE_PAREN EQUALS expr
+  | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr
       { STyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 } : Bluejay.statement }
   | letfun_rec
       { SFunRec $1 : Bluejay.statement }
@@ -166,16 +166,16 @@ expr:
       { EBinop { left = $1 ; binop = BOr ; right = $3 } : Bluejay.t }
   | IF expr THEN expr ELSE expr %prec prec_if
       { EIf { cond = $2 ; true_body = $4 ; false_body = $6 } : Bluejay.t }
-  | FUNCTION ident_decl ARROW expr %prec prec_fun 
+  | FUNCTION l_ident ARROW expr %prec prec_fun 
       { EFunction { param = $2 ; body = $4 } : Bluejay.t }
-  | FUNCTION ident_decl param_list ARROW expr %prec prec_fun
+  | FUNCTION l_ident param_list ARROW expr %prec prec_fun
       { EMultiArgFunction { params = $2 :: $3 ; body = $5 } : Bluejay.t }
   // Let
-  | LET ident_decl EQUALS expr IN expr %prec prec_let
+  | LET l_ident EQUALS expr IN expr %prec prec_let
       { ELet { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
-  | LET_BIND ident_decl EQUALS expr IN expr %prec prec_let
+  | LET_BIND l_ident EQUALS expr IN expr %prec prec_let
       { ELetBind { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
-  | LET OPEN_PAREN ident_decl COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
+  | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
       { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 ; cont = $10 } : Bluejay.t }
   // Functions
   | letfun_rec IN expr %prec prec_fun
@@ -186,11 +186,11 @@ expr:
   | MATCH expr WITH PIPE? separated_nonempty_list(PIPE, match_expr) END
       { EMatch { subject = $2 ; patterns = $5 } : Bluejay.t }
   // Types expressions
-  | MU ident_decl DOT expr %prec prec_mu
+  | MU l_ident DOT expr %prec prec_mu
       { ETypeMu { var = $2 ; body = $4 } : Bluejay.t}
   | expr ARROW expr
       { ETypeArrow { domain = $1 ; codomain = $3 } : Bluejay.t }
-  | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN ARROW expr
+  | OPEN_PAREN l_ident COLON expr CLOSE_PAREN ARROW expr
       { ETypeArrowD { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
   | variant_type_body
       { ETypeVariant $1 : Bluejay.t }
@@ -226,7 +226,7 @@ record_type_or_refinement:
   | OPEN_BRACE record_label COLON expr SEMICOLON record_type_body CLOSE_BRACE
       { ETypeRecord (add_record_entry $2 $4 $6) }
   (* refinement type with binding for tau, which looks like a record type at first, so that's why we expand the rules above *)
-  | OPEN_BRACE ident_decl COLON expr PIPE expr CLOSE_BRACE
+  | OPEN_BRACE l_ident COLON expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } : Bluejay.t }
   | OPEN_BRACE_COLON separated_nonempty_list(SEMICOLON, record_type_item) COLON_CLOSE_BRACE
       { ETypeRecordD $2 : Bluejay.t }
@@ -255,11 +255,11 @@ letfun_rec:
 /* let foo (x : int) ... : int = ... */
 /* let foo (type a b) (x : int) ... : t = ... */
 fun_sig:
-  | ident_decl param_list EQUALS expr
+  | ident param_list EQUALS expr
       { FUntyped { func_id = $1 ; params = $2 ; body = $4 } : Bluejay.funsig }
-  | ident_decl param_list_with_type COLON expr EQUALS expr
+  | ident param_list_with_type COLON expr EQUALS expr
       { FTyped { type_vars = [] ; func_id = $1 ; params = $2 ; ret_type = $4 ; body = $6 } : Bluejay.funsig }
-  | ident_decl OPEN_PAREN TYPE param_list CLOSE_PAREN param_list_with_type COLON expr EQUALS expr 
+  | ident OPEN_PAREN TYPE param_list CLOSE_PAREN param_list_with_type COLON expr EQUALS expr 
       { FTyped { type_vars = $4 ; func_id = $1 ; params = $6 ; ret_type = $8 ; body = $10 } : Bluejay.funsig }
 
 /* **** Primary expressions **** */
@@ -324,26 +324,30 @@ param_list_with_type:
 ;
 
 param_with_type:
-  | OPEN_PAREN ident_decl COLON expr CLOSE_PAREN
+  | OPEN_PAREN l_ident COLON expr CLOSE_PAREN
       { TVar { var = $2 ; tau = $4 } : Bluejay.param }
-  | OPEN_PAREN ident_decl BACK_ARROW expr CLOSE_PAREN
+  | OPEN_PAREN l_ident BACK_ARROW expr CLOSE_PAREN
       { TVarDep { var = $2 ; tau = $4 } : Bluejay.param }
 ;
 
 param_list:
-  | ident_decl param_list { $1 :: $2 }
-  | ident_decl { [ $1 ] }
+  | l_ident param_list { $1 :: $2 }
+  | l_ident { [ $1 ] }
 ;
 
 %inline record_label:
-  | ident_decl { RecordLabel.RecordLabel $1 }
+  | ident { RecordLabel.RecordLabel $1 }
 ;
 
 %inline ident_usage:
-  | ident_decl { EVar $1 : Bluejay.t }
+  | ident { EVar $1 : Bluejay.t }
 ;
 
-%inline ident_decl:
+%inline l_ident: (* like "lvalue". These are idents that can be assigned to *)
+  | ident { $1 }
+  | UNDERSCORE { Ident.Ident "_"}
+
+%inline ident: (* these are idents that can be used as values *)
   | IDENTIFIER { Ident.Ident $1 }
 ;
 
@@ -359,11 +363,11 @@ record_body:
 
 /* e.g. `Variant 0 */
 variant_label:
-  | BACKTICK ident_decl { VariantLabel.VariantLabel $2 }
+  | BACKTICK ident { VariantLabel.VariantLabel $2 }
 
 /* e.g. ``Variant int */ 
 variant_type_label:
-  | BACKTICK BACKTICK ident_decl { VariantTypeLabel.VariantTypeLabel $3 }
+  | BACKTICK BACKTICK ident { VariantTypeLabel.VariantTypeLabel $3 }
 
 /* **** Pattern matching **** */
 
@@ -372,11 +376,11 @@ match_expr:
       { ($1, $3) : Bluejay.pattern * Bluejay.t }
 
 pattern:
-  | UNDERSCORE { PAny }
-  | ident_decl { PVariable $1 }
-  | variant_label ident_decl { PVariant { variant_label = $1 ; payload_id = $2 } }
-  | variant_label OPEN_PAREN ident_decl CLOSE_PAREN { PVariant { variant_label = $1 ; payload_id = $3 } }
+  | UNDERSCORE { PAny } (* for efficiency later, handle underscore separately *)
+  | ident { PVariable $1 } (* not l_ident because we handle underscore above *)
+  | variant_label l_ident { PVariant { variant_label = $1 ; payload_id = $2 } }
+  | variant_label OPEN_PAREN l_ident CLOSE_PAREN { PVariant { variant_label = $1 ; payload_id = $3 } }
   | OPEN_BRACKET CLOSE_BRACKET { PEmptyList }
-  | ident_decl DOUBLE_COLON ident_decl { PDestructList { hd_id = $1 ; tl_id = $3 } }
+  | l_ident DOUBLE_COLON l_ident { PDestructList { hd_id = $1 ; tl_id = $3 } }
   | OPEN_PAREN pattern CLOSE_PAREN { $2 }
 ;
