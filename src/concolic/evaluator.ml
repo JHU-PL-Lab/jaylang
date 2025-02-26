@@ -136,21 +136,17 @@ let eval_exp
     let%bind step = incr_step in
     match expr with
     (* Ints and bools -- constant expressions *)
-    | EInt i -> 
-      return @@ VInt (i, Expression.const_int i)
-    | EBool b -> 
-      return @@ VBool (b, Expression.const_bool b)
+    | EInt i -> return @@ VInt (i, Expression.const_int i)
+    | EBool b -> return @@ VBool (b, Expression.const_bool b)
     (* Simple -- no different than interpreter *)
-    | EVar id -> 
-      return @@ Env.fetch env id
+    | EVar id -> return @@ Env.fetch env id
     | EFunction { param ; body } ->
       return @@ VFunClosure { param ; body = { expr = body ; env } }
-    | EId -> 
-      return VId
+    | EId -> return VId
     | EFreeze e_freeze_body -> 
       return @@ VFrozen { expr = e_freeze_body ; env }
     | EVariant { label ; payload = e_payload } -> 
-      let%bind payload  = eval e_payload env in
+      let%bind payload = eval e_payload env in
       return @@ VVariant { label ; payload }
     | EProject { record = e_record ; label } -> begin
       let%bind v = eval e_record env in
@@ -239,8 +235,7 @@ let eval_exp
     | ENot e_not_body -> begin
       let%bind v = eval e_not_body env in
       match v with
-      | VBool (b, e_b) ->
-        return @@ VBool (not b, Expression.not_ e_b) 
+      | VBool (b, e_b) -> return @@ VBool (not b, Expression.not_ e_b) 
       | _ -> type_mismatch @@ Error_msg.bad_not v
     end
     (* Branching *)
@@ -288,7 +283,8 @@ let eval_exp
   This sections starts up and runs the concolic evaluator (see the eval_exp above)
   repeatedly to hit all the branches.
 
-  This eval spans multiple interpretations, trying to hit the branches.
+  This eval spans multiple interpretations, hitting a provably different
+  path on each interpretation.
 *)
 
 module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
