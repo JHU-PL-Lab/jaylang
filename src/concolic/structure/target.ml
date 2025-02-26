@@ -1,8 +1,6 @@
 
-module C = Utils.Counter.Make ()
-
 (* we can safely use this when making because it's promised that we never make a target twice *)
-let uid = C.create ()
+let uid = Utils.Counter.create ()
 
 type t =
   { dir    : Direction.Packed.t
@@ -18,7 +16,7 @@ let make (rev_path : Path.Reverse.t) : t =
     { dir
     ; path = { backward_path }
     ; path_n = List.length backward_path + 1
-    ; uniq_id = C.next uid }
+    ; uniq_id = Utils.Counter.next uid }
 
 (*
   SUPER IMPORTANT NOTE:
@@ -51,7 +49,7 @@ let append_path (path_to : Path.t) (target : t) : t =
   { dir = target.dir
   ; path_n = target.path_n + List.length path_to.forward_path
   ; path = Path.Reverse.concat target.path @@ Path.Reverse.of_forward_path path_to
-  ; uniq_id = C.next uid }
+  ; uniq_id = Utils.Counter.next uid }
 
 let path_n ({ path_n ; _ } : t) : int =
   path_n

@@ -42,7 +42,13 @@ module rec Node : NODE with type 'a edge := 'a Edge.t = struct
 
   let rec set_at_path (tree : t) (path : Path.t) ~(to_add : t) : t =
     match path.forward_path with
-    | [] -> to_add
+    | [] -> Fn.const to_add @@
+      assert (
+        match tree with
+        | Target
+        | Leaf -> true (* we only realistically overwrite a target or leaf with the new tree *)
+        | _ -> false (* break loudly if we are overwriting some tree because this is not expected *)
+      )
     | dir :: tl ->
       let go t = set_at_path t { forward_path = tl } ~to_add in
       match dir, tree with

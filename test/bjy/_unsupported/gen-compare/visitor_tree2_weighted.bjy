@@ -33,7 +33,7 @@ let visitor =
   let t tree_t =
     fun a ->
       fun result_type ->
-        { visit_node : node.t a (tree_t a) # ERROR: is not a function
+        { visit_node : node.t a (tree_t a) (* ERROR: is not a function *)
          ; visit_leaf : leaf.t a -> result_type }
   in
   { t_gen = t tree.t_gen
@@ -61,7 +61,7 @@ let make_list f n =
   loop n
 in
 
-# Makes big tree recursively with many children
+(* Makes big tree recursively with many children *)
 let rec make_tree (n : int) : tree.t_check (int) =
   let ob =
     fun self ->

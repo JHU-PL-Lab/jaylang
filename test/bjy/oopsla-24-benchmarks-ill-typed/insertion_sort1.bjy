@@ -26,7 +26,7 @@ let rec insert x l =
   | [] -> [ x ]
   | h :: t ->
     if x <= h
-    then h :: (insert x t) # ERROR: the `then` and `else` cases are switched
+    then h :: (insert x t) (* ERROR: the `then` and `else` cases are switched *)
     else x :: l
   end
 
@@ -39,5 +39,5 @@ let ret_type xs =
       else not (is_nonempty l)
   }
 
-letd sort (xs : list int) : ret_type xs =
+let sort (xs <- list int) : ret_type xs =
   foldl insert [] xs

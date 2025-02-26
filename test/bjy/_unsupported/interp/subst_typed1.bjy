@@ -184,10 +184,10 @@ let typecheck e =
       typecheck e gamma
     in
     match e with
-    # Axioms
+    (* Axioms *)
     | `Var id -> gamma id
     | `Int i -> result.return ttype.tint
-    # Functions
+    (* Functions *)
     | `Function trip ->
       result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
         result.return (`TArrow { left = trip.second ; right = tau })
@@ -204,7 +204,7 @@ let typecheck e =
         | _ -> result.error
         end
       )
-    # Conditions
+    (* Conditions *)
     | `If_then_else trip -> 
       result.bind (tc trip.first) (fun tau_cond ->
         if ttype.is_int tau_cond
@@ -218,7 +218,7 @@ let typecheck e =
           )
         else result.error
       )
-    # Simple expressions
+    (* Simple expressions *)
     | _ ->
       let p =
         match e with
@@ -245,7 +245,7 @@ in
 
 let is_closed_and_well_typed e =
   result.is_ok (typecheck e)
-  # Note we don't actually have to check for closed because that would be an unbound variable when typechecking
+  (* Note we don't actually have to check for closed because that would be an unbound variable when typechecking *)
 in
 
 let rec list_remove ls a eq =
@@ -298,7 +298,7 @@ let free_vars e =
         end
       in
       loop p.left bound_ids acc (fun res ->
-        loop p.right bound_ids res k # previous ERROR: I had trip.right but should be p.right; I also had acc instead of res (failing to propogate)
+        loop p.right bound_ids res k (* previous ERROR: I had trip.right but should be p.right; I also had acc instead of res (failing to propogate) *)
       )
     end
   in
@@ -306,7 +306,7 @@ let free_vars e =
 in
 *)
 
-# after subst; the expression has the same free variables as e; minus id
+(* after subst; the expression has the same free variables as e; minus id *)
 letd subst (e : expr.t_gen) : (id : ident.t) -> value.t_gen -> { expr.t_check | fun new_expr ->
   let new_free_vars = free_vars new_expr in
   let old_free_vars = free_vars e in
@@ -331,19 +331,19 @@ letd subst (e : expr.t_gen) : (id : ident.t) -> value.t_gen -> { expr.t_check | 
     | `Minus p -> `Minus (sub_pair p)
     | `Equal p -> `Equal (sub_pair p)
     | `Appl p -> `Appl (sub_pair p)
-    #| `If_then_else trip -> `If_then_else { first = sub trip.first ; second = sub trip.second ; third = sub trip.third } # well-typed
-    | `If_then_else trip -> `If_then_else { first = sub trip.second ; second = sub trip.second ; third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label
-    # This gets caught nearly instantly with types on subst
+    (*| `If_then_else trip -> `If_then_else { first = sub trip.first ; second = sub trip.second ; third = sub trip.third } # well-typed *)
+    | `If_then_else trip -> `If_then_else { first = sub trip.second ; second = sub trip.second ; third = sub trip.third } (* ERROR: trip.second should be trip.first in the `first` label *)
+    (* This gets caught nearly instantly with types on subst *)
     end
   in
   sub e
 in
 
-# Archive this error
-    #| `If_then_else trip -> `If_then_else { first = sub trip.second ; second = sub trip.second ; third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label
-      # Without types on subst; this error is very difficult because we need something like
-      #    (fun x : int -> if x then fun y : int -> y else fun y : int -> y) 0
-      # So that the condition evaluates to a non-int after the substitution
+(* Archive this error *)
+    (*| `If_then_else trip -> `If_then_else { first = sub trip.second ; second = sub trip.second ; third = sub trip.third } # ERROR: trip.second should be trip.first in the `first` label *)
+      (* Without types on subst; this error is very difficult because we need something like *)
+      (*    (fun x : int -> if x then fun y : int -> y else fun y : int -> y) 0 *)
+      (* So that the condition evaluates to a non-int after the substitution *)
 
 let int_exn e =
   match e with
@@ -351,7 +351,7 @@ let int_exn e =
   end
 in
 
-#let rec eval (e : { expr.t_gen | is_closed_and_well_typed }) : value.t_check =
+(*let rec eval (e : { expr.t_gen | is_closed_and_well_typed }) : value.t_check = *)
 let rec eval e =
   let op_ints p op = 
     let i1 = int_exn (eval p.left) in
@@ -371,7 +371,7 @@ let rec eval e =
   | `If_then_else trip ->
     match eval trip.first with
     | `Int i ->
-      if i <> 0 # non-zero int is true; like in C
+      if i <> 0 (* non-zero int is true; like in C *)
       then eval trip.second
       else eval trip.third
     end

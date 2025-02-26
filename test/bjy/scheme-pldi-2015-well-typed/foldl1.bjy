@@ -1,4 +1,4 @@
-# error is that input list xs should be nonempty
+(* error is that input list xs should be nonempty *)
 
 let is_nonempty ls =
   match ls with

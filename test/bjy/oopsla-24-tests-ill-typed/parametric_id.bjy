@@ -4,4 +4,4 @@ let t a = a
 let f (type a_) (x : t a_) : t a_ =
   x
 
-let res = f int true # ERROR: should be an integer
+let res = f int true (* ERROR: should be an integer *)

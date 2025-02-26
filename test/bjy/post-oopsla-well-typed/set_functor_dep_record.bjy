@@ -1,7 +1,7 @@
 
 let t = {: t : type ; elt : type ; empty : t ; add : t -> elt -> t :}
 
-letd F (x : t) : { of_list : list x.elt -> x.t } =
+let F (x <- t) : { of_list : list x.elt -> x.t } =
   { of_list = fun ls -> 
     let rec loop acc ls =
       match ls with

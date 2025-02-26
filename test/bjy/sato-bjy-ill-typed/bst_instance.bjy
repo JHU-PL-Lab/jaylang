@@ -1,4 +1,4 @@
-# error is that x has 6 on left of root value 2; which is not a bst
+(* error is that x has 6 on left of root value 2; which is not a bst *)
 
 let rec is_bst t = 
   match t with
@@ -35,7 +35,7 @@ let (x : { tree_type | is_bst }) =
   `Node { left = 
           `Node { left = `Leaf { leaf = true }
                 ; right = `Leaf { leaf = true }
-                ; item = 6  # ERROR: this item should be switched with the other
+                ; item = 6  (* ERROR: this item should be switched with the other *)
                 }
         ; right = `Leaf { leaf = true }
         ; item = 2

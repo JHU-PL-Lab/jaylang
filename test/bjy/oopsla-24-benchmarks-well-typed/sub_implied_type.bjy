@@ -1,7 +1,7 @@
 
 let (zero_type : type) = { i : int | i == 0 }
 
-# ignored arg must be 0. Applies 0 to g
+(* ignored arg must be 0. Applies 0 to g *)
 let appl_zero (g : zero_type -> bool) (ignored_zero_arg : zero_type) : bool =
   g 0
 

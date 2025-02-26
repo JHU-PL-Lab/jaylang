@@ -1,3 +1,16 @@
+(**
+  File: c_random.mli
+  Purpose: a random number module for concolic evaluation
+
+  Detailed description:
+    For consistency and testing, we use a seed for random number
+    generation that is needed during concolic evaluation. E.g.
+    targets are randomly popped from queues, unconstrained inputs
+    get random values, etc.
+
+    This is stateful, and it's expected that [reset ()] is called
+    to reset the state back to its seed.
+*)
 
 val reset : unit -> unit
 (** [reset ()] initializes the pseudo-random number generator with a pre-selected seed.

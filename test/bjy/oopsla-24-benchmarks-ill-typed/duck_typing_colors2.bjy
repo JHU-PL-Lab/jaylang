@@ -1,4 +1,4 @@
-# The well-typed version of this is the same as the well-typed of duck_typing_colors1
+(* The well-typed version of this is the same as the well-typed of duck_typing_colors1 *)
 
 let (color : { t : type }) =
   { t =
@@ -30,8 +30,8 @@ let (obj : colored_point.t) =
         fun ignore_unit ->
           let s = (self self) in
           let tan = s.y / s.x in
-          tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 # approx arctan with taylor expansion
-      ; color = 255 } # ERROR: should have label `c`; not `color` (this is a typo I made when writing this test)
+          tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 (* approx arctan with taylor expansion *)
+      ; color = 255 } (* ERROR: should have label `c`; not `color` (this is a typo I made when writing this test) *)
   in
   ob ob
 

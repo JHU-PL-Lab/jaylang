@@ -1,10 +1,10 @@
 
 let rec sum x acc = 
-    match x with
-    | [] -> acc
-    | hd :: tl -> sum tl (acc + hd)
-    end
+  match x with
+  | [] -> acc
+  | hd :: tl -> sum tl (acc + hd)
+  end
 
-letd f (x : list int) : ({ int | fun a -> (a == (sum x 0))}) =
-    sum x 1
+let f (x <- list int) : { int | fun a -> (a == (sum x 0))} =
+  sum x 1
     

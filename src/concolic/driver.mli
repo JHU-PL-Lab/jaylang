@@ -1,3 +1,17 @@
+(**
+  File: driver.mli
+  Purpose: the external interface for starting up the concolic evaluator
+
+  Detailed description:
+    The driver runs the concolic evaluator on either filenames or
+    already-parsed Bluejay programs. The translator is run according
+    to the [do_wrap] named argument, as well as with consideration for
+    all of the provided optional arguments.
+
+  Dependencies:
+    Basically everything in the `concolic/` directory.
+*)
+
 
 type 'a test = ('a, do_wrap:bool -> Status.Terminal.t) Options.Arrow.t
 

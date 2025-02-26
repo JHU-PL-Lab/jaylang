@@ -1,4 +1,4 @@
-# Polymorphic compose
+(* Polymorphic compose *)
 
 let compose (type a b c) (b_c : b -> c) (a_b : a -> b) (a_ : a) : c =
   b_c (a_b a_)

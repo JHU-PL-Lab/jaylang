@@ -1,11 +1,10 @@
-# error is that > in `h` should be <
+(* error is that > in `h` should be < *)
 
 let f x g =
   g (x + 1)
 
-letd h (z : int) : { y : int | z < y } -> unit =
-  fun y -> 
-    {}
+let h (z <- int) (y : { y : int | z < y }) : unit =
+  {}
 
 let main (n : int) : unit =
   if n > 0

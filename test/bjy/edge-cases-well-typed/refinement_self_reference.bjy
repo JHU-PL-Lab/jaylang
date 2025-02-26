@@ -2,5 +2,5 @@
 let rec f (x : int) : { int | fun i -> (f i) == i } =
   x
 
-letd rec g (x : int) : { int | fun i -> (g x) == i } =
+let rec g (x <- int) : { int | fun i -> (g x) == i } =
   x + 1

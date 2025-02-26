@@ -1,3 +1,11 @@
+(**
+  Bin [interp].
+
+  This executable runs the interpreter on the program at the
+  given file path. The file must be a Bluejay (`.bjy`) file,
+  and the mode (`-m`) argument allows the user to translate the
+  programs to other languages before interpreting.
+*)
 
 open Core
 open Lang

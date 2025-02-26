@@ -39,7 +39,7 @@ let make_list f n =
   in
   loop n
 
-# Makes big tree recursively with many children
+(* Makes big tree recursively with many children *)
 let rec make_tree (n : int) : tree.t int =
   let ob =
     fun self ->
@@ -58,6 +58,6 @@ let int_bool_client (tr : tree.t int) : client int (tree.t int) bool =
     fun vis ->
       match tr with
       | `Leaf leaf -> vis.visit_leaf leaf
-      | `Node node -> vis.visit_leaf node # ERROR: should be vis.visit_node 
+      | `Node node -> vis.visit_leaf node (* ERROR: should be vis.visit_node  *)
       end
   }

@@ -1,3 +1,13 @@
+(**
+  Module [Interp].
+
+  This module interpretes any language defined in this system.
+  It uses GADTs and type constraints to define the interpreter
+  for all languages in one function.
+
+  Note that all input clauses get the default `0` or `false`.
+  There is currently not support for custom inputs.
+*)
 
 open Core
 open Ast
@@ -12,7 +22,7 @@ open V
   Notes:
     * With CPS is definitely much faster on very long computations
     * However, on somewhat small computations on the order of ms and tens of ms, non-CPS is faster by the same order
-      * With inline_always, most of that performance gap goes away, so CPS is generally a fine choice
+      * With [@inline always], most of that performance gap goes away, so CPS is generally a fine choice
  *)
 module CPS_Error_M = struct
   module Err = struct
@@ -260,12 +270,13 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       )
   in
 
-  (eval e Env.empty).run (function
+  eval e Env.empty
+  |> CPS_Error_M.run
+  |> function
     | Ok r -> Format.printf "OK\n"; r
     | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
     | Error Abort -> Format.printf "FOUND ABORT\n"; VAbort
     | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge
-  )
 
 let eval_pgm (type a) (pgm : a Program.t) : a V.t =
   pgm

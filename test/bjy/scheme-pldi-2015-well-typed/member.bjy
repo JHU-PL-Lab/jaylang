@@ -1,5 +1,5 @@
-# type-error is base case doesn't return bool
-# issues: we don't have polymorphic equals; so this must be int when it used to be any (i.e. 'a)
+(* type-error is base case doesn't return bool *)
+(* issues: we don't have polymorphic equals; so this must be int when it used to be any (i.e. 'a) *)
 
 let rec member (x : int) (l : list int) : bool =
   match l with

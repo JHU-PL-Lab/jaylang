@@ -1,4 +1,4 @@
-# Resolved the error in this by making a concrete version for any of the expected types
+(* Resolved the error in this by making a concrete version for any of the expected types *)
 
 let rec append a b =
   match a with

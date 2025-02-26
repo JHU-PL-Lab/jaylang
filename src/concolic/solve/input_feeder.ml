@@ -21,7 +21,7 @@ let default : t =
     f
   }
 
-module Make (Expr : Z3_intf.S) = struct
+module Make (Expr : Z3_api.S) = struct
   let from_model (model : Z3.Model.model) : t =
     { get = 
       let f (type a) (key : a Stepkey.t) : a =

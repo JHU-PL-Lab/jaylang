@@ -1,4 +1,4 @@
-# Polymorphic higher order function application is incorrect
+(* Polymorphic higher order function application is incorrect *)
 
 let sign = (``Even { even : bool } || ``Odd { odd : bool })
 
@@ -10,12 +10,12 @@ let rec list_count (type a_) (ls : list a_) (f : a_ -> bool) : int =
     a + list_count a_ tl f
   end
 
-# Computes sgn of permutation
+(* Computes sgn of permutation *)
 let sgn (type a_) (ls : list a_) (compare : a_ -> a_ -> int) : sign =
   let rec num_inversions l =
     match l with
     | [] -> 0
-    | hd :: tl -> list_count a_ tl (fun x -> compare x hd < x) + num_inversions tl # ERROR: should be `compare x hd < 0`
+    | hd :: tl -> list_count a_ tl (fun x -> compare x hd < x) + num_inversions tl (* ERROR: should be `compare x hd < 0` *)
     end
   in
   if num_inversions ls % 2 == 0

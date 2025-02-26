@@ -1,37 +1,50 @@
+(**
+  Module [Ast_tools].
+
+  Defined here are general tools that are helpful to manipulate
+  programs.
+
+  There are the labels and names that are reserved to be introduced
+  during translation, tools to abstract, apply, and project, and
+  methods to extract the function components from a function signature.
+*)
 
 open Core
 open Ast
 
-module Reserved_labels = struct
-  module Records = struct
-    let gen : RecordLabel.t = RecordLabel (Ident "~gen")
-    let check : RecordLabel.t = RecordLabel (Ident "~check")
-    let wrap : RecordLabel.t = RecordLabel (Ident "~wrap")
-    let hd : RecordLabel.t = RecordLabel (Ident "~hd")
-    let tl : RecordLabel.t = RecordLabel (Ident "~tl")
-  end
+(*
+  Here are some reserved names that don't parse, so the programmer cannot
+  write them, and we are safe to inject them into the AST.
+*)
+module Reserved = struct
+  (* For conciseness, don't nest modules to separate into the following groups *)
 
-  module Variants = struct
-    let cons : VariantLabel.t = VariantLabel (Ident "~Cons") 
-    let nil : VariantLabel.t = VariantLabel (Ident "~Nil") 
-    let untouched : VariantLabel.t = VariantLabel (Ident "~Untouched")
-    let top : VariantLabel.t = VariantLabel (Ident "~Top")
-    let bottom : VariantLabel.t = VariantLabel (Ident "~Bottom")
-    let predicate_failed : VariantLabel.t = VariantLabel (Ident "~Predicate_failed")
-  end
+  (* Record labels *)
+  let gen : RecordLabel.t = RecordLabel (Ident "~gen")
+  let check : RecordLabel.t = RecordLabel (Ident "~check")
+  let wrap : RecordLabel.t = RecordLabel (Ident "~wrap")
+  let hd : RecordLabel.t = RecordLabel (Ident "~hd")
+  let tl : RecordLabel.t = RecordLabel (Ident "~tl")
 
-  module VariantTypes = struct
-    let cons : VariantTypeLabel.t = VariantTypeLabel (Ident "~Cons") 
-    let nil : VariantTypeLabel.t = VariantTypeLabel (Ident "~Nil") 
-  end
+  (* Variant constructors *)
+  let cons : VariantLabel.t = VariantLabel (Ident "~Cons") 
+  let nil : VariantLabel.t = VariantLabel (Ident "~Nil") 
+  let untouched : VariantLabel.t = VariantLabel (Ident "~Untouched")
+  let top : VariantLabel.t = VariantLabel (Ident "~Top")
+  let bottom : VariantLabel.t = VariantLabel (Ident "~Bottom")
+  let predicate_failed : VariantLabel.t = VariantLabel (Ident "~Predicate_failed")
 
-  module Idents = struct
-    let catchall : Ident.t = Ident "_"
-  end
+  (* Variant type constructors *)
+  let cons_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Cons") 
+  let nil_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Nil") 
+
+  (* Idents *)
+  let catchall : Ident.t = Ident "_"
 end
 
 module Utils = struct
   let unit_value : type a. a Expr.t = ERecord RecordLabel.Map.empty
+  let unit_type : 'a Constraints.bluejay_or_desugared Expr.t = ETypeRecord RecordLabel.Map.empty
 
   (*
     [ tau1 ; ... ; taun ], tau |->
@@ -95,6 +108,14 @@ module Function_components = struct
     }
 end
 
+module Param = struct
+  type 'a t = 'a Expr.param
+
+  let to_id : 'a t -> Ident.t = function
+    | TVar { var ; _ }
+    | TVarDep { var ; _ } -> var
+end
+
 module Funsig = struct
   type 'a t = 'a Expr.funsig
 
@@ -105,15 +126,16 @@ module Funsig = struct
     match fsig with
     | FUntyped { func_id ; params ; body } ->
       { func_id ; tau_opt = None ; params ; body }
-    | FTyped { type_vars ;  func_id ; params ; ret_type ; body } ->
-      let param_ids, param_taus = List.unzip @@ List.map params ~f:(fun { var ; tau } -> var, tau) in
-      { func_id ; body ; params = type_vars @ param_ids
-      ; tau_opt = Some (ETypeForall { type_variables = type_vars ; tau = Utils.tau_list_to_arrow_type param_taus ret_type }) }
-    | FDepTyped { type_vars ; func_id ; params ; ret_type ; body } ->
-      { func_id ; body ; params = type_vars @ [ params.var ]
+    | FTyped { type_vars ; func_id ; params ; ret_type ; body } ->
+      { func_id ; body ; params = type_vars @ List.map params ~f:Param.to_id
       ; tau_opt = Some (
-          ETypeForall
-            { type_variables = type_vars
-            ; tau = ETypeArrowD { binding = params.var ; domain = params.tau ; codomain = ret_type } }
-      )}
+        ETypeForall
+          { type_variables = type_vars
+          ; tau = List.fold_right params ~init:ret_type ~f:(fun tvar codomain ->
+              match tvar with
+              | TVar { var = _ ; tau } -> Expr.ETypeArrow { domain = tau ; codomain }
+              | TVarDep { var ; tau } -> ETypeArrowD { binding = var ; domain = tau ; codomain }
+            )
+          }
+      ) }
 end

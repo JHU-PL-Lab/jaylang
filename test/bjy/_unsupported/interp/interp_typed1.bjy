@@ -1,6 +1,6 @@
-# Time to find error:
-# About 41 seconds with nil as int
-# About 18 seconds with nil as bool (I think this is just lucky. There is no explanation or positive pattern in other tests)
+(* Time to find error: *)
+(* About 41 seconds with nil as int *)
+(* About 18 seconds with nil as bool (I think this is just lucky. There is no explanation or positive pattern in other tests) *)
 
 let nil =
   { t = int
@@ -25,8 +25,8 @@ let ttype =
     | `TArrow p1 ->
       match b with
       | `TArrow p2 ->
-        # ERROR: these are first and second; but they should be left and right
-        # This error is realized when a condition has a function as both the "then" and "else" bodies; which is a deep error.
+        (* ERROR: these are first and second; but they should be left and right *)
+        (* This error is realized when a condition has a function as both the "then" and "else" bodies; which is a deep error. *)
         eq p1.first p2.first
         and eq p1.second p2.second
       | _ -> false
@@ -141,10 +141,10 @@ let typecheck e =
       typecheck e gamma
     in
     match e with
-    # Axioms
+    (* Axioms *)
     | `Var id -> gamma id
     | `Int i -> result.return ttype.tint
-    # Functions
+    (* Functions *)
     | `Function trip ->
       result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
         result.return (`TArrow { left = trip.second ; right = tau })
@@ -161,7 +161,7 @@ let typecheck e =
         | _ -> result.error
         end
       )
-    # Conditions
+    (* Conditions *)
     | `If_then_else trip -> 
       result.bind (tc trip.first) (fun tau_cond ->
         if ttype.is_int tau_cond
@@ -175,7 +175,7 @@ let typecheck e =
           )
         else result.error
       )
-    # Simple expressions
+    (* Simple expressions *)
     | _ ->
       let p =
         match e with
@@ -202,10 +202,10 @@ in
 
 let is_closed_and_well_typed e =
   result.is_ok (typecheck e)
-  # Note we don't actually have to check for closed because that would be an unbound variable when typechecking
+  (* Note we don't actually have to check for closed because that would be an unbound variable when typechecking *)
 in
 
-#let subst (e : expr.t) (id : ident.t) (v : value.t) : expr.t =
+(*let subst (e : expr.t) (id : ident.t) (v : value.t) : expr.t = *)
 let subst e id v =
   let rec sub e =
     let sub_pair p =
@@ -257,7 +257,7 @@ let rec eval (e : { expr.t_gen | is_closed_and_well_typed }) : value.t_check =
   | `If_then_else trip ->
     match eval trip.first with
     | `Int i ->
-      if i <> 0 # non-zero int is true; like in C
+      if i <> 0 (* non-zero int is true; like in C *)
       then eval trip.second
       else eval trip.third
     end

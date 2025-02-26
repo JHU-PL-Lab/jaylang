@@ -1,8 +1,8 @@
-# error is that xs should be nonempty
+(* error is that xs should be nonempty *)
 
 let rec foldr1 (type a_) (f : a_ -> a_ -> a_) (xs : list a_) : a_ =
   match xs with
-  | [] -> assert false # ERROR: xs chould be empty
+  | [] -> assert false (* ERROR: xs chould be empty *)
   | z :: zs ->
     match zs with
     | [] -> z

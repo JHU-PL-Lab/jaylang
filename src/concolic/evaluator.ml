@@ -4,28 +4,86 @@ open Lang.Ast
 open Expr
 open Value
 
-module C_result = struct
-  (* a state for the step and session would be really nice, but it is too slow *)
-  type 'a t = { v : 'a ; step : int ; session : Eval_session.t }
+(*
+  General state monad that supports error but is significantly more efficient
+  than using the Result monad inside of a normal state monad.
+  Credit for this idea goes to the writer of the following post:
+    https://discuss.ocaml.org/t/can-a-state-monad-be-optimized-out-with-flambda/9841/5?u=brandon
+*)
+module FMonad (State : T) (Err : T) = struct
+  type 'a m = {
+    run : 'r. reject:(Err.t -> 'r) -> accept:('a -> State.t -> 'r) -> State.t -> 'r
+  }
 
-  let get_session ({ session ; _ } : 'a t) : Eval_session.t =
-    session
+  let[@inline always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
+    { run =
+      fun ~reject ~accept s ->
+        x.run s ~reject ~accept:(fun x s ->
+          (f x).run ~reject ~accept s
+        )
+    }
+
+  let[@inline always] return (a : 'a) : 'a m =
+    { run = fun ~reject:_ ~accept s -> accept a s }
+
+  let read : State.t m =
+    { run = fun ~reject:_ ~accept s -> accept s s }
+
+  let[@inline always] modify (f : State.t -> State.t) : unit m =
+    { run =
+      fun ~reject:_ ~accept s ->
+        accept () (f s)
+    }
+
+  let[@inline always] fail (e : Err.t) : 'a m =
+    { run = fun ~reject ~accept:_ _ -> reject e }
 end
 
-module CPS_Result_M = struct
-  include Utils.Cps_result.Make (Status.Eval)
+module State_M = struct
+  module State = struct
+    type t = { step : int ; session : Eval_session.t }
+  end
 
-  let abort (session : Eval_session.t) : 'a m =
-    fail @@ Eval_session.abort session
+  include FMonad (State) (Status.Eval)
 
-  let diverge (session : Eval_session.t) : 'a m =
-    fail @@ Eval_session.diverge session
+  let run (x : 'a m) (session : Eval_session.t) : Status.Eval.t =
+    x.run
+      ~reject:Fn.id
+      ~accept:(fun _ s -> Eval_session.finish s.session)
+      State.{ step = 0 ; session }
 
-  let type_mismatch (session : Eval_session.t) (reason : string) : 'a m =
-    fail @@ Eval_session.type_mismatch session reason
+  let[@inline always] modify_session (f : Eval_session.t -> Eval_session.t) : unit m =
+    modify (fun s -> { s with session = f s.session })
 
-  let reach_max_step (session : Eval_session.t) : 'a m =
-    fail @@ Eval_session.reach_max_step session
+  (*
+    As a general observation, it is more efficient to be hands-on and write this
+    using the structure of FMonad instead of using `read`, `return`, etc.
+    I suppose this is due to better inlining. I consider the tradeoff in favor
+    of more efficiency worth the less abstract code.
+  *)
+  let incr_step : int m =
+    { run =
+      fun ~reject ~accept s ->
+        let step = s.step + 1 in
+        if step > Eval_session.get_max_step s.session
+        then reject @@ Eval_session.reach_max_step s.session
+        else accept step { s with step }
+    }
+
+  let[@inline always] modify_and_return (f : Eval_session.t -> Eval_session.t * 'a) : 'a m =
+    { run =
+      fun ~reject:_ ~accept s ->
+        let session, a = f s.session in
+        accept a { s with session }
+    }
+
+  let[@innilne always] fail_map (f : Eval_session.t -> Status.Eval.t) : 'a m =
+    let%bind { session ; _ } = read in
+    fail @@ f session
+
+  let abort : 'a m = fail_map Eval_session.abort
+  let diverge : 'a m = fail_map Eval_session.diverge
+  let type_mismatch s : 'a m = fail_map @@ Fn.flip Eval_session.type_mismatch s
 end
 
 module Error_msg = struct
@@ -67,12 +125,11 @@ end
   Can I then optimize it to not have to pass it around most of the time?
 *)
 let eval_exp 
-  ~(session : Eval_session.t)
+  (session : Eval_session.t)
   (expr : Embedded.t) 
   : Status.Eval.t
   =
-  let open CPS_Result_M in
-  let max_step = Eval_session.get_max_step session in
+  let open State_M in
 
   let rec eval 
     ~(session : Eval_session.t)
@@ -259,11 +316,7 @@ let eval_exp
 
   in
 
-  (eval ~session ~step:0 expr Env.empty).run (function
-    | Ok r -> C_result.get_session r |> Eval_session.finish
-    | Error status -> status
-    )
-
+  run (eval expr Env.empty) session
 
 (*
   -------------------
@@ -273,7 +326,8 @@ let eval_exp
   This sections starts up and runs the concolic evaluator (see the eval_exp above)
   repeatedly to hit all the branches.
 
-  This eval spans multiple interpretations, trying to hit the branches.
+  This eval spans multiple interpretations, hitting a provably different
+  path on each interpretation.
 *)
 
 module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
@@ -282,7 +336,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
   let rec loop (e : Embedded.t) (main_session : Intra.t) (session : Eval_session.t) : Status.Terminal.t P.t =
     let open P in
     let* () = pause () in
-    let res = eval_exp ~session e in
+    let res = eval_exp session e in
     Intra.next
     @@ Intra.accum_eval main_session res
     >>= begin function

@@ -17,7 +17,7 @@ let f (g : t) : t =
       end
     in
     match b with
-    | int -> b * g x # ERROR: `g x` may be `bool`
+    | int -> b * g x (* ERROR: `g x` may be `bool` *)
     | bool -> b and g x
     end
 in

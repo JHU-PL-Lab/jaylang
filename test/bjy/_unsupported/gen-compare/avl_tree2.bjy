@@ -62,7 +62,7 @@ let abs a =
   else (0 - a)
 in
 
-# Checks balancedness in linear time by computing height and balance at same time and level
+(* Checks balancedness in linear time by computing height and balance at same time and level *)
 let is_balanced x =
   let rec check_balanced x =
     match x with
@@ -76,9 +76,9 @@ let is_balanced x =
         then
           { b = abs (left_res.h - right_res.h) < 2 ; h = max left_res.h right_res.h + 1 }
         else
-          { b = false ; h = 00 } # height ignored if not balanced
+          { b = false ; h = 00 } (* height ignored if not balanced *)
       else
-        { b = false ; h = 00 } # height ignored if not balanced
+        { b = false ; h = 00 } (* height ignored if not balanced *)
     end
   in
   (check_balanced x).b
@@ -143,7 +143,7 @@ in
 
 let rotate_right_left x =
   match x with
-  | `Node node -> rotate_left (create_node node.left node.left (rotate_right node.right))     # ERROR HERE! `create_node node.left ...` should be `create_node node.item ...`
+  | `Node node -> rotate_left (create_node node.left node.left (rotate_right node.right))     (* ERROR HERE! `create_node node.left ...` should be `create_node node.item ...` *)
   end
 in
 

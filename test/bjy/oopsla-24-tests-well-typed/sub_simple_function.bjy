@@ -1,4 +1,4 @@
-# subtyping of functions
+(* subtyping of functions *)
 
 let t = ({ a : int ; b : int } -> int) -> int
 

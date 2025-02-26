@@ -1,15 +1,14 @@
 
-letd F (tf : type -> type) : 
-  (a : type) ->
-    let t = tf a in
-    { empty : unit -> t
-    ;  add   : a -> t -> t
-    }
-    ->
-    { of_list : list a -> t
-    }
+let F (tf <- type -> type) (a <- type) : 
+  let t = tf a in
+  { empty : unit -> t
+  ;  add   : a -> t -> t
+  }
+  ->
+  { of_list : list a -> t
+  }
   =
-  fun a r ->
+  fun r ->
     { of_list =
       fun ls ->
         let rec loop acc ls =
@@ -18,5 +17,5 @@ letd F (tf : type -> type) :
           | hd :: tl -> loop (r.add hd acc) tl
           end
         in
-        loop r.empty ls # ERROR: forgot to apply empty record to r.empty
+        loop r.empty ls (* ERROR: forgot to apply empty record to r.empty *)
     }

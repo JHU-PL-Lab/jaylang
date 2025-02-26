@@ -29,12 +29,12 @@ let (obj : colored_point.t) =
         fun ignore_unit ->
           let s = (self self) in
           let tan = s.y / s.x in
-          tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 # approx arctan with taylor expansion
+          tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 (* approx arctan with taylor expansion *)
       ; c = 255 }
   in
   ob ob
 
 let get_color (p : point.t) : color.t =
-  p.c # ERROR: should have required colored_point
+  p.c (* ERROR: should have required colored_point *)
 
-let result = get_color obj # this application is fine. Error is in `get_color`  
+let result = get_color obj (* this application is fine. Error is in `get_color`   *)

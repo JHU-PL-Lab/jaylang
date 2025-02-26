@@ -1,12 +1,12 @@
-# The implied type of a function is not a subtype of `int -> bool` when it is applied as such
-# i.e. the type of the parameter `g` below is more general than `f`; which is the only argument ever given.
+(* The implied type of a function is not a subtype of `int -> bool` when it is applied as such *)
+(* i.e. the type of the parameter `g` below is more general than `f`; which is the only argument ever given. *)
 
-# ignored arg must be 0. Applies 0 to g
+(* ignored arg must be 0. Applies 0 to g *)
 let appl_zero (g : int -> bool) (ignored_zero_arg : { i : int | i == 0 }) : bool =
   g 0
 
-# By the body of `f`; we know `f` effectively has type `int -> { int | fun i -> i == 0 } -> bool`; but
-#  we have `appl_zero (f (n - 1))`; and type of `f (n - 1)` is not a subtype of `int -> bool`; so it fails.
+(* By the body of `f`; we know `f` effectively has type `int -> { int | fun i -> i == 0 } -> bool`; but *)
+(*  we have `appl_zero (f (n - 1))`; and type of `f (n - 1)` is not a subtype of `int -> bool`; so it fails. *)
 let rec f n zero_arg =
   if n <= 0
   then true

@@ -1,4 +1,4 @@
-# This is one well-typed version of `hors`
+(* This is one well-typed version of `hors` *)
 
 let c x = {}
 

@@ -1,6 +1,6 @@
 
 module type S = sig
-  include Z3_intf.S
+  include Z3_api.S
 
   module Expression : sig
     val to_formula : 'a Expression.t -> 'a t
@@ -12,7 +12,7 @@ module type S = sig
 end
 
 module Make () = struct
-  module Sudu = Z3_intf.Make ()
+  module Sudu = Z3_api.Make ()
   include Sudu
   
   module Expression = Expression.Solve (Sudu)

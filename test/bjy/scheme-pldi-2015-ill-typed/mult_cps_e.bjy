@@ -11,4 +11,4 @@ let check100 w =
   assert (600 <= w)
 
 let main (n : int) : int =
-  mult 100 n check100 # ERROR: 100 * n does not always exceed 600
+  mult 100 n check100 (* ERROR: 100 * n does not always exceed 600 *)

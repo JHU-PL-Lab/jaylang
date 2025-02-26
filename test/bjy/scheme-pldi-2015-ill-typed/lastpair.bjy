@@ -1,4 +1,4 @@
-# predicate violated because can return empty list
+(* predicate violated because can return empty list *)
 
 let is_nonempty ls = 
   match ls with
@@ -8,6 +8,6 @@ let is_nonempty ls =
 
 let rec lastpair (type a_) (x : { list a_ | is_nonempty }) : { list a_ | is_nonempty } =
   match x with
-  | [] -> [] # ERROR: this is empty when returned is supposed to be nonempty
+  | [] -> [] (* ERROR: this is empty when returned is supposed to be nonempty *)
   | h :: xs -> lastpair a_ xs 
   end

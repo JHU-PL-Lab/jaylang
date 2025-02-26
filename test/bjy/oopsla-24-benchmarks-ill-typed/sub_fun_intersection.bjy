@@ -1,9 +1,9 @@
-# subtyping of refined intersection type.
+(* subtyping of refined intersection type. *)
 
 let (t : type) = { ((``Int int) -> int) && ((``Bool bool) -> bool) | fun x -> x (`Bool true) }
 
-# this is a subtype of t
-# error in this file still gets caught if we have `let (f : t) =`; but it is slower
+(* this is a subtype of t *)
+(* error in this file still gets caught if we have `let (f : t) =`; but it is slower *)
 let f =
   fun x ->
     match x with
@@ -16,6 +16,6 @@ let g (h : t) : t =
   let k (i : int) : int =
     h (`Int i)
   in
-  k # ERROR: this is not a subtype of t
+  k (* ERROR: this is not a subtype of t *)
 
-let x = g f # well-typed function application here. Error is in body of g
+let x = g f (* well-typed function application here. Error is in body of g *)

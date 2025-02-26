@@ -1,3 +1,10 @@
+(**
+  Bin [bjy_cloc].
+
+  This executable counts the lines of code in Bluejay files.
+  Note that it is currently out of date because it does not
+  handle OCaml-like comments.
+*)
 
 open Core
 
