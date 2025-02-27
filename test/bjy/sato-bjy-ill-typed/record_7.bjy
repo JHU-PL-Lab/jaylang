@@ -1,3 +1,8 @@
+(***
+  (features (Refinement_types Records))
+  (reasons (Refinement_types))
+*)
+
 
 let notPos n = n <= 0
 

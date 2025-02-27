@@ -1,3 +1,8 @@
+(***
+  (features (Polymorphic_types Recursive_functions Higher_order_functions Assertions Match))
+  (reasons (Assertions))
+*)
+
 (* type error is that list can be empty and has no last. An `is_nonempty` predicate fixes it. *)
 
 (* y combinator *)

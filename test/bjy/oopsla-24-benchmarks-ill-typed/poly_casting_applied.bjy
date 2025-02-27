@@ -1,3 +1,8 @@
+(***
+  (features (Polymorphic_types Operator_misuse))
+  (reasons (Polymorphic_types Operator_misuse))
+*)
+
 
 let f =
   fun x ->

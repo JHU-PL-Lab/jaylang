@@ -1,3 +1,8 @@
+(***
+  (features (Higher_order_functions OOP_style Refinement_types Dependent_types Records))
+  (reasons (Records OOP_style))
+*)
+
 (* The well-typed version of this is the same as the well-typed of duck_typing_colors1 *)
 
 let (color : { t : type }) =

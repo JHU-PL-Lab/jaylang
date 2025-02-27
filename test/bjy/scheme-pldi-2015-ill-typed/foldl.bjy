@@ -1,3 +1,8 @@
+(***
+  (features (Recursive_functions Higher_order_functions Wrap_required Match))
+  (reasons (Recursive_functions Wrap_required))
+*)
+
 
 let rec foldl (f : int -> bool -> bool) (z : bool) (xs : list int) : bool =
   match xs with

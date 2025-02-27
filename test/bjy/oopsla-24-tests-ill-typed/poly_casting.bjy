@@ -1,3 +1,8 @@
+(***
+  (features (Polymorphic_types Operator_misuse))
+  (reasons (Operator_misuse Polymorphic_types))
+*)
+
 
 let f (type a_) (x : a_) : int = 
   x + 1

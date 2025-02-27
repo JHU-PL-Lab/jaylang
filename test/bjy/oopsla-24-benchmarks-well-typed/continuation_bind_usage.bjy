@@ -1,3 +1,7 @@
+(***
+  (features (Polymorphic_types Higher_order_functions Parametric_types Records))
+*)
+
 (* Continuation monad -- improper use of bind *)
 
 let (t : type -> type -> type) = fun a r -> { continuation : (a -> r) -> r }

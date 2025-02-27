@@ -1,3 +1,8 @@
+(***
+  (features (Refinement_types Records))
+  (reasons (Refinement_types Records))
+*)
+
 
 let record_constraint re = 
   re.a + (re.b).c >= 0

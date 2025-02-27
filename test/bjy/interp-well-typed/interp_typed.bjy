@@ -1,3 +1,7 @@
+(***
+  (features ())
+*)
+
 
 let (nil : {: t : type ; v : t :}) =
   { t = unit

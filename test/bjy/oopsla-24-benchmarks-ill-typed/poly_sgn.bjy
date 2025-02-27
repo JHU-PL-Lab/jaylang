@@ -1,3 +1,8 @@
+(***
+  (features (Polymorphic_types Variants Recursive_functions Higher_order_functions Operator_misuse Match))
+  (reasons (Polymorphic_types Operator_misuse Recursive_functions))
+*)
+
 (* Polymorphic higher order function application is incorrect *)
 
 let sign = (``Even { even : bool } || ``Odd { odd : bool })

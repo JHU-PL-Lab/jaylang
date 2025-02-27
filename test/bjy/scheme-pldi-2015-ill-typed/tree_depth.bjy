@@ -1,3 +1,8 @@
+(***
+  (features (Variants Recursive_functions Mu_types Refinement_types Records Match))
+  (reasons (Refinement_types Mu_types))
+*)
+
 
 let t = Mu tt.
   ``Node { left : tt ; right : tt }

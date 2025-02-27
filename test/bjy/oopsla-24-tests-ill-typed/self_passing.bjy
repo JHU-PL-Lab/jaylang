@@ -1,3 +1,8 @@
+(***
+  (features (Higher_order_functions OOP_style Records))
+  (reasons (Records OOP_style))
+*)
+
 
 let t = { f : int -> int }
 

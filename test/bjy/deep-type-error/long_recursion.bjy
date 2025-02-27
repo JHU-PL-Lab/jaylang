@@ -1,3 +1,8 @@
+(***
+  (features (Recursive_functions Refinement_types Return_type))
+  (reasons (Return_type))
+*)
+
 (* it's expected that the evaluator quits before finishing `g 100000000` *)
 
 let is_100_000_000 x = x == 100000000

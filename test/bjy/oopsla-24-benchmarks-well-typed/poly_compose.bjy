@@ -1,3 +1,7 @@
+(***
+  (features (Polymorphic_types Higher_order_functions Wrap_required))
+*)
+
 (* Polymorphic compose *)
 
 let compose (type a b c) (b_c : b -> c) (a_b : a -> b) (a_ : a) : c =

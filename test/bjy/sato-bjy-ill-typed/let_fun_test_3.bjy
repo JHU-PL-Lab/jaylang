@@ -1,3 +1,8 @@
+(***
+  (features (Higher_order_functions Return_type))
+  (reasons (Higher_order_functions Return_type))
+*)
+
 
 let f (g : int -> int) (x : (int -> int) -> bool) : int = 
     x g

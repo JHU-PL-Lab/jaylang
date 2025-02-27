@@ -1,3 +1,8 @@
+(***
+  (features (Polymorphic_types Higher_order_functions Parametric_types Records Return_type))
+  (reasons (Polymorphic_types Parametric_types Return_type))
+*)
+
 (* Continuation monad -- improper definition of bind *)
 (* Has same well-typed version as continuation_bind1 *)
 

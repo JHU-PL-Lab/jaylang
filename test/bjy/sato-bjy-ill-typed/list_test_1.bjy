@@ -1,3 +1,8 @@
+(***
+  (features (Return_type Match))
+  (reasons (Return_type))
+*)
+
 
 let list_test (lst : list int) : int =
   match lst with

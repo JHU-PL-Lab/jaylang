@@ -1,3 +1,7 @@
+(***
+  (features (Polymorphic_types Higher_order_functions Records Wrap_required Match))
+*)
+
 (* Continuation monad *)
 
 let (t : type -> type -> type) = fun a r -> { continuation : (a -> r) -> r }

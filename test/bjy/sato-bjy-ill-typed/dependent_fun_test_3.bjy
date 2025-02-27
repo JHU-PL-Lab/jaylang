@@ -1,3 +1,8 @@
+(***
+  (features (Refinement_types Dependent_types Return_type))
+  (reasons (Refinement_types Dependent_types Return_type))
+*)
+
 
 let f x g = g (x + 1)
 

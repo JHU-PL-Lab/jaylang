@@ -1,3 +1,8 @@
+(***
+  (features (Operator_misuse))
+  (reasons (Operator_misuse))
+*)
+
 
 let f (x : bool) : int =
   let ret = x + x in

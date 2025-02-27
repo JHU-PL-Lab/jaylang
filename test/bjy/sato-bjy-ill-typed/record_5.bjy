@@ -1,3 +1,8 @@
+(***
+  (features (Refinement_types Records))
+  (reasons (Refinement_types))
+*)
+
 
 let isPos n = n > 0
 

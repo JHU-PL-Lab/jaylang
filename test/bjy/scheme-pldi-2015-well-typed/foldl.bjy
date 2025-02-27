@@ -1,3 +1,7 @@
+(***
+  (features (Recursive_functions Higher_order_functions Match))
+*)
+
 (* simple type error : f z x should be f x z *)
 
 let rec foldl (f : int -> bool -> bool) (z : bool) (xs : list int) : bool =

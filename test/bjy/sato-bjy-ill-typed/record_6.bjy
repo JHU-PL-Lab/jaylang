@@ -1,3 +1,8 @@
+(***
+  (features (Records Return_type))
+  (reasons (Return_type))
+*)
+
 
 let access_record (r : { a : int; b : bool }) : int = 
     r.b

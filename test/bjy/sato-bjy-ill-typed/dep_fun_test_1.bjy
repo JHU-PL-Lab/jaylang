@@ -1,3 +1,8 @@
+(***
+  (features (Recursive_functions Refinement_types Dependent_types Match))
+  (reasons (Dependent_types Refinement_types Recursive_functions))
+*)
+
 
 let rec sum x acc = 
   match x with

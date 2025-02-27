@@ -1,3 +1,7 @@
+(***
+  (features (Higher_order_functions Refinement_types Dependent_types Wrap_required))
+*)
+
 (* error is that > in `h` should be < *)
 
 let f x g =

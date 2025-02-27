@@ -1,3 +1,7 @@
+(***
+  (features (Intersection_types Higher_order_functions Subtyping Type_casing Match))
+*)
+
 
 let (t : type) = ((``Int int) -> int) && ((``Bool bool) -> bool)
 

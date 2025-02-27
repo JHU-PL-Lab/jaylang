@@ -1,2 +1,6 @@
+(***
+  (features ())
+*)
+
 
 let (x : int) = 5

@@ -1,3 +1,7 @@
+(***
+  (features (Recursive_functions Refinement_types))
+*)
+
 (* error is n should be greater than 1 *)
 
 let rec mult x y =

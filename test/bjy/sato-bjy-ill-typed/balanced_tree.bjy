@@ -1,3 +1,8 @@
+(***
+  (features (Variants Recursive_functions Mu_types Refinement_types Records Match))
+  (reasons (Mu_types Refinement_types))
+*)
+
 
 let max x1 x2 = 
   if x1 > x2 then x1 else x2

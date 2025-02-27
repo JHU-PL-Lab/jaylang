@@ -1,3 +1,7 @@
+(***
+  (features (Variants Intersection_types Higher_order_functions OOP_style Records Return_type Match))
+*)
+
 
 let (t : type) = (((``A unit) -> int) && ((``B unit) -> int) && ((``C int) -> list int))
 

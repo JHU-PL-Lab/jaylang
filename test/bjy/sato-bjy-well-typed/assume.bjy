@@ -1,3 +1,7 @@
+(***
+  (features (Assertions))
+*)
+
 
 let f = false
 

@@ -1,3 +1,7 @@
+(***
+  (features (Polymorphic_types Recursive_functions Higher_order_functions Return_type))
+*)
+
 (* simple error with return type in singleton case *)
 
 let rec all (type a_) (p : a_ -> bool) (xs : list a_) : bool =

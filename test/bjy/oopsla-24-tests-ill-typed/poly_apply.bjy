@@ -1,3 +1,8 @@
+(***
+  (features (Polymorphic_types Higher_order_functions))
+  (reasons (Polymorphic_types))
+*)
+
 
 let appl (type a_ b_) (f : a_ -> b_) (a : a_) : b_ =
   f (f a) (* ERROR: should be `f a` *)

@@ -1,2 +1,7 @@
+(***
+  (features (Operator_misuse))
+  (reasons (Operator_misuse))
+*)
+
 
 let f (x : bool) : int = x + x

@@ -1,3 +1,8 @@
+(***
+  (features (Recursive_functions Refinement_types Match))
+  (reasons (Refinement_types))
+*)
+
 let rec testFun l = 
   match l with
   | [] -> true

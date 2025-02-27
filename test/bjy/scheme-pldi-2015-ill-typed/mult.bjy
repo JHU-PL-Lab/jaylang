@@ -1,3 +1,8 @@
+(***
+  (features (Recursive_functions Higher_order_functions Refinement_types Dependent_types))
+  (reasons (Refinement_types Dependent_types))
+*)
+
 
 let rec mult (x : { n : int ; m : int }) : { i : int | i >= 0 } =
   if x.n <= 0 or x.m <= 0

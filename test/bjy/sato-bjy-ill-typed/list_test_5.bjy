@@ -1,3 +1,8 @@
+(***
+  (features (Return_type))
+  (reasons (Return_type))
+*)
+
 
 let (x : list int) =
   [[1]]

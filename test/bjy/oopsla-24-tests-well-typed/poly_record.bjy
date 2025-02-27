@@ -1,3 +1,7 @@
+(***
+  (features (Polymorphic_types Parametric_types Records Wrap_required))
+*)
+
 
 let t a b =
   { la : a

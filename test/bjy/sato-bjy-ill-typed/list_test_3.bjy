@@ -1,2 +1,7 @@
+(***
+  (features (Return_type))
+  (reasons (Return_type))
+*)
+
 
 let (lst : list int) = [true]

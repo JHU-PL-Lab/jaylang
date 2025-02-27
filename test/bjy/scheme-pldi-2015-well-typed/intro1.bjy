@@ -1,3 +1,7 @@
+(***
+  (features (Higher_order_functions Refinement_types Wrap_required))
+*)
+
 
 let f x g =
   g (x + 1)

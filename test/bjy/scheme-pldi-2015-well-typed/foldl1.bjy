@@ -1,3 +1,7 @@
+(***
+  (features (Polymorphic_types Recursive_functions Higher_order_functions Assertions Match))
+*)
+
 (* error is that input list xs should be nonempty *)
 
 let is_nonempty ls =

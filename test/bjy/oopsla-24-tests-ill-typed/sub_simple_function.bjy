@@ -1,3 +1,8 @@
+(***
+  (features (Higher_order_functions Subtyping Records Return_type))
+  (reasons (Higher_order_functions Records))
+*)
+
 (* subtyping of functions *)
 
 let t = ({ a : int ; b : int } -> int) -> int

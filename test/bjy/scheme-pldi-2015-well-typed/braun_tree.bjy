@@ -1,3 +1,7 @@
+(***
+  (features (Polymorphic_types Variants Recursive_functions Mu_types Refinement_types Records Match))
+*)
+
 
 let t a = Mu tt.
   (``Leaf { leaf : bool }

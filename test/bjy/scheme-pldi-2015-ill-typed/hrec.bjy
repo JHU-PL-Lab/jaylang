@@ -1,3 +1,8 @@
+(***
+  (features (Recursive_functions Higher_order_functions Refinement_types))
+  (reasons (Recursive_functions Refinement_types))
+*)
+
 (* error is fixed when `n` param for `main` is non-negative *)
 
 let rec f g x =

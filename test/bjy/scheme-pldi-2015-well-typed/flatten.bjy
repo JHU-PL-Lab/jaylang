@@ -1,3 +1,7 @@
+(***
+  (features (Polymorphic_types Variants Recursive_functions Mu_types Match))
+*)
+
 (* flatten the input down to just a list of ints and bools *)
 
 let any_type a = Mu tt.

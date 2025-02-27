@@ -1,3 +1,8 @@
+(***
+  (features (Variants Records))
+  (reasons (Variants))
+*)
+
 
 let (x : { a : bool; b : (``R { a : bool ; b: int } || ``I int) }) =
   { a = true; b = true }

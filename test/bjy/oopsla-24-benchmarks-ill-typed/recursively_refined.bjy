@@ -1,3 +1,8 @@
+(***
+  (features (Variants Recursive_functions Refinement_types Dependent_types Records Match))
+  (reasons (Refinement_types Recursive_functions))
+*)
+
 
 let (coord : type) =
   { x : int

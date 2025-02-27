@@ -1,3 +1,8 @@
+(***
+  (features (Recursive_functions Dependent_types Return_type))
+  (reasons (Recursive_functions Dependent_types Return_type))
+*)
+
 
 let B x =
   if x < 0

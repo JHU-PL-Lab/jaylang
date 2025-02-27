@@ -1,3 +1,7 @@
+(***
+  (features (Recursive_functions Refinement_types))
+*)
+
 
 let rec mult x y =
   if x <= 0 or y <= 0

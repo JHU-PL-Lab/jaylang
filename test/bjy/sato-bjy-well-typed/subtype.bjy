@@ -1,3 +1,7 @@
+(***
+  (features (Higher_order_functions Subtyping Records))
+*)
+
 
 let fun_sig = { a : int; b: int } -> int
 

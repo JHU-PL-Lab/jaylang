@@ -1,3 +1,8 @@
+(***
+  (features (Polymorphic_types Return_type))
+  (reasons (Polymorphic_types Return_type))
+*)
+
 
 let fst (type a_ b_) (x : a_) (y : b_) : a_ =
   y

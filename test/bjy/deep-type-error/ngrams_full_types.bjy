@@ -1,3 +1,8 @@
+(***
+  (features (Polymorphic_types Recursive_functions Higher_order_functions Refinement_types Dependent_types Parametric_types Records Assertions Match))
+  (reasons (Polymorphic_types Records))
+*)
+
 (* Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program. *)
 (* In this test, we have full types on the helper functions, which makes the error quite deep *)
 
