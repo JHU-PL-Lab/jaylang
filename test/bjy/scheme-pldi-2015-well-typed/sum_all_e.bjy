@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Recursive_functions Refinement_types))
-*)
-
+) *)
 (* error is n should be at least 3 *)
 
 let rec sum x =

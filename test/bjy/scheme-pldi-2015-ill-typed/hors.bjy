@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Recursive_functions Higher_order_functions Refinement_types Wrap_required))
   (reasons (Refinement_types Higher_order_functions Wrap_required))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let c x = {}
 

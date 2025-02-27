@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Polymorphic_types Operator_misuse))
-*)
-
+) *)
 
 let f (type a_) (x : a_) : int = 
   1

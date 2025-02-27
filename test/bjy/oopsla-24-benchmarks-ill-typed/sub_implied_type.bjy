@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Recursive_functions Higher_order_functions Subtyping Refinement_types Wrap_required))
   (reasons (Subtyping Higher_order_functions Refinement_types Wrap_required))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 (* The implied type of a function is not a subtype of `int -> bool` when it is applied as such *)
 (* i.e. the type of the parameter `g` below is more general than `f`; which is the only argument ever given. *)
 

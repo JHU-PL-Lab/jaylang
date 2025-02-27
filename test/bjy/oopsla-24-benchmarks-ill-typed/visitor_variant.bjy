@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Variants Mu_types Higher_order_functions OOP_style Records Match))
   (reasons (Match Variants))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let city = { population : int }
 

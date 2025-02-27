@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Recursive_functions Higher_order_functions Match))
-*)
-
+) *)
 (* should be f xx (foldr f z xxs) and xs should be int list *)
 
 let rec foldr (f : int -> bool -> bool) (z : bool) (xs : list int) : bool =

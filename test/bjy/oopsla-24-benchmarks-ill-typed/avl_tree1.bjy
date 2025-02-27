@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Variants Recursive_functions Mu_types Refinement_types Records Match))
   (reasons (Refinement_types Mu_types Recursive_functions))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 (* This is an avl tree program; where insert on balanced tree returns a balanced tree *)
 (* There is a type error in `insert`. See the comment *)
 (* Other ways to introduce a type error: *)

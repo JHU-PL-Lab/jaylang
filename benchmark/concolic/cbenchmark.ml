@@ -18,8 +18,7 @@ module Report_row (* : Latex_table.ROW *) =
       ; total_time                  : Time_float.Span.t
       ; trial                       : Trial.t
       ; lines_of_code               : int
-      ; features                    : Ttag.t list
-      ; reasons                     : Ttag.t list }
+      ; metadata                    : Metadata.t }
 
     let names =
       [ "Test Name" ; "Run" ; "Transl" ; "Total" ; "LOC" ]
@@ -44,25 +43,20 @@ module Report_row (* : Latex_table.ROW *) =
       ; span_to_ms_string x.total_time
       ; Int.to_string x.lines_of_code ]
       @ (
-        Ttag.all
-        |> List.map ~f:(fun tag ->
-          if List.mem x.reasons tag ~equal:Ttag.equal
-          then begin
-            (* sanity check that reasons is subset of features *)
-            if not (List.mem x.features tag ~equal:Ttag.equal)
-            then failwith ("bad tags for file " ^ x.testname);
-            Format.sprintf "\\red{%s}" (* assume \red{%s} is \textcolor{red}{%s} *)
-            @@ Ttag.to_string_short tag
-          end
-          else
-            if List.mem x.features tag ~equal:Ttag.equal
-            then Ttag.to_string_short tag
-            else "--"
-        )
+        match Metadata.tags_of_t x.metadata with
+        | `Sorted_list ls ->
+          List.map ls ~f:(function
+            | `Absent -> "--"
+            | `Feature tag -> Ttag.to_string_short tag
+            | `Reason tag ->
+              Format.sprintf "\\red{%s}" (* assume \red{%s} is \textcolor{red}{%s} *)
+              @@ Ttag.to_string_short tag
+            )
       )
 
     let of_testname (n_trials : int) (testname : Filename.t) : t list =
       assert (n_trials > 0);
+      let metadata = Metadata.of_bjy_file testname in
       let test_one (n : int) : t =
         let t0 = Caml_unix.gettimeofday () in
         let source =
@@ -82,8 +76,7 @@ module Report_row (* : Latex_table.ROW *) =
           ; total_time = Time_float.Span.of_sec (t2 -. t0)
           ; trial = Number n
           ; lines_of_code = Utils.Cloc_lib.count_bjy_lines testname
-          ; features = Ttag.features testname
-          ; reasons = Ttag.reasons testname }
+          ; metadata }
         in
         row
       in
@@ -99,8 +92,7 @@ module Report_row (* : Latex_table.ROW *) =
             ; total_time = Time_float.Span.of_sec 0.0
             ; trial = Average
             ; lines_of_code = Utils.Cloc_lib.count_bjy_lines testname (* won't even average the remaining fields out. Just pre-calculate it *)
-            ; features = Ttag.features testname
-            ; reasons = Ttag.reasons testname
+            ; metadata
           }
           ~f:(fun acc x ->
             { acc with (* sum up *)
@@ -130,7 +122,7 @@ module Result_table =
       { row_module = (module Report_row)
       ; rows =
         dirs
-        |> Ttag.get_all_files ~filter:(Fn.flip Filename.check_suffix ".bjy")
+        |> Utils.File_utils.get_all_files ~filter:(Fn.flip Filename.check_suffix ".bjy")
         |> List.sort ~compare:(fun a b -> String.compare (Filename.basename a) (Filename.basename b))
         >>= Report_row.of_testname n_trials
         |> List.filter ~f:(fun row ->

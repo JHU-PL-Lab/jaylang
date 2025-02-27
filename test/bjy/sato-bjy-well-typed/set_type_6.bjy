@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Variants Mu_types Records))
-*)
-
+) *)
 
 let tree_type = Mu tt. (``Node { left : tt; right : tt } || ``Leaf { leaf : int })
 

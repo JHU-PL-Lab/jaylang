@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Recursive_functions Assertions Match))
-*)
-
+) *)
 (* error is that we check n == 1 when should check n == 0 *)
 
 let rec nth n xs =

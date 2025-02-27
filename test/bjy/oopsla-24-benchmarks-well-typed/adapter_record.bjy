@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Higher_order_functions OOP_style Records Return_type))
-*)
-
+) *)
 
 let int_wrapper = { value : int }
 

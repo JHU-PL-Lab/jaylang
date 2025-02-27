@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Higher_order_functions OOP_style Refinement_types Dependent_types Records Operator_misuse))
   (reasons (Operator_misuse))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 (* has same well-typed version as flyweight_color1 *)
 
 let (color : { t : type }) =

@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Recursive_functions Return_type Match))
   (reasons (Recursive_functions Return_type))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let rec prepend (l1 : list int) (l2 : list bool) : list int = 
     match l2 with

@@ -1,7 +1,8 @@
-(***
+(*** (
   (features ())
-*)
-
+  (speed Slow)
+  (typing Well_typed)
+) *)
 
 let (nil : {: t : type ; v : t :}) =
   { t = unit

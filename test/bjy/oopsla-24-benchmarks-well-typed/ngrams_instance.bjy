@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Polymorphic_types Recursive_functions Higher_order_functions Refinement_types Dependent_types Parametric_types Records Assertions Match))
-*)
-
+) *)
 (* Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program. *)
 (* This has been trimmed down to remove any code that had no intersection with the erroring code. *)
 (* We would like to keep types on the helper functions; but we currently don't handle that well. *)

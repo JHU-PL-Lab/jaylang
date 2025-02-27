@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Recursive_functions Refinement_types))
-*)
-
+) *)
 (* Error is that 100 should always be less than sum; but easily `sum 0` breaks that. *)
 
 let rec sum x =

@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Higher_order_functions Refinement_types))
-*)
-
+) *)
 
 let t = { (int -> int) | fun f -> (f 0) == 0 }
 

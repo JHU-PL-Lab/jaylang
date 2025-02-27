@@ -1,3 +1,7 @@
+(*** (
+  (speed Fast)
+  (typing Ill_typed)
+)*)
 
 let f (type a) (x : a) : a = 
   let g (type a) (y : a) : a =

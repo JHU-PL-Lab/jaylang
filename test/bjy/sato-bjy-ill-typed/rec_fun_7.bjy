@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Recursive_functions Higher_order_functions Return_type Match))
   (reasons (Return_type))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let rec fold (acc : bool) (foldf : bool -> int -> bool) (lst : list int) : int =
   match lst with

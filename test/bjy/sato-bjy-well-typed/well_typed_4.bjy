@@ -1,7 +1,6 @@
-(***
+(*** (
   (features ())
-*)
-
+) *)
 
 let intId (x : int) : int = 
     let intId2 y = y in

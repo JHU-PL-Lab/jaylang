@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Refinement_types Records))
-*)
-
+) *)
 
 let notPos n = n <= 0
 

@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Higher_order_functions Subtyping Records Match))
-*)
-
+) *)
 (* functions on records *)
 
 let (t : type) = ({ a : int ; b : bool } -> { x : list int }) -> { y : list bool }

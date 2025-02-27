@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Mu_types Higher_order_functions OOP_style Records))
   (reasons (Records OOP_style))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let result_type = { result : int }
 

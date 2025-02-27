@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Return_type))
   (reasons (Return_type))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let (x : list int) =
   [[1]]

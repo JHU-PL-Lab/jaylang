@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Refinement_types))
   (reasons (Refinement_types))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let isPos n = n > 0
 

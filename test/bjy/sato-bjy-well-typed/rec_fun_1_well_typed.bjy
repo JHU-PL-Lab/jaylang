@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Recursive_functions Refinement_types Match))
-*)
-
+) *)
 
 let rec makelist n = 
     if n == 0 then []

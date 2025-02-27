@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Mu_types Higher_order_functions OOP_style Records))
-*)
-
+) *)
 let result_type = { result : int }
 
 let city =

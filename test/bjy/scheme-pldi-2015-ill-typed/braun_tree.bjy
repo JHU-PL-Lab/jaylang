@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Polymorphic_types Variants Recursive_functions Mu_types Refinement_types Records Match))
   (reasons (Recursive_functions Mu_types Refinement_types))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 (* error is that item is always inserted on the left; so it doesn't stay balanced *)
 
 let t a = Mu tt.

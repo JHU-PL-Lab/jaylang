@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Recursive_functions Higher_order_functions Refinement_types Match))
-*)
-
+) *)
 
 let rec mk_list n =
   if n <= 0

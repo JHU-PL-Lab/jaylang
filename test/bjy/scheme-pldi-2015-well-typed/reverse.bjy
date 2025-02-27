@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Recursive_functions Assertions Match))
-*)
-
+) *)
 (* error is tries to get hd of list that is made from "negative length" *)
 
 let rec reverse l ac =

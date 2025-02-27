@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Recursive_functions Refinement_types Return_type Match))
   (reasons (Refinement_types Recursive_functions))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let is_nonempty lst =
   match lst with

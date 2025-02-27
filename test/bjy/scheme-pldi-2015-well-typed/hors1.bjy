@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Recursive_functions Higher_order_functions Refinement_types Wrap_required))
-*)
-
+) *)
 (* This is one well-typed version of `hors` *)
 
 let c x = {}

@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Recursive_functions Dependent_types Return_type))
   (reasons (Recursive_functions Dependent_types Return_type))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let B x =
   if x < 0

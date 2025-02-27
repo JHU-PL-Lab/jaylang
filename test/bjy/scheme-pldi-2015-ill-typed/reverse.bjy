@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Recursive_functions Assertions Match))
   (reasons (Assertions))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let rec reverse l ac =
   match l with

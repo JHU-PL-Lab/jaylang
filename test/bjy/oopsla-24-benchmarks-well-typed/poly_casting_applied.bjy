@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Polymorphic_types Operator_misuse Variants))
-*)
-
+) *)
 
 let f =
   fun x ->

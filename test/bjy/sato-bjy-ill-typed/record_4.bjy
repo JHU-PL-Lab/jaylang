@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Refinement_types Records))
   (reasons (Refinement_types Records))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let record_constraint re = 
   re.a + (re.b).c >= 0

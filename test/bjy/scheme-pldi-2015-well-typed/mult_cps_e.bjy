@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Recursive_functions Higher_order_functions Assertions))
-*)
-
+) *)
 
 let acc z m =
   fun r -> m (z + r)

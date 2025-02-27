@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Variants Recursive_functions Mu_types Refinement_types Records Match))
-*)
-
+) *)
 (* simple error that depth should be positive but leaf has depth 0 *)
 
 let t = Mu tt.

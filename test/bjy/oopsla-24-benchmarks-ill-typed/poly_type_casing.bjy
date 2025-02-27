@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Polymorphic_types Intersection_types Higher_order_functions Subtyping Type_casing Match))
   (reasons (Polymorphic_types Type_casing))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let (t : type) = ((``Int int) -> int) && ((``Bool bool) -> bool)
 

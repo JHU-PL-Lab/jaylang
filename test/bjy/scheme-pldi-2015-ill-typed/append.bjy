@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Polymorphic_types Recursive_functions Refinement_types))
   (reasons (Refinement_types))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 (* ill-typed when a and b are empty *)
 
 let is_nonempty ls =

@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Polymorphic_types Higher_order_functions Parametric_types Records))
   (reasons (Polymorphic_types Higher_order_functions Records))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 (* Continuation monad -- improper use of bind *)
 
 let (t : type -> type -> type) = fun a r -> { continuation : (a -> r) -> r }

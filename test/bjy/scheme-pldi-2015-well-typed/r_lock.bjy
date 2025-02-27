@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Refinement_types Wrap_required))
-*)
-
+) *)
 (* error is 0 `n` arg to `main` means `g` tries to unclock and already-unlocked state *)
 
 let eq i =

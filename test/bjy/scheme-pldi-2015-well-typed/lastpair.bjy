@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Polymorphic_types Recursive_functions Refinement_types Match))
-*)
-
+) *)
 
 let is_nonempty ls = 
   match ls with

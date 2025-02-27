@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Higher_order_functions Refinement_types Return_type))
   (reasons (Higher_order_functions Refinement_types Return_type))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 let isEven x = (x % 2) == 0
 
 let isOdd x = (x % 2) <> 0

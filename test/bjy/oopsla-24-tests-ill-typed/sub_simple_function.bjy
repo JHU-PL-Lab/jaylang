@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Higher_order_functions Subtyping Records Return_type))
   (reasons (Higher_order_functions Records))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 (* subtyping of functions *)
 
 let t = ({ a : int ; b : int } -> int) -> int

@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Polymorphic_types Recursive_functions Higher_order_functions Match))
-*)
-
+) *)
 (* Polymorphic types in higher order functions are wrong *)
 
 (* No error in this. It is here to slow down the concolic evaluator and make a bigger haystack in which to find the needle *)

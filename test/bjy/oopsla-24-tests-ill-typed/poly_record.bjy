@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Polymorphic_types Parametric_types Records Wrap_required))
   (reasons (Polymorphic_types Records Parametric_types Wrap_required))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let t a b =
   { la : a

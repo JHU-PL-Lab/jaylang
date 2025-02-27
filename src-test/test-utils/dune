@@ -1,0 +1,18 @@
+
+(library
+  (name ttag)
+  (modules ttag)
+  (libraries
+    core
+    core_unix.sys_unix)
+  (preprocess
+   (pps ppx_jane)))
+
+(library
+  (name metadata)
+  (modules metadata)
+  (libraries
+    ttag
+    core_unix.sys_unix
+    core)
+  (preprocess (pps ppx_jane)))

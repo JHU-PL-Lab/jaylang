@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Intersection_types Higher_order_functions Subtyping Type_casing Refinement_types Return_type Match))
   (reasons (Intersection_types Return_type))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 (* subtyping of refined intersection type. *)
 
 let (t : type) = { ((``Int int) -> int) && ((``Bool bool) -> bool) | fun x -> x (`Bool true) }

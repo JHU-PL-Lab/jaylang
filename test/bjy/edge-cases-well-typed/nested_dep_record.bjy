@@ -1,3 +1,7 @@
+(***
+  (speed Slow)
+  (typing Well_typed)
+*)
 
 let t =
   {: t : type

@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Polymorphic_types Recursive_functions Higher_order_functions Return_type))
   (reasons (Polymorphic_types Return_type))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 (* simple error with return type in singleton case *)
 
 let rec all (type a_) (p : a_ -> a_) (xs : list a_) : bool =

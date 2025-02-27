@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Mu_types Higher_order_functions OOP_style Records Return_type))
   (reasons (Return_type))
-*)
-
+  (speed Slow)
+  (typing Ill_typed)
+) *)
 
 let t = Mu tt. { f : int -> tt }
 

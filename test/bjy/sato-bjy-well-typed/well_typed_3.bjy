@@ -1,6 +1,5 @@
-(***
+(*** (
   (features ())
-*)
-
+) *)
 
 let (x : list int) = [1]

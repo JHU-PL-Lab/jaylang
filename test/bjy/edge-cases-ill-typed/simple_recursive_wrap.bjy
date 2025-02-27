@@ -1,3 +1,7 @@
+(*** (
+  (speed Fast)
+  (typing Ill_typed)
+)*)
 
 let rec f (x : { int | fun i -> i == 0}) : int =
   if x == 0

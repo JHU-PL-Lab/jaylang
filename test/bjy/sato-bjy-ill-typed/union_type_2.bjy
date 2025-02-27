@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Variants Records))
   (reasons (Variants))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let (x : { a : bool; b : (``R { a : bool ; b: int } || ``I int) }) =
   { a = true; b = true }

@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Higher_order_functions))
-*)
-
+) *)
 
 let twice (f : int -> int) (x : int) : int = f (f x)
 

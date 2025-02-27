@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Recursive_functions Higher_order_functions Assertions))
   (reasons (Assertions))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let acc z m =
   fun r -> m (z + r)

@@ -1,7 +1,8 @@
-(***
+(*** (
   (features (Operator_misuse))
   (reasons (Operator_misuse))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let f (x : bool) : int = x + x

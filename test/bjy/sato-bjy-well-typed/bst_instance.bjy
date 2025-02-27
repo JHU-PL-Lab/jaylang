@@ -1,7 +1,6 @@
-(***
+(*** (
   (features (Variants Recursive_functions Mu_types Refinement_types Records Match))
-*)
-
+) *)
 (* error is that x has 6 on left of root value 2; which is not a bst *)
 
 let rec is_bst t = 

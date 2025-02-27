@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Return_type))
   (reasons (Return_type))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let neg (x : int) : bool =
   (0 - 1) * x

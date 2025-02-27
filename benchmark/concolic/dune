@@ -4,6 +4,6 @@
  (modules cbenchmark)
  (package jay)
  (public_name jay.cbenchmark)
- (libraries lang utils ttag latex_tbl latex_format concolic core core_unix.sys_unix)
+ (libraries lang utils ttag metadata latex_tbl latex_format concolic core core_unix.sys_unix)
  (preprocess
   (pps ppx_jane)))

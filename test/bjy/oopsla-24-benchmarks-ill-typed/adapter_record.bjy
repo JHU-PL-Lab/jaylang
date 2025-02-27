@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Higher_order_functions OOP_style Records Return_type))
   (reasons (Records))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let int_wrapper = { value : int }
 

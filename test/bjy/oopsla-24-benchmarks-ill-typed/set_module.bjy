@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Recursive_functions Higher_order_functions Parametric_types Records Return_type))
   (reasons (Return_type Records))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let set_m = 
   { emptyset = []

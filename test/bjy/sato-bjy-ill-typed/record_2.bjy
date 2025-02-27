@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Records))
   (reasons (Records))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let (r : { a : int; b : bool }) =
   {a = 1; b = 1}

@@ -1,6 +1,5 @@
-(***
+(*** (
   (features (Subtyping Records))
-*)
-
+) *)
 
 let (x : { a : int }) = {a = 1; b = 2}

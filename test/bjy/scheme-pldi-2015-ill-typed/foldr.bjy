@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Recursive_functions Higher_order_functions Wrap_required Match))
   (reasons (Recursive_functions Wrap_required))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let rec foldr (f : int -> bool -> bool) (z : bool) (xs : list bool) : bool =
   match xs with

@@ -1,3 +1,7 @@
+(***
+  (speed Slow)
+  (typing Ill_typed)
+*)
 
 (* This function is well-typed, and it has a negative forall. *)
 let f (g : (a : type) -> a -> a) : int =

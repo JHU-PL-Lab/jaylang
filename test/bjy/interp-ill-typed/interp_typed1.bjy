@@ -1,8 +1,9 @@
-(***
+(*** (
   (features ())
   (reasons ())
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 
 let (nil : {: t : type ; v : t :}) =

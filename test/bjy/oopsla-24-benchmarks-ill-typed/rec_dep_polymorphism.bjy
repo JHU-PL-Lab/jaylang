@@ -1,8 +1,9 @@
-(***
+(*** (
   (features (Polymorphic_types Recursive_functions Dependent_types Parametric_types))
   (reasons (Polymorphic_types Dependent_types Parametric_types Recursive_functions))
-*)
-
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let (t : type -> type -> int -> type) =
   fun a b i ->
