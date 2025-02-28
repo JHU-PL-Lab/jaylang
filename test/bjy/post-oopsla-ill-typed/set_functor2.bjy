@@ -1,3 +1,7 @@
+(*** (
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let F (tf <- type -> type) (a <- type) : 
   { empty : unit -> tf a (* ERROR: all of these `tf a` are different *)

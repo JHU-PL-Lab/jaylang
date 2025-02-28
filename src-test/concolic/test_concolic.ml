@@ -2,55 +2,61 @@ open Core
 open Concolic
 open Utils
 
-type 'arg test_one = string -> 'arg -> unit
+let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case = 
+  let metadata = Metadata.of_bjy_file testname in
+  let is_error_expected = 
+    match metadata.typing with
+    | Ill_typed -> true
+    | Well_typed -> false
+  in
+  let speed_level =
+    match metadata.speed with
+    | Slow -> `Slow
+    | Fast -> `Quick
+  in
+  Alcotest.test_case testname speed_level
+  @@ fun () ->
+    testname
+    |> Driver.test ~global_timeout_sec:30.0 ~do_wrap:true ~in_parallel:false (* parallel computation off by default *)
+    |> Status.is_error_found
+    |> Bool.(=) is_error_expected
+    |> Alcotest.check Alcotest.bool "bjy concolic" true
 
-let group_tests root speed (test_one : 'arg test_one) =
-  File_utils.Dirs.map_in_groups
-    ~f:(fun _ test_name test_path ->
-      Alcotest.test_case test_name speed @@ test_one test_path)
-    root
+let root_dir = "test/bjy/"
 
-let test_for_abort is_error_expected testname _args = 
-  testname
-  |> Driver.test ~global_timeout_sec:30.0 ~do_wrap:true ~in_parallel:false (* parallel computation off by default *)
-  |> Status.is_error_found
-  |> Bool.(=) is_error_expected
-  |> Alcotest.(check bool) "bjy concolic" true
-
-let dir = "test/bjy/"
-
-let make_tests e s t = group_tests (dir ^ s) t (test_for_abort e)
-
-let[@ocaml.warning "-32"] make_tests_well_typed s = make_tests false s `Slow
-let make_tests_ill_typed s = make_tests true s `Quick
+let make_tests (dirs : string list) : unit Alcotest.test list =
+  let open List.Let_syntax in
+  dirs >>| fun dirname -> 
+    ( dirname
+    , [ root_dir ^ dirname ]
+      |> File_utils.get_all_files ~filter:(fun f -> Filename.check_suffix f ".bjy")
+      >>| testcase_of_filename
+    )
 
 let () =
-  Alcotest.run_with_args 
-    "concolic" 
-    Cmdliner.Term.main_name
-    (
-      []
-      (* @ make_tests_ill_typed "deep-type-error" *)
+  Alcotest.run "concolic" ~quick_only:true
+  @@ make_tests
+    [ "post-oopsla-ill-typed"
+    ; "post-oopsla-well-typed"
 
-      (* @ make_tests_ill_typed "interp-ill-typed" *)
-      (* @ make_tests_well_typed "interp-well-typed" *)
+    (* ; "deep-type-error" *)
 
-      @ make_tests_ill_typed "post-oopsla-ill-typed"
-      @ make_tests_well_typed "post-oopsla-well-typed"
+    (* ; "interp-ill-typed" *)
+    (* ; "interp-well-typed" *)
 
-      @ make_tests_ill_typed "edge-cases-ill-typed"
-      @ make_tests_well_typed "edge-cases-well-typed"
+    ; "edge-cases-ill-typed"
+    ; "edge-cases-well-typed"
 
-      @ make_tests_ill_typed "oopsla-24-tests-ill-typed"
-      @ make_tests_well_typed "oopsla-24-tests-well-typed"
+    ; "oopsla-24-tests-ill-typed"
+    ; "oopsla-24-tests-well-typed"
 
-      @ make_tests_ill_typed "oopsla-24-benchmarks-ill-typed"
-      @ make_tests_well_typed "oopsla-24-benchmarks-well-typed"
+    ; "oopsla-24-benchmarks-ill-typed"
+    ; "oopsla-24-benchmarks-well-typed"
 
-      @ make_tests_ill_typed "scheme-pldi-2015-ill-typed"
-      @ make_tests_well_typed "scheme-pldi-2015-well-typed"
+    ; "scheme-pldi-2015-ill-typed"
+    ; "scheme-pldi-2015-well-typed"
 
-      @ make_tests_ill_typed "sato-bjy-ill-typed"
-      @ make_tests_well_typed "sato-bjy-well-typed"
-    ) 
-    ~quick_only:true
+    ; "sato-bjy-ill-typed"
+    ; "sato-bjy-well-typed"
+    ]
+    
