@@ -40,7 +40,7 @@ module FMonad (State : T) (Read : T) (Err : T) = struct
   let[@inline always] fail (e : Err.t) : 'a m =
     { run = fun ~reject ~accept:_ _ _ -> reject e }
 
-  let local (f : Read.t -> Read.t) (x : 'a m) : 'a m =
+  let[@inline always] local (f : Read.t -> Read.t) (x : 'a m) : 'a m =
     { run = fun ~reject ~accept s r -> x.run ~reject ~accept s (f r) }
 end
 
@@ -65,7 +65,7 @@ module State_M = struct
     As a general observation, it is more efficient to be hands-on and write this
     using the structure of FMonad instead of using `read`, `return`, etc.
     I suppose this is due to better inlining. I consider the tradeoff in favor
-    of more efficiency worth the less abstract code.
+    of more efficiency worth the less general code.
   *)
   let incr_step : int m =
     { run =
