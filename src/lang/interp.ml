@@ -51,7 +51,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     (* direct values *)
     | EInt i -> return (VInt i)
     | EBool b -> return (VBool b)
-    | EVar id -> return @@ Env.fetch env id
+    | EVar id -> return @@ Env.fetch id env
     | ETypeInt -> return VTypeInt
     | ETypeBool -> return VTypeBool
     | ETypeTop -> return VTypeTop
@@ -124,15 +124,15 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%bind arg = eval arg env in
       match vfunc with
       | VFunClosure { param ; body } ->
-        eval body.expr (Env.add body.env param arg)
+        eval body.expr (Env.add param arg body.env)
       | VId -> return arg
       | VMultiArgFunClosure { params ; body } -> begin
         match params with
         | [] -> type_mismatch ()
         | [ param ] ->
-          eval body.expr (Env.add body.env param arg)
+          eval body.expr (Env.add param arg body.env)
         | param :: params ->
-          eval (EMultiArgFunction { params ; body = body.expr }) (Env.add body.env param arg)
+          eval (EMultiArgFunction { params ; body = body.expr }) (Env.add param arg body.env)
         end
       | _ -> type_mismatch ()
     end
@@ -150,7 +150,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%bind _ = eval ignored env in
       eval cont env
     | ETypeMu { var ; body } ->
-        let stub_ref, env = Env.add_stub env var in
+        let stub_ref, env = Env.add_stub var env in
         let v = VTypeMu { var ; body = { expr = body ; env } } in
         stub_ref := v;
         return v
@@ -216,13 +216,13 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         List.find_map patterns ~f:(fun (pat, body) ->
           match pat, v with
           | PAny, _ -> Some (body, env)
-          | PVariable id, _ -> Some (body, Env.add env id v)
+          | PVariable id, _ -> Some (body, Env.add id v env)
           | PVariant { variant_label ; payload_id }, VVariant { label ; payload } 
               when VariantLabel.equal variant_label label -> 
-            Some (body, Env.add env payload_id payload)
+            Some (body, Env.add payload_id payload env)
           | PEmptyList, VList [] -> Some (body, env)
           | PDestructList { hd_id ; tl_id }, VList (v_hd :: v_tl) ->
-            Some (body, Env.add (Env.add env hd_id v_hd) tl_id (VList v_tl))
+            Some (body, Env.add tl_id (VList v_tl) (Env.add hd_id v_hd env))
           | _ -> None
         )
       in
@@ -242,7 +242,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let stub_and_comps_ls, env =
         List.fold funcs ~init:([], env) ~f:(fun (acc, env) fsig ->
           let comps = Ast_tools.Funsig.to_components fsig in
-          let stub_ref, env = Env.add_stub env comps.func_id in
+          let stub_ref, env = Env.add_stub comps.func_id env in
           (stub_ref, comps) :: acc
           , env
           )
@@ -260,12 +260,12 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       |> function
         | EFunction { param ; body } ->
           eval cont
-          @@ Env.add env comps.func_id (VFunClosure { param ; body = { expr = body ; env } })
+          @@ Env.add comps.func_id (VFunClosure { param ; body = { expr = body ; env } }) env
         | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
 
     and eval_let (var : Ident.t) ~(body : a Expr.t) ~(cont : a Expr.t) (env : a Env.t) : a V.t m =
       let%bind v = eval body env in
-      eval cont (Env.add env var v)
+      eval cont (Env.add var v env)
 
     and eval_record_body (record_body : a Expr.t RecordLabel.Map.t) (env : a Env.t) : a V.t RecordLabel.Map.t m =
       Map.fold record_body ~init:(return RecordLabel.Map.empty) ~f:(fun ~key ~data:e acc_m ->
