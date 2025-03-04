@@ -347,7 +347,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                       , EIf
                           { cond = EBinop { left = EVar v ; binop = BEqual ; right = EVar i }
                           ; true_body = unit_value
-                          ; false_body =  EBinop { left = EVar e ; binop = BEqual ; right = EVariant { label = Reserved.untouched ; payload = EVar i }}
+                          ; false_body = EBinop { left = EVar e ; binop = BEqual ; right = EVariant { label = Reserved.untouched ; payload = EVar i }}
                           })
                     ]
                   }
@@ -382,7 +382,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               let%bind arg = capture @@ gen tau1 in
               return
               @@ appl_list
-                  (EFunction { param = x ; body = proj (embed tau2) Reserved.check })
+                  (EFunction { param = x ; body = proj (embed ~ask_for:`Check tau2) Reserved.check })
                   [ (EVar arg) ; apply (EVar e) (EVar arg) ]
           )
         ))
@@ -393,7 +393,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                 let%bind () = ignore (check tau1 (EVar x')) in
                 return @@
                   appl_list
-                    (EFunction { param = x ; body = proj (embed tau2) Reserved.wrap })
+                    (EFunction { param = x ; body = proj (embed ~ask_for:`Wrap tau2) Reserved.wrap })
                     [ (EVar x') ; apply (EVar e) (wrap tau1 (EVar x')) ]
             )
           )

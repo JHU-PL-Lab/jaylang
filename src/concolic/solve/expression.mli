@@ -67,6 +67,10 @@ val op : 'a t -> 'a t -> ('a * 'a * 'b) Typed_binop.t -> 'b t
 (** [op e1 e2 binop] is an expression for the result of the binary operation [binop]
     on [e1] and [e2]. *)
 
+val equal : 'a t -> 'a t -> bool
+(** [equal e1 e2] is true if and only if the expressions [e1] and [e2] are structurally
+    equivalent. E.g. [x + 1] is not equivalent to [1 + x]. *)
+
 module Solve (Expr : Z3_api.S) : sig
   val to_formula : 'a t -> 'a Expr.t
   (** [to_formula e] is a Z3 formula equivalent to [e]. *)

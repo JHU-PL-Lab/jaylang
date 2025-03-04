@@ -215,13 +215,18 @@ module Make (S : Solve.S) (TQ : Target_queue.S) (P : Pause.S) (O : Options.V) = 
       match pop_target r with
       | None -> return None
       | Some ({ root ; _ } as r, target) ->
-        Node.formulas_of_target root target
-        |> List.map ~f:(S.Expression.to_formula)
-        |> S.solve
-        |> function
-          | S.Solve_status.Unsat -> next { r with root = Node.set_unsat_target root target }
-          | Unknown -> failwith "unimplemented solver timeout" (* would want to convey that we pruned the tree if this happens *)
-          | Sat model -> return @@ Option.return ({ r with root }, target, S.Input_feeder.from_model model )
+        let exprs = Node.formulas_of_target root target in
+        let e = List.last_exn exprs |> Expression.not_ in (* get the constraint associated with the target *)
+        if List.exists exprs ~f:(fun e' -> Expression.equal e e') (* check if this constraint is the exact negation of another constraint along the path *)
+        then next { r with root = Node.set_unsat_target root target }
+        else
+          exprs
+          |> List.map ~f:(S.Expression.to_formula)
+          |> S.solve
+          |> function
+            | S.Solve_status.Unsat -> next { r with root = Node.set_unsat_target root target }
+            | Unknown -> failwith "unimplemented solver timeout" (* would want to convey that we pruned the tree if this happens *)
+            | Sat model -> return @@ Option.return ({ r with root }, target, S.Input_feeder.from_model model )
     in
 
     next r

@@ -1,0 +1,73 @@
+
+let s = int
+
+let m a = s -> { state : s ; body : a }
+
+let bind (type a b) (x : m a) (f : a -> m b) : m b =
+  fun s ->
+    let r = x s in
+    f r.body r.state
+
+let modify (f : s -> s) : m unit =
+  fun s -> { state = f s ; body = {} }
+
+let (read : m s) =
+  fun s -> { state = s ; body = s }
+
+let sum n =
+  (* use the state to sum *)
+  let rec loop x =
+    if x <= 0
+    then read (* read final state, which holds sum *)
+    else
+      let m = modify (fun i -> i + x) in (* add x to sum *)
+      bind unit int m (fun _ ->
+        loop (x - 1)
+      )
+  in
+  (loop n 0).body
+
+let (x : { i : int | i == 55 }) = sum 10
+
+(* This following is REALLY slow. We something about wrapping takes a ton of steps *)
+(* let s = int
+
+let m a = (r : type) -> (a -> s -> r) -> s -> r
+
+let bind (type a b) (x : m a) (f : a -> m b) : m b =
+  fun r ->
+    fun k s ->
+      x r (fun a s -> f a r k s) s
+
+let return (type a) (a : a) : m a =
+  fun r ->
+    fun k s ->
+      k a s
+
+let modify (f : s -> s) : m unit =
+  fun r ->
+    fun k s ->
+      k {} (f s)
+
+let (read : m s) =
+  fun r ->
+    fun k s ->
+      k s s
+
+let sum n =
+  (* use the state to sum *)
+  let rec loop x =
+    if x <= 0
+    then read (* read final state, which holds sum *)
+    else
+      let m = modify (fun i -> i + x) in (* add x to sum *)
+      bind unit int m (fun _ ->
+        loop (x - 1)
+      )
+  in
+  (loop n)
+    int (* result type *)
+    (fun res _ -> res) (* extract result *)
+    0 (* initial state *)
+
+let (x : { i : int | i == 55 }) = sum 10 *)

@@ -8,6 +8,11 @@ module Const = struct
 
   let box_int i = I i
   let box_bool b = B b
+
+  let equal (type a) (x : a t) (y : a t) : bool =
+    match x, y with
+    | I a, I b -> a = b
+    | B a, B b -> Bool.(a = b)
 end
 
 open Const
@@ -57,6 +62,24 @@ module Typed_binop = struct
     | Not_equal -> op ( <> ) box_bool
     | And -> op ( && ) box_bool
     | Or -> op ( || ) box_bool
+
+  let equal (type a) (x : a t) (y : a t) : bool =
+    match x, y with
+    | Plus, Plus
+    | Minus, Minus
+    | Times, Times
+    | Divide, Divide
+    | Modulus, Modulus
+    | Less_than, Less_than
+    | Less_than_eq, Less_than_eq
+    | Greater_than, Greater_than
+    | Greater_than_eq, Greater_than_eq
+    | Equal_int, Equal_int
+    | Equal_bool, Equal_bool
+    | Not_equal, Not_equal
+    | And, And
+    | Or, Or -> true
+    | _ -> false
 end
 
 type _ t =
@@ -83,9 +106,38 @@ let not_ (x : bool t) : bool t =
   | _ -> Not x
 
 let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t) : b t =
-  match left, right with
-  | Const cx, Const cy -> Const (Typed_binop.to_arithmetic binop cx cy)
+  match left, right, binop with
+  | Const cx, Const cy, _ -> Const (Typed_binop.to_arithmetic binop cx cy)
+  | Key k1, Key k2, Equal_bool when Stepkey.equal k1 k2 -> Const (B true)
+  | Key k1, Key k2, Equal_int when Stepkey.equal k1 k2 -> Const (B true)
+  | Key k1, Key k2, Not_equal when Stepkey.equal k1 k2 -> Const (B false)
   | _ -> Binop (binop, left, right)
+
+let rec equal : type a. a t -> a t -> bool =
+  fun x y ->
+    match x, y with
+    | Const c1, Const c2 -> Const.equal c1 c2
+    | Key k1, Key k2 -> Stepkey.equal k1 k2
+    | Not e1, Not e2 -> equal e1 e2
+    | Binop (op1, l1, r1), Binop (op2, l2, r2) -> begin
+      match op1, op2 with
+      | Plus, Plus -> equal l1 l2 && equal r1 r2
+      | Minus, Minus -> equal l1 l2 && equal r1 r2
+      | Times, Times -> equal l1 l2 && equal r1 r2
+      | Divide, Divide -> equal l1 l2 && equal r1 r2
+      | Modulus, Modulus -> equal l1 l2 && equal r1 r2
+      | Less_than, Less_than -> equal l1 l2 && equal r1 r2
+      | Less_than_eq, Less_than_eq -> equal l1 l2 && equal r1 r2
+      | Greater_than, Greater_than -> equal l1 l2 && equal r1 r2
+      | Greater_than_eq, Greater_than_eq -> equal l1 l2 && equal r1 r2
+      | Equal_int, Equal_int -> equal l1 l2 && equal r1 r2
+      | Equal_bool, Equal_bool -> equal l1 l2 && equal r1 r2
+      | Not_equal, Not_equal -> equal l1 l2 && equal r1 r2
+      | And, And -> equal l1 l2 && equal r1 r2
+      | Or, Or -> equal l1 l2 && equal r1 r2
+      | _ -> false
+    end
+    | _ -> false
 
 module Solve (Expr : Z3_api.S) = struct
   let binop_to_z3_expr (type a b) (binop : (a * a * b) Typed_binop.t) : a Expr.t -> a Expr.t -> b Expr.t =
