@@ -42,3 +42,6 @@ val push_case : t -> int Direction.t -> int Expression.t -> int list -> t
 
 val to_rev_path : t -> Path.Reverse.t
 (** [to_rev_path stem] is a reverse path representing the [stem], including its beginning target, if any. *)
+
+val to_target : t -> Target.t option
+(** [to_target stem] is the target from which the [stem] begins. *)

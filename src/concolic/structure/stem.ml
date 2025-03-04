@@ -40,3 +40,9 @@ let to_rev_path (stem : t) : Path.Reverse.t =
   in
   { backward_path = loop stem }
 
+let rec to_target (stem : t) : Target.t option =
+  match stem with
+  | Root -> None
+  | Beginning_from target -> Some target
+  | Bool_branch { tail ; _ } | Int_branch { tail ; _ } -> to_target tail
+

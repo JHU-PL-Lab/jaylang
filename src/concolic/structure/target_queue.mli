@@ -4,7 +4,7 @@
 
   Detailed description:
     Target queues are functional priorities queues that allow for
-    quick retrieval of targets. They are mixed and match by merging.
+    quick retrieval of targets. They are mixed and matched by merging.
 
     This is just a trivial data structure holding targets.
 
@@ -18,7 +18,7 @@ module type S = sig
   val of_options : (unit, t) Options.Arrow.t
   val push_list : t -> Target.t list -> t
   val remove : t -> Target.t -> t
-  val pop : t -> (Target.t * t) option
+  val peek : t -> Target.t option
 end
 
 module DFS : S

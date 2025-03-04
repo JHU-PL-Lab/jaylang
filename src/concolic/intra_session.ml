@@ -48,7 +48,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
       @@ `Done (finish_status x)
     in
     if Status.is_terminal x.status then done_ () else
-    let* res = Tree.pop_sat_target x.tree in
+    let* res = Tree.get_sat_target x.tree in
     match res with
     | Some (tree, target, input_feeder) ->
       return
