@@ -11,6 +11,14 @@ open Value
     https://discuss.ocaml.org/t/can-a-state-monad-be-optimized-out-with-flambda/9841/5?u=brandon
 
   I have further added in the reader monad for a non-propagating element to the state.
+  This is nice because we could otherwise be passing around the environment in a "reader" style while
+  letting the monad handle other threading. Instead, it feels best to centralize the core
+  effects and prevent the proliferation of inconsistent "mini monad" implementations
+  scattered throughout the code.
+
+  Brandon's tenth rule: "Any sufficiently complicated functional OCaml program contains several ad hoc,
+  informally-specified, boilerplate-ridden, unrolled implementations of common monads". ... that may
+  *sometimes* be done better with a monad when many of those instances occur overlapping at once.
 *)
 module FMonad (State : T) (Read : T) (Err : T) = struct
   type 'a m = {
