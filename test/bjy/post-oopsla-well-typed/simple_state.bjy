@@ -29,7 +29,34 @@ let sum n =
 
 let (x : { i : int | i == 55 }) = sum 10
 
-(* This following is REALLY slow. We something about wrapping takes a ton of steps *)
+(*
+  The following program is REALLY slow (and the above is also quite slow) due to wrapping.
+  This is because when we wrap, a function, we check its argument and we use its argument.
+  If the argument is a function with a heavy computation, then the computation is done twice
+  (because it is done only after getting its input, i.e. both when checked and when used normally).
+
+  When the heavy computation is a recursive function, then the computation is done exponentially
+  many times, which explains the extreme increase in runtime as we increase the input from something
+  small to even just 10.
+  
+  For the *above* embedded program with all zero inputs, the step count by input to `sum` is:
+    5 -> 16751 steps
+    6 -> 33615 steps
+    7 -> 67343 steps
+    8 -> 134799 steps
+    9 -> 269711 steps
+    10 -> 539537 steps
+  ... confirming the hypothesis about exponential growth in steps.
+
+  However, the embedded program with wrap *off* has this step count:
+    5 -> 635 steps
+    6 -> 690 steps
+    7 -> 745 steps
+    8 -> 800 steps
+    9 -> 855 steps
+    10 -> 909 steps (* the 9 extra steps on the linear increase is due to passing the predicate, which I didn't change when testing *)
+  ... also confirming that the exponential growth is due to wrapping.
+*)
 (* let s = int
 
 let m a = (r : type) -> (a -> s -> r) -> s -> r
