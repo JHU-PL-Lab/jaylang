@@ -1,0 +1,27 @@
+
+(*
+  The final predicate is hard to check when wrap is on because
+  of exponential blowup.
+
+  The `loop (x - 1)` is run twice at each level: once to check
+  because it is wrapped, and once to actually use the value.
+  This means even `loop 10` is very expensive, and we tend to 
+  stop interpretation before it can finish.
+
+  But this is well-typed nevertheless, and the concolic evaluator
+  can find it if we let it run somewhere around 300k steps (large, I know).
+*)
+
+let m a = a
+
+let bind (type a b) (x : m a) (f : a -> m b) : m b =
+  f x
+
+let return (type a) (a : a) : m a = a
+
+let rec loop x =
+  if x <= 0
+  then return int 0
+  else bind unit int (return unit {}) (fun _ -> loop (x - 1))
+
+let (_ : { i : m int | i == 0 }) = loop 10
