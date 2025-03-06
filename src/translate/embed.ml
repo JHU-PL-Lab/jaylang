@@ -15,13 +15,9 @@ module LetMonad (Names : Fresh_names.S) = struct
       | Ignore of Embedded.t
   end
 
-  module State = struct
-    type t = Binding.t list
-  end
-
   module T = struct
-    module M = Preface.State.Over (State)
-    include M
+    module M = Preface.Writer.Over (Preface.List.Monoid (Binding))
+    include M (* the inner monad is Identity here, but mli doesn't expose that *)
     type 'a m = 'a M.t
     let bind x f = M.bind f x
   end
@@ -35,14 +31,14 @@ module LetMonad (Names : Fresh_names.S) = struct
   *)
   let capture ?(suffix : string option) (e : Embedded.t) : Ident.t m =
     let v = Names.fresh_id ?suffix () in
-    let%bind () = modify (List.cons (Bind (v, e))) in
+    let%bind () = tell [ Bind (v, e) ] in
     return v
 
   (*
     Assign the expression the given name.
   *)
   let assign (id : Ident.t) (e : Embedded.t) : unit m =
-    modify (List.cons (Bind (id, e)))
+    tell [ Bind (id, e) ]
 
   let iter (ls : 'a list) ~(f : 'a -> unit m) : unit m =
     List.fold ls ~init:(return ()) ~f:(fun acc_m a ->
@@ -54,19 +50,17 @@ module LetMonad (Names : Fresh_names.S) = struct
     Compute the value of the expression but ignore it.
   *)
   let ignore (e : Embedded.t) : unit m =
-    modify (List.cons (Ignore e))
+    tell [ Ignore e ]
 
   (*
     Build the expression (of many nested let-expressions or ignore-expressions) using
-    the monad's state.
-
-    This is the slowest part of the translation BY FAR. However, I keep the translation
-    small by only asking for certain labels from types, so the effect is not that big.
-    However, for faster translation, I would NEED to remove the state monad.
+    the monad's tape.
   *)
   let[@landmark] build (m : Embedded.t m) : Embedded.t =
-    let cont, resulting_bindings = run_identity m [] in
-    List.fold resulting_bindings ~init:cont ~f:(fun cont -> function
+    let cont, resulting_bindings = run_identity m in
+    (* we must fold right because of the ordering of Preface.List.Monoid.combine and how it is added to the tape *)
+    List.fold_right resulting_bindings ~init:cont ~f:(fun tape cont ->
+      match tape with
       | Bind (id, body) ->
         ELet { var = id ; body ; cont }
       | Ignore ignored ->

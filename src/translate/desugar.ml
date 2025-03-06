@@ -38,12 +38,8 @@ module LetMonad = struct
     type t = (Kind.t * Ident.t * Desugared.t)
   end
 
-  module State = struct
-    type t = Binding.t list
-  end
-
   module T = struct
-    module M = Preface.State.Over (State)
+    module M = Preface.Writer.Over (Preface.List.Monoid (Binding))
     include M
     type 'a m = 'a M.t
     let bind x f = M.bind f x
@@ -55,7 +51,7 @@ module LetMonad = struct
     Assign the expression the given name with optional typing.
   *)
   let assign ?(kind : Binding.Kind.t = Untyped) (id : Ident.t) (e : Desugared.t) : unit m =
-    modify (List.cons (kind, id, e))
+    tell [ kind, id, e ]
 
   let iter (ls : 'a list) ~(f : 'a -> unit m) : unit m =
     List.fold ls ~init:(return ()) ~f:(fun acc_m a ->
@@ -65,11 +61,11 @@ module LetMonad = struct
 
   (*
     Build an expression (of many nested let-expressions) using the assignments
-    in the monad's state.
+    in the monad's tape.
   *)
   let build (m : Desugared.t m) : Desugared.t =
-    let cont, resulting_bindings = M.run_identity m [] in
-    List.fold resulting_bindings ~init:cont ~f:(fun cont (kind, id, body) ->
+    let cont, resulting_bindings = run_identity m in
+    List.fold_right resulting_bindings ~init:cont ~f:(fun (kind, id, body) cont ->
       match kind with
       | Untyped ->
         ELet { var = id ; body ; cont }
