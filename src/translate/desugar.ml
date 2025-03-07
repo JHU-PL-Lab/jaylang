@@ -11,7 +11,7 @@ open Ast_tools.Utils
 
 module LetMonad = struct
   module Binding = struct
-    module Kind = struct
+    module Ty = struct
       type t = 
         | Untyped
         | Typed of Desugared.t
@@ -35,45 +35,32 @@ module LetMonad = struct
         | Some tau -> Typed tau
         | None -> Untyped
     end
-    type t = (Kind.t * Ident.t * Desugared.t)
+
+    type t = 
+      { ty   : Ty.t 
+      ; var  : Ident.t 
+      ; body : Desugared.t
+      }
+
+    type a = Constraints.desugared
+
+    let t_to_expr { ty ; var ; body } ~cont =
+      match ty with
+      | Untyped ->
+        ELet { var ; body ; cont }
+      | Typed_with_flags (flags, tau) ->
+        ELetFlagged { flags ; typed_var = { var ; tau } ; body ; cont }
+      | Typed tau ->
+        ELetTyped { typed_var = { var ; tau } ; body ; cont }
   end
 
-  module T = struct
-    module M = Preface.Writer.Over (Preface.List.Monoid (Binding))
-    include M
-    type 'a m = 'a M.t
-    let bind x f = M.bind f x
-  end
-
-  include T
+  include Let_builder (Binding)
 
   (*
     Assign the expression the given name with optional typing.
   *)
-  let assign ?(kind : Binding.Kind.t = Untyped) (id : Ident.t) (e : Desugared.t) : unit m =
-    tell [ kind, id, e ]
-
-  let iter (ls : 'a list) ~(f : 'a -> unit m) : unit m =
-    List.fold ls ~init:(return ()) ~f:(fun acc_m a ->
-      let%bind () = acc_m in
-      f a
-    )
-
-  (*
-    Build an expression (of many nested let-expressions) using the assignments
-    in the monad's tape.
-  *)
-  let build (m : Desugared.t m) : Desugared.t =
-    let cont, resulting_bindings = run_identity m in
-    List.fold_right resulting_bindings ~init:cont ~f:(fun (kind, id, body) cont ->
-      match kind with
-      | Untyped ->
-        ELet { var = id ; body ; cont }
-      | Typed_with_flags (flags, tau) ->
-        ELetFlagged { flags ; typed_var = { var = id ; tau } ; body ; cont }
-      | Typed tau ->
-        ELetTyped { typed_var = { var = id ; tau } ; body ; cont }
-    )
+  let assign ?(ty : Binding.Ty.t = Untyped) (var : Ident.t) (body : Desugared.t) : unit m =
+    tell { ty ; var ; body }
 end
 
 let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared.pgm =
@@ -226,7 +213,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       let { func_id ; body ; params ; tau_opt } : desugared Function_components.t = funsig_to_components func in
       build @@
         let%bind () =
-          assign ~kind:(Binding.Kind.typed_of_tau_opt tau_opt) func_id (
+          assign ~ty:(Binding.Ty.typed_of_tau_opt tau_opt) func_id (
             abstract_over_ids params body
           )
         in
@@ -287,9 +274,9 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
         ...
         let fn = $fn $f1 $f2 ... $fn in
     *)
-    let create_functions (binding_fun : Desugared.t option -> Binding.Kind.t) : unit m =
+    let create_functions (binding_fun : Desugared.t option -> Binding.Ty.t) : unit m =
       iter func_comps ~f:(fun { func_id ; tau_opt ; _ } ->
-        assign ~kind:(binding_fun tau_opt) func_id (
+        assign ~ty:(binding_fun tau_opt) func_id (
           appl_list
             (EVar (tmp_name_of_name func_id))
             (tmp_names >>| fun id -> EVar id)
@@ -301,7 +288,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
         abstract_over_ids tmp_names (
           abstract_over_ids params (
             build @@ 
-              let%bind () = create_functions Binding.Kind.rec_no_check_of_tau_opt in
+              let%bind () = create_functions Binding.Ty.rec_no_check_of_tau_opt in
               return body
           )
         )

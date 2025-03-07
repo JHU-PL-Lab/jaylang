@@ -10,19 +10,20 @@ open Ast_tools.Utils
 
 module LetMonad (Names : Fresh_names.S) = struct
   module Binding = struct
+    type a = Constraints.embedded
     type t =
       | Bind of Ident.t * Embedded.t
       | Ignore of Embedded.t
+
+    let t_to_expr tape ~cont =
+      match tape with
+      | Bind (id, body) ->
+        ELet { var = id ; body ; cont }
+      | Ignore ignored ->
+        EIgnore { ignored ; cont }
   end
 
-  module T = struct
-    module M = Preface.Writer.Over (Preface.List.Monoid (Binding))
-    include M (* the inner monad is Identity here, but mli doesn't expose that *)
-    type 'a m = 'a M.t
-    let bind x f = M.bind f x
-  end
-
-  include T
+  include Let_builder (Binding)
 
   open Binding
 
@@ -31,41 +32,20 @@ module LetMonad (Names : Fresh_names.S) = struct
   *)
   let capture ?(suffix : string option) (e : Embedded.t) : Ident.t m =
     let v = Names.fresh_id ?suffix () in
-    let%bind () = tell [ Bind (v, e) ] in
+    let%bind () = tell (Bind (v, e)) in
     return v
 
   (*
     Assign the expression the given name.
   *)
   let assign (id : Ident.t) (e : Embedded.t) : unit m =
-    tell [ Bind (id, e) ]
-
-  let iter (ls : 'a list) ~(f : 'a -> unit m) : unit m =
-    List.fold ls ~init:(return ()) ~f:(fun acc_m a ->
-      let%bind () = acc_m in
-      f a
-    )
+    tell (Bind (id, e))
 
   (*
     Compute the value of the expression but ignore it.
   *)
   let ignore (e : Embedded.t) : unit m =
-    tell [ Ignore e ]
-
-  (*
-    Build the expression (of many nested let-expressions or ignore-expressions) using
-    the monad's tape.
-  *)
-  let[@landmark] build (m : Embedded.t m) : Embedded.t =
-    let cont, resulting_bindings = run_identity m in
-    (* we must fold right because of the ordering of Preface.List.Monoid.combine and how it is added to the tape *)
-    List.fold_right resulting_bindings ~init:cont ~f:(fun tape cont ->
-      match tape with
-      | Bind (id, body) ->
-        ELet { var = id ; body ; cont }
-      | Ignore ignored ->
-        EIgnore { ignored ; cont }
-    )
+    tell (Ignore e)
 end
 
 module Embedded_type (W : sig val do_wrap : bool end) = struct
