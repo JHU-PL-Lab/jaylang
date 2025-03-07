@@ -9,6 +9,7 @@
   core_unix.sys_unix
   preface
   z3
+  moonpool
   )
  (synopsis "Utils module for the Jaylang project")
  (inline_tests)

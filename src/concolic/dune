@@ -13,7 +13,6 @@
   preface
   psq
   utils
-  moonpool
  )
  (synopsis "Concolic evaluator on embedded-type programs")
  (inline_tests)
