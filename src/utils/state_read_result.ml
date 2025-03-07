@@ -1,3 +1,14 @@
+(**
+  Module [State_read_result].
+
+  This is a common monad that supports state and is transformed
+  by reader and result. It is also a continuation monad.
+
+  The several interpreters in this repo use this monad. It is written
+  in this way (without the abstraction of actual monad transformers)
+  because performance is a concern. However, it's not enough of a concern
+  to warrant using mutation (and risk incorrectness) instead.
+*)
 
 open Core
 
