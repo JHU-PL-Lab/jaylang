@@ -34,7 +34,7 @@ let make_tests (dirs : string list) : unit Alcotest.test list =
     )
 
 let () =
-  Alcotest.run "concolic" ~quick_only:true
+  Alcotest.run "concolic"
   @@ make_tests
     [ "post-oopsla-ill-typed"
     ; "post-oopsla-well-typed"
