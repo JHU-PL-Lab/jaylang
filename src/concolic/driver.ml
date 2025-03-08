@@ -78,7 +78,7 @@ let test_bjy : Lang.Ast.Bluejay.pgm test =
       else Preface.Nonempty_list.Last (Translate.Convert.bjy_to_emb bjy ~do_wrap)
     in
     let module C = Compute (struct let r = r end) in
-    let module P = Utils.Computation_pool.Process (C) in
+    let module P = Overlays.Computation_pool.Process (C) in
     let res = P.process_all @@ Preface.Nonempty_list.map Lang.Ast.Program.to_expr programs in
     Format.printf "%s\n" (Status.to_loud_string res);
     res

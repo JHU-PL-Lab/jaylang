@@ -12,17 +12,7 @@ module type Computation = sig
   module Work : sig
     type t
     val run : t -> Compute_result.t
-    (** [run t] does the work on [t] and promises that it will not
-        invoke [Lwt].
-        
-        NOTE: This function is expected to be run in parallel on many
-        threads, so it should be thread-safe. *)
-
     val run_with_internal_timeout : t -> Compute_result.t
-    (** [run_with_internal_timeout t] does the work on [t] and has
-        its own timer to stop the computation at timeout.
-        
-        NOTE: This function does not need to be thread-safe. *)
   end
 
   val timeout_sec : float

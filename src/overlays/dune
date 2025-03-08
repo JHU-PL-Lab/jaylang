@@ -1,12 +1,13 @@
-(include_subdirs unqualified)
 
 (library
- (name utils)
- (public_name jay.utils)
+ (name overlays)
+ (public_name jay.overlays)
  (libraries
   core
-  core_unix
-  core_unix.sys_unix
+  preface
+  z3
+  moonpool
+  utils
   )
  (synopsis "Utils module for the Jaylang project")
  (inline_tests)

@@ -1,3 +1,4 @@
+
 (**
   Module [Typed_z3].
 
@@ -18,7 +19,7 @@ module type Context = sig
 end
 
 module Make_common_builders (C : Context) = struct
-  module E = Separate.Make (struct type t = Z3.Expr.expr end)
+  module E = Utils.Separate.Make (struct type t = Z3.Expr.expr end)
   include E
 
   let ctx = C.ctx
@@ -97,9 +98,11 @@ end
 module Make_solver (C : Context) = struct
   include Make_datatype_builders (C)  
 
+  type model = Z3.Model.model
+
   module Solve_status = struct
     type t =
-      | Sat of Z3.Model.model
+      | Sat of model
       | Unknown
       | Unsat
   end

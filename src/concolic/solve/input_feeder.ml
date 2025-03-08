@@ -21,11 +21,11 @@ let default : t =
     f
   }
 
-module Make (Expr : Z3_api.S) = struct
-  let from_model (model : Z3.Model.model) : t =
+module Make (Z : Z3_api.S) = struct
+  let from_model (model : Z.model) : t =
     { get = 
       let f (type a) (key : a Stepkey.t) : a =
-        match Expr.value_of_key model key with
+        match Z.value_of_key model key with
         | Some i -> i
         | None -> default.get key
       in

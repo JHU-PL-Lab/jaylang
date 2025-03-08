@@ -7,12 +7,12 @@
   core
   lwt
   lwt.unix
-  z3
   lang
   translate
   preface
   psq
   utils
+  overlays
  )
  (synopsis "Concolic evaluator on embedded-type programs")
  (inline_tests)
