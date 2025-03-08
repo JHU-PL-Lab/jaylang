@@ -30,8 +30,7 @@ There is a snapshot that is the artifact for the paper **Semantic-Type-Guided Bu
 
 The repo is tested under MacOS, Ubuntu, and WSL on Windows.
 
-After cloning the repository, make sure that the branch is switch to `main`, as it is
-the most well-supported.
+After cloning the repository, make sure that the branch is switched to `main`.
 
 ```
 git clone https://github.com/JHU-PL-Lab/jaylang.git
@@ -96,12 +95,19 @@ Optional arguments for this executable can be found in the source code at
 ### Tests
 
 ```
-make test-concolic
+make test-all
 ```
 
 This makes the full tests suite for the concolic evaluator. The tests are found
-in the directory `test/bjy`. By default, the well-typed tests are skipped because
-they are expected to run for a long time.
+in the directory `test/bjy`. With this, the well-typed tests are run, which are
+expected to take a long time.
+
+To run only the interesting, ill-typed tests, where the concolic evaluator is
+expected to find an error in the test program, run only the fast tests:
+
+```
+make test-fast
+```
 
 ### Benchmarks
 
