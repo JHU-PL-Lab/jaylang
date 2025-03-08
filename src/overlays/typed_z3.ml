@@ -1,15 +1,4 @@
 
-(**
-  Module [Typed_z3].
-
-  This provides a typed interface to the Z3 SMT solver,
-  allowing integer and boolean operations.
-
-  The module is parametrized over a stateful Z3 context,
-  and each instance of the result of the applicative functor
-  has its own (stateful) solver that is transiently used
-  for solves.
-*)
 
 open Core
 open Z3
