@@ -13,6 +13,11 @@ module Const = struct
 
   let box_int i = I i
   let box_bool b = B b
+
+  let equal (type a) (x : a t) (y : a t) : bool =
+    match x, y with
+    | I a, I b -> a = b
+    | B a, B b -> Bool.(a = b)
 end
 
 open Const
@@ -80,6 +85,24 @@ module Typed_binop = struct
     | Not_equal -> op ( <> ) box_bool
     | And -> op ( && ) box_bool
     | Or -> op ( || ) box_bool
+
+  let equal (type a) (x : a t) (y : a t) : bool =
+    match x, y with
+    | Plus, Plus
+    | Minus, Minus
+    | Times, Times
+    | Divide, Divide
+    | Modulus, Modulus
+    | Less_than, Less_than
+    | Less_than_eq, Less_than_eq
+    | Greater_than, Greater_than
+    | Greater_than_eq, Greater_than_eq
+    | Equal_int, Equal_int
+    | Equal_bool, Equal_bool
+    | Not_equal, Not_equal
+    | And, And
+    | Or, Or -> true
+    | _ -> false
 end
 
 type _ t =
@@ -129,11 +152,15 @@ let key key = Key key
 let not_ (x : bool t) : bool t =
   match x with
   | Const B b -> Const (B (not b))
+  | Not e -> e (* cancel a double negation *)
   | _ -> Not x
 
 let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t) : b t =
-  match left, right with
-  | Const cx, Const cy -> Const (Typed_binop.to_arithmetic binop cx cy)
+  match left, right, binop with
+  | Const cx, Const cy, _ -> Const (Typed_binop.to_arithmetic binop cx cy)
+  | Key k1, Key k2, Equal_bool when Stepkey.equal k1 k2 -> Const (B true)
+  | Key k1, Key k2, Equal_int when Stepkey.equal k1 k2 -> Const (B true)
+  | Key k1, Key k2, Not_equal when Stepkey.equal k1 k2 -> Const (B false)
   | _ -> Binop (binop, left, right)
 
 module Solve (Expr : Z3_api.S) = struct

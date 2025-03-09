@@ -6,8 +6,10 @@ module type S = sig
   val of_options : (unit, t) Options.Arrow.t
   val push_list : t -> Target.t list -> t
   val remove : t -> Target.t -> t
-  val pop : t -> (Target.t * t) option
+  val peek : t -> Target.t option
 end
+
+let opt_fst = Option.map ~f:Tuple2.get1
 
 (*
   Note that in a psq, the same priority can exist for multiple keys (e.g. two different targets
@@ -32,8 +34,8 @@ module Uniform = struct
   let remove (q : t) (target : Target.t) : t =
     Q.remove target q
 
-  let pop (q : t) : (Target.t * t) option =
-    Option.map (Q.pop q) ~f:(function (target, _), q -> target, q)
+  let peek (q : t) : Target.t option =
+    opt_fst @@ Q.min q
 end
 
 (*
@@ -64,8 +66,8 @@ module BFS = struct
   let push_list (x : t) (ls : Target.t list) : t =
     List.fold ls ~init:x ~f:push_one
 
-  let pop (Bfs q : t) : (Target.t * t) option =
-    Option.map (Q.pop q) ~f:(function (target, _), q -> target, return q)
+  let peek (Bfs q : t) : Target.t option =
+    opt_fst @@ Q.min q
 
   let remove (Bfs q : t) (target : Target.t) : t =
     return
@@ -93,10 +95,8 @@ module DFS = struct
   let push_list (x : t) (ls : Target.t list) : t =
     List.fold ls ~init:x ~f:push_one
 
-  let pop ({ q ; _ } as x : t) : (Target.t * t) option =
-    match Q.pop q with
-    | None -> None
-    | Some ((target, _), q) -> Some (target, { x with q })
+  let peek ({ q ; _ } : t) : Target.t option =
+    opt_fst @@ Q.min q
 
   let is_empty ({ q ; _ } : t) : bool =
     Q.is_empty q
@@ -118,16 +118,16 @@ module Merge (P : S) (Q : S) : S = struct
   let remove ((p, q) : t) (target : Target.t) : t =
     P.remove p target, Q.remove q target
 
-  let pop ((p, q) : t) : (Target.t * t) option =
+  let peek ((p, q) : t) : Target.t option =
     if C_random.bool ()
     then
-      match P.pop p with
-      | None -> Option.map (Q.pop q) ~f:(fun (target, q) -> target, (P.remove p target, q))
-      | Some (target, p) -> Some (target, (p, Q.remove q target))
+      match P.peek p with
+      | None -> Q.peek q
+      | t -> t
     else
-      match Q.pop q with
-      | None -> Option.map (P.pop p) ~f:(fun (target, p) -> target, (p, Q.remove q target))
-      | Some (target, q) -> Some (target, (P.remove p target, q))
+      match Q.peek q with
+      | None -> P.peek p
+      | t -> t
 end
 
 module All = Merge (Merge (BFS) (DFS)) (Uniform)

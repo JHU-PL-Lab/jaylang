@@ -6,5 +6,6 @@
   utils
   alcotest
   alcotest-lwt
+  metadata
   concolic)
  )

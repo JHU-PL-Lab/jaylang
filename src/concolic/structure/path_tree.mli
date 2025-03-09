@@ -33,9 +33,13 @@ module Make : functor (_ : Solve.S) (_ : Target_queue.S) (P : Pause.S) (_ : Opti
   (** [empty] knows no path or constraints *)
 
   val add_stem : t -> Stem.t -> t
-  (** [add_stem tree stem] is a new path tree where the [stem] has been placed onto the [tree]. *)
+  (** [add_stem tree stem] is a new path tree where the [stem] has been placed onto the [tree],
+      and the target from which the stem began has been removed from the queue because it is
+      overwritten by the stem. *)
 
-  val pop_sat_target : t -> (t * Target.t * Input_feeder.t) option P.t
-  (** [pop_sat_target tree] is a new tree, target, and input feeder to hit that target, or
-      is none if there are not satisfiable targets left in the [tree]. *)
+  val get_sat_target : t -> (t * Target.t * Input_feeder.t) option P.t
+  (** [get_sat_target tree] is a new tree, target, and input feeder to hit that target, or
+      is none if there are not satisfiable targets left in the [tree].
+      Note that the popped target is not removed yet because it still exists as a "target" in
+      the tree; the target is removed when it is overwritten by a stem (see [add_stem]). *)
 end

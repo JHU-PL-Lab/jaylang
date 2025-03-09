@@ -7,7 +7,7 @@ module type S = sig
   end
 
   module Input_feeder : sig
-    val from_model : Z3.Model.model -> Input_feeder.t
+    val from_model : model -> Input_feeder.t
   end
 end
 

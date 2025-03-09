@@ -5,10 +5,9 @@ type 'a t = Equality of ('a Expression.t * 'a Direction.t) [@@unboxed]
 
 let to_expression (type a) (Equality (expr, dir) : a t) : bool Expression.t =
   let eq_int a b = Expression.op a b Expression.Typed_binop.Equal_int in
-  let eq_bool a b = Expression.op a b Expression.Typed_binop.Equal_bool in
   match dir with
-  | True_direction -> eq_bool expr Expression.true_
-  | False_direction -> eq_bool expr Expression.false_
+  | True_direction -> expr 
+  | False_direction -> Expression.not_ expr
   | Case_int i -> eq_int expr (Expression.const_int i)
   | Case_default { not_in } ->
     List.fold not_in ~init:Expression.true_ ~f:(fun acc i ->

@@ -14,6 +14,34 @@ module Fresh_names : sig
   module Make () : S
 end
 
+(**
+  [Let_builder] is a monad that allows us to write let-bindings
+  to a tape and then build that tape into an expression. It simply
+  gives nice notation that more closely follows the specification
+  of the translation.
+*)
+module Let_builder (L : sig
+  type a
+  type t
+  val t_to_expr : t -> cont:(a Lang.Ast.Expr.t) -> a Lang.Ast.Expr.t
+  (** [t_to_expr t ~cont] makes an expression using [t] that continues to [cont].
+      e.g. implementation [fun (var, body) ~cont -> ELet { var ; body ; cont }].
+      i.e. take one tape item and turn it into a let binding. *)
+end) : sig
+  type 'a m
+
+  val bind : 'a m -> ('a -> 'b m) -> 'b m
+  val return : 'a -> 'a m
+
+  val tell : L.t -> unit m
+  (** [tell t] writes [t] to the tape. *)
+
+  val iter : 'a list -> f:('a -> unit m) -> unit m
+
+  val build : L.a Lang.Ast.Expr.t m -> L.a Lang.Ast.Expr.t
+  (** [build x] uses the tape in [x] to build an expression. *)
+end
+
 module Desugared_functions : sig
   (*
     let filter_list x =

@@ -1,3 +1,6 @@
+(*** (
+  (features (Recursive_functions Higher_order_functions Refinement_types Wrap_required))
+) *)
 (* This is one well-typed version of `hors` *)
 
 let c x = {}
@@ -7,13 +10,13 @@ let b x =
     x 1
 
 let a (x : int -> unit) (y : int -> unit) (q : int) : unit =
-  let ignore = x 0 in
+  let _ = x 0 in
   y 0
 
 let rec f n x q =
   if n <= 0
   then x q
-  else a x (fun p -> f (n - 1) (fun ignore -> b x ignore) p) q
+  else a x (fun p -> f (n - 1) (fun dummy -> b x dummy) p) q
 
 let s n q =
   f n c q

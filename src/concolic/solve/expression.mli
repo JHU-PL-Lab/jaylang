@@ -41,8 +41,6 @@ end
 type 'a t
 (** ['a t] is a symbolic expression. *)
 
-val equal : 'a t -> 'a t -> bool
-
 val is_const : 'a t -> bool
 (** [is_const e] is true if and only if the expression is purely constant.
     That is, there are no symbolic components in it. *)
@@ -68,6 +66,10 @@ val not_ : bool t -> bool t
 val op : 'a t -> 'a t -> ('a * 'a * 'b) Typed_binop.t -> 'b t
 (** [op e1 e2 binop] is an expression for the result of the binary operation [binop]
     on [e1] and [e2]. *)
+
+val equal : 'a t -> 'a t -> bool
+(** [equal e1 e2] is true if and only if the expressions [e1] and [e2] are structurally
+    equivalent. E.g. [x + 1] is not equivalent to [1 + x]. *)
 
 module Solve (Expr : Z3_api.S) : sig
   val to_formula : 'a t -> 'a Expr.t

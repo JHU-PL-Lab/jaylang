@@ -343,6 +343,16 @@ Division and modulus can go wrong if right expression is `0`. We instrument duri
   (x : [| tau1 |]) -> [| tau2 |]
 ```
 
+## Monadic syntax
+
+```ocaml
+[| let%bind x = e in e' |] =
+  [| bind e (fun x -> e') |]
+```
+
+Notes:
+* This implicitly fails if there is no appropriate function called `bind` in scope
+
 ## Conclusion
 
 Unless it was explicitly mentioned in this file, everything else is desugared by just recursively desugaring its components.

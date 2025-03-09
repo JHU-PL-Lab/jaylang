@@ -36,8 +36,13 @@ logclean:
 
 # testing
 
-test-concolic:
-	dune exec src-test/concolic/test_concolic.exe
+# run the fast concolic tests (the ill-typed programs)
+test-fast:
+	dune exec -- src-test/concolic/test_concolic.exe -q
+
+# run the slow concolic tests (all programs, where well-typed run a long time)
+test-all:
+	dune exec -- src-test/concolic/test_concolic.exe
 
 # benchmark
 

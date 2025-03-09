@@ -1,3 +1,9 @@
+(*** (
+  (features (Mu_types Higher_order_functions OOP_style Records))
+  (reasons (Records OOP_style))
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 
 let result_type = { result : int }
 
@@ -19,7 +25,7 @@ let make_city_client (i : int) : client =
   let s = 
     fun self ->
       { population = i
-      ; show_population = fun ignore -> (self self).population == 0 } (* arbitrary code in place of side effect  *)
+      ; show_population = fun _ -> (self self).population == 0 } (* arbitrary code in place of side effect  *)
   in
   { accept = fun v -> v.visit_city (s s) }
 

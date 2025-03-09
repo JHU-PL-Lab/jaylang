@@ -61,7 +61,7 @@ let sum n =
     then M.read (* read final state, which holds sum *)
     else
       let m = M.modify (fun i -> i + x) in (* add x to sum *)
-      M.bind unit int m (fun ignore ->
+      M.bind unit int m (fun _ ->
         loop (x - 1)
       )
   in

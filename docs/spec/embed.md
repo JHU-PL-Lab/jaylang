@@ -42,7 +42,7 @@ Statements are embedded exactly like their corresponding let-expression as it is
 ### Arrow
 
 ```ocaml
-[[tau1 -> tau2]]
+[[tau1 -> tau2]] =
   { ~gen = freeze @@
     fun $arg -> 
       let _ = [[tau1]].~check $arg in

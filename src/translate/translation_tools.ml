@@ -1,4 +1,5 @@
 
+open Core
 open Lang
 open Ast
 
@@ -20,6 +21,37 @@ module Fresh_names = struct
       let count = Utils.Counter.create () in
       fun () -> Utils.Counter.next count
   end
+end
+
+module Let_builder (L : sig
+  type a
+  type t 
+  val t_to_expr : t -> cont:a Expr.t -> a Expr.t
+end) = struct
+  module T = struct
+    (* 
+      This transforms the identity monad to a writer, where the
+      operation to write is list concatenation.
+    *)
+    module M = Preface.Writer.Over (Preface.List.Monoid (L))
+    include M
+    type 'a m = 'a M.t
+    let bind x f = M.bind f x (* our ppx uses the other argument order *)
+    let tell a = tell [ a ] (* in our use case, we only write one at a time, so alias for that *)
+  end
+
+  include T
+
+  let iter (ls : 'a list) ~(f : 'a -> unit m) : unit m =
+    List.fold ls ~init:(return ()) ~f:(fun acc_m a ->
+      let%bind () = acc_m in
+      f a
+    )
+
+  let[@landmark] build (m : L.a Expr.t m) : L.a Expr.t =
+    let cont, resulting_bindings = run_identity m in
+    (* we must fold right because of the ordering of Preface.List.Monoid.combine and how it is added to the tape *)
+    List.fold_right resulting_bindings ~init:cont ~f:(fun tape cont -> L.t_to_expr tape ~cont)
 end
 
 open Ast_tools

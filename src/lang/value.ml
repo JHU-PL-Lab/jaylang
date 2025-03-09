@@ -123,15 +123,15 @@ module Make (Cell : CELL) (V : V) = struct
 
     let empty : 'a env = Ident.Map.empty
 
-    let add (env : 'a t) (id : Ident.t) (v : 'a T.t) : 'a t =
+    let add (id : Ident.t) (v : 'a T.t) (env : 'a t) : 'a t =
       Map.set env ~key:id ~data:(Cell.make v)
 
-    let fetch (env : 'a t) (id : Ident.t) : 'a T.t =
+    let fetch (id : Ident.t) (env : 'a t) : 'a T.t =
       match Map.find env id with
       | None -> raise @@ UnboundVariable id
       | Some r -> Cell.get r
 
-    let add_stub (env : 'a Constraints.bluejay_or_desugared t) (id : Ident.t) : 'a T.t Cell.t * 'a t =
+    let add_stub (id : Ident.t) (env : 'a Constraints.bluejay_or_desugared t) : 'a T.t Cell.t * 'a t =
       let v_cell = Cell.make VRecStub in
       v_cell, Map.set env ~key:id ~data:v_cell
   end
@@ -151,8 +151,8 @@ module Constrain (C : sig type constrain end) (Cell : CELL) (V : V) = struct
   module Env = struct
     type t = C.constrain M.Env.t
     let empty : t = M.Env.empty
-    let add : t -> Ident.t -> T.t -> t = M.Env.add
-    let fetch : t -> Ident.t -> T.t = M.Env.fetch
+    let add : Ident.t -> T.t -> t -> t = M.Env.add
+    let fetch : Ident.t -> t -> T.t = M.Env.fetch
   end
 end
 
@@ -174,7 +174,7 @@ module Desugared (V : V) = struct
   include Constrain (struct type constrain = Ast.Constraints.desugared end) (Ref_cell) (V)
   module Env = struct
     include Env
-    let add_stub : t -> Ident.t -> T.t Ref_cell.t * t = M.Env.add_stub
+    let add_stub : Ident.t -> t -> T.t Ref_cell.t * t = M.Env.add_stub
   end
 end 
 
@@ -182,6 +182,6 @@ module Bluejay (V : V) = struct
   include Constrain (struct type constrain = Ast.Constraints.bluejay end) (Ref_cell) (V)
   module Env = struct
     include Env
-    let add_stub : t -> Ident.t -> T.t Ref_cell.t * t = M.Env.add_stub
+    let add_stub : Ident.t -> t -> T.t Ref_cell.t * t = M.Env.add_stub
   end
 end 

@@ -38,6 +38,7 @@ val default : t
 
 module type V = sig
   val r : t
+  (** [r] is a record containing values to fill in for each optional arg. *)
 end
 
 module Refs : sig

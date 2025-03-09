@@ -1,3 +1,9 @@
+(*** (
+  (features (Higher_order_functions OOP_style Refinement_types Dependent_types Records))
+  (reasons (Records OOP_style))
+  (speed Fast)
+  (typing Ill_typed)
+) *)
 (* The well-typed version of this is the same as the well-typed of duck_typing_colors1 *)
 
 let (color : { t : type }) =
@@ -27,7 +33,7 @@ let (obj : colored_point.t) =
       { x = 10
       ; y = 20
       ; get_deg = 
-        fun ignore_unit ->
+        fun _ ->
           let s = (self self) in
           let tan = s.y / s.x in
           tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 (* approx arctan with taylor expansion *)

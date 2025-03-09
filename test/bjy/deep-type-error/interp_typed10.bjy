@@ -1,4 +1,7 @@
-
+(*** (
+  (speed Slow)
+  (typing Ill_typed)
+) *)
 let nil =
   { t = unit
   ; v = {}
@@ -23,9 +26,9 @@ let ttype =
         and eq p1.left p2.right
       | _ -> false
       end
-    | `TInt ignore ->
+    | `TInt _ ->
       match b with
-      | `TInt ignore -> true
+      | `TInt _ -> true
       | _ -> false
       end
     end
@@ -153,7 +156,7 @@ let typecheck e =
       )
     end
   in
-  typecheck e (fun ignore_unbound_variable -> result.error)
+  typecheck e (fun _ -> result.error)
 
 let is_closed_and_well_typed e =
   result.is_ok (typecheck e)

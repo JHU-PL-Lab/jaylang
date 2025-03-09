@@ -1,3 +1,6 @@
+(*** (
+  (features (Variants Recursive_functions Refinement_types Dependent_types Records Match))
+) *)
 (* Note: error is found quickly when we use uniform target sampling; 70 conditionals deep; 1 increment *)
 (* However; the error is not found to only 50 deep; which is our standard *)
 
@@ -17,7 +20,7 @@ let coord_equal a b =
 
 let has_parent x = 
   match x.parent with
-  | `Some ignore -> true
+  | `Some _ -> true
   | _ -> false
   end
 
@@ -29,7 +32,7 @@ let rec get_abs_coord (r <- t)
       if is_coord_nonzero (get_abs_coord p) (* Note: recursive call here *)
       then not (coord_equal abs_coord r.relative_coord)
       else true
-    | `None ignore -> true
+    | `None _ -> true
     end
   }
   =
@@ -37,5 +40,5 @@ let rec get_abs_coord (r <- t)
   | `Some parent -> 
     let c = get_abs_coord parent in
     { x = c.x + r.relative_coord.x ; y = c.y + r.relative_coord.y }
-  | `None ignore -> r.relative_coord
+  | `None _ -> r.relative_coord
   end

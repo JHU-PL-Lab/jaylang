@@ -1,0 +1,16 @@
+
+(library
+ (name overlays)
+ (public_name jay.overlays)
+ (libraries
+  core
+  preface
+  z3
+  moonpool
+  utils
+  )
+ (synopsis "Utils module for the Jaylang project")
+ (inline_tests)
+ (instrumentation
+  (backend landmarks))
+ (preprocess (pps ppx_compare ocaml-monadic landmarks-ppx --auto)))

@@ -18,13 +18,12 @@ module Report_row (* : Latex_table.ROW *) =
       ; total_time                  : Time_float.Span.t
       ; trial                       : Trial.t
       ; lines_of_code               : int
-      ; features                    : Ttag.t list
-      ; reasons                     : Ttag.t list }
+      ; metadata                    : Metadata.t }
 
     let names =
       [ "Test Name" ; "Run" ; "Transl" ; "Total" ; "LOC" ]
       @ (List.map Ttag.all ~f:(fun tag ->
-          Format.sprintf "\\rot{%s}" (* assume \rot has been defined to rotate column headers 90 degrees *)
+          Latex_format.rotate_90
           @@ Ttag.to_string_with_underline tag
         )
       )
@@ -44,25 +43,20 @@ module Report_row (* : Latex_table.ROW *) =
       ; span_to_ms_string x.total_time
       ; Int.to_string x.lines_of_code ]
       @ (
-        Ttag.all
-        |> List.map ~f:(fun tag ->
-          if List.mem x.reasons tag ~equal:Ttag.equal
-          then begin
-            (* sanity check that reasons is subset of features *)
-            if not (List.mem x.features tag ~equal:Ttag.equal)
-            then failwith ("bad tags for file " ^ x.testname);
-            Format.sprintf "\\red{%s}" (* assume \red{%s} is \textcolor{red}{%s} *)
-            @@ Ttag.to_string_short tag
-          end
-          else
-            if List.mem x.features tag ~equal:Ttag.equal
-            then Ttag.to_string_short tag
-            else "--"
-        )
+        match Metadata.tags_of_t x.metadata with
+        | `Sorted_list ls ->
+          List.map ls ~f:(function
+            | `Absent -> "--"
+            | `Feature tag -> Ttag.to_string_short tag
+            | `Reason tag ->
+              Latex_format.red
+              @@ Ttag.to_string_short tag
+            )
       )
 
     let of_testname (n_trials : int) (testname : Filename.t) : t list =
       assert (n_trials > 0);
+      let metadata = Metadata.of_bjy_file testname in
       let test_one (n : int) : t =
         let t0 = Caml_unix.gettimeofday () in
         let source =
@@ -82,8 +76,7 @@ module Report_row (* : Latex_table.ROW *) =
           ; total_time = Time_float.Span.of_sec (t2 -. t0)
           ; trial = Number n
           ; lines_of_code = Utils.Cloc_lib.count_bjy_lines testname
-          ; features = Ttag.features testname
-          ; reasons = Ttag.reasons testname }
+          ; metadata }
         in
         row
       in
@@ -99,8 +92,7 @@ module Report_row (* : Latex_table.ROW *) =
             ; total_time = Time_float.Span.of_sec 0.0
             ; trial = Average
             ; lines_of_code = Utils.Cloc_lib.count_bjy_lines testname (* won't even average the remaining fields out. Just pre-calculate it *)
-            ; features = Ttag.features testname
-            ; reasons = Ttag.reasons testname
+            ; metadata
           }
           ~f:(fun acc x ->
             { acc with (* sum up *)
@@ -116,13 +108,11 @@ module Report_row (* : Latex_table.ROW *) =
           ; total_time = Time_float.Span.(r.total_time / (Int.to_float n_trials))
           }
       in
-      Format.printf "Tested %s -- avg : %d ms\n" testname (Time_float.Span.to_ms avg_trial.time_to_only_run_on_jil |> Float.to_int);
       trials @ [ avg_trial ]
   end
 
 module Result_table =
   struct
-
     type t = Report_row.t Latex_tbl.t
 
     let of_dirs ?(avg_only : bool = true)  (n_trials : int) (dirs : Filename.t list) : t =
@@ -130,10 +120,10 @@ module Result_table =
       { row_module = (module Report_row)
       ; rows =
         dirs
-        |> Ttag.get_all_files ~filter:(Fn.flip Filename.check_suffix ".bjy")
+        |> Utils.File_utils.get_all_bjy_files
         |> List.sort ~compare:(fun a b -> String.compare (Filename.basename a) (Filename.basename b))
         >>= Report_row.of_testname n_trials
-        |> List.filter ~f:(fun row ->
+        |> List.filter ~f:(fun (row : Report_row.t) ->
           not avg_only || match row.trial with Average -> true | _ -> false
           )
         >>| Latex_tbl.Row_or_hline.return
@@ -151,6 +141,8 @@ module Result_table =
   end
 
 let run dirs =
+  let oc_null = Out_channel.create "/dev/null" in
+  Format.set_formatter_out_channel oc_null;
   let tbl = Result_table.of_dirs 10 dirs in
   let times =
     List.filter_map tbl.rows ~f:(function
@@ -166,15 +158,18 @@ let run dirs =
     List.sort times ~compare:Float.compare
     |> Fn.flip List.nth_exn (List.length times / 2)
   in
+  Format.set_formatter_out_channel Out_channel.stdout;
   tbl
   |> Latex_tbl.show
   |> Format.printf "%s\n";
   Format.printf "Mean time of all tests: %fms\nMedian time of all tests: %fms\n" mean median
 
 let () =
-  run [ "test/bjy/oopsla-24-benchmarks-ill-typed" ];
-  (* run [ "test/bjy/scheme-pldi-2015-ill-typed" ]; *)
-  (* run [ "test/bjy/deep-type-error" ] *)
-  (* run [ "test/bjy/oopsla-24-tests-ill-typed" ; "test/bjy/sato-bjy-ill-typed" ] *)
-  (* run [ "test/bjy/interp-ill-typed" ] *)
+  run [ 
+    "test/bjy/oopsla-24-benchmarks-ill-typed";
+    (* "test/bjy/scheme-pldi-2015-ill-typed"; *)
+    (* "test/bjy/deep-type-error"; *)
+    (* "test/bjy/oopsla-24-tests-ill-typed"; "test/bjy/sato-bjy-ill-typed"; *)
+    (* "test/bjy/interp-ill-typed"; *)
+  ]
 
