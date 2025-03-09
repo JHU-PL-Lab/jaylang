@@ -29,7 +29,7 @@ let make_tests (dirs : string list) : unit Alcotest.test list =
   dirs >>| fun dirname -> 
     ( dirname
     , [ root_dir ^ dirname ]
-      |> File_utils.get_all_files ~filter:(fun f -> Filename.check_suffix f ".bjy")
+      |> File_utils.get_all_bjy_files
       >>| testcase_of_filename
     )
 

@@ -18,3 +18,6 @@ let get_all_files ?(filter : Filename.t -> bool = fun _ -> true) (dirs : Filenam
     end
   in
   loop [] dirs
+
+let get_all_bjy_files (dirs : Filename.t list) : Filename.t list =
+  get_all_files ~filter:(fun f -> Filename.check_suffix f ".bjy") dirs

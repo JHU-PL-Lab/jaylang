@@ -120,7 +120,7 @@ module Result_table =
       { row_module = (module Report_row)
       ; rows =
         dirs
-        |> Utils.File_utils.get_all_files ~filter:(Fn.flip Filename.check_suffix ".bjy")
+        |> Utils.File_utils.get_all_bjy_files
         |> List.sort ~compare:(fun a b -> String.compare (Filename.basename a) (Filename.basename b))
         >>= Report_row.of_testname n_trials
         |> List.filter ~f:(fun (row : Report_row.t) ->

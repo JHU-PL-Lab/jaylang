@@ -16,3 +16,8 @@
     core_unix.sys_unix
     core)
   (preprocess (pps ppx_jane)))
+
+(executable
+ (name feat_count)
+ (modules feat_count)
+ (libraries ttag core latex_tbl metadata utils))
