@@ -33,7 +33,7 @@ module Make (_ : sig val ctx : Z3.context end) : sig
 
   val bool_var : int -> bool t
   (** [bool_var id] is a boolean variable identified by [id]. *)
-  
+
   (*
     ------------------
     VALUES OF FORMULAS 
@@ -43,6 +43,10 @@ module Make (_ : sig val ctx : Z3.context end) : sig
   val value_of_expr : model -> 'a t -> 'a option
   (** [value_of_expr model e] queries the [model] for the OCaml value
       associated with [e]. *)
+
+  val constrained_vars : model -> int list
+  (** [constrained_vars model] is the list of identifiers in the model,
+      which all must have been arguments to [int_var] or [bool_var] previously. *)
 
   (*
     ----------------
