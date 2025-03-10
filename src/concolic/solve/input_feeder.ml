@@ -1,4 +1,6 @@
 
+open Core
+
 type t = { get : 'a. 'a Stepkey.t -> 'a } [@@unboxed]
 
 let zero : t =
@@ -23,11 +25,19 @@ let default : t =
 
 module Make (Z : Z3_api.S) = struct
   let from_model (model : Z.model) : t =
+    let vars =
+      Z.constrained_vars model
+      |> Int.Set.of_list
+    in
     { get = 
       let f (type a) (key : a Stepkey.t) : a =
-        match Z.value_of_key model key with
-        | Some i -> i
-        | None -> default.get key
+        if Set.mem vars @@ Stepkey.extract key
+        then
+          match Z.value_of_key model key with
+          | Some i -> i
+          | None -> default.get key
+        else
+          default.get key 
       in
       f
   }

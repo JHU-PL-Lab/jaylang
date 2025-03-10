@@ -48,6 +48,11 @@ module Make_common_builders (C : Context) = struct
     match expr with
     | I e -> a_of_expr model e unbox_int
     | B e -> a_of_expr model e unbox_bool
+
+  let constrained_vars model = 
+    List.map ~f:(fun decl -> FuncDecl.get_name decl |> Symbol.get_int)
+    @@ Model.get_decls model
+     
 end
 
 module Make_datatype_builders (C : Context) = struct
