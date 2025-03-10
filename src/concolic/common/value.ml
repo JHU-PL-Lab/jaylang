@@ -56,10 +56,48 @@ module Make (V : V) = struct
     let env : t = Hashtbl.create (module Ident)
     let store = Store.create ()
 
-    (* let snapshots = Stack.create () *)
+    (*
+      We want to only restore to the desired snapshot when needed. 
+      Therefore, if we go into a snapshot, don't use it, and pop
+      back out, then there is nothing to do.
 
-    (* let ref_is_changed = ref false *)
-    (* let ref_waiting_to_snapback = ref false *)
+      If we *do* use it, then we need to restore on both sides (entering
+      and exiting).
+
+      If we are nested, then how are we supposed to know which snapshot
+      needed to be restored? We need a parallel stack (or make it a stack
+      of tuples) telling use whether we have restored that.
+
+      In fact a stack is not sufficient. Sometimes we capture not because
+      we are about to enter a new state (like about to eval a function
+      application), but instead because we are *creating* the closure.
+
+      So the stack is *only* for entering a new state and then popping back
+      to the old one. So maybe a stack is sufficient.
+
+      We can have an Env.local function to say locally do all of this
+      stuff, and at the end pop back. We also only want to take as many
+      snapshots as we need, so we should hold off on taking a snapshot until
+      the environment changes. This is actually a very tough question.
+      Maybe I need to look into the research for efficient environment management.
+
+      We want to limit our snapshots because each snapshot makes it more expensive
+      to restore to other snapshots. So when we choose to evaluate a function
+      locally, we should only take the snapshot right before we *change* a cell.
+      If we are simply creating a cell, then that doesn't affect the snapshot
+      because restoring a snap doesn't destroy new cells. Thus this implementation
+      cannot and will never be correct with respect to free variables.
+
+      So when we enter a local computation, set a flag (we're not considering nestedness yet)
+      that says to take the snapshot before we change an existing cell. If we are
+      about to read from a cell, then we need to restore the state to whatever state
+      the local computation wants, which also means we need to take the snapshot right
+      before that.
+      I think to be careful about *which* cells really need to be restored, we would
+      need some alias analysis, which is hard, so I'll ignore that.
+      And then when we exit the local computation, we only restore the original state
+      if the computation took a snapshot.
+    *)
 
     let fetch id = 
       (* if !ref_waiting_to_snapback && !ref_is_changed

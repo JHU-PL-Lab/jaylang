@@ -55,8 +55,6 @@ let eval_exp
 
   let type_mismatch s = 
     raise @@ Failed_interp (Eval_session.type_mismatch !ref_sess s) in
-  
-  (* let open State_M in *)
 
   let rec eval (expr : Embedded.t) : Value.t =
     incr ref_step;
@@ -70,7 +68,7 @@ let eval_exp
     | EVar id -> Env.fetch id
     | EFunction { param ; body } ->
       let snap = Store.capture Env.store in
-      VFunClosure { param ; body = { expr = body ; snap } } (* TODO: use a snapshot here *)
+      VFunClosure { param ; body = { expr = body ; snap } } 
     | EId -> VId
     | EFreeze e_freeze_body -> 
       let snap = Store.capture Env.store in
