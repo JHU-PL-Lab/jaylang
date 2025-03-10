@@ -6,7 +6,7 @@ open Value
 
 module State_M = struct
   module State = struct
-    type t = { step : int ; session : Eval_session.t }
+    type t = { step : int ; max_step : int ; session : Eval_session.t }
   end
 
   include Utils.State_read_result.Make (State) (Env) (Status.Eval)
@@ -15,7 +15,7 @@ module State_M = struct
     x.run
       ~reject:Fn.id
       ~accept:(fun _ s -> Eval_session.finish s.session)
-      State.{ step = 0 ; session }
+      State.{ step = 0 ; max_step = Eval_session.get_max_step session ; session }
       Env.empty
 
   let[@inline always] modify_session (f : Eval_session.t -> Eval_session.t) : unit m =
@@ -31,7 +31,7 @@ module State_M = struct
     { run =
       fun ~reject ~accept s _ ->
         let step = s.step + 1 in
-        if step > Eval_session.get_max_step s.session
+        if step > s.max_step
         then reject @@ Eval_session.reach_max_step s.session
         else accept step { s with step }
     }
