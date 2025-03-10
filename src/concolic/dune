@@ -13,6 +13,7 @@
   psq
   utils
   overlays
+  store
  )
  (synopsis "Concolic evaluator on embedded-type programs")
  (inline_tests)
