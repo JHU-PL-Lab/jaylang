@@ -162,14 +162,15 @@ let run dirs =
   tbl
   |> Latex_tbl.show
   |> Format.printf "%s\n";
-  Format.printf "Mean time of all tests: %fms\nMedian time of all tests: %fms\n" mean median
+  Format.printf "Mean time of all tests: %fms\nMedian time of all tests: %fms\n" mean median;
+  Format.printf "Total interpretation time: %fs\nTotal solving time: %fs\n" !(Concolic.Evaluator.runtime) !(Concolic.Solve.Default.runtime)
 
 let () =
   run [ 
     "test/bjy/oopsla-24-benchmarks-ill-typed";
-    (* "test/bjy/scheme-pldi-2015-ill-typed"; *)
+    "test/bjy/scheme-pldi-2015-ill-typed";
     (* "test/bjy/deep-type-error"; *)
-    (* "test/bjy/oopsla-24-tests-ill-typed"; "test/bjy/sato-bjy-ill-typed"; *)
-    (* "test/bjy/interp-ill-typed"; *)
+    "test/bjy/oopsla-24-tests-ill-typed"; "test/bjy/sato-bjy-ill-typed";
+    "test/bjy/interp-ill-typed";
   ]
 

@@ -79,6 +79,8 @@ module Make (_ : sig val ctx : Z3.context end) : sig
       | Unsat
   end
 
+  val runtime : float ref
+
   val solve : bool t list -> Solve_status.t
   (** [solve exprs] invokes the [Z3] solver for a solution to the [exprs]. *)
 end
