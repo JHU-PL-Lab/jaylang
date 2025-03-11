@@ -79,7 +79,9 @@ module Make (_ : sig val ctx : Z3.context end) : sig
       | Unsat
   end
 
-  val runtime : float ref
+  val global_solvetime : float Utils.Safe_cell.t
+  (** [global_solvetime] is a cell containing the total global time spent
+      on solving. *)
 
   val solve : bool t list -> Solve_status.t
   (** [solve exprs] invokes the [Z3] solver for a solution to the [exprs]. *)

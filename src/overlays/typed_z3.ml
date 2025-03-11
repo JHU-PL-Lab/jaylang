@@ -87,6 +87,10 @@ module Make_datatype_builders (C : Context) = struct
   let neq e1 e2 = not_ @@ (op_two_ints bool_ @@ Boolean.mk_eq ctx) e1 e2
   let and_ = op_two_bools bool_ @@ list_curry @@ Boolean.mk_and ctx
   let or_ = op_two_bools bool_ @@ list_curry @@ Boolean.mk_or ctx
+
+  let bool_expr_list_to_expr ls = 
+    Boolean.mk_and ctx
+    @@ E.extract_list ls
 end
 
 module Make_solver (C : Context) = struct
@@ -101,7 +105,7 @@ module Make_solver (C : Context) = struct
       | Unsat
   end
 
-  let runtime = ref 0.0
+  let global_solvetime = Utils.Safe_cell.create 0.0
 
   let solver = Z3.Solver.mk_simple_solver ctx
 
@@ -114,14 +118,14 @@ module Make_solver (C : Context) = struct
 
   let solve : bool E.t list -> Solve_status.t = fun bool_formulas ->
     let t0 = Caml_unix.gettimeofday (); in
-    Z3.Solver.add solver (E.extract_list bool_formulas);
-    let res = Z3.Solver.check solver [] in
+    (* It is a bit faster to `and` all formulas together and only run `check` with that one. *)
+    (* That is, instead of adding to the solver, keep the solver empty and check the one formula. *)
+    let res = Z3.Solver.check solver [ bool_expr_list_to_expr bool_formulas ] in
     let t1 = Caml_unix.gettimeofday () in
-    runtime := !runtime +. (t1 -. t0);
+    let _ = Utils.Safe_cell.map ((+.) (t1 -. t0)) global_solvetime in
     match res with
     | Z3.Solver.SATISFIABLE ->
       let model = Z3.Solver.get_model solver in
-      Z3.Solver.reset solver;
       Solve_status.Sat (Option.value_exn model)
     | _ -> Z3.Solver.reset solver; Unsat
 end
