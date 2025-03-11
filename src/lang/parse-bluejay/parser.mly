@@ -97,6 +97,18 @@
 
 %%
 
+(* [separated_at_least_two_list(separator, X)] recognizes a list with at least two
+   [X]'s, separated by [separator]'s. It produces a value of type ['a list] if
+   [X] produces a value of type ['a]. *)
+
+%public separated_at_least_two_list(separator, X):
+  x1 = X; separator; x2 = X
+    { [ x1; x2 ] }
+    [@name two]
+| x1 = X; separator; x2 = X; separator; xs = separated_nonempty_list(separator, X)
+    { x1 :: x2 :: xs }
+    [@name more]
+
 prog:
   | statement_list EOF { $1 }
   ;
@@ -128,42 +140,10 @@ statement:
 expr:
   | appl_expr /* Includes primary expressions */
       { $1 : Bluejay.t }
-  | ASSERT expr
-      { EAssert $2 : Bluejay.t }
-  | ASSUME expr
-      { EAssume $2 : Bluejay.t }
-  | variant_label expr %prec prec_variant
-      { EVariant { label = $1 ; payload = $2 } : Bluejay.t }
-  | expr ASTERISK expr
-      { EBinop { left = $1 ; binop = BTimes ; right = $3 } : Bluejay.t }
-  | expr SLASH expr
-      { EBinop { left = $1 ; binop = BDivide ; right = $3 } : Bluejay.t }
-  | expr PERCENT expr
-      { EBinop { left = $1 ; binop = BModulus ; right = $3 } : Bluejay.t }
-  | expr PLUS expr
-      { EBinop { left = $1 ; binop = BPlus ; right = $3 } : Bluejay.t }
-  | expr MINUS expr
-      { EBinop { left = $1 ; binop = BMinus ; right = $3 } : Bluejay.t }
-  | expr DOUBLE_COLON expr
-      { EListCons ($1, $3) : Bluejay.t }
-  | expr EQUAL_EQUAL expr
-      { EBinop { left = $1 ; binop = BEqual ; right = $3 } : Bluejay.t }
-  | expr NOT_EQUAL expr
-      { EBinop { left = $1 ; binop = BNeq ; right = $3 } : Bluejay.t }
-  | expr GREATER expr
-      { EBinop { left = $1 ; binop = BGreaterThan ; right = $3 } : Bluejay.t }
-  | expr GREATER_EQUAL expr
-      { EBinop { left = $1 ; binop = BGeq ; right = $3 } : Bluejay.t }
-  | expr LESS expr
-      { EBinop { left = $1 ; binop = BLessThan ; right = $3 } : Bluejay.t }
-  | expr LESS_EQUAL expr
-      { EBinop { left = $1 ; binop = BLeq ; right = $3 } : Bluejay.t }
-  | NOT expr
-      { ENot $2 : Bluejay.t }
-  | expr AND expr
-      { EBinop { left = $1 ; binop = BAnd ; right = $3 } : Bluejay.t }
-  | expr OR expr
-      { EBinop { left = $1 ; binop = BOr ; right = $3 } : Bluejay.t }
+  | op_expr
+      { $1 : Bluejay.t }
+  | type_expr
+      { $1 }
   | IF expr THEN expr ELSE expr %prec prec_if
       { EIf { cond = $2 ; true_body = $4 ; false_body = $6 } : Bluejay.t }
   | FUNCTION l_ident ARROW expr %prec prec_fun 
@@ -185,38 +165,29 @@ expr:
   // Match
   | MATCH expr WITH PIPE? separated_nonempty_list(PIPE, match_expr) END
       { EMatch { subject = $2 ; patterns = $5 } : Bluejay.t }
-  // Types expressions
+;
+
+type_expr:
   | MU l_ident DOT expr %prec prec_mu
       { ETypeMu { var = $2 ; body = $4 } : Bluejay.t}
   | expr ARROW expr
       { ETypeArrow { domain = $1 ; codomain = $3 } : Bluejay.t }
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN ARROW expr
       { ETypeArrowD { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
-  | variant_type_body
+  | separated_nonempty_list(DOUBLE_PIPE, single_variant_type)
       { ETypeVariant $1 : Bluejay.t }
-  | intersection_type_body
+  (* we need at least two here because otherwise it is just an arrow with a single variant type *)
+  | separated_at_least_two_list(DOUBLE_AMPERSAND, single_intersection_type)
       { ETypeIntersect $1 : Bluejay.t } 
-;
 
-(* doesn't *really* need parens I think, but without them we would never get a meaningful intersection type *)
+(* Doesn't *really* need parens I think, but without them we would never get a meaningful intersection type *)
+(* This gives us a shift/reduce conflict that *can* be resolved because it is a valid expression in itself *)
 single_intersection_type:
   | OPEN_PAREN OPEN_PAREN single_variant_type CLOSE_PAREN ARROW expr CLOSE_PAREN
-      { let (a, b) = $3 in [ (a, b, $6) ] }
-
-(* Note that there is no such single intersection type because that is just an arrow type *)
-intersection_type_body:
-  | single_intersection_type DOUBLE_AMPERSAND single_intersection_type
-      { $1 @ $3 }
-  | single_intersection_type DOUBLE_AMPERSAND intersection_type_body
-      { $1 @ $3 }
-;
+      { let (a, b) = $3 in (a, b, $6) }
 
 single_variant_type:
   | variant_type_label expr %prec prec_variant { $1, $2 }
-
-variant_type_body:
-  | single_variant_type { [$1] }
-  | single_variant_type DOUBLE_PIPE variant_type_body { $1 :: $3 }
 
 record_type_or_refinement:
   (* exactly one label *)
@@ -315,6 +286,44 @@ primary_expr:
   | primary_expr DOT record_label
       { EProject { record = $1 ; label = $3} : Bluejay.t }
 ;
+
+op_expr:
+  | ASSERT expr
+      { EAssert $2 : Bluejay.t }
+  | ASSUME expr
+      { EAssume $2 : Bluejay.t }
+  | variant_label expr %prec prec_variant
+      { EVariant { label = $1 ; payload = $2 } : Bluejay.t }
+  | expr ASTERISK expr
+      { EBinop { left = $1 ; binop = BTimes ; right = $3 } : Bluejay.t }
+  | expr SLASH expr
+      { EBinop { left = $1 ; binop = BDivide ; right = $3 } : Bluejay.t }
+  | expr PERCENT expr
+      { EBinop { left = $1 ; binop = BModulus ; right = $3 } : Bluejay.t }
+  | expr PLUS expr
+      { EBinop { left = $1 ; binop = BPlus ; right = $3 } : Bluejay.t }
+  | expr MINUS expr
+      { EBinop { left = $1 ; binop = BMinus ; right = $3 } : Bluejay.t }
+  | expr DOUBLE_COLON expr
+      { EListCons ($1, $3) : Bluejay.t }
+  | expr EQUAL_EQUAL expr
+      { EBinop { left = $1 ; binop = BEqual ; right = $3 } : Bluejay.t }
+  | expr NOT_EQUAL expr
+      { EBinop { left = $1 ; binop = BNeq ; right = $3 } : Bluejay.t }
+  | expr GREATER expr
+      { EBinop { left = $1 ; binop = BGreaterThan ; right = $3 } : Bluejay.t }
+  | expr GREATER_EQUAL expr
+      { EBinop { left = $1 ; binop = BGeq ; right = $3 } : Bluejay.t }
+  | expr LESS expr
+      { EBinop { left = $1 ; binop = BLessThan ; right = $3 } : Bluejay.t }
+  | expr LESS_EQUAL expr
+      { EBinop { left = $1 ; binop = BLeq ; right = $3 } : Bluejay.t }
+  | NOT expr
+      { ENot $2 : Bluejay.t }
+  | expr AND expr
+      { EBinop { left = $1 ; binop = BAnd ; right = $3 } : Bluejay.t }
+  | expr OR expr
+      { EBinop { left = $1 ; binop = BOr ; right = $3 } : Bluejay.t }
 
 /* **** Idents + labels **** */
 

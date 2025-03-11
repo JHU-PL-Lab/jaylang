@@ -17,18 +17,7 @@ let parse_program (input : in_channel) =
   handle_parse_error buf @@ fun () ->
   Parser.prog Lexer.token buf
 
-let parse_expression_string (expr_str : string) =
+let parse_single_pgm_string (expr_str : string) = 
   let buf = Lexing.from_string expr_str in
-  let read_expr () =
-    handle_parse_error buf (fun () ->
-        Parser.delim_expr Lexer.token buf)
-    |> Option.map (fun e -> (e, ()))
-  in
-  Seq.unfold read_expr () |> List.of_seq
-
-let parse_single_pgm_string (expr_str : string) =
-  let expr_lst = parse_expression_string expr_str in
-  match expr_lst with
-  | [ expr ] -> expr
-  | [] -> raise @@ Invalid_argument "string is missing expression"
-  | _ -> raise @@ Invalid_argument "string has more than one expression"
+  handle_parse_error buf @@ fun () ->
+  Parser.prog Lexer.token buf
