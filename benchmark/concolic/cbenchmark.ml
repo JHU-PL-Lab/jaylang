@@ -162,7 +162,12 @@ let run dirs =
   tbl
   |> Latex_tbl.show
   |> Format.printf "%s\n";
-  Format.printf "Mean time of all tests: %fms\nMedian time of all tests: %fms\n" mean median
+  Format.printf "Mean time of all tests: %fms\nMedian time of all tests: %fms\n" 
+    mean 
+    median;
+  Format.printf "Total interpretation time: %fs\nTotal solving time: %fs\n"
+    (Utils.Safe_cell.get Concolic.Evaluator.global_runtime) 
+    (Utils.Safe_cell.get Concolic.Solve.Default.global_solvetime)
 
 let () =
   run [ 

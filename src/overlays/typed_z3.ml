@@ -101,6 +101,8 @@ module Make_solver (C : Context) = struct
       | Unsat
   end
 
+  let global_solvetime = Utils.Safe_cell.create 0.0
+
   let solver = Z3.Solver.mk_simple_solver ctx
 
   let set_timeout time =
@@ -111,8 +113,11 @@ module Make_solver (C : Context) = struct
     |> Z3.Params.update_param_value ctx "timeout"
 
   let solve : bool E.t list -> Solve_status.t = fun bool_formulas ->
+    let t0 = Caml_unix.gettimeofday (); in
     Z3.Solver.add solver (E.extract_list bool_formulas);
     let res = Z3.Solver.check solver [] in
+    let t1 = Caml_unix.gettimeofday () in
+    let _ = Utils.Safe_cell.map ((+.) (t1 -. t0)) global_solvetime in
     match res with
     | Z3.Solver.SATISFIABLE ->
       let model = Z3.Solver.get_model solver in

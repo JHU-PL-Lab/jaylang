@@ -7,17 +7,9 @@
   counter with a mutex.
 *)
 
-type t =
-  { mutex : Mutex.t
-  ; cell  : int ref }
+module C = Safe_cell.Make (Int)
 
-let create () =
-  { mutex = Mutex.create ()
-  ; cell  = ref 0 }
+type t = C.t
+let create () = C.create 0
 
-let next { mutex ; cell } =
-  Mutex.lock mutex;
-  incr cell;
-  let r = !cell in
-  Mutex.unlock mutex;
-  r 
+let next (t : t) : int = C.map ((+) 1) t

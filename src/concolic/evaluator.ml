@@ -263,13 +263,18 @@ let eval_exp
   path on each interpretation.
 *)
 
+let global_runtime = Utils.Safe_cell.create 0.0
+
 module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
   module Intra = Intra_session.Make (S) (P) (O)
 
   let rec loop (e : Embedded.t) (main_session : Intra.t) (session : Eval_session.t) : Status.Terminal.t P.t =
     let open P in
     let* () = pause () in
+    let t0 = Caml_unix.gettimeofday () in
     let res = eval_exp session e in
+    let t1 = Caml_unix.gettimeofday () in
+    let _ = Utils.Safe_cell.map ((+.) (t1 -. t0)) global_runtime in
     Intra.next
     @@ Intra.accum_eval main_session res
     >>= begin function
