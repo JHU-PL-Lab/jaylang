@@ -215,26 +215,7 @@ module Make (S : Solve.S) (TQ : Target_queue.S) (P : Pause.S) (O : Options.V) = 
     | None -> return None
     | Some target ->
       let exprs = Node.formulas_of_target r.root target in
-      let e = List.last_exn exprs |> Expression.not_ in (* get the constraint associated with the target *)
-      if List.exists exprs ~f:(fun e' -> Expression.equal e e') (* check if this constraint is the exact negation of another constraint along the path *)
-      then unsat target r
-      else
-        let subs, new_exprs = Expression.simplify exprs in
-        match new_exprs with
-        | [ e ] when Expression.equal e Expression.true_ -> sat target r S.empty_model subs
-        | [ e ] when Expression.equal e Expression.false_ -> unsat target r
-        | _ ->
-          new_exprs
-          |> List.map ~f:S.Expression.to_formula
-          |> S.solve
-          |> function
-            | S.Solve_status.Unsat -> unsat target r
-            | Unknown -> failwith "unimplemented solver timeout" (* would want to convey that we pruned the tree if this happens *)
-            | Sat model -> sat target r model subs
-
-  and unsat target r =
-    get_sat_target { target_queue = TQ.remove r.target_queue target ; root = Node.set_unsat_target r.root target }
-
-  and sat target r model subs =
-    P.return @@ Option.return (r, target, S.Input_feeder.from_model_and_subs model subs)
+      match S.solve exprs with
+      | `Sat feeder -> P.return @@ Option.return (r, target, feeder)
+      | `Unsat -> get_sat_target { target_queue = TQ.remove r.target_queue target ; root = Node.set_unsat_target r.root target }
 end

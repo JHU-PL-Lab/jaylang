@@ -25,26 +25,32 @@ let default : t =
 
 module Make (Z : Z3_api.S) = struct
   let from_model_and_subs (model : Z.model) (subs : Expression.Subst.t list) : t =
-    let vars =
-      Z.constrained_vars model
-      |> Int.Set.of_list
+    let model_vars =
+      Int.Set.of_list
+      @@ Z.constrained_vars model
+    in
+    let sub_vars =
+      Int.Set.of_list
+      @@ List.map subs ~f:(function
+        | I (k, _) -> Stepkey.extract k
+        | B (k, _) -> Stepkey.extract k
+      )
     in
     { get = 
       let f (type a) (key : a Stepkey.t) : a =
-        if Set.mem vars @@ Stepkey.extract key
-        then
+        if Set.mem model_vars @@ Stepkey.extract key then
           match Z.value_of_key model key with
           | Some i -> i
           | None -> default.get key
-        else
-          List.find_map subs ~f:(fun sub ->
+        else if Set.mem sub_vars @@ Stepkey.extract key then
+          List.find_map_exn subs ~f:(fun sub ->
             match sub, key with
             | I (I k, i), I k' when k = k' -> Some (i : a)
             | B (B k, b), B k' when k = k' -> Some (b : a)
             | _ -> None
-          ) |> function
-            | Some x -> x (* found a subtitution we must make *)
-            | None -> default.get key (* input is completely unconstrained, so use the default *)
+          )
+        else
+          default.get key (* input is completely unconstrained, so use the default *)
       in
       f
   }
