@@ -3,6 +3,40 @@
 open Core
 open Z3
 
+module type S = sig
+  type 'a t
+  type model
+  val set_timeout : Core.Time_float.Span.t -> unit
+  val box_int : int -> int t
+  val box_bool : bool -> bool t
+  val int_var : int -> int t
+  val bool_var : int -> bool t
+  val value_of_expr : model -> 'a t -> 'a option
+  val constrained_vars : model -> int list
+  val not_ : bool t -> bool t
+  val plus : int t -> int t -> int t
+  val minus : int t -> int t -> int t
+  val times : int t -> int t -> int t
+  val divide : int t -> int t -> int t
+  val modulus : int t -> int t -> int t
+  val less_than : int t -> int t -> bool t
+  val less_than_eq : int t -> int t -> bool t
+  val eq_ints : int t -> int t -> bool t
+  val eq_bools : bool t -> bool t -> bool t
+  val neq : int t -> int t -> bool t
+  val and_ : bool t -> bool t -> bool t
+  val or_ : bool t -> bool t -> bool t
+  module Solve_status : sig
+    type t =
+      | Sat of model
+      | Unknown
+      | Unsat
+  end
+  val empty_model : model
+  val global_solvetime : float Utils.Safe_cell.t
+  val solve : bool t list -> Solve_status.t
+end
+
 module type Context = sig
   val ctx : Z3.context
 end
@@ -141,3 +175,5 @@ end
 module Make (C : Context) = struct
   include Make_solver (C)
 end
+
+module New_context () = Make (struct let ctx = Z3.mk_context [] end)

@@ -160,15 +160,13 @@ let rec subst : type a b. a t -> b Stepkey.t -> b Const.t -> a t =
     | Not e' -> not_ @@ subst e' k c
     | Binop (bop, e1, e2) -> op (subst e1 k c) (subst e2 k c) bop
 
-module X = struct
+module Subst = Utils.Pack.Make (struct
   type 'a t = 'a Stepkey.t * 'a
   let compare compare_a (k1, a1) (k2, a2) =
     match Stepkey.compare k1 k2 with
     | 0 -> compare_a a1 a2
     | c -> c
-end
-
-module Subst = Utils.Pack.Make (X)
+end)
 
 let is_trivial (e : bool t) : [ `Trivial of Subst.t | `Nontrivial | `Const of bool ] =
   match e with

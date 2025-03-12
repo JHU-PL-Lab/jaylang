@@ -10,7 +10,7 @@
   for solves.
 *)
 
-module Make (_ : sig val ctx : Z3.context end) : sig
+module type S = sig
   type 'a t (* expressions *)
   type model
 
@@ -89,3 +89,9 @@ module Make (_ : sig val ctx : Z3.context end) : sig
   val solve : bool t list -> Solve_status.t
   (** [solve exprs] invokes the [Z3] solver for a solution to the [exprs]. *)
 end
+
+module Make (_ : sig val ctx : Z3.context end) : S
+(** [Make] uses the provided context for the Z3 formulas. *)
+
+module New_context () : S
+(** [New_context] is a generative functor that makes a new context. *)

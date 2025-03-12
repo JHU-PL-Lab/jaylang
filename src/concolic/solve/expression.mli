@@ -71,13 +71,7 @@ val equal : 'a t -> 'a t -> bool
 (** [equal e1 e2] is true if and only if the expressions [e1] and [e2] are structurally
     equivalent. E.g. [x + 1] is not equivalent to [1 + x]. *)
 
-(* defined only to show Subst *)
-module X : sig
-  type 'a t = 'a Stepkey.t * 'a
-  val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
-end
-
-module Subst : module type of Utils.Pack.Make (X)
+module Subst : Utils.Pack.S with type 'a x := 'a Stepkey.t * 'a
 (** [Subst] specifies that in the solution to some expressions, the key
     should be replaced with the value. *)
 

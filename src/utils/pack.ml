@@ -13,10 +13,18 @@
 
 open Core
 
-module Make (X : sig type 'a t[@@deriving compare] end) = struct
+module type S = sig
+  type 'a x
+  type t = 
+    | I of int x
+    | B of bool x
+    [@@deriving compare]
+  (** Pack [x] into an int [I] case and a bool [B] case. *)
+end
+
+module Make (X : sig type 'a t[@@deriving compare] end) : S with type 'a x := 'a X.t = struct
   type t =
     | I of int X.t
     | B of bool X.t
     [@@deriving compare]
-  (** Pack [X.t] into an int [I] case and a bool [B] case. *)
 end
