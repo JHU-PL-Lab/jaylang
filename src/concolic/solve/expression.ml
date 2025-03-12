@@ -170,6 +170,47 @@ end
 
 module Subst = Utils.Pack.Make (X)
 
+let is_trivial (e : bool t) : [ `Trivial of Subst.t | `Nontrivial | `Const of bool ] =
+  match e with
+  | Const (B b) -> `Const b
+  | Binop (Equal_int, Key k, Const I i) -> `Trivial (I (k, i))
+  | Binop (Equal_bool, Key k, Const B b) -> `Trivial (B (k, b))
+  | Binop (Equal_int, Const I i, Key k) -> `Trivial (I (k, i))
+  | Binop (Equal_bool, Const B b, Key k) -> `Trivial (B (k, b))
+  | Key k -> `Trivial (B (k, true))
+  | Not Key k -> `Trivial (B (k, false))
+  | _ -> `Nontrivial
+
+let simplify (ls : bool t list) : Subst.t list * bool t list =
+  let sub_list : type a b. a t list -> b Stepkey.t -> b -> a t list =
+    fun l k v ->
+      match k with
+      | I _ -> List.map l ~f:(fun e -> subst e k (I v))
+      | B _ -> List.map l ~f:(fun e -> subst e k (B v))
+  in
+  let rec loop is_simplified acc_exprs acc_subs = function
+  | [] -> 
+    if is_simplified
+    then loop false [] acc_subs acc_exprs (* still working on simplifying--loop aagin *)
+    else Ok (acc_exprs, acc_subs) (* the simplification did nothing, so return *)
+  | hd :: tl ->
+    (* look for trivial substitutions we can make using this expression *)
+    match is_trivial hd with
+    | `Trivial (I (k, v) as sub) ->
+      loop true (sub_list acc_exprs k v) (sub :: acc_subs) (sub_list tl k v)
+    | `Trivial (B (k, v) as sub) ->
+      loop true (sub_list acc_exprs k v) (sub :: acc_subs) (sub_list tl k v)
+    | `Const b ->
+      if b
+      then loop is_simplified acc_exprs acc_subs tl
+      else Error `Unsat
+    | `Nontrivial ->
+      loop is_simplified (hd :: acc_exprs) acc_subs tl
+  in
+  match loop false [] [] ls with
+  | Error `Unsat -> [], [ Const (B false) ]
+  | Ok (acc_exprs, acc_subs) -> acc_subs, acc_exprs
+
 module Solve (Expr : Z3_api.S) = struct
   let binop_to_z3_expr (type a b) (binop : (a * a * b) Typed_binop.t) : a Expr.t -> a Expr.t -> b Expr.t =
     match binop with
@@ -194,45 +235,4 @@ module Solve (Expr : Z3_api.S) = struct
     | Key k -> Expr.var_of_key k
     | Not y -> Expr.not_ (to_formula y)
     | Binop (binop, e1, e2) -> binop_to_z3_expr binop (to_formula e1) (to_formula e2)
-
-  let is_trivial (e : bool t) : [ `Trivial of Subst.t | `Nontrivial | `Const of bool ] =
-    match e with
-    | Const (B b) -> `Const b
-    | Binop (Equal_int, Key k, Const I i) -> `Trivial (I (k, i))
-    | Binop (Equal_bool, Key k, Const B b) -> `Trivial (B (k, b))
-    | Binop (Equal_int, Const I i, Key k) -> `Trivial (I (k, i))
-    | Binop (Equal_bool, Const B b, Key k) -> `Trivial (B (k, b))
-    | Key k -> `Trivial (B (k, true))
-    | Not Key k -> `Trivial (B (k, false))
-    | _ -> `Nontrivial
-
-  let simplify (ls : bool t list) : Subst.t list * bool t list =
-    let sub_list : type a b. a t list -> b Stepkey.t -> b -> a t list =
-      fun l k v ->
-        match k with
-        | I _ -> List.map l ~f:(fun e -> subst e k (I v))
-        | B _ -> List.map l ~f:(fun e -> subst e k (B v))
-    in
-    let rec loop is_simplified acc_exprs acc_subs = function
-    | [] -> 
-      if is_simplified
-      then loop false [] acc_subs acc_exprs (* still working on simplifying--loop aagin *)
-      else Ok (acc_exprs, acc_subs) (* the simplification did nothing, so return *)
-    | hd :: tl ->
-      (* look for trivial substitutions we can make using this expression *)
-      match is_trivial hd with
-      | `Trivial (I (k, v) as sub) ->
-        loop true (sub_list acc_exprs k v) (sub :: acc_subs) (sub_list tl k v)
-      | `Trivial (B (k, v) as sub) ->
-        loop true (sub_list acc_exprs k v) (sub :: acc_subs) (sub_list tl k v)
-      | `Const b ->
-        if b
-        then loop is_simplified acc_exprs acc_subs tl
-        else Error `Unsat
-      | `Nontrivial ->
-        loop is_simplified (hd :: acc_exprs) acc_subs tl
-    in
-    match loop false [] [] ls with
-    | Error `Unsat -> [], [ Const (B false) ]
-    | Ok (acc_exprs, acc_subs) -> acc_subs, acc_exprs
 end

@@ -26,7 +26,6 @@ module type S = sig
 
   module Expression : sig
     val to_formula : 'a Expression.t -> 'a t
-    val simplify : bool Expression.t list -> Expression.Subst.t list * bool Expression.t list
   end
 end
 

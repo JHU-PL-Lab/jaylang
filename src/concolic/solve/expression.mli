@@ -81,14 +81,13 @@ module Subst : module type of Utils.Pack.Make (X)
 (** [Subst] specifies that in the solution to some expressions, the key
     should be replaced with the value. *)
 
-module Solve (Expr : Z3_api.S) : sig
+val simplify : bool t list -> Subst.t list * bool t list
+(** [simplify exprs] is a list of substitutions that are necessary to satisfy the expressions,
+    as well as the remaining expressions.
+    
+    This only does some basic constant simplification and propagation. *)
 
+module Solve (Expr : Z3_api.S) : sig
   val to_formula : 'a t -> 'a Expr.t
   (** [to_formula e] is a Z3 formula equivalent to [e]. *)
-
-  val simplify : bool t list -> Subst.t list * bool t list
-  (** [simplify exprs] is a list of substitutions that are necessary to satisfy the expressions,
-      as well as the remaining expressions.
-     
-      This only does some basic constant simplification and propagation. *)
 end

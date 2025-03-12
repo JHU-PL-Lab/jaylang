@@ -219,13 +219,13 @@ module Make (S : Solve.S) (TQ : Target_queue.S) (P : Pause.S) (O : Options.V) = 
       if List.exists exprs ~f:(fun e' -> Expression.equal e e') (* check if this constraint is the exact negation of another constraint along the path *)
       then unsat target r
       else
-        let subs, new_exprs = S.Expression.simplify exprs in
+        let subs, new_exprs = Expression.simplify exprs in
         match new_exprs with
         | [ e ] when Expression.equal e Expression.true_ -> sat target r S.empty_model subs
         | [ e ] when Expression.equal e Expression.false_ -> unsat target r
         | _ ->
           new_exprs
-          |> List.map ~f:(S.Expression.to_formula)
+          |> List.map ~f:S.Expression.to_formula
           |> S.solve
           |> function
             | S.Solve_status.Unsat -> unsat target r
