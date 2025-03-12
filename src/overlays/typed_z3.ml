@@ -109,6 +109,14 @@ module Make_solver (C : Context) = struct
 
   let solver = Z3.Solver.mk_simple_solver ctx
 
+  (* 
+    Somewhat surprisingly, the empty solver has an empty model, but this could
+    eventually be the source of a bug if this we cannot always get the value.
+  *)
+  let empty_model = 
+    Option.value_exn
+    @@ Z3.Solver.get_model solver
+
   let set_timeout time =
     time
     |> Time_float.Span.to_ms

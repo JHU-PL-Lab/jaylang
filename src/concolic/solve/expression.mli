@@ -71,7 +71,24 @@ val equal : 'a t -> 'a t -> bool
 (** [equal e1 e2] is true if and only if the expressions [e1] and [e2] are structurally
     equivalent. E.g. [x + 1] is not equivalent to [1 + x]. *)
 
+(* defined only to show Subst *)
+module X : sig
+  type 'a t = 'a Stepkey.t * 'a
+  val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
+end
+
+module Subst : module type of Utils.Pack.Make (X)
+(** [Subst] specifies that in the solution to some expressions, the key
+    should be replaced with the value. *)
+
 module Solve (Expr : Z3_api.S) : sig
+
   val to_formula : 'a t -> 'a Expr.t
   (** [to_formula e] is a Z3 formula equivalent to [e]. *)
+
+  val simplify : bool t list -> Subst.t list * bool t list
+  (** [simplify exprs] is a list of substitutions that are necessary to satisfy the expressions,
+      as well as the remaining expressions.
+     
+      This only does some basic constant simplification and propagation. *)
 end

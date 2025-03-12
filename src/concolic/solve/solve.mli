@@ -20,12 +20,13 @@
 module type S = sig
   include Z3_api.S
 
-  module Expression : sig
-    val to_formula : 'a Expression.t -> 'a t
+  module Input_feeder : sig
+    val from_model_and_subs : model -> Expression.Subst.t list -> Input_feeder.t
   end
 
-  module Input_feeder : sig
-    val from_model : model -> Input_feeder.t
+  module Expression : sig
+    val to_formula : 'a Expression.t -> 'a t
+    val simplify : bool Expression.t list -> Expression.Subst.t list * bool Expression.t list
   end
 end
 

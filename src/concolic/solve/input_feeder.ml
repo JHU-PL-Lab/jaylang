@@ -24,7 +24,7 @@ let default : t =
   }
 
 module Make (Z : Z3_api.S) = struct
-  let from_model (model : Z.model) : t =
+  let from_model_and_subs (model : Z.model) (subs : Expression.Subst.t list) : t =
     let vars =
       Z.constrained_vars model
       |> Int.Set.of_list
@@ -37,7 +37,14 @@ module Make (Z : Z3_api.S) = struct
           | Some i -> i
           | None -> default.get key
         else
-          default.get key 
+          List.find_map subs ~f:(fun sub ->
+            match sub, key with
+            | I (I k, i), I k' when k = k' -> Some (i : a)
+            | B (B k, b), B k' when k = k' -> Some (b : a)
+            | _ -> None
+          ) |> function
+            | Some x -> x (* found a subtitution we must make *)
+            | None -> default.get key (* input is completely unconstrained, so use the default *)
       in
       f
   }

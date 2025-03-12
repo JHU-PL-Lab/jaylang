@@ -79,6 +79,9 @@ module Make (_ : sig val ctx : Z3.context end) : sig
       | Unsat
   end
 
+  val empty_model : model
+  (** [empty_model] is the model of an empty solver. *)
+
   val global_solvetime : float Utils.Safe_cell.t
   (** [global_solvetime] is a cell containing the total global time spent
       on solving. *)
