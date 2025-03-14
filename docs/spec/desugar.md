@@ -22,9 +22,9 @@ Statements are desugared exactly like their corresponding let-expressions, excep
 
 ## Functions
 
-Note that untyped functions are all the same, but we just don't used typed let expressions.
+Note that untyped functions are all the same, and we would use untyped let expressions.
 
-### Let functions
+### Non-rec functions
 
 ```ocaml
 [| let f (x_1 : tau_1) ... (x_n : tau_n) : tau =
@@ -38,7 +38,7 @@ in
 [| e' |] 
 ```
 
-### Let poly
+#### Let poly
 
 ```ocaml
 [| let f (type a_1 ... a_n) (x_1 : tau_1) ... (x_m : tau_m) : tau =
@@ -56,26 +56,26 @@ in
   (alpha_1 : type) -> ... -> (alpha_n : type) -> [| tau1 -> tau2 |] 
 ```
 
-Notes:
-* We have created a `type` in the target language of the desugar, so this is actually not just a subset of Bluejay. See the translation for the definition of `type`.
-
-
-### Let dependent
+#### Let dependent
 
 ```ocaml
-[| letd f (x : tau_1) : tau_2 =
+[| let f (x <- tau_1) : tau_2 =
     e
   in
   e' |] =
-let (f : [| (x : tau_1 ) -> tau_2 |]) = fun x -> [| e |]
+let (f : [| (x : tau_1) -> tau_2 |]) = fun x -> [| e |]
 in
 [| e' |]
 ```
 
-### Let dependent poly
+Notes:
+* The back arrow is our notation for a dependent parameter. `x` has type `tau1`, and `tau2` depends on `x`.
+* This generalizes to any number of arguments, and non-dependent arguments are handled normally.
+
+#### Let dependent poly
 
 ```ocaml
-[| let f (type a_1 ... a_n) (x : tau_1) : tau_2 =
+[| let f (type a_1 ... a_n) (x <- tau_1) : tau_2 =
     e
   in
   e' |] =
@@ -91,7 +91,7 @@ in
   (alpha_1 : type) -> ... -> (alpha_n : type) -> [| (x : tau1) -> tau2 |] 
 ```
 
-### Let rec
+### Recursive functions
 
 Here is an initial example for how recursive functions get desugared.
 
@@ -104,30 +104,39 @@ Here is an initial example for how recursive functions get desugared.
 let $f1 =
   fun $f1 -> fun $f2 -> ... -> fun $fn -> 
     fun x1_1 -> ... -> fun x1_m1 ->
-      let (f1 : [| tau_f1 |] (flag: no check, tau knows binding)) = $f1 $f1 $f2 ... $fn in (* these are the actual names of the functions so that e1 uses them as normal *)
-      let (f2 : [| tau_f2 |]) = $f2 $f1 $f2 ... $fn in (* no check here as well and as in similar cases *)
+      let f1 = $f1 $f1 $f2 ... $fn in (* these are the actual names of the functions so that e1 and the types can use them as normal *)
+      let f2 = $f2 $f1 $f2 ... $fn in 
       ...
-      let (fn : [| tau_fn |]) = $fn $f1 $f2 ... $fn in
+      let fn = $fn $f1 $f2 ... $fn in
+      let (f1 : [| tau_f1 |] (no check)) in (* and now the type tau_f1 can use the names f1, ..., fn if it needs, however, they are not wrapped in the types *)
+      ...
+      let (fn : [| tau_fn |] (no check)) in (* .. *)
       [| e1 |] (* this uses the f1, ..., fn as normal *)
 in
 ...
 let $fn =
   fun $f1 -> fun $f2 -> ... -> fun $fn ->
     fun xn_1 -> ... -> fun xn_mn ->
-      let f1 = $f1 $f1 $f2 ... $fn in (* need the types on these too *)
+      let f1 = $f1 $f1 $f2 ... $fn in
       let f2 = $f2 $f1 $f2 ... $fn in
       ...
       let fn = $fn $f1 $f2 ... $fn in
+      let (f1 : [| tau_f1 |] (no check)) in
+      ...
+      let (fn : [| tau_fn |] (no check)) in
       [| en |]
 in
-let (f1 : [| tau1_1 -> ... -> tau1_m1 -> tau1 |] (flag: tau knows binding)) = $f1 $f1 $f2 ... $fn in
+let f1 = $f1 $f1 $f2 ... $fn in (* these are the actual names of the functions *)
 ...
-let (fn : [| taun_1 -> ... -> taun_mn -> taun |]) = $fn $f1 $f2 ... $fn in (* same flags *)
+let fn = $fn $f1 $f2 ... $fn in
+let (f1 : [| tau1_1 -> ... -> tau1_m1 -> tau1 |]) = f1 in (* the type can use the (unwrapped) f1, ..., fn because of the statements above *)
+...
+let (fn : [| taun_1 -> ... -> taun_mn -> taun |]) = fn in
 [| e |]
 ```
 
 Note:
-* This doesn't wrap the recursive calls. We need to creatively wrap without checking the functions we use for recursion.
+* This is only how we would desugar non polymorphic functions.
 * We need to specially handle each type of function, which is a mess. This motivates a two-step process which I describe below.
 
 The process of the general desugar is as follows:
@@ -142,29 +151,40 @@ The process of the general desugar is as follows:
 let $f1 =
   fun $f1 -> ... -> fun $fn ->
     fun x1_1 -> ... -> fun x1_m1 ->
-      let (f1 : [| tau_f1_opt |] (flag: no check)) = $f1 $f1 $f2 ... $fn in
+      let f1 = $f1 $f1 $f2 ... $fn in
       ...
-      let (fn : [| tau_fn_opt |] (flag: no check)) = $fn $f1 $f2 ... $fn in
+      let fn = $fn $f1 $f2 ... $fn in
+      let (f1 : [| tau_f1_opt |] (no check)) = f1 in
+      ...
+      let (fn : [| tau_fn_opt |] (no check)) = fn in
       [| e1 |]
 in
 ...
 let $fn =
   fun $f1 -> ... -> fun $fn ->
     fun xn_1 -> ... -> fun xn_mn ->
-      let (f1 : [| tau_f1_opt |] (flag: no check)) = $f1 $f1 $f2 ... $fn in
+      let f1 = $f1 $f1 $f2 ... $fn in
       ...
-      let (fn : [| tau_fn_opt |] (flag: no check)) = $fn $f1 $f2 ... $fn in
+      let fn = $fn $f1 $f2 ... $fn in
+      let (f1 : [| tau_f1_opt |] (no check)) = f1 in
+      ...
+      let (fn : [| tau_fn_opt |] (no check)) = fn in
       [| en |]
 in
-let (f1 : [| tau_f1_opt |]) = $f1 $f2 $f2 ... $fn in
+let f1 = $f1 $f2 $f2 ... $fn in
 ...
-let (fn : [| tau_fn_opt |]) = $fn $f2 $f2 ... $fn in
+let fn = $fn $f2 $f2 ... $fn in
+let (f1 : [| tau_f1_opt |]) = f1 in
+...
+let (fn : [| tau_fn_opt |]) = fn in
 [| e |]
 ```
 
 Notes:
 * If the tau is None, then we do an untyped let-expression. I leave this as a note for conciseness because I feel it is clear from context what we mean in the definition above.
 * Notice the obvious parallel between the first few let-expressions in each function body and the top-level let-expressions we make at the end to actually define the functions for later use. We make use of this in the implementation.
+* The mutually recursive functions can use each other in their types, but they will not be wrapped. The current feeling is that we would need a complete reworking of how types are represented, or we would need mutation in order for the wrapping to work fully.
+* We have the "no check" because it is unecessary to check the function's type inside of every recursive call. We leave the checking to only the top level statement.
 
 We get the id, type, parameters, and body using the let rules we've already seen. Here is an example for let-poly functions.
 
@@ -355,4 +375,4 @@ Notes:
 
 ## Conclusion
 
-Unless it was explicitly mentioned in this file, everything else is desugared by just recursively desugaring its components.
+Unless it was explicitly mentioned in this file, everything else is desugared by just recursively desugaring its components and building back up the same expression.

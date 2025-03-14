@@ -108,7 +108,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | EFunction { param ; _ } when Ident.equal param id -> false
     | ETypeMu { var ; _  } when Ident.equal var id -> false
     | ETypeArrowD { binding ; domain ; _ } when Ident.equal binding id -> loop domain
-    | ELetFlagged { typed_var = { var ; tau } ; body ; _  } when Ident.equal var id -> loop tau || loop body
+    | ELetTypedNoCheck { typed_var = { var ; tau } ; body ; _  } when Ident.equal var id -> loop tau || loop body
     | ELetTyped { typed_var = { var ; tau } ; body ; _ } when Ident.equal var id -> loop tau || loop body
     (* simple unary cases *)
     | EFunction { body = e ; _ }
@@ -137,7 +137,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | ETypeVariant ls -> List.exists ls ~f:(fun (_, e) -> loop e)
     | EMatch { subject ; patterns } -> loop subject || List.exists patterns ~f:(fun (_, e) -> loop e)
     | EIf { cond ; true_body ; false_body } -> loop cond || loop true_body || loop false_body
-    | ELetFlagged { typed_var = { tau ; _ } ; body ; cont ; _ }
+    | ELetTypedNoCheck { typed_var = { tau ; _ } ; body ; cont }
     | ELetTyped { typed_var = { tau ; _ } ; body ; cont } -> loop tau || loop body || loop cont
   in
   loop expr
@@ -184,8 +184,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     (* Let *)
     | ELetTyped { typed_var ; body ; cont } ->
       Program.stmt_to_expr (embed_statement (STyped { typed_var ; body })) (embed cont)
-    | ELetFlagged { flags ; typed_var ; body ; cont } ->
-      Program.stmt_to_expr (embed_statement (SFlagged { flags ; typed_var ; body })) (embed cont)
+    | ELetTypedNoCheck { typed_var ; body ; cont } ->
+      Program.stmt_to_expr (embed_statement (STypedNoCheck { typed_var ; body })) (embed cont)
     (* types *)
     | ETypeInt ->
       E.make
@@ -487,18 +487,17 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ~check:(lazy (proj (embed ~ask_for:`Check EType) Reserved.check))
         ~wrap:(lazy (proj (embed ~ask_for:`Wrap EType) Reserved.wrap))
 
-    and embed_let ?(v_name : Ident.t = Names.fresh_id ()) ~(do_check : bool)
-      ~(do_wrap : bool) ~(tau : Desugared.t) (body : Desugared.t) : Embedded.t =
+    and embed_let ~(do_check : bool) ~(tau : Desugared.t) (body : Desugared.t) : Embedded.t =
       build @@
-        let%bind () = assign v_name @@ embed body in
+        let%bind v = capture @@ embed body in
         let%bind () = 
           if do_check
-          then ignore @@ check tau (EVar v_name)
+          then ignore @@ check tau (EVar v)
           else return ()
         in
         if do_wrap
-        then return @@ wrap tau (EVar v_name)
-        else return (EVar v_name)
+        then return @@ wrap tau (EVar v)
+        else return (EVar v)
 
     and embed_pattern (pat : Desugared.pattern) : Embedded.pattern =
       match pat with
@@ -518,11 +517,9 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       | SUntyped { var ; body } ->
         SUntyped { var ; body = embed body }
       | STyped { typed_var = { var = x ; tau } ; body } ->
-        SUntyped { var = x ; body = embed_let ~do_wrap ~do_check:true ~tau body }
-      | SFlagged { flags ; typed_var = { var = x ; tau } ; body } ->
-        let do_check = not @@ Set.mem flags NoCheck in
-        let v_name = if Set.mem flags TauKnowsBinding then x else Names.fresh_id () in
-        SUntyped { var = x ; body = embed_let ~v_name ~do_wrap ~do_check ~tau body }
+        SUntyped { var = x ; body = embed_let ~do_check:true ~tau body }
+      | STypedNoCheck { typed_var = { var = x ; tau } ; body } ->
+        SUntyped { var = x ; body = embed_let ~do_check:false ~tau body }
     in
 
   let embed_single_program (pgm : Desugared.pgm) =
@@ -537,21 +534,20 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
   Note:
   * This is somewhat inefficient because we translate the program once for each version, so we are duplicating work.
   * We could do this really intelligently, but right now it doesn't matter.
-  *)
+*)
 let split_checks (stmt_ls : Desugared.statement list) : Desugared.pgm Preface.Nonempty_list.t =
   let has_check (stmt : Desugared.statement) : bool =
     match stmt with
+    | STypedNoCheck _
     | SUntyped _ -> false
     | STyped _ -> true
-    | SFlagged { flags ; _ } -> not @@ Set.mem flags NoCheck
   in
   let turn_off_check (stmt : Desugared.statement) : Desugared.statement =
     match stmt with
+    | STypedNoCheck _
     | SUntyped _ -> stmt
     | STyped { typed_var ; body } ->
-      SFlagged { flags = LetFlag.Set.singleton NoCheck ; typed_var ; body }
-    | SFlagged { flags ; typed_var ; body } ->
-      SFlagged { flags = Set.add flags NoCheck ; typed_var ; body }
+      STypedNoCheck { typed_var ; body }
   in
   (*
     Now for each statement with a check, we want to return the program with only that check on.

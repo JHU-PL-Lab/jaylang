@@ -11,17 +11,17 @@ module Report_row (* : Latex_table.ROW *) =
       end
 
     type t =
-      { testname                    : Filename.t
-      ; test_result                 : Concolic.Status.Terminal.t
-      ; time_to_only_run_on_jil     : Time_float.Span.t
-      ; time_to_parse_and_translate : Time_float.Span.t
-      ; total_time                  : Time_float.Span.t
-      ; trial                       : Trial.t
-      ; lines_of_code               : int
-      ; metadata                    : Metadata.t }
+      { testname          : Filename.t
+      ; test_result       : Concolic.Status.Terminal.t
+      ; time_to_interpret : Time_float.Span.t
+      ; time_to_solve     : Time_float.Span.t
+      ; total_time        : Time_float.Span.t
+      ; trial             : Trial.t
+      ; lines_of_code     : int
+      ; metadata          : Metadata.t }
 
     let names =
-      [ "Test Name" ; "Run" ; "Transl" ; "Total" ; "LOC" ]
+      [ "Test Name" ; "Interp" ; "Solve" ; "Total" ; "LOC" ]
       @ (List.map Ttag.all ~f:(fun tag ->
           Latex_format.rotate_90
           @@ Ttag.to_string_with_underline tag
@@ -31,15 +31,15 @@ module Report_row (* : Latex_table.ROW *) =
     let to_strings x =
       let span_to_ms_string =
         fun span ->
-          span
-          |> Time_float.Span.to_ms
-          |> Float.round_up
-          |> Float.to_int
-          |> Int.to_string
+          let fl = Time_float.Span.to_ms span in
+          Float.to_string @@
+          if Float.(fl < 1.)
+          then Float.round_decimal fl ~decimal_digits:1
+          else Float.round_significant fl ~significant_digits:2
       in
       [ Filename.basename x.testname |> String.take_while ~f:(Char.(<>) '.') |> Latex_format.texttt
-      ; span_to_ms_string x.time_to_only_run_on_jil
-      ; span_to_ms_string x.time_to_parse_and_translate
+      ; span_to_ms_string x.time_to_interpret
+      ; span_to_ms_string x.time_to_solve
       ; span_to_ms_string x.total_time
       ; Int.to_string x.lines_of_code ]
       @ (
@@ -58,22 +58,25 @@ module Report_row (* : Latex_table.ROW *) =
       assert (n_trials > 0);
       let metadata = Metadata.of_bjy_file testname in
       let test_one (n : int) : t =
+        let interp0 = Utils.Safe_cell.get Concolic.Evaluator.global_runtime in
+        let solve0 = Utils.Safe_cell.get Concolic.Solve.Default.global_solvetime in
         let t0 = Caml_unix.gettimeofday () in
         let source =
           In_channel.read_all testname
           |> Lang.Parse.parse_single_pgm_string
         in
-        let t1 = Caml_unix.gettimeofday () in
         let test_result =
           Concolic.Driver.test_bjy source ~global_timeout_sec:90.0 ~do_wrap:true ~in_parallel:false (* parallel computation off by default *)
         in
-        let t2 = Caml_unix.gettimeofday () in
+        let t1 = Caml_unix.gettimeofday () in
+        let interp1 = Utils.Safe_cell.get Concolic.Evaluator.global_runtime in
+        let solve1 = Utils.Safe_cell.get Concolic.Solve.Default.global_solvetime in
         let row =
           { testname
           ; test_result
-          ; time_to_only_run_on_jil = Time_float.Span.of_sec (t2 -. t1)
-          ; time_to_parse_and_translate = Time_float.Span.of_sec (t1 -. t0)
-          ; total_time = Time_float.Span.of_sec (t2 -. t0)
+          ; time_to_interpret = Time_float.Span.of_sec (interp1 -. interp0)
+          ; time_to_solve = Time_float.Span.of_sec (solve1 -. solve0)
+          ; total_time = Time_float.Span.of_sec (t1 -. t0)
           ; trial = Number n
           ; lines_of_code = Utils.Cloc_lib.count_bjy_lines testname
           ; metadata }
@@ -87,8 +90,8 @@ module Report_row (* : Latex_table.ROW *) =
           ~init:{
             testname
             ; test_result = Concolic.Status.Exhausted_pruned_tree (* just arbitrary initial result *)
-            ; time_to_only_run_on_jil = Time_float.Span.of_sec 0.0
-            ; time_to_parse_and_translate = Time_float.Span.of_sec 0.0
+            ; time_to_interpret = Time_float.Span.of_sec 0.0
+            ; time_to_solve = Time_float.Span.of_sec 0.0
             ; total_time = Time_float.Span.of_sec 0.0
             ; trial = Average
             ; lines_of_code = Utils.Cloc_lib.count_bjy_lines testname (* won't even average the remaining fields out. Just pre-calculate it *)
@@ -97,14 +100,14 @@ module Report_row (* : Latex_table.ROW *) =
           ~f:(fun acc x ->
             { acc with (* sum up *)
               test_result = x.test_result (* keeps most recent test result *)
-            ; time_to_only_run_on_jil = Time_float.Span.(acc.time_to_only_run_on_jil + x.time_to_only_run_on_jil)
-            ; time_to_parse_and_translate = Time_float.Span.(acc.time_to_parse_and_translate + x.time_to_parse_and_translate)
+            ; time_to_interpret = Time_float.Span.(acc.time_to_interpret + x.time_to_interpret)
+            ; time_to_solve = Time_float.Span.(acc.time_to_solve + x.time_to_solve)
             ; total_time = Time_float.Span.(acc.total_time + x.total_time)
             })
         |> fun r ->
           { r with (* average out *)
-            time_to_only_run_on_jil = Time_float.Span.(r.time_to_only_run_on_jil / (Int.to_float n_trials))
-          ; time_to_parse_and_translate = Time_float.Span.(r.time_to_parse_and_translate / (Int.to_float n_trials))
+            time_to_interpret = Time_float.Span.(r.time_to_interpret / (Int.to_float n_trials))
+          ; time_to_solve = Time_float.Span.(r.time_to_solve / (Int.to_float n_trials))
           ; total_time = Time_float.Span.(r.total_time / (Int.to_float n_trials))
           }
       in
@@ -131,8 +134,8 @@ module Result_table =
       ; columns =
         let little_space = Latex_tbl.Col_option.Little_space { point_size = 3 } in
         [ [ Latex_tbl.Col_option.Right_align ; Vertical_line_to_right ]
-        ; [ little_space ] (* run time *)
-        ; [ little_space ] (* translation time *)
+        ; [ little_space ] (* interp time *)
+        ; [ little_space ] (* solve time *)
         ; [ little_space ;  Vertical_line_to_right ] (* total time *)
         ; [ little_space ; Vertical_line_to_right ] (* loc *) ]
         @
@@ -140,10 +143,10 @@ module Result_table =
       }
   end
 
-let run dirs =
+let run n_trials dirs =
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
-  let tbl = Result_table.of_dirs 10 dirs in
+  let tbl = Result_table.of_dirs n_trials dirs in
   let times =
     List.filter_map tbl.rows ~f:(function
       | Row row -> Some (Time_float.Span.to_ms row.total_time)
@@ -170,11 +173,11 @@ let run dirs =
     (Utils.Safe_cell.get Concolic.Solve.Default.global_solvetime)
 
 let () =
-  run [ 
+  run 50 [ 
     "test/bjy/oopsla-24-benchmarks-ill-typed";
-    (* "test/bjy/scheme-pldi-2015-ill-typed"; *)
+    "test/bjy/scheme-pldi-2015-ill-typed";
     (* "test/bjy/deep-type-error"; *)
-    (* "test/bjy/oopsla-24-tests-ill-typed"; "test/bjy/sato-bjy-ill-typed"; *)
-    (* "test/bjy/interp-ill-typed"; *)
+    "test/bjy/oopsla-24-tests-ill-typed"; "test/bjy/sato-bjy-ill-typed";
+    "test/bjy/interp-ill-typed";
   ]
 

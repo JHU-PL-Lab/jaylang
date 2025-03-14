@@ -108,18 +108,6 @@ module VariantTypeLabel = struct
     VariantLabel.VariantLabel l
 end
 
-module LetFlag = struct
-  module T = struct
-    type t =
-      | NoCheck
-      | TauKnowsBinding (* effectively recursive, but I don't want naming to be confusing *)
-      [@@deriving equal, compare, sexp, hash]
-  end
-
-  include T
-  module Set = Set.Make (T)
-end
-
 module Binop = struct
   type t =
     | BPlus
@@ -198,7 +186,7 @@ module Expr = struct
     | EAbort : 'a desugared_or_embedded t
     | EDiverge : 'a desugared_or_embedded t
     (* desugared only *)
-    | ELetFlagged : { flags : LetFlag.Set.t ; typed_var : 'a typed_var ; body : 'a t ; cont : 'a t} -> 'a desugared_only t
+    | ELetTypedNoCheck : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } -> 'a desugared_only t
     (* these exist in the bluejay and desugared languages *)
     | EType : 'a bluejay_or_desugared t
     | ETypeInt : 'a bluejay_or_desugared t
@@ -251,7 +239,7 @@ module Program = struct
     (* all *)
     | SUntyped : { var : Ident.t ; body : 'a t } -> 'a statement
     (* desugared only *)
-    | SFlagged : { flags : LetFlag.Set.t ; typed_var : 'a typed_var ; body : 'a t } -> 'a desugared_only statement
+    | STypedNoCheck : { typed_var : 'a typed_var ; body : 'a t } -> 'a desugared_only statement
     (* bluejay or desugared *)
     | STyped : { typed_var : 'a typed_var ; body : 'a t } -> 'a bluejay_or_desugared statement
     (* bluejay only *)
@@ -264,8 +252,8 @@ module Program = struct
     match stmt with
     | SUntyped { var ; body } ->
       ELet { var ; body ; cont = cont }
-    | SFlagged { flags ; typed_var ; body } ->
-      ELetFlagged { flags ; typed_var ; body ; cont }
+    | STypedNoCheck { typed_var ; body } ->
+      ELetTypedNoCheck { typed_var ; body ; cont }
     | STyped { typed_var ; body } ->
       ELetTyped { typed_var ; body ; cont }
     | SFun fsig ->
