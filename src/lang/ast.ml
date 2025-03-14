@@ -71,6 +71,8 @@ module Ident = struct
   end
 
   include T
+  
+  let to_string (Ident s) = s
 
   module Set = Set.Make (T)
   module Map = Map.Make (T)

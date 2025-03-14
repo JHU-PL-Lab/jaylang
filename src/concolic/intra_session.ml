@@ -21,7 +21,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
   let accum_eval (x : t) (ev : Status.Eval.t) : t =
     ev
     |> begin function
-      | (Status.Found_abort _ | Type_mismatch _) as res -> x.tree, x.has_pruned, res
+      | (Status.Found_abort _ | Type_mismatch _ | Unbound_variable _) as res -> x.tree, x.has_pruned, res
       | Finished { pruned ; reached_max_step ; stem } ->
         Tree.add_stem x.tree stem
         , x.has_pruned || pruned || reached_max_step
@@ -35,7 +35,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
 
   let finish_status (x : t) : Status.Terminal.t =
     match x.status with
-    | (Found_abort _ | Type_mismatch _) as res -> res
+    | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as res -> res
     | Diverge | In_progress -> (* This here is a little sloppy. Diverge is an artifact from eval session *)
       if x.has_pruned
       then Exhausted_pruned_tree

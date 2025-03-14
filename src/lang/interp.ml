@@ -26,7 +26,7 @@ open V
  *)
 module CPS_Error_M (Env : T) = struct
   module Err = struct
-    type t = Abort | Diverge | Type_mismatch
+    type t = Abort | Diverge | Type_mismatch | Unbound_variable of Ident.t
     (* we might consider adding an Assert_false and Assume_false construct *)
   end
 
@@ -42,6 +42,9 @@ module CPS_Error_M (Env : T) = struct
 
   let type_mismatch (type a) (() : unit) : a m =
     fail Err.Type_mismatch
+
+  let unbound_variable (type a) (id : Ident.t) : a m =
+    fail @@ Err.Unbound_variable id
 
   let list_map (f : 'a -> 'b m) (ls : 'a list) : 'b list m =
     List.fold_right ls ~init:(return []) ~f:(fun a acc_m ->
@@ -68,9 +71,12 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     (* direct values *)
     | EInt i -> return (VInt i)
     | EBool b -> return (VBool b)
-    | EVar id -> 
-      using_env @@ fun env ->
-      Env.fetch id env
+    | EVar id -> begin
+      let%bind env = read_env in
+      match Env.fetch id env with
+      | None -> unbound_variable id
+      | Some v -> return v
+    end
     | ETypeInt -> return VTypeInt
     | ETypeBool -> return VTypeBool
     | ETypeTop -> return VTypeTop
@@ -313,6 +319,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
     | Error Abort -> Format.printf "FOUND ABORT\n"; VAbort
     | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge
+    | Error Unbound_variable Ident s -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
 
 let eval_pgm (type a) (pgm : a Program.t) : a V.t =
   pgm

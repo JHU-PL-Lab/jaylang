@@ -10,6 +10,7 @@ type 'a in_progress = 'a constraint 'a = [ `In_progress ]
 type _ t =
   | Found_abort : Input.t list -> 'a t
   | Type_mismatch : Input.t list * string -> 'a t
+  | Unbound_variable : Input.t list * Lang.Ast.Ident.t -> 'a t
 
   (* result from entire concolic evaluation *)
   | Exhausted_full_tree : 'a terminal t
@@ -25,26 +26,27 @@ type _ t =
 
 let is_terminal (type a) (x : a t) : bool =
   match x with
-  | Found_abort _ | Type_mismatch _ | Timeout
+  | Found_abort _ | Type_mismatch _ | Timeout | Unbound_variable _ 
   | Exhausted_full_tree | Exhausted_pruned_tree -> true
   | Finished _ | Diverge | In_progress -> false
 
 let is_error_found (type a) (x : a t) : bool =
   match x with
-  | Found_abort _ | Type_mismatch _ -> true
+  | Found_abort _ | Type_mismatch _ | Unbound_variable _ -> true
   | Timeout | Exhausted_full_tree | Exhausted_pruned_tree
   | Finished _ | Diverge | In_progress -> false
 
 let to_string (type a) (x : a t) : string =
   match x with
-  | Found_abort _         -> "Found abort"
-  | Type_mismatch (_, s)  -> Format.sprintf "Type mismatch:\n  %s" s
-  | Exhausted_full_tree   -> "Exhausted"
-  | Exhausted_pruned_tree -> "Exhausted pruned true"
-  | Timeout               -> "Timeout"
-  | Finished _            -> "Finished interpretation"
-  | Diverge               -> "Diverge"
-  | In_progress           -> "In progress"
+  | Found_abort _            -> "Found abort"
+  | Type_mismatch (_, s)     -> Format.sprintf "Type mismatch:\n  %s" s
+  | Unbound_variable (_, id) -> Format.sprintf "Unbound variable:\n  %s" (Lang.Ast.Ident.to_string id)
+  | Exhausted_full_tree      -> "Exhausted"
+  | Exhausted_pruned_tree    -> "Exhausted pruned true"
+  | Timeout                  -> "Timeout"
+  | Finished _               -> "Finished interpretation"
+  | Diverge                  -> "Diverge"
+  | In_progress              -> "In progress"
 
 let to_loud_string (type a) (x : a t) : string =
   let make_loud s =

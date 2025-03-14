@@ -19,8 +19,6 @@ open Core
 open Ast
 open Constraints
 
-exception UnboundVariable of Ident.t
-
 module type CELL = sig
   type 'a t
   val make : 'a -> 'a t
@@ -48,6 +46,7 @@ module Make (Cell : CELL) (V : V) = struct
       | VTypeMismatch : 'a t
       | VAbort : 'a t (* this results from `EAbort` or `EAssert e` where e => false *)
       | VDiverge : 'a t (* this results from `EDiverge` or `EAssume e` where e => false *)
+      | VUnboundVariable : Ident.t -> 'a t
       (* embedded only *)
       | VId : 'a embedded_only t
       | VFrozen : 'a closure -> 'a embedded_only t
@@ -89,6 +88,7 @@ module Make (Cell : CELL) (V : V) = struct
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
     | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
     | VTypeMismatch -> "Type_mismatch"
+    | VUnboundVariable Ident v -> Format.sprintf "Unbound_variable %s" v
     | VAbort -> "Abort"
     | VDiverge -> "Diverge"
     | VId -> "(fun x -> x)"
@@ -126,10 +126,9 @@ module Make (Cell : CELL) (V : V) = struct
     let add (id : Ident.t) (v : 'a T.t) (env : 'a t) : 'a t =
       Map.set env ~key:id ~data:(Cell.make v)
 
-    let fetch (id : Ident.t) (env : 'a t) : 'a T.t =
-      match Map.find env id with
-      | None -> raise @@ UnboundVariable id
-      | Some r -> Cell.get r
+    let fetch (id : Ident.t) (env : 'a t) : 'a T.t option =
+      Option.map ~f:Cell.get
+      @@ Map.find env id
 
     let add_stub (id : Ident.t) (env : 'a Constraints.bluejay_or_desugared t) : 'a T.t Cell.t * 'a t =
       let v_cell = Cell.make VRecStub in
@@ -152,7 +151,7 @@ module Constrain (C : sig type constrain end) (Cell : CELL) (V : V) = struct
     type t = C.constrain M.Env.t
     let empty : t = M.Env.empty
     let add : Ident.t -> T.t -> t -> t = M.Env.add
-    let fetch : Ident.t -> t -> T.t = M.Env.fetch
+    let fetch : Ident.t -> t -> T.t option = M.Env.fetch
   end
 end
 

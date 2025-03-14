@@ -47,10 +47,6 @@ module State_M = struct
     let%bind (_, e) = read in
     return e
 
-  let[@inline always] fetch (id : Ident.t) : Value.t m =
-    let%bind env = read_env in
-    return @@ Env.fetch id env
-
   let[@inline always] fail_map (f : Eval_session.t -> Status.Eval.t) : 'a m =
     let%bind ({ session ; _ }, _) = read in
     fail @@ f session
@@ -58,6 +54,12 @@ module State_M = struct
   let abort : 'a m = fail_map Eval_session.abort
   let diverge : 'a m = fail_map Eval_session.diverge
   let type_mismatch s : 'a m = fail_map @@ Fn.flip Eval_session.type_mismatch s
+
+  let[@inline always] fetch (id : Ident.t) : Value.t m =
+    let%bind env = read_env in
+    match Env.fetch id env with
+    | None -> fail_map @@ Fn.flip Eval_session.unbound_variable id
+    | Some v -> return v
 end
 
 module Error_msg = struct
