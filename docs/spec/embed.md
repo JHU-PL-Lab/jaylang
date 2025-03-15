@@ -322,25 +322,6 @@ These ideas are not in the implementation. The only one here (refinement types a
     [[tau]].~wrap [[ e ]]
   in
   [[ e' ]]
-
-(* with this flag, tau needs to know the value of x *)
-[[ let (x : tau (tau knows binding)) = e in e' ]] =
-  let x =
-    let x = [[ e ]] in (* use x so that tau can know about it *)
-    let $r = [[tau]] in
-    let _ = $r.~check x in
-    $r.~wrap x
-  in
-  [[ e' ]]
-
-(* combine both of the above flags *)
-[[ let (x : tau (no check, tau knows binding)) = e in e' ]] =
-  let x =
-    let x = [[ e ]] in (* use x so that tau can know about it *)
-    [[tau]].~wrap x
-  in
-  [[ e' ]]
-
 ```
 
 ### Binary operations
