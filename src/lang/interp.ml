@@ -15,7 +15,7 @@ open Expr
 
 exception InvariantFailure of string
 
-module V = Value.Make (Value.Ref_cell) (struct type 'a t = 'a let to_string f x = f x end)
+module V = Value.Make (Lazy) (Utils.Identity)
 open V
 
 (* 
@@ -83,19 +83,19 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ETypeBottom -> return VTypeBottom
     | ETypeForall { type_variables ; tau } -> 
       using_env @@ fun env ->
-      VTypeForall { type_variables ; tau = { expr = tau ; env } }
+      VTypeForall { type_variables ; tau = { expr = tau ; env = lazy env } }
     | EType -> return VType
     | EAbort -> abort ()
     | EDiverge -> diverge ()
     | EFunction { param ; body } -> 
       using_env @@ fun env ->
-      VFunClosure { param ; body = { expr = body ; env } }
+      VFunClosure { param ; body = { expr = body ; env = lazy env } }
     | EMultiArgFunction { params ; body } -> 
       using_env @@ fun env ->
-      VMultiArgFunClosure { params ; body = { expr = body ; env } }
+      VMultiArgFunClosure { params ; body = { expr = body ; env = lazy env } }
     | EFreeze expr ->
       using_env @@ fun env ->
-      VFrozen { expr ; env }
+      VFrozen { expr ; env = lazy env }
     | EId -> return VId
     (* inputs *) (* Consider: use an input stream to allow user to provide inputs *)
     | EPick_i -> return (VInt 0)
@@ -120,7 +120,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ETypeArrowD { binding ; domain ; codomain } ->
       let%bind domain = eval domain in
       using_env @@ fun env ->
-      VTypeArrowD { binding ; domain ; codomain = { expr = codomain ; env } }
+      VTypeArrowD { binding ; domain ; codomain = { expr = codomain ; env = lazy env } }
     | ETypeRefinement { tau ; predicate } ->
       let%bind tau = eval tau in
       let%bind predicate = eval predicate in
@@ -148,26 +148,26 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       return (VTypeRecord new_record)
     | ETypeRecordD e_ls ->
       using_env @@ fun env ->
-      VTypeRecordD (List.map e_ls ~f:(fun (label, tau) -> label, { expr = tau ; env } ))
+      VTypeRecordD (List.map e_ls ~f:(fun (label, tau) -> label, { expr = tau ; env = lazy env } ))
     | EThaw e ->
       let%bind v_frozen = eval e in
-      let%orzero (VFrozen { expr = e_frozen ; env }) = v_frozen in
+      let%orzero (VFrozen { expr = e_frozen ; env = lazy env }) = v_frozen in
       local (fun _ -> env) (eval e_frozen)
     (* bindings *)
     | EAppl { func ; arg } -> begin
       let%bind vfunc = eval func in
       let%bind arg = eval arg in
       match vfunc with
-      | VFunClosure { param ; body } ->
-        local (fun _ -> Env.add param arg body.env) (eval body.expr)
+      | VFunClosure { param ; body = { expr ; env = lazy env } } ->
+        local (fun _ -> Env.add param arg env) (eval expr)
       | VId -> return arg
-      | VMultiArgFunClosure { params ; body } -> begin
+      | VMultiArgFunClosure { params ; body = { expr ; env = lazy env }} -> begin
         match params with
         | [] -> type_mismatch ()
         | [ param ] ->
-          local (fun _ -> Env.add param arg body.env) (eval body.expr)
+          local (fun _ -> Env.add param arg env) (eval expr)
         | param :: params ->
-          local (fun _ -> Env.add param arg body.env) (eval (EMultiArgFunction { params ; body = body.expr }))
+          local (fun _ -> Env.add param arg env) (eval (EMultiArgFunction { params ; body = expr }))
         end
       | _ -> type_mismatch ()
     end
@@ -185,11 +185,12 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%bind _ = eval ignored in
       eval cont
     | ETypeMu { var ; body } ->
-      using_env @@ fun env ->
-        let stub_ref, env = Env.add_stub var env in
-        let v = VTypeMu { var ; body = { expr = body ; env } } in
-        stub_ref := v;
-        v
+      let%bind env = read_env in
+      let rec rec_env = lazy (
+        Env.add var (VTypeMu { var ; body = { expr = body ; env = rec_env } }) env
+      )
+      in
+      local (fun _ -> force rec_env) (eval (EVar var))
     (* operations *)
     | EListCons (e_hd, e_tl) -> begin
       let%bind hd = eval e_hd in
@@ -276,20 +277,17 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     (* let funs *)
     | ELetFunRec { funcs ; cont } -> begin
       let%bind env = read_env in
-      let stub_and_comps_ls, env =
-        List.fold funcs ~init:([], env) ~f:(fun (acc, env) fsig ->
+      let rec rec_env = lazy (
+        List.fold funcs ~init:env ~f:(fun acc fsig ->
           let comps = Ast_tools.Funsig.to_components fsig in
-          let stub_ref, env = Env.add_stub comps.func_id env in
-          (stub_ref, comps) :: acc
-          , env
-          )
+          match Ast_tools.Utils.abstract_over_ids comps.params comps.body with
+          | EFunction { param ; body } -> 
+            Env.add comps.func_id (VFunClosure { param ; body = { expr = body ; env = rec_env } }) acc
+          | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
+        )
+      )
       in
-      List.iter stub_and_comps_ls ~f:(fun (stub_ref, comps) ->
-        match Ast_tools.Utils.abstract_over_ids comps.params comps.body with
-        | EFunction { param ; body } -> stub_ref := VFunClosure { param ; body = { expr = body ; env } }
-        | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
-      );
-      local (fun _ -> env) (eval cont)
+      local (fun _ -> force rec_env) (eval cont)
     end
     | ELetFun { func ; cont } ->
       let comps = Ast_tools.Funsig.to_components func in
@@ -297,7 +295,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       |> function
         | EFunction { param ; body } ->
           local (fun env ->
-            Env.add comps.func_id (VFunClosure { param ; body = { expr = body ; env } }) env
+            Env.add comps.func_id (VFunClosure { param ; body = { expr = body ; env = lazy env } }) env
           ) (eval cont)
         | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
 
