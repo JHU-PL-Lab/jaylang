@@ -159,13 +159,8 @@ module Embedded = Constrain (struct type constrain = Ast.Constraints.embedded en
 (*
   Values in the desugared language. Uses laziness to implement recursion.
 *)
-module Desugared (V : V) = struct
-  include Constrain (struct type constrain = Ast.Constraints.desugared end) (Lazy) (V)
-end 
-
+module Desugared = Constrain (struct type constrain = Ast.Constraints.desugared end) (Lazy)
 (*
   Values in Bluejay. Uses laziness to implement recursion.
 *)
-module Bluejay (V : V) = struct
-  include Constrain (struct type constrain = Ast.Constraints.bluejay end) (Lazy) (V)
-end 
+module Bluejay = Constrain (struct type constrain = Ast.Constraints.bluejay end) (Lazy)
