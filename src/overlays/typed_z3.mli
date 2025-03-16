@@ -8,6 +8,9 @@
   and each instance of the result of the applicative functor
   has its own (stateful) solver that is transiently used
   for solves.
+
+  A generative functor is also provided that creates a new
+  context.
 *)
 
 module type S = sig

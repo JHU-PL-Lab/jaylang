@@ -213,6 +213,10 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     Function_components.map ~f:desugar
     @@ Funsig.to_components fsig
 
+  (*
+    Desugars list patterns into the associated variants and also returns the
+    new body because some projections are necessary.
+  *)
   and desugar_pattern (pat : Bluejay.pattern) (e : Bluejay.t) : Desugared.pattern * Desugared.t =
     match pat with
     | PEmptyList ->

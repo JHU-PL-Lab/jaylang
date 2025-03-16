@@ -7,9 +7,9 @@
 
   Individual uses of the programming languages have different
   requirements, so we parametrize the values stored in the
-  [VInt] and [VBool] constructors, as well as the cells used 
-  in the environments (e.g. Bluejay has recursion and benefits
-  from ref cells in the environment).
+  [VInt] and [VBool] constructors, as well as the cell used to
+  wrap the environment in the closures (e.g. Bluejay has recursion
+  and benefits from a lazy environment in its closures).
 
   We use type constraints (from [Ast]) and GADTs to allow
   subtyping and reuse of constructors.

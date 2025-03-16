@@ -52,7 +52,8 @@ module Embedded_type (W : sig val do_wrap : bool end) = struct
   type labels = [ `Gen | `Check | `Wrap | `All ]
 
   (*
-    Note: then gen body gets frozen.
+    Note: then gen body always gets frozen with the `EFreeze` constructor, so the caller
+      does not need to do that.
 
     When we make a record with these labels, we might now ahead of time that we're only asking
     for one of the labels (or maybe we do need all of them). For this reason, we have

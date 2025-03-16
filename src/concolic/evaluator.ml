@@ -23,9 +23,9 @@ module State_M = struct
 
   (*
     As a general observation, it is more efficient to be hands-on and write this
-    using the structure of FMonad instead of using `read`, `return`, etc.
+    using the structure of State_read_result instead of using `read`, `return`, etc.
     I suppose this is due to better inlining. I consider the tradeoff in favor
-    of more efficiency worth the less general code.
+    of more efficiency to be worth the less general code.
   *)
   let incr_step : int m =
     { run =
