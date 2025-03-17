@@ -259,12 +259,11 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       )
     in
     Program.SUntyped { var = r ; body = appl_list (Desugared_functions.y_n f_names) bodies }
-    :: List.map func_comps ~f:(fun comps ->
+    :: (func_comps >>| fun comps ->
       (* do_check and do_wrap are unused arguments in this case because we don't provide the type *)
       make_stmt ~do_wrap:true ~do_check:true ~tau_opt:None comps.func_id
       @@ proj (EVar r) (RecordLabel.RecordLabel comps.func_id)
-    )
-    @ List.map func_comps ~f:(fun comps ->
+    ) @ (func_comps >>| fun comps ->
       make_stmt ~do_wrap:false ~do_check:true ~tau_opt:comps.tau_opt comps.func_id (EVar comps.func_id)
     )
 
