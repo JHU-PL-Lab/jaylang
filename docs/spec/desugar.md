@@ -137,6 +137,7 @@ let Y_n = fun f1 ... fn ->
       f1 r.l1 ... r.ln x
     ; ...
     ; ln = fun x ->
+      let r = self f1 ... fn in
       fn r.l1 ... r.ln x
     }
   ) f1 ... fn
