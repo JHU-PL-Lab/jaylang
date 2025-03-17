@@ -128,7 +128,7 @@ statement:
   | LET l_ident EQUALS expr
       { SUntyped { var = $2 ; body = $4 } : Bluejay.statement }
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr
-      { STyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 } : Bluejay.statement }
+      { STyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 ; do_wrap = true ; do_check = true } : Bluejay.statement }
   | letfun_rec
       { SFunRec $1 : Bluejay.statement }
   | letfun
@@ -156,7 +156,7 @@ expr:
   | LET_BIND l_ident EQUALS expr IN expr %prec prec_let
       { ELetBind { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
-      { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 ; cont = $10 } : Bluejay.t }
+      { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 ; cont = $10 ; do_wrap = true ; do_check = true } : Bluejay.t }
   // Functions
   | letfun_rec IN expr %prec prec_fun
       { ELetFunRec { funcs = $1 ; cont = $3 } : Bluejay.t }

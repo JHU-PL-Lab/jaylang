@@ -187,9 +187,6 @@ module Expr = struct
     (* these exist in the desugared and embedded languages *)
     | EAbort : 'a desugared_or_embedded t
     | EDiverge : 'a desugared_or_embedded t
-    (* desugared only *)
-    | ELetTypedNoWrap  : 'a let_typed -> 'a desugared_only t
-    | ELetTypedNoCheck : 'a let_typed -> 'a desugared_only t
     (* these exist in the bluejay and desugared languages *)
     | EType : 'a bluejay_or_desugared t
     | ETypeInt : 'a bluejay_or_desugared t
@@ -203,7 +200,7 @@ module Expr = struct
     | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
     | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
     | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
-    | ELetTyped : 'a let_typed -> 'a bluejay_or_desugared t
+    | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
     | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
     (* bluejay only *)
     | ELetBind : { var : Ident.t ; body : 'a t ; cont : 'a t } -> 'a bluejay_only t
@@ -243,16 +240,11 @@ module Program = struct
   type _ statement =
     (* all *)
     | SUntyped : { var : Ident.t ; body : 'a t } -> 'a statement
-    (* desugared only *)
-    | STypedNoCheck : 'a s_let_typed -> 'a desugared_only statement
-    | STypedNoWrap : 'a s_let_typed -> 'a desugared_only statement
     (* bluejay or desugared *)
-    | STyped : 'a s_let_typed -> 'a bluejay_or_desugared statement
+    | STyped : { typed_var : 'a typed_var ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared statement
     (* bluejay only *)
     | SFun : 'a funsig -> 'a bluejay_only statement
     | SFunRec : 'a funsig list -> 'a bluejay_only statement
-
-  and 'a s_let_typed = { typed_var : 'a typed_var ; body : 'a t }
 
   type 'a t = 'a statement list
 
@@ -260,12 +252,8 @@ module Program = struct
     match stmt with
     | SUntyped { var ; body } ->
       ELet { var ; body ; cont = cont }
-    | STypedNoCheck { typed_var ; body } ->
-      ELetTypedNoCheck { typed_var ; body ; cont }
-    | STypedNoWrap { typed_var ; body } ->
-      ELetTypedNoWrap { typed_var ; body ; cont }
-    | STyped { typed_var ; body } ->
-      ELetTyped { typed_var ; body ; cont }
+    | STyped { typed_var ; body ; do_wrap ; do_check } ->
+      ELetTyped { typed_var ; body ; cont ; do_wrap ; do_check }
     | SFun fsig ->
       ELetFun { func = fsig ; cont }
     | SFunRec fsigs ->
