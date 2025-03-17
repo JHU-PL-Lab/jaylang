@@ -188,7 +188,8 @@ module Expr = struct
     | EAbort : 'a desugared_or_embedded t
     | EDiverge : 'a desugared_or_embedded t
     (* desugared only *)
-    | ELetTypedNoCheck : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } -> 'a desugared_only t
+    | ELetTypedNoWrap  : 'a let_typed -> 'a desugared_only t
+    | ELetTypedNoCheck : 'a let_typed -> 'a desugared_only t
     (* these exist in the bluejay and desugared languages *)
     | EType : 'a bluejay_or_desugared t
     | ETypeInt : 'a bluejay_or_desugared t
@@ -202,7 +203,7 @@ module Expr = struct
     | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
     | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
     | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
-    | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } -> 'a bluejay_or_desugared t
+    | ELetTyped : 'a let_typed -> 'a bluejay_or_desugared t
     | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
     (* bluejay only *)
     | ELetBind : { var : Ident.t ; body : 'a t ; cont : 'a t } -> 'a bluejay_only t
@@ -228,6 +229,8 @@ module Expr = struct
     | TVar : 'a typed_var -> 'a bluejay_or_desugared param
     | TVarDep : 'a typed_var -> 'a bluejay_or_desugared param
 
+  and 'a let_typed = { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t }
+
   (* a variable with its type, where the type is an expression *)
 
   (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
@@ -241,12 +244,15 @@ module Program = struct
     (* all *)
     | SUntyped : { var : Ident.t ; body : 'a t } -> 'a statement
     (* desugared only *)
-    | STypedNoCheck : { typed_var : 'a typed_var ; body : 'a t } -> 'a desugared_only statement
+    | STypedNoCheck : 'a s_let_typed -> 'a desugared_only statement
+    | STypedNoWrap : 'a s_let_typed -> 'a desugared_only statement
     (* bluejay or desugared *)
-    | STyped : { typed_var : 'a typed_var ; body : 'a t } -> 'a bluejay_or_desugared statement
+    | STyped : 'a s_let_typed -> 'a bluejay_or_desugared statement
     (* bluejay only *)
     | SFun : 'a funsig -> 'a bluejay_only statement
     | SFunRec : 'a funsig list -> 'a bluejay_only statement
+
+  and 'a s_let_typed = { typed_var : 'a typed_var ; body : 'a t }
 
   type 'a t = 'a statement list
 
@@ -256,6 +262,8 @@ module Program = struct
       ELet { var ; body ; cont = cont }
     | STypedNoCheck { typed_var ; body } ->
       ELetTypedNoCheck { typed_var ; body ; cont }
+    | STypedNoWrap { typed_var ; body } ->
+      ELetTypedNoWrap { typed_var ; body ; cont }
     | STyped { typed_var ; body } ->
       ELetTyped { typed_var ; body ; cont }
     | SFun fsig ->

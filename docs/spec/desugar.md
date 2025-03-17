@@ -101,39 +101,47 @@ Here is an initial example for how recursive functions get desugared.
   with fn (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun = en
   in
   e |] =
-let $f1 =
-  fun $f1 -> fun $f2 -> ... -> fun $fn -> 
-    fun x1_1 -> ... -> fun x1_m1 ->
-      let f1 = $f1 $f1 $f2 ... $fn in (* these are the actual names of the functions so that e1 and the types can use them as normal *)
-      let f2 = $f2 $f1 $f2 ... $fn in 
-      ...
-      let fn = $fn $f1 $f2 ... $fn in
-      let (f1 : [| tau_f1 |] (no check)) in (* and now the type tau_f1 can use the names f1, ..., fn if it needs, however, they are not wrapped in the types *)
-      ...
-      let (fn : [| tau_fn |] (no check)) in (* .. *)
-      [| e1 |] (* this uses the f1, ..., fn as normal *)
-in
+(* this record is never accessible to the user, so we don't need to create unusable labels *)
+let $r = Y_n 
+  (fun f1 ... fn ->
+    let (f1 : tau1_1 -> ... -> tau1_m1 -> tau1 (no check)) = 
+      fun x1_1 -> ... fun x1_m1 ->
+        [| e1 |] 
+    in
+    f1) 
+  ... 
+  (fun f1 ... fn ->
+    let (fn : taun_1 -> ... -> taun_mn -> taun (no check)) = 
+      fun xn_1 -> ... -> fun xn_mn ->
+        [| en |] 
+    in
+    fn)
+
+(* first expose the names so that the types can use them *)
+let f1 = $r.l1
 ...
-let $fn =
-  fun $f1 -> fun $f2 -> ... -> fun $fn ->
-    fun xn_1 -> ... -> fun xn_mn ->
-      let f1 = $f1 $f1 $f2 ... $fn in
-      let f2 = $f2 $f1 $f2 ... $fn in
-      ...
-      let fn = $fn $f1 $f2 ... $fn in
-      let (f1 : [| tau_f1 |] (no check)) in
-      ...
-      let (fn : [| tau_fn |] (no check)) in
-      [| en |]
-in
-let f1 = $f1 $f1 $f2 ... $fn in (* these are the actual names of the functions *)
+let fn = $r.ln
+(* then run the checkers on the types, but don't wrap because that would be a double wrap *)
+let (f1 : tau1_1 -> ... -> tau1_m1 -> tau1 (no wrap)) = f1
 ...
-let fn = $fn $f1 $f2 ... $fn in
-let (f1 : [| tau1_1 -> ... -> tau1_m1 -> tau1 |]) = f1 in (* the type can use the (unwrapped) f1, ..., fn because of the statements above *)
-...
-let (fn : [| taun_1 -> ... -> taun_mn -> taun |]) = fn in
-[| e |]
+let (fn : taun_1 -> ... -> taun_mn -> taun (no wrap)) = fn
 ```
+
+for `Y_n` the fixed point combinator on `n` mutually recursive functions.
+
+```ocaml
+let Y_n = fun f1 ... fn ->
+  Y (fun self f1 ... fn ->
+    { l1 = fun x ->
+      let r = self f1 ... fn in
+      f1 r.l1 ... r.ln x
+    ; ...
+    ; ln = fun x ->
+      fn r.l1 ... r.ln x
+    }
+  ) f1 ... fn
+```
+
 
 Note:
 * This is only how we would desugar non polymorphic functions.
@@ -148,42 +156,33 @@ The process of the general desugar is as follows:
 ; ...
 ; (fn, tau_fn_opt, [ xn_1 , ... , xn_mn ], en)
 ], e |->
-let $f1 =
-  fun $f1 -> ... -> fun $fn ->
-    fun x1_1 -> ... -> fun x1_m1 ->
-      let f1 = $f1 $f1 $f2 ... $fn in
-      ...
-      let fn = $fn $f1 $f2 ... $fn in
-      let (f1 : [| tau_f1_opt |] (no check)) = f1 in
-      ...
-      let (fn : [| tau_fn_opt |] (no check)) = fn in
-      [| e1 |]
-in
+let $r = Y_n 
+  (fun f1 ... fn ->
+    let (f1 : tau_f1_opt (no check)) = 
+      fun x1_1 -> ... fun x1_m1 ->
+        [| e1 |] 
+    in
+    f1) 
+  ... 
+  (fun f1 ... fn ->
+    let (fn : tau_fn_opt (no check)) = 
+      fun xn_1 -> ... -> fun xn_mn ->
+        [| en |] 
+    in
+    fn)
+
+(* first expose the names so that the types can use them *)
+let f1 = $r.l1
 ...
-let $fn =
-  fun $f1 -> ... -> fun $fn ->
-    fun xn_1 -> ... -> fun xn_mn ->
-      let f1 = $f1 $f1 $f2 ... $fn in
-      ...
-      let fn = $fn $f1 $f2 ... $fn in
-      let (f1 : [| tau_f1_opt |] (no check)) = f1 in
-      ...
-      let (fn : [| tau_fn_opt |] (no check)) = fn in
-      [| en |]
-in
-let f1 = $f1 $f2 $f2 ... $fn in
+let fn = $r.ln
+(* then run the checkers on the types, but don't wrap because that would be a double wrap *)
+let (f1 : tau_f1_opt (no wrap)) = f1
 ...
-let fn = $fn $f2 $f2 ... $fn in
-let (f1 : [| tau_f1_opt |]) = f1 in
-...
-let (fn : [| tau_fn_opt |]) = fn in
-[| e |]
+let (fn : tau_fn_opt (no wrap)) = fn
 ```
 
 Notes:
 * If the tau is None, then we do an untyped let-expression. I leave this as a note for conciseness because I feel it is clear from context what we mean in the definition above.
-* Notice the obvious parallel between the first few let-expressions in each function body and the top-level let-expressions we make at the end to actually define the functions for later use. We make use of this in the implementation.
-* The mutually recursive functions can use each other in their types, but they will not be wrapped. The current feeling is that we would need a complete reworking of how types are represented, or we would need mutation in order for the wrapping to work fully.
 * We have the "no check" because it is unecessary to check the function's type inside of every recursive call. We leave the checking to only the top level statement.
 
 We get the id, type, parameters, and body using the let rules we've already seen. Here is an example for let-poly functions.

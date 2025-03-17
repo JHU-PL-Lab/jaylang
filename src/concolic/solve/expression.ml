@@ -179,7 +179,7 @@ let is_trivial (e : bool t) : [ `Trivial of Subst.t | `Nontrivial | `Const of bo
   | Not Key k -> `Trivial (B (k, false))
   | _ -> `Nontrivial
 
-let simplify (ls : bool t list) : Subst.t list * bool t list =
+let[@landmark] simplify (ls : bool t list) : Subst.t list * bool t list =
   let sub_list : type a b. a t list -> b Stepkey.t -> b -> a t list =
     fun l k v ->
       match k with

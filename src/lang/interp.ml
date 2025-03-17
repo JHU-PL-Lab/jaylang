@@ -181,6 +181,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       )
     | ELetTyped { typed_var = { var ; _ } ; body ; cont } -> eval_let var ~body ~cont
     | ELetTypedNoCheck { typed_var = { var ; _ } ; body ; cont } -> eval_let var ~body ~cont
+    | ELetTypedNoWrap { typed_var = { var ; _ } ; body ; cont } -> eval_let var ~body ~cont
     | EIgnore { ignored ; cont } ->
       let%bind _ = eval ignored in
       eval cont

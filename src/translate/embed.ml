@@ -110,6 +110,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | ETypeMu { var ; _  } when Ident.equal var id -> false
     | ETypeArrowD { binding ; domain ; _ } when Ident.equal binding id -> loop domain
     | ELetTypedNoCheck { typed_var = { var ; tau } ; body ; _  } when Ident.equal var id -> loop tau || loop body
+    | ELetTypedNoWrap { typed_var = { var ; tau } ; body ; _  } when Ident.equal var id -> loop tau || loop body
     | ELetTyped { typed_var = { var ; tau } ; body ; _ } when Ident.equal var id -> loop tau || loop body
     (* simple unary cases *)
     | EFunction { body = e ; _ }
@@ -139,6 +140,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | EMatch { subject ; patterns } -> loop subject || List.exists patterns ~f:(fun (_, e) -> loop e)
     | EIf { cond ; true_body ; false_body } -> loop cond || loop true_body || loop false_body
     | ELetTypedNoCheck { typed_var = { tau ; _ } ; body ; cont }
+    | ELetTypedNoWrap { typed_var = { tau ; _ } ; body ; cont }
     | ELetTyped { typed_var = { tau ; _ } ; body ; cont } -> loop tau || loop body || loop cont
   in
   loop expr
@@ -187,6 +189,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       Program.stmt_to_expr (embed_statement (STyped { typed_var ; body })) (embed cont)
     | ELetTypedNoCheck { typed_var ; body ; cont } ->
       Program.stmt_to_expr (embed_statement (STypedNoCheck { typed_var ; body })) (embed cont)
+    | ELetTypedNoWrap { typed_var ; body ; cont } ->
+      Program.stmt_to_expr (embed_statement (STypedNoWrap { typed_var ; body })) (embed cont)
     (* types *)
     | ETypeInt ->
       E.make
@@ -441,7 +445,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     | ETypeMu { var = b ; body = tau } ->
       Stack.push cur_mu_vars b;
       let res =
-        EThaw (apply Embedded_functions.y_comb @@ 
+        EThaw (apply Embedded_functions.y_freeze_thaw @@ 
           fresh_abstraction "self_mu" @@ fun self ->
             EFreeze (
               let thaw_self = EThaw (EVar self) in
@@ -488,7 +492,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ~check:(lazy (proj (embed ~ask_for:`Check EType) Reserved.check))
         ~wrap:(lazy (proj (embed ~ask_for:`Wrap EType) Reserved.wrap))
 
-    and embed_let ~(do_check : bool) ~(tau : Desugared.t) (body : Desugared.t) : Embedded.t =
+    and embed_let ?(do_wrap : bool = do_wrap) ~(do_check : bool) ~(tau : Desugared.t) (body : Desugared.t) : Embedded.t =
       build @@
         let%bind v = capture @@ embed body in
         let%bind () = 
@@ -521,6 +525,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         SUntyped { var = x ; body = embed_let ~do_check:true ~tau body }
       | STypedNoCheck { typed_var = { var = x ; tau } ; body } ->
         SUntyped { var = x ; body = embed_let ~do_check:false ~tau body }
+      | STypedNoWrap { typed_var = { var = x ; tau } ; body } ->
+        SUntyped { var = x ; body = embed_let ~do_wrap:false ~do_check:true ~tau body }
     in
 
   let embed_single_program (pgm : Desugared.pgm) =
@@ -541,12 +547,15 @@ let split_checks (stmt_ls : Desugared.statement list) : Desugared.pgm Preface.No
     match stmt with
     | STypedNoCheck _
     | SUntyped _ -> false
+    | STypedNoWrap _
     | STyped _ -> true
   in
   let turn_off_check (stmt : Desugared.statement) : Desugared.statement =
     match stmt with
     | STypedNoCheck _
     | SUntyped _ -> stmt
+    | STypedNoWrap { typed_var ; body } -> 
+      SUntyped { var = typed_var.var ; body }
     | STyped { typed_var ; body } ->
       STypedNoCheck { typed_var ; body }
   in

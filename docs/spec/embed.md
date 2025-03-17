@@ -322,6 +322,15 @@ These ideas are not in the implementation. The only one here (refinement types a
     [[tau]].~wrap [[ e ]]
   in
   [[ e' ]]
+
+(* with this flag, we don't wrap--only run the checker *)
+[[ let (x : tau (no wrap)) = e in e' ]] =
+  let x =
+    let $v = [[ e ]] in
+    let _ = [[tau]].~check $v in
+    $v
+  in
+  [[ e' ]]
 ```
 
 ### Binary operations

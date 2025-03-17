@@ -15,10 +15,12 @@ module LetMonad = struct
       type t = 
         | Untyped
         | Typed of Desugared.t
+        | TypedNoCheck of Desugared.t
 
-      let typed_of_tau_opt (tau_opt : Desugared.t option) : t =
+      let typed_of_tau_opt ?(do_check : bool = true) (tau_opt : Desugared.t option) : t =
         match tau_opt with
-        | Some tau -> Typed tau
+        | Some tau when do_check -> Typed tau
+        | Some tau -> TypedNoCheck tau
         | None -> Untyped
     end
 
@@ -34,6 +36,7 @@ module LetMonad = struct
       match ty with
       | Untyped -> ELet { var ; body ; cont }
       | Typed tau -> ELetTyped { typed_var = { var ; tau } ; body ; cont }
+      | TypedNoCheck tau -> ELetTypedNoCheck { typed_var = { var ; tau } ; body ; cont }
   end
 
   include Let_builder (Binding)
@@ -245,49 +248,28 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     let (>>|) = List.Let_syntax.(>>|) in
     let func_comps = fsigs >>| funsig_to_components in
     let f_names = func_comps >>| fun r -> r.func_id in
-    let tmp_name_of_name =
-      let m =
-        List.fold f_names ~init:Ident.Map.empty ~f:(fun acc func_id ->
-          Map.set acc ~key:func_id ~data:(let Ident suffix = func_id in Names.fresh_id ~suffix ())
-          )
-      in
-      Map.find_exn m 
-    in
-    let tmp_names = f_names >>| tmp_name_of_name in
-    (*
-      Creates
-        let f1 = $f1 $f1 $f2 ... $fn
-        ...
-        let fn = $fn $f1 $f2 ... $fn
-        let (f1 : tau_f1 (no check)) = f1
-        ...
-        let (fn : tau_fn (no check)) = fn
-
-      Easily can convert statement list to expression to use in an expression.
-    *)
-    let make_func_stmts ~(do_check : bool) : Desugared.statement list =
-      (func_comps >>| fun { func_id ; _ } ->
-        let body =
-          appl_list
-            (EVar (tmp_name_of_name func_id))
-            (tmp_names >>| fun id -> EVar id)
-        in
-        Program.SUntyped { var = func_id ; body }
-      )
-      @ (func_comps >>| fun { func_id ; tau_opt ; _ } ->
-        make_stmt ~do_check ~tau_opt func_id (EVar func_id)
+    let r = Names.fresh_id ~suffix:"r" () in
+    let bodies =
+      List.map func_comps ~f:(fun comps ->
+        abstract_over_ids f_names @@
+          build @@
+            let f_id = Names.fresh_id ~suffix:(Ident.to_string comps.func_id) () in
+            let%bind () = assign ~ty:(Binding.Ty.typed_of_tau_opt ~do_check:false comps.tau_opt) f_id (
+              abstract_over_ids comps.params comps.body
+            )
+            in
+            return (EVar f_id)
       )
     in
-    List.append
-      (func_comps >>| fun { func_id ; params ; body ; _ } ->
-        Program.SUntyped { var = tmp_name_of_name func_id ; body = 
-          abstract_over_ids tmp_names @@
-            abstract_over_ids params @@
-              Program.to_expr_with_cont body
-              @@ make_func_stmts ~do_check:false
-        }
-      )
-      (make_func_stmts ~do_check:true)
+    Program.SUntyped { var = r ; body = appl_list (Desugared_functions.y_n f_names) bodies }
+    :: List.map func_comps ~f:(fun comps ->
+      (* do_check is an unused argument in this case because we don't provide the type *)
+      make_stmt ~do_check:true ~tau_opt:None comps.func_id
+      @@ proj (EVar r) (RecordLabel.RecordLabel comps.func_id)
+    )
+    @ List.map func_comps ~f:(fun comps ->
+      make_stmt ~do_wrap:false ~do_check:true ~tau_opt:comps.tau_opt comps.func_id (EVar comps.func_id)
+    )
 
   and desugar_statement (stmt : Bluejay.statement) : Desugared.statement list =
     let open List.Let_syntax in
@@ -303,14 +285,20 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     end
     | SFunRec fsigs -> desugar_rec_funs_to_stmt_list fsigs
 
-  and make_stmt ~(do_check : bool) ~(tau_opt : Desugared.t option) (var : Ident.t) (body : Desugared.t) : Desugared.statement =
+  and make_stmt ?(do_wrap : bool = true) ~(do_check : bool) ~(tau_opt : Desugared.t option) (var : Ident.t) (body : Desugared.t) : Desugared.statement =
     match tau_opt with
     | None ->
       SUntyped { var ; body }
-    | Some tau when do_check ->
-      STyped { typed_var = { var ; tau } ; body }
-    | Some tau  ->
-      STypedNoCheck { typed_var = { var ; tau } ; body }
+    | Some tau ->
+      if do_wrap
+      then
+        if do_check
+        then STyped { typed_var = { var ; tau } ; body }
+        else STypedNoCheck { typed_var = { var ; tau } ; body }
+      else
+        if do_check
+        then STypedNoWrap { typed_var = { var ; tau } ; body }
+        else SUntyped { var ; body }
   in
 
   List.bind pgm ~f:desugar_statement

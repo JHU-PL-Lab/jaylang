@@ -8,10 +8,6 @@
   of one in the type of the other. The error is only caught if the functions
   are wrapped and if they are visible (in their wrapped form) to the types
   of the other functions.
-
-  Currently, this behavior is not supported. It is reserved for future work.
-  That is, while the programmer might expect this error to be caught, the system
-  currently reports this program as error-free.
 *)
 
 
