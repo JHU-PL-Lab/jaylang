@@ -1,0 +1,26 @@
+(*** (
+  (speed Fast)
+  (typing Well_typed)
+)*)
+
+(*
+  `t` is hard to find with trivial translation.
+  We want to be able to type this.
+*)
+
+let rec f (x : int) : t {} =
+  x
+
+with t _ = int
+
+
+(*
+  A more practical example that tests the same thing is this mutually
+  recursive refinement.
+*)
+
+let rec g (x : int) : { int | h } =
+  x * x + 1
+
+with h (i : int) : bool =
+  i > 0

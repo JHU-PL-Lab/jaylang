@@ -51,6 +51,35 @@ module Desugared_functions : sig
       end
   *)
   val filter_list : Lang.Ast.Desugared.t
+
+  (*
+    Generic Y-combinator for one function.
+
+      fun f ->
+        (fun s -> fun x -> f (s s) x)
+        (fun s -> fun x -> f (s s) x)
+  *)
+  val y_1 : Lang.Ast.Desugared.t
+
+  (*
+    Y-combinator for n functions identified by the given names.
+
+      fun f1 ... fn ->
+        Y (fun self f1 ... fn ->
+          { l1 = fun x ->
+            let r = self f1 ... fn in
+            f1 r.f1 ... r.fn x
+          ; ...
+          ; ln = fun x ->
+            let r = self f1 ... fn in
+            fn r.f1 ... r.fn x
+          }
+        ) f1 ... fn
+  *)
+  val y_n : Lang.Ast.Ident.t list -> Lang.Ast.Desugared.t
+  (** [y_n ids] is the fixed point combinator on the functions with names [ids].
+      The record after the application will have the labels the same as [ids].
+      Note: [ids] must be non-empty. *)
 end
 
 module Embedded_functions : sig
@@ -68,5 +97,5 @@ module Embedded_functions : sig
     * This y-combinator is unconventional in that it uses freeze and thaw instead of
       passing an argument. This is because we know the use case is for mu types.
   *)
-  val y_comb : Lang.Ast.Embedded.t
+  val y_freeze_thaw : Lang.Ast.Embedded.t
 end

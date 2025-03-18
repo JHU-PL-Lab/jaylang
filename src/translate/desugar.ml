@@ -14,25 +14,11 @@ module LetMonad = struct
     module Ty = struct
       type t = 
         | Untyped
-        | Typed of Desugared.t
-        | Typed_with_flags of LetFlag.Set.t * Desugared.t
+        | Typed of { do_check : bool ; tau : Desugared.t }
 
-      let flags_if_some (tau_opt : Desugared.t option) (flags : LetFlag.Set.t) : t =
+      let typed_of_tau_opt ?(do_check : bool = true) (tau_opt : Desugared.t option) : t =
         match tau_opt with
-        | Some tau -> Typed_with_flags (flags, tau)
-        | None -> Untyped
-
-      let rec_of_tau_opt (tau_opt : Desugared.t option) : t =
-        flags_if_some tau_opt
-        @@ LetFlag.Set.singleton TauKnowsBinding
-
-      let rec_no_check_of_tau_opt (tau_opt : Desugared.t option) : t =
-        flags_if_some tau_opt
-        @@ LetFlag.Set.of_list [ NoCheck ; TauKnowsBinding ]
-
-      let typed_of_tau_opt (tau_opt : Desugared.t option) : t =
-        match tau_opt with
-        | Some tau -> Typed tau
+        | Some tau -> Typed { do_check ; tau }
         | None -> Untyped
     end
 
@@ -46,12 +32,8 @@ module LetMonad = struct
 
     let t_to_expr { ty ; var ; body } ~cont =
       match ty with
-      | Untyped ->
-        ELet { var ; body ; cont }
-      | Typed_with_flags (flags, tau) ->
-        ELetFlagged { flags ; typed_var = { var ; tau } ; body ; cont }
-      | Typed tau ->
-        ELetTyped { typed_var = { var ; tau } ; body ; cont }
+      | Untyped -> ELet { var ; body ; cont }
+      | Typed { tau ; do_check } -> ELetTyped { typed_var = { var ; tau } ; body ; cont ; do_check ; do_wrap = true }
   end
 
   include Let_builder (Binding)
@@ -116,8 +98,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       ETypeMu { var ; body = desugar body }
     | ETypeVariant ls_e ->
       ETypeVariant (List.map ls_e ~f:(fun (label, e) -> label, desugar e))
-    | ELetTyped { typed_var = { var ; tau } ; body ; cont } ->
-      ELetTyped { typed_var = { var ; tau = desugar tau } ; body = desugar body ; cont = desugar cont }
+    | ELetTyped { typed_var = { var ; tau } ; body ; cont ; do_wrap ; do_check } ->
+      ELetTyped { typed_var = { var ; tau = desugar tau } ; body = desugar body ; cont = desugar cont ; do_wrap ; do_check }
     | ETypeSingle tau ->
       ETypeSingle (desugar tau)
     (* monads *)
@@ -231,6 +213,10 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     Function_components.map ~f:desugar
     @@ Funsig.to_components fsig
 
+  (*
+    Desugars list patterns into the associated variants and also returns the
+    new body because some projections are necessary.
+  *)
   and desugar_pattern (pat : Bluejay.pattern) (e : Bluejay.t) : Desugared.pattern * Desugared.t =
     match pat with
     | PEmptyList ->
@@ -259,52 +245,26 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     let (>>|) = List.Let_syntax.(>>|) in
     let func_comps = fsigs >>| funsig_to_components in
     let f_names = func_comps >>| fun r -> r.func_id in
-    let tmp_name_of_name =
-      let m =
-        List.fold f_names ~init:Ident.Map.empty ~f:(fun acc func_id ->
-          Map.set acc ~key:func_id ~data:(let Ident suffix = func_id in Names.fresh_id ~suffix ())
-          )
-      in
-      Map.find_exn m 
-    in
-    let tmp_names = f_names >>| tmp_name_of_name in
-    (*
-      Creates
-        let f1 = $f1 $f1 $f2 ... $fn in
-        ...
-        let fn = $fn $f1 $f2 ... $fn in
-    *)
-    let create_functions (binding_fun : Desugared.t option -> Binding.Ty.t) : unit m =
-      iter func_comps ~f:(fun { func_id ; tau_opt ; _ } ->
-        assign ~ty:(binding_fun tau_opt) func_id (
-          appl_list
-            (EVar (tmp_name_of_name func_id))
-            (tmp_names >>| fun id -> EVar id)
-        )
+    let r = Names.fresh_id ~suffix:"r" () in
+    let bodies =
+      List.map func_comps ~f:(fun comps ->
+        abstract_over_ids f_names @@
+          build @@
+            let f_id = Names.fresh_id ~suffix:(Ident.to_string comps.func_id) () in
+            let%bind () = assign ~ty:(Binding.Ty.typed_of_tau_opt ~do_check:false comps.tau_opt) f_id (
+              abstract_over_ids comps.params comps.body
+            )
+            in
+            return (EVar f_id)
       )
     in
-    (func_comps >>| fun { func_id ; params ; body ; _ } ->
-      Program.SUntyped { var = tmp_name_of_name func_id ; body = 
-        abstract_over_ids tmp_names (
-          abstract_over_ids params (
-            build @@ 
-              let%bind () = create_functions Binding.Ty.rec_no_check_of_tau_opt in
-              return body
-          )
-        )
-      }
-    )
-    @ (func_comps >>| fun { func_id ; tau_opt ; _ } ->
-      let body =
-        appl_list
-          (EVar (tmp_name_of_name func_id))
-          (tmp_names >>| fun id -> EVar id)
-      in
-      match tau_opt with
-      | None ->
-        Program.SUntyped { var = func_id ; body }
-      | Some tau ->
-        Program.SFlagged { flags = LetFlag.Set.singleton TauKnowsBinding ; typed_var = { var = func_id ; tau } ; body }
+    Program.SUntyped { var = r ; body = appl_list (Desugared_functions.y_n f_names) bodies }
+    :: (func_comps >>| fun comps ->
+      (* do_check and do_wrap are unused arguments in this case because we don't provide the type *)
+      make_stmt ~do_wrap:true ~do_check:true ~tau_opt:None comps.func_id
+      @@ proj (EVar r) (RecordLabel.RecordLabel comps.func_id)
+    ) @ (func_comps >>| fun comps ->
+      make_stmt ~do_wrap:false ~do_check:true ~tau_opt:comps.tau_opt comps.func_id (EVar comps.func_id)
     )
 
   and desugar_statement (stmt : Bluejay.statement) : Desugared.statement list =
@@ -312,18 +272,21 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     match stmt with
     | SUntyped { var ; body } ->
       return @@ Program.SUntyped { var ; body = desugar body }
-    | STyped { typed_var = { var ; tau } ; body } ->
-      return @@ Program.STyped { typed_var = { var ; tau = desugar tau } ; body = desugar body }
+    | STyped { typed_var = { var ; tau } ; body ; do_wrap ; do_check } ->
+      return @@ Program.STyped { typed_var = { var ; tau = desugar tau } ; body = desugar body ; do_wrap ; do_check }
     | SFun fsig -> begin
       let { func_id ; body ; params ; tau_opt } : desugared Function_components.t = funsig_to_components fsig in
       let body = abstract_over_ids params body in
-      match tau_opt with
-      | None ->
-        return @@ Program.SUntyped { var = func_id ; body }
-      | Some tau ->
-        return @@ Program.STyped { typed_var = { var = func_id ; tau } ; body }
-      end
+      return @@ make_stmt ~do_wrap:true ~do_check:true ~tau_opt func_id body
+    end
     | SFunRec fsigs -> desugar_rec_funs_to_stmt_list fsigs
+
+  and make_stmt ~(do_wrap : bool) ~(do_check : bool) ~(tau_opt : Desugared.t option) (var : Ident.t) (body : Desugared.t) : Desugared.statement =
+    match tau_opt with
+    | None ->
+      SUntyped { var ; body }
+    | Some tau ->
+      STyped { typed_var = { var ; tau } ; body ; do_wrap ; do_check }
   in
 
   List.bind pgm ~f:desugar_statement

@@ -1,0 +1,9 @@
+(*** (
+  (speed Fast)
+  (typing Ill_typed)
+) *)
+
+let f (x : int) : bool =
+  if x == 123456789
+  then v (* ERROR: unbound variable is reachable *)
+  else x % 2 == 0

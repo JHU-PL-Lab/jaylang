@@ -110,7 +110,7 @@ let finish (s : t) : Status.Eval.t =
       { pruned = s.depth_tracker.is_max_depth
       ; reached_max_step = s.depth_tracker.is_max_step
       ; stem = s.stem }
-  | (Found_abort _ | Type_mismatch _) as res -> res
+  | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as res -> res
 
 let diverge (s : t) : Status.Eval.t =
   finish s
@@ -120,6 +120,9 @@ let abort (s : t) : Status.Eval.t =
 
 let type_mismatch (s : t) (reason : string) : Status.Eval.t =
   Type_mismatch (List.rev s.rev_inputs, reason)
+
+let unbound_variable (s : t) (id : Lang.Ast.Ident.t) : Status.Eval.t =
+  Unbound_variable (List.rev s.rev_inputs, id)
 
 let reach_max_step (s : t) : Status.Eval.t =
   finish { s with depth_tracker = Depth_tracker.hit_max_step s.depth_tracker }

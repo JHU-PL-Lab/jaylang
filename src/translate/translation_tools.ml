@@ -79,6 +79,79 @@ module Desugared_functions = struct
         ]
       }
     }
+
+  (*
+    Generic Y-combinator for one function.
+
+      fun f ->
+        (fun s -> fun x -> f (s s) x)
+        (fun s -> fun x -> f (s s) x)
+  *)
+  let y_1 = 
+    let open Ident in
+    let open Expr in
+    let open Ast_tools.Utils in
+    let f = Ident "~f_y1" in
+    let s = Ident "~s_y1" in
+    let x = Ident "~x_y1" in
+    let body =
+      abstract_over_ids [ s ; x ] @@
+        appl_list (EVar f) ([ apply (EVar s) (EVar s) ; EVar x ])
+    in
+    abstract_over_ids [ f ] @@
+      apply body body
+
+  (*
+    Y-combinator for n functions identified by `names`.
+
+      fun f1 ... fn ->
+        Y (fun self f1 ... fn ->
+          { l1 = fun x ->
+            let r = self f1 ... fn in
+            f1 r.f1 ... r.fn x
+          ; ...
+          ; ln = fun x ->
+            let r = self f1 ... fn in
+            fn r.f1 ... r.fn x
+          }
+        ) f1 ... fn
+  *)
+  let y_n = function
+    | [] -> failwith "Invalid Y-combinator on 0 functions"
+    | [ f ] ->
+      (* only one function so can use the simple y_1 combinator *)
+      let open Ast_tools.Utils in
+      abstract_over_ids [ f ] @@
+        let appl_y1 = apply y_1 (EVar f) in
+        Ast.Expr.ERecord (RecordLabel.Map.singleton (RecordLabel.RecordLabel f) appl_y1)
+    | ids ->
+      let open Ident in
+      let open Expr in
+      let open Ast_tools.Utils in
+      let self = Ident "~self_yn" in
+      let x = Ident "~x_yn" in
+      let r = Ident "~r_yn" in
+      let e_ids = List.map ids ~f:(fun id -> EVar id) in
+      let labels = List.map ids ~f:(fun id -> RecordLabel.RecordLabel id) in
+      let projections = List.map labels ~f:(fun label -> proj (EVar r) label) in
+      abstract_over_ids ids (
+        appl_list (
+          apply y_1 @@
+            abstract_over_ids (self :: ids) @@
+              ERecord (Ast.RecordLabel.Map.of_alist_exn @@
+                let bodies =
+                  List.map ids ~f:(fun f ->
+                    abstract_over_ids [ x ] @@
+                      ELet { var = r ; body = appl_list (EVar self) e_ids ; cont =
+                        apply (appl_list (EVar f) projections) (EVar x)
+                      }
+                  )
+                in
+                List.zip_exn labels bodies
+              )
+        ) e_ids
+      )
+
 end
 
 module Embedded_functions = struct
@@ -96,20 +169,17 @@ module Embedded_functions = struct
     * This y-combinator is unconventional in that it uses freeze and thaw instead of
       passing an argument. This is because we know the use case is for mu types.
   *)
-  let y_comb =
+  let y_freeze_thaw =
     let open Ident in
     let open Expr in
-    let f = Ident "~f_y_comb" in
-    let x = Ident "~x_y_comb" in
+    let open Ast_tools.Utils in
+    let f = Ident "~f_y_freeze_thaw" in
+    let x = Ident "~x_y_freeze_thaw" in
     let body =
-      EFunction { param = x ; body =
+      abstract_over_ids [x] @@
         EFreeze (EThaw (
-          EAppl
-            { func = EVar f
-            ; arg = EAppl { func = EVar x ; arg = EVar x }
-            }
+          apply (EVar f) (apply (EVar x) (EVar x))
         ))
-      }
     in
     EFunction { param = f ; body =
       EAppl

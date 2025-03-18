@@ -9,6 +9,6 @@
     represent concrete program inputs.
 *)
 
-include module type of Utils.Pack.Make (struct type 'a t = 'a [@@deriving compare] end)
+include Utils.Pack.S with type 'a x := 'a
 
 val to_string : t -> string

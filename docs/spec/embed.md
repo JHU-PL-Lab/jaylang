@@ -323,24 +323,14 @@ These ideas are not in the implementation. The only one here (refinement types a
   in
   [[ e' ]]
 
-(* with this flag, tau needs to know the value of x *)
-[[ let (x : tau (tau knows binding)) = e in e' ]] =
+(* with this flag, we don't wrap--only run the checker *)
+[[ let (x : tau (no wrap)) = e in e' ]] =
   let x =
-    let x = [[ e ]] in (* use x so that tau can know about it *)
-    let $r = [[tau]] in
-    let _ = $r.~check x in
-    $r.~wrap x
+    let $v = [[ e ]] in
+    let _ = [[tau]].~check $v in
+    $v
   in
   [[ e' ]]
-
-(* combine both of the above flags *)
-[[ let (x : tau (no check, tau knows binding)) = e in e' ]] =
-  let x =
-    let x = [[ e ]] in (* use x so that tau can know about it *)
-    [[tau]].~wrap x
-  in
-  [[ e' ]]
-
 ```
 
 ### Binary operations

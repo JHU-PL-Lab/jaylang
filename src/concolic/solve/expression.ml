@@ -107,10 +107,18 @@ let not_ (x : bool t) : bool t =
 
 let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t) : b t =
   match left, right, binop with
+  | e, Const B b, And -> if b then e else Const (B false)
+  | Const B b, e, And -> if b then e else Const (B false) (* combining with above doesn't typecheck, annoyingly *)
+  | Const B b, e, Or -> if b then Const (B true) else e
+  | e, Const B b, Or -> if b then Const (B true) else e (* .. *)
   | Const cx, Const cy, _ -> Const (Typed_binop.to_arithmetic binop cx cy)
   | Key k1, Key k2, Equal_bool when Stepkey.equal k1 k2 -> Const (B true)
   | Key k1, Key k2, Equal_int when Stepkey.equal k1 k2 -> Const (B true)
   | Key k1, Key k2, Not_equal when Stepkey.equal k1 k2 -> Const (B false)
+  | Key k, Const B true, Equal_bool -> Key k
+  | Const B true, Key k, Equal_bool -> Key k
+  | Key k, Const B false, Equal_bool -> not_ (Key k)
+  | Const B false, Key k, Equal_bool -> not_ (Key k)
   | _ -> Binop (binop, left, right)
 
 let rec equal : type a. a t -> a t -> bool =
@@ -138,6 +146,68 @@ let rec equal : type a. a t -> a t -> bool =
       | _ -> false
     end
     | _ -> false
+
+let rec subst : type a b. a t -> b Stepkey.t -> b Const.t -> a t =
+  fun e k c ->
+    match e with
+    | Key k' -> begin
+      match k, k' with
+      | I ik, I ik' when ik = ik' -> Const c
+      | B bk, B bk' when bk = bk' -> Const c
+      | _ -> e
+    end
+    | Const _ -> e
+    | Not e' -> not_ @@ subst e' k c
+    | Binop (bop, e1, e2) -> op (subst e1 k c) (subst e2 k c) bop
+
+module Subst = Utils.Pack.Make (struct
+  type 'a t = 'a Stepkey.t * 'a
+  let compare compare_a (k1, a1) (k2, a2) =
+    match Stepkey.compare k1 k2 with
+    | 0 -> compare_a a1 a2
+    | c -> c
+end)
+
+let is_trivial (e : bool t) : [ `Trivial of Subst.t | `Nontrivial | `Const of bool ] =
+  match e with
+  | Const (B b) -> `Const b
+  | Binop (Equal_int, Key k, Const I i) -> `Trivial (I (k, i))
+  | Binop (Equal_bool, Key k, Const B b) -> `Trivial (B (k, b))
+  | Binop (Equal_int, Const I i, Key k) -> `Trivial (I (k, i))
+  | Binop (Equal_bool, Const B b, Key k) -> `Trivial (B (k, b))
+  | Key k -> `Trivial (B (k, true))
+  | Not Key k -> `Trivial (B (k, false))
+  | _ -> `Nontrivial
+
+let[@landmark] simplify (ls : bool t list) : Subst.t list * bool t list =
+  let sub_list : type a b. a t list -> b Stepkey.t -> b -> a t list =
+    fun l k v ->
+      match k with
+      | I _ -> List.map l ~f:(fun e -> subst e k (I v))
+      | B _ -> List.map l ~f:(fun e -> subst e k (B v))
+  in
+  let rec loop is_simplified acc_exprs acc_subs = function
+  | [] -> 
+    if is_simplified
+    then loop false [] acc_subs acc_exprs (* still working on simplifying--loop aagin *)
+    else Ok (acc_exprs, acc_subs) (* the simplification did nothing, so return *)
+  | hd :: tl ->
+    (* look for trivial substitutions we can make using this expression *)
+    match is_trivial hd with
+    | `Trivial (I (k, v) as sub) ->
+      loop true (sub_list acc_exprs k v) (sub :: acc_subs) (sub_list tl k v)
+    | `Trivial (B (k, v) as sub) ->
+      loop true (sub_list acc_exprs k v) (sub :: acc_subs) (sub_list tl k v)
+    | `Const b ->
+      if b
+      then loop is_simplified acc_exprs acc_subs tl
+      else Error `Unsat
+    | `Nontrivial ->
+      loop is_simplified (hd :: acc_exprs) acc_subs tl
+  in
+  match loop false [] [] ls with
+  | Error `Unsat -> [], [ Const (B false) ]
+  | Ok (acc_exprs, acc_subs) -> acc_subs, acc_exprs
 
 module Solve (Expr : Z3_api.S) = struct
   let binop_to_z3_expr (type a b) (binop : (a * a * b) Typed_binop.t) : a Expr.t -> a Expr.t -> b Expr.t =

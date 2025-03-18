@@ -71,6 +71,8 @@ module Ident = struct
   end
 
   include T
+  
+  let to_string (Ident s) = s
 
   module Set = Set.Make (T)
   module Map = Map.Make (T)
@@ -106,18 +108,6 @@ module VariantTypeLabel = struct
 
   let to_variant_label (VariantTypeLabel l) =
     VariantLabel.VariantLabel l
-end
-
-module LetFlag = struct
-  module T = struct
-    type t =
-      | NoCheck
-      | TauKnowsBinding (* effectively recursive, but I don't want naming to be confusing *)
-      [@@deriving equal, compare, sexp, hash]
-  end
-
-  include T
-  module Set = Set.Make (T)
 end
 
 module Binop = struct
@@ -197,8 +187,6 @@ module Expr = struct
     (* these exist in the desugared and embedded languages *)
     | EAbort : 'a desugared_or_embedded t
     | EDiverge : 'a desugared_or_embedded t
-    (* desugared only *)
-    | ELetFlagged : { flags : LetFlag.Set.t ; typed_var : 'a typed_var ; body : 'a t ; cont : 'a t} -> 'a desugared_only t
     (* these exist in the bluejay and desugared languages *)
     | EType : 'a bluejay_or_desugared t
     | ETypeInt : 'a bluejay_or_desugared t
@@ -212,7 +200,7 @@ module Expr = struct
     | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
     | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
     | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
-    | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } -> 'a bluejay_or_desugared t
+    | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
     | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
     (* bluejay only *)
     | ELetBind : { var : Ident.t ; body : 'a t ; cont : 'a t } -> 'a bluejay_only t
@@ -238,6 +226,8 @@ module Expr = struct
     | TVar : 'a typed_var -> 'a bluejay_or_desugared param
     | TVarDep : 'a typed_var -> 'a bluejay_or_desugared param
 
+  and 'a let_typed = { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t }
+
   (* a variable with its type, where the type is an expression *)
 
   (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
@@ -250,10 +240,8 @@ module Program = struct
   type _ statement =
     (* all *)
     | SUntyped : { var : Ident.t ; body : 'a t } -> 'a statement
-    (* desugared only *)
-    | SFlagged : { flags : LetFlag.Set.t ; typed_var : 'a typed_var ; body : 'a t } -> 'a desugared_only statement
     (* bluejay or desugared *)
-    | STyped : { typed_var : 'a typed_var ; body : 'a t } -> 'a bluejay_or_desugared statement
+    | STyped : { typed_var : 'a typed_var ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared statement
     (* bluejay only *)
     | SFun : 'a funsig -> 'a bluejay_only statement
     | SFunRec : 'a funsig list -> 'a bluejay_only statement
@@ -264,10 +252,8 @@ module Program = struct
     match stmt with
     | SUntyped { var ; body } ->
       ELet { var ; body ; cont = cont }
-    | SFlagged { flags ; typed_var ; body } ->
-      ELetFlagged { flags ; typed_var ; body ; cont }
-    | STyped { typed_var ; body } ->
-      ELetTyped { typed_var ; body ; cont }
+    | STyped { typed_var ; body ; do_wrap ; do_check } ->
+      ELetTyped { typed_var ; body ; cont ; do_wrap ; do_check }
     | SFun fsig ->
       ELetFun { func = fsig ; cont }
     | SFunRec fsigs ->

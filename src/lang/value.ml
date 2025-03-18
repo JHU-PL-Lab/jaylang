@@ -7,9 +7,9 @@
 
   Individual uses of the programming languages have different
   requirements, so we parametrize the values stored in the
-  [VInt] and [VBool] constructors, as well as the cells used 
-  in the environments (e.g. Bluejay has recursion and benefits
-  from ref cells in the environment).
+  [VInt] and [VBool] constructors, as well as the cell used to
+  wrap the environment in the closures (e.g. Bluejay has recursion
+  and benefits from a lazy environment in its closures).
 
   We use type constraints (from [Ast]) and GADTs to allow
   subtyping and reuse of constructors.
@@ -18,14 +18,6 @@
 open Core
 open Ast
 open Constraints
-
-exception UnboundVariable of Ident.t
-
-module type CELL = sig
-  type 'a t
-  val make : 'a -> 'a t
-  val get : 'a t -> 'a
-end
 
 module type V = sig
   type 'a t
@@ -36,7 +28,7 @@ end
   V is the payload of int and bool. We do this so that we can
   inject Z3 expressions into the values of the concolic evaluator.
 *)
-module Make (Cell : CELL) (V : V) = struct
+module Make (Env_cell : T1) (V : V) = struct
   module T = struct
     type _ t =
       (* all languages *)
@@ -48,6 +40,7 @@ module Make (Cell : CELL) (V : V) = struct
       | VTypeMismatch : 'a t
       | VAbort : 'a t (* this results from `EAbort` or `EAssert e` where e => false *)
       | VDiverge : 'a t (* this results from `EDiverge` or `EAssume e` where e => false *)
+      | VUnboundVariable : Ident.t -> 'a t
       (* embedded only *)
       | VId : 'a embedded_only t
       | VFrozen : 'a closure -> 'a embedded_only t
@@ -72,12 +65,14 @@ module Make (Cell : CELL) (V : V) = struct
       | VTypeList : 'a t -> 'a bluejay_only t
       | VTypeForall : { type_variables : Ident.t list ; tau : 'a closure } -> 'a bluejay_only t
       | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
-      (* recursive function stub for bluejay and mu type for desugared *)
-      | VRecStub : 'a bluejay_or_desugared t
 
-    and 'a env = 'a t Cell.t Ident.Map.t (* cell is to handle recursion *)
+    and 'a env = 'a t Ident.Map.t 
 
-    and 'a closure = { expr : 'a Expr.t ; env : 'a env } (* an expression to be evaluated in an environment *)
+    (* 
+      An expression to be evaluated in an environment. The environment is in a cell in case
+      laziness is used to implement recursion.    
+    *)
+    and 'a closure = { expr : 'a Expr.t ; env : 'a env Env_cell.t }
   end
 
   include T
@@ -89,6 +84,7 @@ module Make (Cell : CELL) (V : V) = struct
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
     | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
     | VTypeMismatch -> "Type_mismatch"
+    | VUnboundVariable Ident v -> Format.sprintf "Unbound_variable %s" v
     | VAbort -> "Abort"
     | VDiverge -> "Diverge"
     | VId -> "(fun x -> x)"
@@ -108,7 +104,6 @@ module Make (Cell : CELL) (V : V) = struct
     | VTypeSingle v -> Format.sprintf "(singlet (%s))" (to_string v)
     | VTypeList v -> Format.sprintf "(list (%s))" (to_string v)
     | VTypeForall { type_variables ; _ } -> Format.sprintf "(Forall %s. <expr>)" (String.concat ~sep:" " @@ List.map ~f:(fun (Ident s) -> s) type_variables)
-    | VRecStub -> "Rec_Stub"
     | VTypeIntersect ls ->
       Format.sprintf "(%s)"
         (String.concat ~sep:" && " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((``%s (%s)) -> %s)" s (to_string tau1) (to_string tau2)))
@@ -123,21 +118,20 @@ module Make (Cell : CELL) (V : V) = struct
 
     let empty : 'a env = Ident.Map.empty
 
-    let add (id : Ident.t) (v : 'a T.t) (env : 'a t) : 'a t =
-      Map.set env ~key:id ~data:(Cell.make v)
+    let[@inline always] add (id : Ident.t) (v : 'a T.t) (env : 'a t) : 'a t =
+      Map.set env ~key:id ~data:v
 
-    let fetch (id : Ident.t) (env : 'a t) : 'a T.t =
-      match Map.find env id with
-      | None -> raise @@ UnboundVariable id
-      | Some r -> Cell.get r
-
-    let add_stub (id : Ident.t) (env : 'a Constraints.bluejay_or_desugared t) : 'a T.t Cell.t * 'a t =
-      let v_cell = Cell.make VRecStub in
-      v_cell, Map.set env ~key:id ~data:v_cell
+    (*
+      Inlining is pretty important here. We fetch a lot, and the compiler can 
+      make some optimizations if we inline.
+      This is experimentally (but informally) confirmed.
+    *)
+    let[@inline always] fetch (id : Ident.t) (env : 'a t) : 'a T.t option =
+      Map.find env id
   end
 end
 
-module Constrain (C : sig type constrain end) (Cell : CELL) (V : V) = struct
+module Constrain (C : sig type constrain end) (Cell : T1) (V : V) = struct
   module M = Make (Cell) (V)
 
   module T = struct
@@ -152,36 +146,21 @@ module Constrain (C : sig type constrain end) (Cell : CELL) (V : V) = struct
     type t = C.constrain M.Env.t
     let empty : t = M.Env.empty
     let add : Ident.t -> T.t -> t -> t = M.Env.add
-    let fetch : Ident.t -> t -> T.t = M.Env.fetch
+    let fetch : Ident.t -> t -> T.t option = M.Env.fetch
   end
 end
 
-module Id_cell = struct
-  type 'a t = 'a
-  let make x = x
-  let get x = x
-end
+(*
+  Values in embedded language. There is no explicit recursion, so the closures
+  do not use lazy environments.
+*)
+module Embedded = Constrain (struct type constrain = Ast.Constraints.embedded end) (Utils.Identity)
 
-module Ref_cell = struct
-  type 'a t = 'a Ref.t 
-  let make x = ref x
-  let get x = !x
-end
-
-module Embedded = Constrain (struct type constrain = Ast.Constraints.embedded end) (Id_cell)
-
-module Desugared (V : V) = struct
-  include Constrain (struct type constrain = Ast.Constraints.desugared end) (Ref_cell) (V)
-  module Env = struct
-    include Env
-    let add_stub : Ident.t -> t -> T.t Ref_cell.t * t = M.Env.add_stub
-  end
-end 
-
-module Bluejay (V : V) = struct
-  include Constrain (struct type constrain = Ast.Constraints.bluejay end) (Ref_cell) (V)
-  module Env = struct
-    include Env
-    let add_stub : Ident.t -> t -> T.t Ref_cell.t * t = M.Env.add_stub
-  end
-end 
+(*
+  Values in the desugared language. Uses laziness to implement recursion.
+*)
+module Desugared = Constrain (struct type constrain = Ast.Constraints.desugared end) (Lazy)
+(*
+  Values in Bluejay. Uses laziness to implement recursion.
+*)
+module Bluejay = Constrain (struct type constrain = Ast.Constraints.bluejay end) (Lazy)

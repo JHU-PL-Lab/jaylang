@@ -62,6 +62,10 @@ val diverge : t -> Status.Eval.t
 val abort : t -> Status.Eval.t
 (** [abort session] tells the [session] that the interpretation aborted. *)
 
+val unbound_variable : t -> Lang.Ast.Ident.t -> Status.Eval.t
+(** [unbound_variable session id] tells the [session] that the interpretation found
+    that [id] is an unbound variable. *)
+
 val type_mismatch : t -> string -> Status.Eval.t
 (** [type_mismatch session reason] tells the [session] that the interpretation ended
     due to type mismatch, explained by [reason]. *)

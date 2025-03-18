@@ -8,9 +8,12 @@
   and each instance of the result of the applicative functor
   has its own (stateful) solver that is transiently used
   for solves.
+
+  A generative functor is also provided that creates a new
+  context.
 *)
 
-module Make (_ : sig val ctx : Z3.context end) : sig
+module type S = sig
   type 'a t (* expressions *)
   type model
 
@@ -79,10 +82,15 @@ module Make (_ : sig val ctx : Z3.context end) : sig
       | Unsat
   end
 
-  val global_solvetime : float Utils.Safe_cell.t
-  (** [global_solvetime] is a cell containing the total global time spent
-      on solving. *)
+  val empty_model : model
+  (** [empty_model] is the model of an empty solver. *)
 
   val solve : bool t list -> Solve_status.t
   (** [solve exprs] invokes the [Z3] solver for a solution to the [exprs]. *)
 end
+
+module Make (_ : sig val ctx : Z3.context end) : S
+(** [Make] uses the provided context for the Z3 formulas. *)
+
+module New_context () : S
+(** [New_context] is a generative functor that makes a new context. *)

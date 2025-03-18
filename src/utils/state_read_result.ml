@@ -8,6 +8,11 @@
   in this way (without the abstraction of actual monad transformers)
   because performance is a concern. However, it's not enough of a concern
   to warrant using mutation (and risk incorrectness) instead.
+
+  While the functions exposed here are sufficient to use the monad, the
+  type is not abstract because performance can be critical, and there
+  are some cases where compiler inlining is not enough; instead, we will
+  use the structure of the type to write specialized functions.
 *)
 
 open Core

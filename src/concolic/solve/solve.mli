@@ -20,13 +20,9 @@
 module type S = sig
   include Z3_api.S
 
-  module Expression : sig
-    val to_formula : 'a Expression.t -> 'a t
-  end
-
-  module Input_feeder : sig
-    val from_model : model -> Input_feeder.t
-  end
+  val solve : bool Expression.t list -> [ `Sat of Input_feeder.t | `Unsat ]
+  (** [solve exprs] does not handle solver timeout. An exception is thrown in that
+      case, but it practically does not happen in the concolic system. *)
 end
 
 (* This functor is generative because it makes a new Z3 context *)

@@ -236,6 +236,7 @@ let eval_exp
 *)
 
 let global_runtime = Utils.Safe_cell.create 0.0
+let global_solvetime = Utils.Safe_cell.create 0.0
 
 module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
   module Intra = Intra_session.Make (S) (P) (O)
@@ -250,8 +251,14 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
     Intra.next
     @@ Intra.accum_eval main_session res
     >>= begin function
-      | `Done status -> return status
-      | `Next (session, symb_session) -> loop e session symb_session
+      | `Done status ->
+        let t2 = Caml_unix.gettimeofday () in
+        let _ = Utils.Safe_cell.map ((+.) (t2 -. t1)) global_solvetime in
+        return status
+      | `Next (session, symb_session) ->
+        let t2 = Caml_unix.gettimeofday () in
+        let _ = Utils.Safe_cell.map ((+.) (t2 -. t1)) global_solvetime in
+        loop e session symb_session
       end
 
   let eval : Embedded.t -> Status.Terminal.t P.t =

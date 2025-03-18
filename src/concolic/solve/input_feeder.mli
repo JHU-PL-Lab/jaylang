@@ -25,6 +25,8 @@ val default : t
 (** [default] is random in -10, 10 inclusive or a random bool. *)
 
 module Make (Z : Z3_api.S) : sig
-  val from_model : Z.model -> t
-  (** [from_model model] is a feeder that satisfies the given [model]. *)
+  val from_model_and_subs : Z.model -> Expression.Subst.t list -> t
+  (** [from_model_and_subs model subs] is a feeder that satisfies the given [model], and
+      any key that exists in the given substitutions [subs] returns the value given in
+      the substitution. *)
 end

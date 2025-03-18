@@ -1,5 +1,5 @@
 
-include Utils.Pack.Make (struct type 'a t = 'a [@@deriving compare] end)
+include Utils.Pack.Make (Utils.Identity)
 
 let to_string = function
   | I i -> Int.to_string i
