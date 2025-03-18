@@ -85,10 +85,6 @@ module type S = sig
   val empty_model : model
   (** [empty_model] is the model of an empty solver. *)
 
-  val global_solvetime : float Utils.Safe_cell.t
-  (** [global_solvetime] is a cell containing the total global time spent
-      on solving. *)
-
   val solve : bool t list -> Solve_status.t
   (** [solve exprs] invokes the [Z3] solver for a solution to the [exprs]. *)
 end

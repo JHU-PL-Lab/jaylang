@@ -32,7 +32,6 @@ module type S = sig
       | Unsat
   end
   val empty_model : model
-  val global_solvetime : float Utils.Safe_cell.t
   val solve : bool t list -> Solve_status.t
 end
 
@@ -138,8 +137,6 @@ module Make_solver (C : Context) = struct
       | Unsat
   end
 
-  let global_solvetime = Utils.Safe_cell.create 0.0
-
   let solver = Z3.Solver.mk_simple_solver ctx
 
   (* 
@@ -158,12 +155,9 @@ module Make_solver (C : Context) = struct
     |> Z3.Params.update_param_value ctx "timeout"
 
   let solve : bool E.t list -> Solve_status.t = fun bool_formulas ->
-    let t0 = Caml_unix.gettimeofday (); in
     (* It is a bit faster to `and` all formulas together and only run `check` with that one. *)
     (* That is, instead of adding to the solver, keep the solver empty and check the one formula. *)
     let res = Z3.Solver.check solver [ bool_expr_list_to_expr bool_formulas ] in
-    let t1 = Caml_unix.gettimeofday () in
-    let _ = Utils.Safe_cell.map ((+.) (t1 -. t0)) global_solvetime in
     match res with
     | Z3.Solver.SATISFIABLE ->
       let model = Z3.Solver.get_model solver in

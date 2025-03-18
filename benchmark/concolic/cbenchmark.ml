@@ -59,7 +59,7 @@ module Report_row (* : Latex_table.ROW *) =
       let metadata = Metadata.of_bjy_file testname in
       let test_one (n : int) : t =
         let interp0 = Utils.Safe_cell.get Concolic.Evaluator.global_runtime in
-        let solve0 = Utils.Safe_cell.get Concolic.Solve.Default.global_solvetime in
+        let solve0 = Utils.Safe_cell.get Concolic.Evaluator.global_solvetime in
         let t0 = Caml_unix.gettimeofday () in
         let source =
           In_channel.read_all testname
@@ -70,7 +70,7 @@ module Report_row (* : Latex_table.ROW *) =
         in
         let t1 = Caml_unix.gettimeofday () in
         let interp1 = Utils.Safe_cell.get Concolic.Evaluator.global_runtime in
-        let solve1 = Utils.Safe_cell.get Concolic.Solve.Default.global_solvetime in
+        let solve1 = Utils.Safe_cell.get Concolic.Evaluator.global_solvetime in
         let row =
           { testname
           ; test_result
@@ -170,7 +170,7 @@ let run n_trials dirs =
     median;
   Format.printf "Total interpretation time: %fs\nTotal solving time: %fs\n"
     (Utils.Safe_cell.get Concolic.Evaluator.global_runtime) 
-    (Utils.Safe_cell.get Concolic.Solve.Default.global_solvetime)
+    (Utils.Safe_cell.get Concolic.Evaluator.global_solvetime)
 
 let () =
   run 50 [ 
