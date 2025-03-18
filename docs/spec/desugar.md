@@ -130,7 +130,7 @@ let (fn : taun_1 -> ... -> taun_mn -> taun (no wrap)) = fn
 for `Y_n` the fixed point combinator on `n` mutually recursive functions.
 
 ```ocaml
-let Y_n = fun f1 ... fn ->
+Y_n = fun f1 ... fn ->
   Y (fun self f1 ... fn ->
     { l1 = fun x ->
       let r = self f1 ... fn in
@@ -141,6 +141,10 @@ let Y_n = fun f1 ... fn ->
       fn r.l1 ... r.ln x
     }
   ) f1 ... fn
+
+Y = fun f ->
+  (fun s -> fun x -> f (s s) x)
+  (fun s -> fun x -> f (s s) x)
 ```
 
 
