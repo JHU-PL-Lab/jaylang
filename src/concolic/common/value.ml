@@ -100,11 +100,6 @@ module Make (V : V) = struct
     *)
 
     let fetch id = 
-      (* if !ref_waiting_to_snapback && !ref_is_changed
-      then begin
-        let snap = Stack.pop_exn snapshots in
-        Store.restore store snap;
-      end *)
       Store.Ref.get store
       @@ Hashtbl.find_exn env id
 
@@ -117,6 +112,13 @@ module Make (V : V) = struct
         Hashtbl.set env ~key:id ~data:(
           Store.Ref.make store v
         )
+
+    let locally snap f =
+      let snap' = Store.capture store in
+      Store.restore store snap;
+      let res = f () in
+      Store.restore store snap';
+      res
   end
 end
 

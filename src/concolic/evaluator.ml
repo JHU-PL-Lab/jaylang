@@ -89,12 +89,7 @@ let eval_exp
     | EThaw e_frozen -> begin
       let v = eval e_frozen in
       match v with
-      | VFrozen { expr ; snap } -> 
-        let snap' = Store.capture Env.store in
-        Store.restore Env.store snap;
-        let res = eval expr in
-        Store.restore Env.store snap';
-        res
+      | VFrozen { expr ; snap } -> Env.locally snap (fun () -> eval expr)
       | _ -> type_mismatch @@ Error_msg.thaw_non_frozen v
     end
     | ERecord record_body ->
@@ -135,13 +130,10 @@ let eval_exp
       let varg = eval arg in
       match vfunc with
       | VId -> varg
-      | VFunClosure { param ; body } ->
-        let snap = Store.capture Env.store in
-        Store.restore Env.store body.snap;
-        Env.add param varg;
-        let res = eval body.expr in
-        Store.restore Env.store snap;
-        res
+      | VFunClosure { param ; body } -> Env.locally body.snap (fun () -> 
+          Env.add param varg;
+          eval body.expr
+        )
       | _ -> type_mismatch @@ Error_msg.bad_appl vfunc varg
     end
     (* Operations -- build new expressions *)
