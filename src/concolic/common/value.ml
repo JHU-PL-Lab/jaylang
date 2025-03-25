@@ -118,6 +118,13 @@ module Make (V : V) = struct
       Store.restore store snap';
       res
 
+    (*
+      We should be using this a lot more than we currently are.
+      It should be used on every recursive call to `eval`, actually.
+      I'm pretty sure this mutable store for the environment would be
+      very slow if we do this correctly and if we didn't optimize it
+      using any of the ideas from the big comment above.
+    *)
     let temporarily f =
       let snap = Store.capture store in
       let res = f () in
