@@ -231,7 +231,7 @@ let filter_list x =
   || ``Cons {: ~hd : [| tau |] , ~tl : $t :} (* so is this *)
 
 [| x :: xs |] =
-  `Cons { ~hd = x , ~tl = filter_list [| x |] }
+  `Cons { ~hd = x , ~tl = filter_list [| xs |] }
 
 [| [] |] =
   `Nil {} 
