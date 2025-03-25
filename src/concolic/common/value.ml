@@ -105,9 +105,7 @@ module Make (V : V) = struct
 
     let add id v =
       match Hashtbl.find env id with
-      | Some cell -> 
-        (* ref_is_changed := true; *)
-        Store.Ref.set store cell v
+      | Some cell -> Store.Ref.set store cell v
       | None ->
         Hashtbl.set env ~key:id ~data:(
           Store.Ref.make store v
@@ -118,6 +116,12 @@ module Make (V : V) = struct
       Store.restore store snap;
       let res = f () in
       Store.restore store snap';
+      res
+
+    let temporarily f =
+      let snap = Store.capture store in
+      let res = f () in
+      Store.restore store snap;
       res
   end
 end

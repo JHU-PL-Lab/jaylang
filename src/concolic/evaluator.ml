@@ -100,7 +100,7 @@ let eval_exp
       in
       VRecord value_record_body
     | EIgnore { ignored ; cont } ->
-      let _ : Value.t = eval ignored in
+      let _ : Value.t = Env.temporarily (fun () -> eval ignored) in
       eval cont
     | EMatch { subject ; patterns } -> begin (* Note: there cannot be symbolic branching on match *)
       let v = eval subject in
@@ -123,7 +123,8 @@ let eval_exp
       | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v
     end
     | ELet { var ; body ; cont } ->
-      Env.add var (eval body);
+      let v = Env.temporarily (fun () -> eval body) in
+      Env.add var v;
       eval cont
     | EAppl { func ; arg } -> begin
       let vfunc = eval func in
