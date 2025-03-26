@@ -75,10 +75,10 @@ let get_input (type a) (key : a Stepkey.t) (s : t) : t * Value.t =
   match key with
   | I _ ->
     { s with rev_inputs = I v :: s.rev_inputs }
-    , Value.VInt (v, Expression.key key)
+    , Value.M.VInt (v, Expression.key key)
   | B _ ->
     { s with rev_inputs = B v :: s.rev_inputs }
-    , Value.VBool (v, Expression.key key)
+    , Value.M.VBool (v, Expression.key key)
 
 let has_reached_target (s : t) : bool =
   match s.consts.target with

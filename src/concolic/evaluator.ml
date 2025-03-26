@@ -56,7 +56,8 @@ let eval_exp
   let type_mismatch s = 
     raise @@ Failed_interp (Eval_session.type_mismatch !ref_sess s) in
 
-  let rec eval (expr : Embedded.t) : Value.t =
+  let rec eval (expr : Embedded.t) (env : Env.t) : Value.t =
+    let open Value.M in (* expose Value constructors *)
     incr ref_step;
     if !ref_step > max_step 
     then raise @@ Failed_interp (Eval_session.reach_max_step !ref_sess);
@@ -65,19 +66,21 @@ let eval_exp
     | EInt i -> VInt (i, Expression.const_int i)
     | EBool b -> VBool (b, Expression.const_bool b)
     (* Simple -- no different than interpreter *)
-    | EVar id -> Env.fetch id
+    | EVar id -> begin
+      match Env.fetch id env with
+      | Some v -> v
+      | None -> raise @@ Failed_interp (Eval_session.unbound_variable !ref_sess id)
+      end
     | EFunction { param ; body } ->
-      let snap = Store.capture Env.store in
-      VFunClosure { param ; body = { expr = body ; snap } } 
+      VFunClosure { param ; body = { expr = body ; env } } 
     | EId -> VId
     | EFreeze e_freeze_body -> 
-      let snap = Store.capture Env.store in
-      VFrozen { expr = e_freeze_body ; snap }
+      VFrozen { expr = e_freeze_body ; env }
     | EVariant { label ; payload = e_payload } -> 
-      let payload = eval e_payload in
-       VVariant { label ; payload }
+      let payload = eval e_payload env in
+      VVariant { label ; payload }
     | EProject { record = e_record ; label } -> begin
-      let v = eval e_record in
+      let v = eval e_record env in
       match v with
       | VRecord record_body -> begin
         match Map.find record_body label with
@@ -87,60 +90,54 @@ let eval_exp
       | _ -> type_mismatch @@ Error_msg.project_non_record label v
     end
     | EThaw e_frozen -> begin
-      let v = eval e_frozen in
+      let v = eval e_frozen env in
       match v with
-      | VFrozen { expr ; snap } -> Env.locally snap (fun () -> eval expr)
+      | VFrozen { expr ; env } -> eval expr env
       | _ -> type_mismatch @@ Error_msg.thaw_non_frozen v
     end
     | ERecord record_body ->
       let value_record_body =
         Map.fold record_body ~init:RecordLabel.Map.empty ~f:(fun ~key ~data:e acc ->
-          Map.set acc ~key ~data:(eval e)
+          Map.set acc ~key ~data:(eval e env)
         )
       in
       VRecord value_record_body
     | EIgnore { ignored ; cont } ->
-      let _ : Value.t = Env.temporarily (fun () -> eval ignored) in
-      eval cont
+      let _ : Value.t = eval ignored env in
+      eval cont env
     | EMatch { subject ; patterns } -> begin (* Note: there cannot be symbolic branching on match *)
-      let v = eval subject in
+      let v = eval subject env in
       match
         (* find the matching pattern and add to env any values capture by the pattern *)
         List.find_map patterns ~f:(fun (pat, body) ->
           match pat, v with
-          | PAny, _ -> Some body
-          | PVariable id, _ -> 
-            Env.add id v;
-            Some body
+          | PAny, _ -> Some (body, env)
+          | PVariable id, _ -> Some (body, Env.add id v env)
           | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
               when VariantLabel.equal variant_label label ->
-            Env.add payload_id payload;
-            Some body
+            Some (body, Env.add payload_id payload env)
           | _ -> None
           )
       with
-      | Some e -> eval e
+      | Some (e, env) -> eval e env
       | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v
     end
     | ELet { var ; body ; cont } ->
-      let v = Env.temporarily (fun () -> eval body) in
-      Env.add var v;
-      eval cont
+      let v = eval body env in
+      eval cont (Env.add var v env)
     | EAppl { func ; arg } -> begin
-      let vfunc = eval func in
-      let varg = eval arg in
+      let vfunc = eval func env in
+      let varg = eval arg env in
       match vfunc with
       | VId -> varg
-      | VFunClosure { param ; body } -> Env.locally body.snap (fun () -> 
-          Env.add param varg;
-          eval body.expr
-        )
+      | VFunClosure { param ; body } -> 
+        eval body.expr (Env.add param varg body.env)
       | _ -> type_mismatch @@ Error_msg.bad_appl vfunc varg
     end
     (* Operations -- build new expressions *)
     | EBinop { left ; binop ; right } -> begin
-      let vleft = eval left in
-      let vright = eval right in
+      let vleft = eval left env in
+      let vright = eval right env in
       let k f e1 e2 op =
         f (Expression.op e1 e2 op)
       in
@@ -165,23 +162,23 @@ let eval_exp
       | _ -> type_mismatch @@ Error_msg.bad_binop vleft binop vright
     end
     | ENot e_not_body -> begin
-      let v = eval e_not_body in
+      let v = eval e_not_body env in
       match v with
       | VBool (b, e_b) -> VBool (not b, Expression.not_ e_b) 
       | _ -> type_mismatch @@ Error_msg.bad_not v
     end
     (* Branching *)
     | EIf { cond ; true_body ; false_body } -> begin
-      let v = eval cond in
+      let v = eval cond env in
       match v with
       | VBool (b, e) ->
         let body = if b then true_body else false_body in
         ref_sess := Eval_session.hit_branch (Direction.of_bool b) e !ref_sess;
-        eval body
+        eval body env
       | _ -> type_mismatch @@ Error_msg.cond_non_bool v
     end
     | ECase { subject ; cases ; default } -> begin
-      let v = eval subject in
+      let v = eval subject env in
       let int_cases = List.map cases ~f:Tuple2.get1 in
       match v with
       | VInt (i, e) -> begin
@@ -190,10 +187,10 @@ let eval_exp
         | Some body -> (* found a matching case *)
           let other_cases = List.filter int_cases ~f:((<>) i) in
           ref_sess := Eval_session.hit_case (Direction.of_int i) e ~other_cases !ref_sess;
-          eval body
+          eval body env
         | None -> (* no matching case, so take default case *)
           ref_sess := Eval_session.hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases !ref_sess;
-          eval default
+          eval default env
       end
       | _ -> type_mismatch @@ Error_msg.case_non_int v
     end
@@ -212,7 +209,7 @@ let eval_exp
   in
 
   try
-    let _ = eval expr in
+    let _ = eval expr Env.empty in
     Eval_session.finish !ref_sess
   with Failed_interp status -> status
 

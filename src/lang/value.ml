@@ -74,7 +74,6 @@ module Make (Store : functor (Val : T1) -> STORE with type 'a value := 'a Val.t)
       | VTypeForall : { type_variables : Ident.t list ; tau : 'a closure } -> 'a bluejay_only t
       | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
 
-    (* and 'a env = 'a t Ident.Map.t  *)
     and 'a env = 'a Env.t
 
     (* 
