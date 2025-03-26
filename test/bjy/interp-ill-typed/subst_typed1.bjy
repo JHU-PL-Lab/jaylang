@@ -116,7 +116,7 @@ let Value =
     || ``Function (Triple.t Ident.t Type.t ({ Expr.t | is_closed }))
   }
 
-let result =
+let Result =
   { t =
       fun a ->
         ``Ok a || ``Error Nil.t
@@ -142,7 +142,7 @@ let typecheck e =
   let add_to_env gamma id tau =
     fun id_ ->
       if Ident.eq id_ id
-      then result.return tau
+      then Result.return tau
       else gamma id_
   in
   let rec typecheck e gamma =
@@ -152,37 +152,37 @@ let typecheck e =
     match e with
     (* Axioms *)
     | `Var id -> gamma id
-    | `Int i -> result.return Type.tint
+    | `Int i -> Result.return Type.tint
     (* Functions *)
     | `Function trip ->
-      result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
-        result.return (`TArrow { left = trip.second ; right = tau })
+      Result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
+        Result.return (`TArrow { left = trip.second ; right = tau })
       )
     | `Appl p ->
-      result.bind (tc p.left) (fun res ->
+      Result.bind (tc p.left) (fun res ->
         match res with
         | `TArrow p_arrow ->
-          result.bind (tc p.right) (fun tau_arg ->
+          Result.bind (tc p.right) (fun tau_arg ->
             if Type.eq p_arrow.left tau_arg
-            then result.return p_arrow.right
-            else result.error
+            then Result.return p_arrow.right
+            else Result.error
           )
-        | _ -> result.error
+        | _ -> Result.error
         end
       )
     (* Conditions *)
     | `If_then_else trip -> 
-      result.bind (tc trip.first) (fun tau_cond ->
+      Result.bind (tc trip.first) (fun tau_cond ->
         if Type.is_int tau_cond
         then
-          result.bind (tc trip.second) (fun tau_left ->
-            result.bind (tc trip.third) (fun tau_right ->
+          Result.bind (tc trip.second) (fun tau_left ->
+            Result.bind (tc trip.third) (fun tau_right ->
               if Type.eq tau_left tau_right
-              then result.return tau_left
-              else result.error
+              then Result.return tau_left
+              else Result.error
             )
           )
-        else result.error
+        else Result.error
       )
     (* Simple expressions *)
     | _ ->
@@ -193,23 +193,23 @@ let typecheck e =
         | `Equal p -> p
         end
       in
-      result.bind (tc p.left) (fun tau_left ->
-        result.bind (tc p.right) (fun tau_right ->
+      Result.bind (tc p.left) (fun tau_left ->
+        Result.bind (tc p.right) (fun tau_right ->
           if
             Type.is_int tau_left
             and Type.is_int tau_right
           then
-            result.return Type.tint
+            Result.return Type.tint
           else
-            result.error
+            Result.error
         )
       )
     end
   in
-  typecheck e (fun _ -> result.error)
+  typecheck e (fun _ -> Result.error)
 
 let is_closed_and_well_typed e =
-  result.is_ok (typecheck e)
+  Result.is_ok (typecheck e)
   (* Note we don't actually have to check for closed because that would be an unbound variable when typechecking *)
 
 let rec list_remove ls a eq =
@@ -241,7 +241,7 @@ let subst (e <- Expr.t) (id <- Ident.t) (v : Value.t) : { Expr.t | fun new_expr 
   set_eq new_free_vars (list_remove old_free_vars id Ident.eq) Ident.eq
   } =
   let rec sub e =
-    let sub_Pair p =
+    let sub_pair p =
       { left = sub p.left
       ; right = sub p.right }
     in
@@ -255,10 +255,10 @@ let subst (e <- Expr.t) (id <- Ident.t) (v : Value.t) : { Expr.t | fun new_expr 
         if Ident.eq trip.first id
         then e
         else `Function { first = trip.first ; second = trip.second ; third = sub trip.third }
-    | `Plus p -> `Plus (sub_Pair p)
-    | `Minus p -> `Minus (sub_Pair p)
-    | `Equal p -> `Equal (sub_Pair p)
-    | `Appl p -> `Appl (sub_Pair p)
+    | `Plus p -> `Plus (sub_pair p)
+    | `Minus p -> `Minus (sub_pair p)
+    | `Equal p -> `Equal (sub_pair p)
+    | `Appl p -> `Appl (sub_pair p)
     | `If_then_else trip -> `If_then_else { first = sub trip.second ; second = sub trip.second ; third = sub trip.third } (* ERROR: trip.second should be trip.first in the `first` label *)
     end
   in
