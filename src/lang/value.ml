@@ -25,19 +25,18 @@ module type V = sig
 end
 
 module type STORE = sig
-  type 'a value
   type 'a t
   val empty : 'a t
-  val add : Ident.t -> 'a value -> 'a t -> 'a t
-  val fetch : Ident.t -> 'a t -> 'a value option
+  val add : Ident.t -> 'a -> 'a t -> 'a t
+  val fetch : Ident.t -> 'a t -> 'a option
 end
 
 (*
   V is the payload of int and bool. We do this so that we can
   inject Z3 expressions into the values of the concolic evaluator.
 *)
-module Make (Store : functor (Val : T1) -> STORE with type 'a value := 'a Val.t) (Env_cell : T1) (V : V) = struct
-  module rec T : sig
+module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
+  module T = struct
     type _ t =
       (* all languages *)
       | VInt : int V.t -> 'a t
@@ -74,51 +73,7 @@ module Make (Store : functor (Val : T1) -> STORE with type 'a value := 'a Val.t)
       | VTypeForall : { type_variables : Ident.t list ; tau : 'a closure } -> 'a bluejay_only t
       | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
 
-    and 'a env = 'a Env.t
-
-    (* 
-      An expression to be evaluated in an environment. The environment is in a cell in case
-      laziness is used to implement recursion.    
-    *)
-    and 'a closure = { expr : 'a Expr.t ; env : 'a env Env_cell.t }
-  end = struct
-    type _ t =
-      (* all languages *)
-      | VInt : int V.t -> 'a t
-      | VBool : bool V.t -> 'a t
-      | VFunClosure : { param : Ident.t ; body : 'a closure } -> 'a t
-      | VVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
-      | VRecord : 'a t RecordLabel.Map.t -> 'a t
-      | VTypeMismatch : 'a t
-      | VAbort : 'a t (* this results from `EAbort` or `EAssert e` where e => false *)
-      | VDiverge : 'a t (* this results from `EDiverge` or `EAssume e` where e => false *)
-      | VUnboundVariable : Ident.t -> 'a t
-      (* embedded only *)
-      | VId : 'a embedded_only t
-      | VFrozen : 'a closure -> 'a embedded_only t
-      (* bluejay only *)
-      | VList : 'a t list -> 'a bluejay_only t
-      | VMultiArgFunClosure : { params : Ident.t list ; body : 'a closure } -> 'a bluejay_only t
-      (* types in desugared and embedded *)
-      | VType : 'a bluejay_or_desugared t
-      | VTypeInt : 'a bluejay_or_desugared t
-      | VTypeBool : 'a bluejay_or_desugared t
-      | VTypeTop : 'a bluejay_or_desugared t
-      | VTypeBottom : 'a bluejay_or_desugared t
-      | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
-      | VTypeRecordD : (RecordLabel.t * 'a closure) list -> 'a bluejay_or_desugared t
-      | VTypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
-      | VTypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure } -> 'a bluejay_or_desugared t
-      | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
-      | VTypeMu : { var : Ident.t ; body : 'a closure } -> 'a bluejay_or_desugared t
-      | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
-      | VTypeSingle : 'a t -> 'a bluejay_or_desugared t
-      (* types in bluejay only *)
-      | VTypeList : 'a t -> 'a bluejay_only t
-      | VTypeForall : { type_variables : Ident.t list ; tau : 'a closure } -> 'a bluejay_only t
-      | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
-
-    and 'a env = 'a Env.t
+    and 'a env = 'a t Store.t
 
     (* 
       An expression to be evaluated in an environment. The environment is in a cell in case
@@ -127,7 +82,12 @@ module Make (Store : functor (Val : T1) -> STORE with type 'a value := 'a Val.t)
     and 'a closure = { expr : 'a Expr.t ; env : 'a env Env_cell.t }
   end
 
-  and Env : STORE with type 'a value := 'a T.t = Store (T)
+  module Env = struct
+    type 'a t = 'a T.t Store.t
+    let empty : 'a t = Store.empty
+    let add : Ident.t -> 'a T.t -> 'a t -> 'a t = Store.add
+    let fetch : Ident.t -> 'a t -> 'a T.t option = Store.fetch
+  end
 
   include T
 
@@ -167,8 +127,8 @@ module Make (Store : functor (Val : T1) -> STORE with type 'a value := 'a Val.t)
         (String.concat ~sep: "|| " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(``%s (%s))" s (to_string tau)))
 end
 
-module Constrain (C : sig type constrain end) (Env : functor (Val : T1) -> STORE with type 'a value := 'a Val.t) (Cell : T1) (V : V) = struct
-  module M = Make (Env) (Cell) (V)
+module Constrain (C : sig type constrain end) (Store : STORE) (Cell : T1) (V : V) = struct
+  module M = Make (Store) (Cell) (V)
 
   module T = struct
     type t = C.constrain M.T.t
@@ -186,12 +146,12 @@ module Constrain (C : sig type constrain end) (Env : functor (Val : T1) -> STORE
   end
 end
 
-module List_store (Val : T1) = struct
-  type 'a t = (Ident.t * 'a Val.t) list
+module List_store = struct
+  type 'a t = (Ident.t * 'a) list
 
   let empty : 'a t = []
 
-  let[@inline always] add (id : Ident.t) (v : 'a Val.t) (env : 'a t) : 'a t =
+  let[@inline always] add (id : Ident.t) (v : 'a) (env : 'a t) : 'a t =
     (id, v) :: env
 
   (*
@@ -199,7 +159,7 @@ module List_store (Val : T1) = struct
     make some optimizations if we inline.
     This is experimentally (but informally) confirmed.
   *)
-  let[@inline always] fetch (id : Ident.t) (env : 'a t) : 'a Val.t option =
+  let[@inline always] fetch (id : Ident.t) (env : 'a t) : 'a option =
     let rec loop = function
       | [] -> None
       | (id', v) :: _ when Ident.equal id id' -> Some v
@@ -208,15 +168,15 @@ module List_store (Val : T1) = struct
     loop env
 end
 
-module Map_store (Val : T1) = struct
-  type 'a t = 'a Val.t Ident.Map.t 
+module Map_store = struct
+  type 'a t = 'a Ident.Map.t 
 
   let empty : 'a t = Ident.Map.empty
 
-  let[@inline always] add (id : Ident.t) (v : 'a Val.t) (env : 'a t) : 'a t =
+  let[@inline always] add (id : Ident.t) (v : 'a) (env : 'a t) : 'a t =
     Map.set env ~key:id ~data:v
 
-  let[@inline always] fetch (id : Ident.t) (env : 'a t) : 'a Val.t option =
+  let[@inline always] fetch (id : Ident.t) (env : 'a t) : 'a option =
     Map.find env id
 end
 

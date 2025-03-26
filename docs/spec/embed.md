@@ -87,22 +87,19 @@ Notes:
   { ~gen = freeze @@
     if pick_i == 123456789 (* unlikely number to pick *)
     then
+      (* generate a constructor that is potentially recursive *)
       case pick_i on
       | 1 -> V_i1 (thaw [[tau_i1]].~gen)
       | ...
       | n -> V_im (thaw [[tau_im]].~gen)
       | _ -> V_i0 (thaw [[tau_i0]].~gen)
     else
+      (* generate a constructor that is more likely to be terminal *)
       case pick_i on
       | 1 -> V_j1 (thaw [[tau_j1]].~gen)
       | ...
       | n -> V_jl (thaw [[tau_jl]].~gen)
       | _ -> V_j0 (thaw [[tau_j0]].~gen)
-    (*
-      Where i0,...,im, j0,...,jl are a permutation of 0,...,n, and
-      tau_i0,...,tau_im contain in their AST the identifier of some
-      in-scope Mu type variable, and tau_j0,...,tau_jl do not.
-    *)
   ; ~check = fun $e ->
     match $e with
     | V_0 $v -> [[tau_0]].~check $v
@@ -117,6 +114,10 @@ Notes:
     end
   }
 ```
+
+Notes:
+* `i0,...,im, j0,...,jl` are a permutation of `0,...,n`, and `tau_i0,...,tau_im` contain in their AST the identifier of some in-scope Mu type variable while `tau_j0,...,tau_jl` do not.
+* No `case` in the generation is needed when there is only one variant constructor. In such a scenario, the entire `gen` is replaced the `default` case.
 
 ### Records
 

@@ -389,18 +389,21 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       E.make
         ~ask_for
         ~gen:(lazy (
-          let of_case_list ls =
-            ECase
-              { subject = EPick_i
-              ; cases =
-                List.tl_exn ls
-                |> List.mapi ~f:(fun i (label, tau) ->
-                  i + 1, EVariant { label ; payload = gen tau }
-                )
-              ; default = 
-                let (last_label, last_tau) = List.hd_exn ls in
-                EVariant { label = last_label ; payload = gen last_tau }
-              }
+          let of_case_list = function
+            | [] -> failwith "invalid empty variant"
+            | [ (label, tau) ] -> EVariant { label ; payload = gen tau } (* no case needed on one variant *)
+            | ls ->
+              ECase
+                { subject = EPick_i
+                ; cases =
+                  List.tl_exn ls
+                  |> List.mapi ~f:(fun i (label, tau) ->
+                    i + 1, EVariant { label ; payload = gen tau }
+                  )
+                ; default = 
+                  let (last_label, last_tau) = List.hd_exn ls in
+                  EVariant { label = last_label ; payload = gen last_tau }
+                }
           in
           let unlikely, likely =
             List.partition_tf e_variant_ls ~f:(fun (_, tau) -> 
