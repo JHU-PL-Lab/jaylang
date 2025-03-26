@@ -1,17 +1,17 @@
 
-let t = {: t : type ; elt : type ; empty : t ; add : t -> elt -> t :}
+let T = {: t : type ; elt : type ; empty : t ; add : t -> elt -> t :}
 
-let F (x <- t) : { of_list : list x.elt -> x.t } =
+let F (X <- T) : { of_list : list X.elt -> X.t } =
   { of_list = fun ls -> 
     let rec loop acc ls =
       match ls with
       | [] -> acc
-      | hd :: tl -> loop (x.add acc hd) tl
+      | hd :: tl -> loop (X.add acc hd) tl
       end
     in
-    loop x.empty ls
+    loop X.empty ls
   }
 
-let (M : t) = { elt = int ; t = list int ; empty = [] ; add = fun ls a -> a :: ls }
+let (M : T) = { elt = int ; t = list int ; empty = [] ; add = fun ls a -> a :: ls }
 
 let X = F M 

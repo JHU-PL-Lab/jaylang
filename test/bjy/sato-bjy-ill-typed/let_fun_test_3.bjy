@@ -6,5 +6,5 @@
 ) *)
 
 let f (g : int -> int) (x : (int -> int) -> bool) : int = 
-    x g
+  x g
     

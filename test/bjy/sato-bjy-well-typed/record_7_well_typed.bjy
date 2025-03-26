@@ -5,8 +5,8 @@
 let notPos n = n <= 0
 
 let record_constraint re = 
-    (notPos re.b) and
-    ((re.a + re.b) >= 0)
+  (notPos re.b) and
+  ((re.a + re.b) >= 0)
 
 let isTrue b = b
 

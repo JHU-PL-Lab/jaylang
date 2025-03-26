@@ -11,7 +11,7 @@ let h (x <- int) (y <- { int | fun a -> a > x }) : { int | fun a -> a > y } =
   y + 1
 
 let main (n : int) : { int | fun c -> c < 0 } =
-    if (n >= 0) 
-    then f n (h n)
-    else 1
+  if (n >= 0) 
+  then f n (h n)
+  else 1
     

@@ -4,7 +4,7 @@
 (* type error is that list can be empty and has no last. An `is_nonempty` predicate fixes it. *)
 
 (* y combinator *)
-let rec ycomb f =
+let Y f =
   fun y ->
     (fun x -> f (fun z -> (x x) z))
     (fun x -> f (fun z -> (x x) z))
@@ -17,7 +17,7 @@ let is_nonempty ls =
   end
 
 let last (type a_) (l : { list a_ | is_nonempty }) : a_ =
-  ycomb (
+  Y (
     fun self x ->
       match x with
       | [] -> assert false

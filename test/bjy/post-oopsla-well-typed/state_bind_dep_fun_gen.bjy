@@ -3,7 +3,7 @@
 (* depending on the size of the input. *)
 (* Not only that; but we use a state monad to do it. *)
 
-let state_monad =
+let State_monad =
   { m = fun a -> fun s ->
       s -> { res : a ; new_state : s }
   ; bind =
@@ -34,31 +34,31 @@ let state_monad =
       impl
   }
 
-(* We don't have polymorphic types that easily to type a record; so I do this little trick *)
-let confirm_type_of_state_monad (type a b s) (dummy : a) :
-  (let m = state_monad.m in 
+(* We don't that easily have a forall type, so I do this little trick *)
+let confirm_type_of_state_monad (type a b s) (dummy : unit) :
+  (let m = State_monad.m in 
   { read : m s s
-  ;  bind : m a s -> (a -> m b s) -> m b s
-  ;  return : a -> m a s
-  ;  modify : (s -> s) -> m s s
-  ;  run : m a s -> s -> a
+  ; bind : m a s -> (a -> m b s) -> m b s
+  ; return : a -> m a s
+  ; modify : (s -> s) -> m s s
+  ; run : m a s -> s -> a
   })
   =
-    state_monad
+  State_monad
 
 let t n = 
   int -> (
     let rec loop acc_m =
-      state_monad.bind (state_monad.modify (fun i -> i - 1)) (fun i ->
+      State_monad.bind (State_monad.modify (fun i -> i - 1)) (fun i ->
         if i <= 1 
         then acc_m
         else
-          state_monad.bind acc_m (fun acc ->
-            loop (state_monad.return (int -> acc))
+          State_monad.bind acc_m (fun acc ->
+            loop (State_monad.return (int -> acc))
           )
       )
     in
-    state_monad.run (loop (state_monad.return int)) n
+    State_monad.run (loop (State_monad.return int)) n
     (* EXAMPLE ERROR: don't use run. Just apply state by self (and thereby forget to project the result from the record) *)
     (* But such an error is instant to catch just in the generation of a value with type t *)
   )

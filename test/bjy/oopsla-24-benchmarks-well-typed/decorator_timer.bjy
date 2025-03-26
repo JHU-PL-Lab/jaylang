@@ -4,8 +4,8 @@
 
 let t =
   { f : int -> bool
-   ; g : int -> int
-   ; x : bool }
+  ; g : int -> int
+  ; x : bool }
 
 (* Dummy implementation because we don't have side effects *)
 let get_current_time _ = 0
