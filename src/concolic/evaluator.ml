@@ -40,10 +40,6 @@ end
 
 exception Failed_interp of Status.Eval.t
 
-(*
-  The only time we really update the session is on max step or hitting a branch.
-  Can I then optimize it to not have to pass it around most of the time?
-*)
 let eval_exp 
   (session : Eval_session.t)
   (expr : Embedded.t) 
