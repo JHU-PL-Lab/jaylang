@@ -2,7 +2,7 @@
   (speed Slow)
   (typing Ill_typed)
 ) *)
-let nil =
+let Nil =
   { t = unit
   ; v = {}
   }
@@ -15,8 +15,8 @@ let triple =
   { t = fun a -> fun b -> fun c -> { first : a ; second : b ; third : c }
   }
 
-let ttype = 
-  let tint = `TInt nil.v in
+let Type = 
+  let tint = `TInt Nil.v in
   let rec eq a b =
     match a with
     | `TArrow p1 ->
@@ -35,7 +35,7 @@ let ttype =
   in
   { t = Mu tt.
     ``TArrow (pair.t tt tt)
-    || ``TInt nil.t
+    || ``TInt Nil.t
   ; tint = tint
   ; eq = eq
   ; is_int = eq tint
@@ -54,7 +54,7 @@ let expr =
   { t = Mu tt.
     ``Int int
     || ``Var ident.t
-    || ``Function (triple.t ident.t ttype.t tt)
+    || ``Function (triple.t ident.t Type.t tt)
     || ``If_then_else (triple.t tt tt tt)
     || ``Plus (pair.t tt tt)
     || ``Minus (pair.t tt tt)
@@ -63,13 +63,13 @@ let expr =
   }
 
 let value =
-  { t = ``Int int || ``Function (triple.t ident.t ttype.t expr.t)
+  { t = ``Int int || ``Function (triple.t ident.t Type.t expr.t)
   }
 
 let result =
   { t =
       fun a ->
-        ``Ok a || ``Error nil.t
+        ``Ok a || ``Error Nil.t
   ; bind = 
       fun x -> fun f ->
         match x with
@@ -79,7 +79,7 @@ let result =
   ; return = 
       fun a -> `Ok a
   ; error =
-      `Error nil.v
+      `Error Nil.v
   ; is_ok =
       fun x ->
         match x with
@@ -102,7 +102,7 @@ let typecheck e =
     match e with
     (* Axioms *)
     | `Var id -> gamma id
-    | `Int i -> result.return ttype.tint
+    | `Int i -> result.return Type.tint
     (* Functions *)
     | `Function trip ->
       result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
@@ -113,7 +113,7 @@ let typecheck e =
         match res with
         | `TArrow p_arrow ->
           result.bind (tc p.right) (fun tau_arg ->
-            if ttype.eq p_arrow.left tau_arg
+            if Type.eq p_arrow.left tau_arg
             then result.return p_arrow.right
             else result.error
           )
@@ -123,11 +123,11 @@ let typecheck e =
     (* Conditions *)
     | `If_then_else trip -> 
       result.bind (tc trip.first) (fun tau_cond ->
-        if ttype.is_int tau_cond
+        if Type.is_int tau_cond
         then
           result.bind (tc trip.second) (fun tau_left ->
             result.bind (tc trip.third) (fun tau_right ->
-              if ttype.eq tau_left tau_right
+              if Type.eq tau_left tau_right
               then result.return tau_left
               else result.error
             )
@@ -146,10 +146,10 @@ let typecheck e =
       result.bind (tc p.left) (fun tau_left ->
         result.bind (tc p.right) (fun tau_right ->
           if
-            ttype.is_int tau_left
-            and ttype.is_int tau_right
+            Type.is_int tau_left
+            and Type.is_int tau_right
           then
-            result.return ttype.tint
+            result.return Type.tint
           else
             result.error
         )

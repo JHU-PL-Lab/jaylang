@@ -2,7 +2,7 @@
   (features (Recursive_functions Higher_order_functions Parametric_types Records Return_type))
 ) *)
 
-let set_m = 
+let Set_m = 
   { emptyset = []
   ; add = fun x -> fun s -> x :: s 
   ; remove = 
@@ -27,7 +27,7 @@ let set_m =
       in f
   }
 
-let (set_m_type : type -> type) = 
+let (Set_m_type : type -> type) = 
   fun a_ -> (* any type *)
     let t = list a_ in
     { emptyset : t
@@ -36,4 +36,4 @@ let (set_m_type : type -> type) =
     ; contains : a_ -> t -> (a_ -> a_ -> bool) -> bool
     }
 
-let (check_type : set_m_type int) = set_m
+let (check_type : Set_m_type int) = Set_m

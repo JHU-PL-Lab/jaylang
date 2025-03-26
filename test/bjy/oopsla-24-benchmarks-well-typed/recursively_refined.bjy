@@ -6,11 +6,11 @@
 
 let (coord : type) =
   { x : int
-   ; y : int }
+  ; y : int }
 
 let (t : type) = Mu tt.
   { parent : (``Some tt || ``None int)
-   ; relative_coord : coord }
+  ; relative_coord : coord }
 
 let is_coord_nonzero c = 
   not (c.x == 0) and not (c.y == 0)

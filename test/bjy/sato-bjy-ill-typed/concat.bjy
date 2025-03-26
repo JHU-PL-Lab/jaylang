@@ -6,7 +6,7 @@
 ) *)
 
 let rec prepend (l1 : list int) (l2 : list bool) : list int = 
-    match l2 with
-    | [] -> l1
-    | hd :: tl -> prepend (hd :: l1) tl
-    end
+  match l2 with
+  | [] -> l1
+  | hd :: tl -> prepend (hd :: l1) tl
+  end

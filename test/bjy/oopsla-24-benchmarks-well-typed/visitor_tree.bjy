@@ -2,7 +2,7 @@
   (features (Variants Recursive_functions Mu_types Higher_order_functions OOP_style Parametric_types Records Match))
 ) *)
 
-let (node : { t : type -> type -> type }) = 
+let (Node : { t : type -> type -> type }) = 
   { t =
     fun a_t ->
       fun tree_t ->
@@ -10,29 +10,29 @@ let (node : { t : type -> type -> type }) =
         ; children : list tree_t }
   }
 
-let (leaf : { t : type -> type }) =
+let (Leaf : { t : type -> type }) =
   { t = 
     fun a ->
       a
   }
 
-let (tree : { t : type -> type }) =
+let (Tree : { t : type -> type }) =
   { t =
     fun a ->
-      Mu tt. (``Node (node.t a tt) || ``Leaf (leaf.t a))
+      Mu tt. (``Node (Node.t a tt) || ``Leaf (Leaf.t a))
   }
 
-let (visitor : { t : type -> type -> type }) = 
+let (Visitor : { t : type -> type -> type }) = 
   { t =
     fun a ->
       fun result_type ->
-        { visit_node : node.t a (tree.t a) -> result_type 
-        ; visit_leaf : leaf.t a -> result_type }
+        { visit_node : Node.t a (Tree.t a) -> result_type 
+        ; visit_leaf : Leaf.t a -> result_type }
   }
 
 let (client : type -> type -> type -> type) = fun a t result_type ->
   { self : t
-  ; accept : visitor.t a result_type -> result_type }
+  ; accept : Visitor.t a result_type -> result_type }
 
 let make_list f n = 
   let rec loop i =
@@ -43,7 +43,7 @@ let make_list f n =
   loop n
 
 (* Makes big tree recursively with many children *)
-let rec make_tree (n : int) : tree.t int =
+let rec make_tree (n : int) : Tree.t int =
   let ob =
     fun self ->
       if n == 0
@@ -55,12 +55,12 @@ let rec make_tree (n : int) : tree.t int =
   in
   ob ob
 
-let int_bool_client (tr : tree.t int) : client int (tree.t int) bool =
+let int_bool_client (tr : Tree.t int) : client int (Tree.t int) bool =
   { self = tr
   ; accept =
     fun vis ->
       match tr with
-      | `Leaf leaf -> vis.visit_leaf leaf 
-      | `Node node -> vis.visit_node node (* leaves it up to the visitor to fold over the children *)
+      | `Leaf leaf -> vis.visit_leaf leaf
+      | `Node node -> vis.visit_node node
       end
   }

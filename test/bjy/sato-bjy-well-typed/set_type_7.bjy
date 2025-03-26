@@ -6,9 +6,9 @@ let tree_type = Mu tt. (``Node { left : tt; right : tt } || ``Leaf { leaf : int 
 
 let (x : tree_type) = 
   `Node { left = 
-        `Node { left = 
-            `Node { left = 
-                `Node { left = `Leaf {leaf = 0}; right = `Leaf {leaf = 0}} ; 
-              right = `Leaf {leaf = 0}} ; 
-          right = `Leaf {leaf = 0} }; 
-      right = `Leaf { leaf = 0 } }
+    `Node { left = 
+      `Node { left = 
+        `Node { left = `Leaf { leaf = 0 } ; right = `Leaf { leaf = 0 } }
+      ; right = `Leaf {leaf = 0 } }
+    ; right = `Leaf {leaf = 0 } }
+  ; right = `Leaf { leaf = 0 } }

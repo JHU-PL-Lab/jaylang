@@ -3,7 +3,7 @@
 ) *)
 
 let intId (x : int) : int = 
-    let intId2 y = y in
-    intId2 x
+  let intId2 y = y in
+  intId2 x
     
 let res = intId 5
