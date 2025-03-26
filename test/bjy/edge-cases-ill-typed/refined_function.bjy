@@ -9,6 +9,9 @@ let t = { f : (int -> int) | (f 0) == 0 }
   You might think this should be well-typed, but because functions are
   nondeterministic, the predicate does absolutely nothing, and `f` is
   free to return whatever it wants on any other call.
+
+  Compare this to the well-typed version in the other directory, where
+  we write the type as a dependent arrow with a refined codomain.
 *)
 let g (f : t) : { i : int | i == 0 } =
   f 0
