@@ -15,7 +15,7 @@ open Expr
 
 exception InvariantFailure of string
 
-module V = Value.Make (Lazy) (Utils.Identity)
+module V = Value.Make (Value.Map_store) (Lazy) (Utils.Identity)
 open V
 
 (* 

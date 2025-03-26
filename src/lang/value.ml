@@ -24,12 +24,20 @@ module type V = sig
   val to_string : ('a -> string) -> 'a t -> string
 end
 
+module type STORE = sig
+  type 'a value
+  type 'a t
+  val empty : 'a t
+  val add : Ident.t -> 'a value -> 'a t -> 'a t
+  val fetch : Ident.t -> 'a t -> 'a value option
+end
+
 (*
   V is the payload of int and bool. We do this so that we can
   inject Z3 expressions into the values of the concolic evaluator.
 *)
-module Make (Env_cell : T1) (V : V) = struct
-  module T = struct
+module Make (Store : functor (Val : T1) -> STORE with type 'a value := 'a Val.t) (Env_cell : T1) (V : V) = struct
+  module rec T : sig
     type _ t =
       (* all languages *)
       | VInt : int V.t -> 'a t
@@ -66,7 +74,52 @@ module Make (Env_cell : T1) (V : V) = struct
       | VTypeForall : { type_variables : Ident.t list ; tau : 'a closure } -> 'a bluejay_only t
       | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
 
-    and 'a env = 'a t Ident.Map.t 
+    (* and 'a env = 'a t Ident.Map.t  *)
+    and 'a env = 'a Env.t
+
+    (* 
+      An expression to be evaluated in an environment. The environment is in a cell in case
+      laziness is used to implement recursion.    
+    *)
+    and 'a closure = { expr : 'a Expr.t ; env : 'a env Env_cell.t }
+  end = struct
+    type _ t =
+      (* all languages *)
+      | VInt : int V.t -> 'a t
+      | VBool : bool V.t -> 'a t
+      | VFunClosure : { param : Ident.t ; body : 'a closure } -> 'a t
+      | VVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
+      | VRecord : 'a t RecordLabel.Map.t -> 'a t
+      | VTypeMismatch : 'a t
+      | VAbort : 'a t (* this results from `EAbort` or `EAssert e` where e => false *)
+      | VDiverge : 'a t (* this results from `EDiverge` or `EAssume e` where e => false *)
+      | VUnboundVariable : Ident.t -> 'a t
+      (* embedded only *)
+      | VId : 'a embedded_only t
+      | VFrozen : 'a closure -> 'a embedded_only t
+      (* bluejay only *)
+      | VList : 'a t list -> 'a bluejay_only t
+      | VMultiArgFunClosure : { params : Ident.t list ; body : 'a closure } -> 'a bluejay_only t
+      (* types in desugared and embedded *)
+      | VType : 'a bluejay_or_desugared t
+      | VTypeInt : 'a bluejay_or_desugared t
+      | VTypeBool : 'a bluejay_or_desugared t
+      | VTypeTop : 'a bluejay_or_desugared t
+      | VTypeBottom : 'a bluejay_or_desugared t
+      | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
+      | VTypeRecordD : (RecordLabel.t * 'a closure) list -> 'a bluejay_or_desugared t
+      | VTypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
+      | VTypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure } -> 'a bluejay_or_desugared t
+      | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
+      | VTypeMu : { var : Ident.t ; body : 'a closure } -> 'a bluejay_or_desugared t
+      | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
+      | VTypeSingle : 'a t -> 'a bluejay_or_desugared t
+      (* types in bluejay only *)
+      | VTypeList : 'a t -> 'a bluejay_only t
+      | VTypeForall : { type_variables : Ident.t list ; tau : 'a closure } -> 'a bluejay_only t
+      | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
+
+    and 'a env = 'a Env.t
 
     (* 
       An expression to be evaluated in an environment. The environment is in a cell in case
@@ -74,6 +127,8 @@ module Make (Env_cell : T1) (V : V) = struct
     *)
     and 'a closure = { expr : 'a Expr.t ; env : 'a env Env_cell.t }
   end
+
+  and Env : STORE with type 'a value := 'a T.t = Store (T)
 
   include T
 
@@ -111,28 +166,10 @@ module Make (Env_cell : T1) (V : V) = struct
     | VTypeVariant ls ->
       Format.sprintf "(%s)"
         (String.concat ~sep: "|| " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(``%s (%s))" s (to_string tau)))
-
-
-  module Env = struct
-    type 'a t = 'a T.env
-
-    let empty : 'a env = Ident.Map.empty
-
-    let[@inline always] add (id : Ident.t) (v : 'a T.t) (env : 'a t) : 'a t =
-      Map.set env ~key:id ~data:v
-
-    (*
-      Inlining is pretty important here. We fetch a lot, and the compiler can 
-      make some optimizations if we inline.
-      This is experimentally (but informally) confirmed.
-    *)
-    let[@inline always] fetch (id : Ident.t) (env : 'a t) : 'a T.t option =
-      Map.find env id
-  end
 end
 
-module Constrain (C : sig type constrain end) (Cell : T1) (V : V) = struct
-  module M = Make (Cell) (V)
+module Constrain (C : sig type constrain end) (Env : functor (Val : T1) -> STORE with type 'a value := 'a Val.t) (Cell : T1) (V : V) = struct
+  module M = Make (Env) (Cell) (V)
 
   module T = struct
     type t = C.constrain M.T.t
@@ -150,17 +187,55 @@ module Constrain (C : sig type constrain end) (Cell : T1) (V : V) = struct
   end
 end
 
+module List_store (Val : T1) = struct
+  type 'a t = (Ident.t * 'a Val.t) list
+
+  let empty : 'a t = []
+
+  let[@inline always] add (id : Ident.t) (v : 'a Val.t) (env : 'a t) : 'a t =
+    (id, v) :: env
+
+  (*
+    Inlining is pretty important here. We fetch a lot, and the compiler can 
+    make some optimizations if we inline.
+    This is experimentally (but informally) confirmed.
+  *)
+  let[@inline always] fetch (id : Ident.t) (env : 'a t) : 'a Val.t option =
+    let rec loop = function
+      | [] -> None
+      | (id', v) :: _ when Ident.equal id id' -> Some v
+      | _ :: tl -> loop tl
+    in
+    loop env
+end
+
+module Map_store (Val : T1) = struct
+  type 'a t = 'a Val.t Ident.Map.t 
+
+  let empty : 'a t = Ident.Map.empty
+
+  let[@inline always] add (id : Ident.t) (v : 'a Val.t) (env : 'a t) : 'a t =
+    Map.set env ~key:id ~data:v
+
+  let[@inline always] fetch (id : Ident.t) (env : 'a t) : 'a Val.t option =
+    Map.find env id
+end
+
 (*
   Values in embedded language. There is no explicit recursion, so the closures
   do not use lazy environments.
+  Variables are often used immediately after being created, so use a list as an environment.
 *)
-module Embedded = Constrain (struct type constrain = Ast.Constraints.embedded end) (Utils.Identity)
+module Embedded = Constrain (struct type constrain = Ast.Constraints.embedded end) (List_store) (Utils.Identity)
 
 (*
   Values in the desugared language. Uses laziness to implement recursion.
+  Usage is unknonw, so use a Map as the environment to be general.
 *)
-module Desugared = Constrain (struct type constrain = Ast.Constraints.desugared end) (Lazy)
+module Desugared = Constrain (struct type constrain = Ast.Constraints.desugared end) (Map_store) (Lazy)
+
 (*
   Values in Bluejay. Uses laziness to implement recursion.
+  Usage is unknonw, so use a Map as the environment to be general.
 *)
-module Bluejay = Constrain (struct type constrain = Ast.Constraints.bluejay end) (Lazy)
+module Bluejay = Constrain (struct type constrain = Ast.Constraints.bluejay end) (Map_store) (Lazy)
