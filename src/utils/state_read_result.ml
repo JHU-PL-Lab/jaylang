@@ -35,7 +35,7 @@ module Make (State : T) (Read : T) (Err : T) = struct
     run : 'r. reject:(Err.t -> 'r) -> accept:('a -> State.t -> 'r) -> State.t -> Read.t -> 'r
   } 
 
-  let[@inline always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
+  let[@inline always][@specialise] bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
     { run =
       fun ~reject ~accept s r ->
         x.run s r ~reject ~accept:(fun x s ->
@@ -43,22 +43,22 @@ module Make (State : T) (Read : T) (Err : T) = struct
         )
     }
 
-  let[@inline always] return (a : 'a) : 'a m =
+  let[@inline always][@specialise] return (a : 'a) : 'a m =
     { run = fun ~reject:_ ~accept s _ -> accept a s }
 
   let read : (State.t * Read.t) m =
     { run = fun ~reject:_ ~accept s r -> accept (s, r) s }
 
-  let[@inline always] modify (f : State.t -> State.t) : unit m =
+  let[@inline always][@specialise] modify (f : State.t -> State.t) : unit m =
     { run =
       fun ~reject:_ ~accept s _ ->
         accept () (f s)
     }
 
-  let[@inline always] fail (e : Err.t) : 'a m =
+  let[@inline always][@specialise] fail (e : Err.t) : 'a m =
     { run = fun ~reject ~accept:_ _ _ -> reject e }
 
-  let[@inline always] local (f : Read.t -> Read.t) (x : 'a m) : 'a m =
+  let[@inline always][@specialise] local (f : Read.t -> Read.t) (x : 'a m) : 'a m =
     { run = fun ~reject ~accept s r -> x.run ~reject ~accept s (f r) }
 
   let run (x : 'a m) (init_state : State.t) (init_read : Read.t) : ('a * State.t, Err.t) result =

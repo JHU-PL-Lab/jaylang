@@ -18,7 +18,7 @@ module State_M = struct
       State.{ step = 0 ; max_step = Eval_session.get_max_step session ; session }
       Env.empty
 
-  let[@inline always] modify_session (f : Eval_session.t -> Eval_session.t) : unit m =
+  let[@inline always][@specialise] modify_session (f : Eval_session.t -> Eval_session.t) : unit m =
     modify (fun s -> { s with session = f s.session })
 
   (*
@@ -36,7 +36,7 @@ module State_M = struct
         else accept step { s with step }
     }
 
-  let[@inline always] modify_and_return (f : Eval_session.t -> Eval_session.t * 'a) : 'a m =
+  let[@inline always][@specialise] modify_and_return (f : Eval_session.t -> Eval_session.t * 'a) : 'a m =
     { run =
       fun ~reject:_ ~accept s _ ->
         let session, a = f s.session in
