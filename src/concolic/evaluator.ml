@@ -45,7 +45,7 @@ let eval_exp
   (expr : Embedded.t) 
   : Status.Eval.t
   =
-  let ref_sess = ref session in
+  let ref_sess = ref session in 
   let ref_step = ref 0 in
   let max_step = Eval_session.get_max_step !ref_sess in
 
@@ -73,8 +73,7 @@ let eval_exp
     | EFreeze e_freeze_body -> 
       VFrozen { expr = e_freeze_body ; env }
     | EVariant { label ; payload = e_payload } -> 
-      let payload = eval e_payload env in
-      VVariant { label ; payload }
+      VVariant { label ; payload = eval e_payload env }
     | EProject { record = e_record ; label } -> begin
       let v = eval e_record env in
       match v with
@@ -86,10 +85,9 @@ let eval_exp
       | _ -> type_mismatch @@ Error_msg.project_non_record label v
     end
     | EThaw e_frozen -> begin
-      let v = eval e_frozen env in
-      match v with
+      match eval e_frozen env with
       | VFrozen { expr ; env } -> eval expr env
-      | _ -> type_mismatch @@ Error_msg.thaw_non_frozen v
+      | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
     end
     | ERecord record_body ->
       let value_record_body =
@@ -158,25 +156,22 @@ let eval_exp
       | _ -> type_mismatch @@ Error_msg.bad_binop vleft binop vright
     end
     | ENot e_not_body -> begin
-      let v = eval e_not_body env in
-      match v with
+      match eval e_not_body env with
       | VBool (b, e_b) -> VBool (not b, Expression.not_ e_b) 
-      | _ -> type_mismatch @@ Error_msg.bad_not v
+      | v -> type_mismatch @@ Error_msg.bad_not v
     end
     (* Branching *)
     | EIf { cond ; true_body ; false_body } -> begin
-      let v = eval cond env in
-      match v with
+      match eval cond env with
       | VBool (b, e) ->
         let body = if b then true_body else false_body in
         ref_sess := Eval_session.hit_branch (Direction.of_bool b) e !ref_sess;
         eval body env
-      | _ -> type_mismatch @@ Error_msg.cond_non_bool v
+      | v -> type_mismatch @@ Error_msg.cond_non_bool v
     end
     | ECase { subject ; cases ; default } -> begin
-      let v = eval subject env in
       let int_cases = List.map cases ~f:Tuple2.get1 in
-      match v with
+      match eval subject env with
       | VInt (i, e) -> begin
         let body_opt = List.find_map cases ~f:(fun (i', body) -> if i = i' then Some body else None) in
         match body_opt with
@@ -188,7 +183,7 @@ let eval_exp
           ref_sess := Eval_session.hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases !ref_sess;
           eval default env
       end
-      | _ -> type_mismatch @@ Error_msg.case_non_int v
+      | v -> type_mismatch @@ Error_msg.case_non_int v
     end
     (* Inputs *)
     | EPick_i -> 
