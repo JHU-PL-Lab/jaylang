@@ -90,6 +90,58 @@ module Utils = struct
     | ERecord m when Map.mem m label ->
       Map.find_exn m label
     | _ -> EProject { record = tau ; label }
+
+  (*
+    -------------------------------------
+    PROGRAM AND STATEMENT TRANSFORMATIONS
+    -------------------------------------
+  *)
+
+  open Expr
+
+  let ids_of_stmt (type a) (stmt : a statement) : Ident.t list =
+    let id_of_fsig = function
+      | FUntyped { func_id ; _ } -> func_id
+      | FTyped { func_id ; _ } -> func_id
+    in
+    let ids =
+      match stmt with
+      | SUntyped { var ; _ } -> [ var ]
+      | STyped { typed_var = { var ; _ } ; _ } -> [ var ]
+      | SFun fsig -> [ id_of_fsig fsig ]
+      | SFunRec fsigs -> List.map fsigs ~f:id_of_fsig
+    in
+    List.filter ids ~f:(fun id -> not @@ Ident.equal id Reserved.catchall)
+
+  let stmt_to_expr (type a) (stmt : a statement) (cont : a Expr.t) : a Expr.t =
+    match stmt with
+    | SUntyped { var ; body } ->
+      ELet { var ; body ; cont = cont }
+    | STyped { typed_var ; body ; do_wrap ; do_check } ->
+      ELetTyped { typed_var ; body ; cont ; do_wrap ; do_check }
+    | SFun fsig ->
+      ELetFun { func = fsig ; cont }
+    | SFunRec fsigs ->
+      ELetFunRec { funcs = fsigs ; cont }
+
+  let rec pgm_to_expr_with_cont : type a. a Expr.t -> a statement list -> a Expr.t =
+    fun cont -> function
+    | [] -> cont
+    | hd :: tl ->
+      let cont = pgm_to_expr_with_cont cont tl in
+      stmt_to_expr hd cont
+
+  let pgm_to_module : type a. a statement list -> a Expr.t =
+    fun pgm ->
+      let res = ERecord (
+        pgm
+        |> List.bind ~f:ids_of_stmt
+        |> List.fold ~init:RecordLabel.Map.empty ~f:(fun acc id ->
+          Map.set acc ~key:(RecordLabel id) ~data:(EVar id)
+        )
+      ) 
+      in 
+      pgm_to_expr_with_cont res pgm
 end
 
 module Function_components = struct

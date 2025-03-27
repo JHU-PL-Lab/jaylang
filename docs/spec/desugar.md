@@ -262,11 +262,14 @@ Notes:
 
 ```ocaml
 [| struct let l_1 = e_1 ... let l_n = e_n end |] =
-  let l_1 = [| e_1 |] in
-  ...
-  let l_n = [| e_n |] in
-  { l_1 = l_1 ; ... ; l_n = l_n }
+  [| let l_1 = e_1 in
+    ...
+    let l_n = e_n in 
+    { l_1 = l_1 ; ... ; l_n = l_n } |]
 ```
+
+Notes:
+* These "lets" are any statement and get desugared as such, even if it's not written well here. That is, the list of statements are transformed into this sequence of let-expressions, and that new expression is desugared.
 
 ## Pattern matching
 

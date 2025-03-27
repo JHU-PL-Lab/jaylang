@@ -194,7 +194,7 @@ module Expr = struct
     | ETypeTop : 'a bluejay_or_desugared t
     | ETypeBottom : 'a bluejay_or_desugared t
     | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
-    | ETypeRecordD : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
+    | ETypeModule : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
     | ETypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
     | ETypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
     | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
@@ -208,7 +208,7 @@ module Expr = struct
     | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
     | EList : 'a t list -> 'a bluejay_only t
     | EListCons : 'a t * 'a t -> 'a bluejay_only t
-    | ERecordD : (RecordLabel.t * 'a t) list -> 'a bluejay_only t
+    | EModule : 'a statement list -> 'a bluejay_only t
     | EAssert : 'a t -> 'a bluejay_only t
     | EAssume : 'a t -> 'a bluejay_only t
     | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_only t
@@ -233,12 +233,8 @@ module Expr = struct
 
   (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
   and ('a, 'p) typed_fun = { type_vars : Ident.t list ; func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
-end
 
-module Program = struct
-  open Expr
-
-  type _ statement =
+  and _ statement =
     (* all *)
     | SUntyped : { var : Ident.t ; body : 'a t } -> 'a statement
     (* bluejay or desugared *)
@@ -246,45 +242,26 @@ module Program = struct
     (* bluejay only *)
     | SFun : 'a funsig -> 'a bluejay_only statement
     | SFunRec : 'a funsig list -> 'a bluejay_only statement
+end
+
+module Program = struct
+  open Expr
 
   type 'a t = 'a statement list
-
-  let stmt_to_expr (type a) (stmt : a statement) (cont : a Expr.t) : a Expr.t =
-    match stmt with
-    | SUntyped { var ; body } ->
-      ELet { var ; body ; cont = cont }
-    | STyped { typed_var ; body ; do_wrap ; do_check } ->
-      ELetTyped { typed_var ; body ; cont ; do_wrap ; do_check }
-    | SFun fsig ->
-      ELetFun { func = fsig ; cont }
-    | SFunRec fsigs ->
-      ELetFunRec { funcs = fsigs ; cont }
-
-  let rec to_expr_with_cont : type a. a Expr.t -> a statement list -> a Expr.t =
-    fun cont -> function
-    | [] -> cont
-    | hd :: tl ->
-      let cont = to_expr_with_cont cont tl in
-      stmt_to_expr hd cont
-
-
-  let to_expr : type a. a statement list -> a Expr.t =
-    fun pgm ->
-      to_expr_with_cont (ERecord RecordLabel.Map.empty) pgm
 end
 
 module Embedded = struct
   type t = embedded Expr.t
   type pgm = embedded Program.t
   type pattern = embedded Pattern.t
-  type statement = embedded Program.statement
+  type statement = embedded Expr.statement
 end
 
 module Desugared = struct
   type t = desugared Expr.t
   type pgm = desugared Program.t
   type pattern = desugared Pattern.t
-  type statement = desugared Program.statement
+  type statement = desugared Expr.statement
 end
 
 module Bluejay = struct
@@ -294,7 +271,7 @@ module Bluejay = struct
   type funsig = bluejay Expr.funsig
   type typed_var = bluejay Expr.typed_var
   type param = bluejay Expr.param
-  type statement = bluejay Program.statement
+  type statement = bluejay Expr.statement
 end
 
 module Parsing_tools = struct

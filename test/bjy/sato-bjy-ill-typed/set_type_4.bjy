@@ -12,7 +12,7 @@ let rec testFun l =
 
 let userinput = input
 
-let val = userinput
+let v = userinput
 
 let (x : { list int | testFun } ) =
-  [ val ; val ]
+  [ v ; v ]

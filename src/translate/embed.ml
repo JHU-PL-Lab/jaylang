@@ -127,7 +127,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     (* special cases *)
     | ERecord m -> Map.exists m ~f:loop
     | ETypeRecord m -> Map.exists m ~f:loop
-    | ETypeRecordD m -> List.fold_until m ~init:false ~f:(fun acc (label, e) ->
+    | ETypeModule m -> List.fold_until m ~init:false ~f:(fun acc (label, e) ->
         let RecordLabel label_id = label in
         let res = acc || loop e in
         if Ident.equal label_id id
@@ -185,7 +185,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       }
     (* Let *)
     | ELetTyped { typed_var ; body ; cont ; do_wrap ; do_check } ->
-      Program.stmt_to_expr (embed_statement (STyped { typed_var ; body ; do_wrap ; do_check })) (embed cont)
+      stmt_to_expr (embed_statement (STyped { typed_var ; body ; do_wrap ; do_check })) (embed cont)
     (* types *)
     | ETypeInt ->
       E.make
@@ -253,7 +253,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               )
             )
         ))
-    | ETypeRecordD ls ->
+    | ETypeModule ls ->
       E.make
         ~ask_for
         ~gen:(lazy (

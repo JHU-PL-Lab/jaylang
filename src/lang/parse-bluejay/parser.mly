@@ -203,7 +203,7 @@ record_type_or_refinement:
   | OPEN_BRACE l_ident COLON expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } : Bluejay.t }
   | OPEN_BRACE_COLON separated_nonempty_list(SEMICOLON, record_type_item) COLON_CLOSE_BRACE
-      { ETypeRecordD $2 : Bluejay.t }
+      { ETypeModule $2 : Bluejay.t }
 
 record_type_item:
   | record_label COLON expr
@@ -286,9 +286,9 @@ primary_expr:
   | OPEN_BRACE expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $2 ; predicate = $4 } : Bluejay.t }
   | SIG nonempty_list(val_item) END
-      { ETypeRecordD $2 : Bluejay.t }
-  | STRUCT nonempty_list(let_item) END
-      { ERecordD $2 : Bluejay.t }
+      { ETypeModule $2 : Bluejay.t }
+  | STRUCT statement_list END
+      { EModule $2 : Bluejay.t }
   | record_type_or_refinement
       { $1 : Bluejay.t }
   | primary_expr DOT record_label
@@ -355,10 +355,6 @@ param_list:
 /* val x : t (* for module types *) */
 val_item:
   | VAL record_type_item { $2 }
-
-/* let x_1 = e_1 (* for modules *) */
-let_item:
-  | LET record_label EQUALS expr { ($2, $4) }
 
 %inline record_label:
   | ident { RecordLabel.RecordLabel $1 }

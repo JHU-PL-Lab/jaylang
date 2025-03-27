@@ -143,23 +143,11 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ERecord record_body ->
       let%bind new_record = eval_record_body record_body in
       return (VRecord new_record)
-    | ERecordD e_ls ->
-      let%bind r =
-        let rec loop acc_m = function
-          | [] -> acc_m
-          | (label, e) :: tl ->
-            let%bind acc = acc_m in
-            let RecordLabel.RecordLabel id = label in
-            let%bind v = eval e in
-            local (Env.add id v) (loop (return @@ Map.set acc ~key:label ~data:v) tl)
-        in
-        loop (return RecordLabel.Map.empty) e_ls
-      in
-      return (VRecord r)
+    | EModule stmts -> eval (Ast_tools.Utils.pgm_to_module stmts)
     | ETypeRecord record_type_body ->
       let%bind new_record = eval_record_body record_type_body in
       return (VTypeRecord new_record)
-    | ETypeRecordD e_ls ->
+    | ETypeModule e_ls ->
       using_env @@ fun env ->
       VTypeRecordD (List.map e_ls ~f:(fun (label, tau) -> label, { expr = tau ; env = lazy env } ))
     | EThaw e ->
@@ -325,15 +313,12 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
 
   (run (eval e) () Env.empty)
   |> function
-    | Ok (r, ()) -> Format.printf "OK\n"; r
+    | Ok (r, ()) -> Format.printf "OK:\n  %s\n" (V.to_string r); r
     | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
     | Error Abort -> Format.printf "FOUND ABORT\n"; VAbort
     | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge
     | Error Unbound_variable Ident s -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
 
 let eval_pgm (type a) (pgm : a Program.t) : a V.t =
-  pgm
-  |> Program.to_expr
-  |> eval_exp
-
-
+  eval_exp
+  @@ Ast_tools.Utils.pgm_to_module pgm
