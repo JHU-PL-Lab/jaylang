@@ -74,6 +74,9 @@ rule token = parse
 | "type"               { TYPE }
 | "Mu"                 { MU }
 | "list"               { LIST }
+| "sig"                { SIG }
+| "struct"             { STRUCT }
+| "val"                { VAL }
 | "+"                  { PLUS }
 | "-"                  { MINUS }
 | "*"                  { ASTERISK }

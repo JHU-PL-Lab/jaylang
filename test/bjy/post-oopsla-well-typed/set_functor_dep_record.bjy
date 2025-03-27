@@ -1,5 +1,10 @@
 
-let T = {: t : type ; elt : type ; empty : t ; add : t -> elt -> t :}
+let T = sig
+  val t : type
+  val elt : type
+  val empty : t
+  val add : t -> elt -> t
+end
 
 let F (X <- T) : { of_list : list X.elt -> X.t } =
   { of_list = fun ls -> 

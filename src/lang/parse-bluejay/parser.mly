@@ -57,6 +57,9 @@
 %token TYPE
 %token MU
 %token LIST
+%token SIG
+%token STRUCT
+%token VAL
 %token PLUS
 %token MINUS
 %token ASTERISK
@@ -244,6 +247,7 @@ appl_expr:
   | primary_expr { $1 : Bluejay.t }
 ;
 
+
 /* In a primary_expr, only primitives, vars, records, and lists do not need
    surrounding parentheses. */
 primary_expr:
@@ -281,6 +285,14 @@ primary_expr:
       { $2 }
   | OPEN_BRACE expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $2 ; predicate = $4 } : Bluejay.t }
+  | SIG nonempty_list(val_item) END
+      { ETypeRecordD $2 : Bluejay.t }
+  | STRUCT nonempty_list(let_item) END
+      { ERecord (
+        Core.List.fold $2 ~init:empty_record ~f:(fun acc (label, body) ->
+            add_record_entry label body acc 
+        )
+      ) : Bluejay.t }
   | record_type_or_refinement
       { $1 : Bluejay.t }
   | primary_expr DOT record_label
@@ -343,6 +355,14 @@ param_list:
   | l_ident param_list { $1 :: $2 }
   | l_ident { [ $1 ] }
 ;
+
+/* val x : t (* for module types *) */
+val_item:
+  | VAL record_type_item { $2 }
+
+/* let x_1 = e_1 (* for modules. TODO: make this dependent! It currently is just another syntax for records *) */
+let_item:
+  | LET record_label EQUALS expr { ($2, $4) }
 
 %inline record_label:
   | ident { RecordLabel.RecordLabel $1 }
