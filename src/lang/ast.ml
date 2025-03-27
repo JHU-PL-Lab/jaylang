@@ -208,6 +208,7 @@ module Expr = struct
     | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
     | EList : 'a t list -> 'a bluejay_only t
     | EListCons : 'a t * 'a t -> 'a bluejay_only t
+    | ERecordD : (RecordLabel.t * 'a t) list -> 'a bluejay_only t
     | EAssert : 'a t -> 'a bluejay_only t
     | EAssume : 'a t -> 'a bluejay_only t
     | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_only t

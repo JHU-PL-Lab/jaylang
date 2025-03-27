@@ -288,11 +288,7 @@ primary_expr:
   | SIG nonempty_list(val_item) END
       { ETypeRecordD $2 : Bluejay.t }
   | STRUCT nonempty_list(let_item) END
-      { ERecord (
-        Core.List.fold $2 ~init:empty_record ~f:(fun acc (label, body) ->
-            add_record_entry label body acc 
-        )
-      ) : Bluejay.t }
+      { ERecordD $2 : Bluejay.t }
   | record_type_or_refinement
       { $1 : Bluejay.t }
   | primary_expr DOT record_label
@@ -360,7 +356,7 @@ param_list:
 val_item:
   | VAL record_type_item { $2 }
 
-/* let x_1 = e_1 (* for modules. TODO: make this dependent! It currently is just another syntax for records *) */
+/* let x_1 = e_1 (* for modules *) */
 let_item:
   | LET record_label EQUALS expr { ($2, $4) }
 

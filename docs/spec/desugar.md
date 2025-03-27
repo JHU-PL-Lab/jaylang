@@ -258,6 +258,16 @@ Notes:
   V_i [| e |]
 ```
 
+## Dependent record / module
+
+```ocaml
+[| struct let l_1 = e_1 ... let l_n = e_n end |] =
+  let l_1 = [| e_1 |] in
+  ...
+  let l_n = [| e_n |] in
+  { l_1 = l_1 ; ... ; l_n = l_n }
+```
+
 ## Pattern matching
 
 ```ocaml

@@ -143,6 +143,19 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ERecord record_body ->
       let%bind new_record = eval_record_body record_body in
       return (VRecord new_record)
+    | ERecordD e_ls ->
+      let%bind r =
+        let rec loop acc_m = function
+          | [] -> acc_m
+          | (label, e) :: tl ->
+            let%bind acc = acc_m in
+            let RecordLabel.RecordLabel id = label in
+            let%bind v = eval e in
+            local (Env.add id v) (loop (return @@ Map.set acc ~key:label ~data:v) tl)
+        in
+        loop (return RecordLabel.Map.empty) e_ls
+      in
+      return (VRecord r)
     | ETypeRecord record_type_body ->
       let%bind new_record = eval_record_body record_type_body in
       return (VTypeRecord new_record)
