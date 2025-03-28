@@ -3,22 +3,18 @@
   (typing Ill_typed)
 ) *)
 
-let F (tf <- type -> type) (a <- type) : 
-  { empty : unit -> tf a (* ERROR: all of these `tf a` are different *)
-  ;  add   : a -> tf a -> tf a
-  }
-  ->
-  { of_list : list a -> tf a
-  }
-  =
-  fun r ->
-    { of_list =
-      fun ls ->
-        let rec loop acc ls =
-          match ls with
-          | [] -> acc
-          | hd :: tl -> loop (r.add hd acc) tl
-          end
-        in
-        loop (r.empty {}) ls
-    }
+let F (tf <- type -> type) (a <- type) : sig
+  val empty : unit -> tf a (* ERROR: all of these `tf a` are different *)
+  val add   : a -> tf a -> tf a
+end -> sig
+  val of_list : list a -> tf a
+end = fun r -> struct
+  let of_list ls =
+    let rec loop acc ls =
+      match ls with
+      | [] -> acc
+      | hd :: tl -> loop (r.add hd acc) tl
+      end
+    in
+    loop (r.empty {}) ls
+end

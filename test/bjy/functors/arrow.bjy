@@ -33,35 +33,45 @@
   Note that until we implement the nonces (or similar idea), this code will not typecheck; it will be called ill-typed by the system.
 *)
 
-let (tup : type -> type -> type) =
-  fun a b -> 
-    { left : a
-    ; right : b
-    }
+let T n = sig
+  val t : 
+    let rec loop i =
+      if i <= 0
+      then type
+      else type -> loop (i - 1)
+    in
+    loop n
+end
 
-let ARROW =
-  {: t : type -> type -> type
-   ; arr : (a : type) -> (b : type) -> (a -> b) -> t a b
-   ; fst : (a : type) -> (b : type) -> (d : type) -> t a b -> t (tup a d) (tup b d)
-   ; compose : (a : type) -> (b : type) -> (c : type) -> t b c -> t a b -> t a c
-  :}
+let Pair : T 2 = struct
+  let t a b =
+    { left : a
+    ; right : b }
+end
+
+let ARROW = sig
+  val t : type -> type -> type
+  val arr : (a : type) -> (b : type) -> (a -> b) -> t a b
+  val fst : (a : type) -> (b : type) -> (d : type) -> t a b -> t (Pair.t a d) (Pair.t b d)
+  val compose : (a : type) -> (b : type) -> (c : type) -> t b c -> t a b -> t a c
+end
 
 let (Make_split : (A : ARROW) ->
   { split :
     (a : type) -> (b : type) -> (c : type) -> (d : type) ->
-      A.t a b -> A.t c d -> A.t (tup a c) (tup b d)
+      A.t a b -> A.t c d -> A.t (Pair.t a c) (Pair.t b d)
   } )
   = fun A ->
     { split =
         fun a b c d ->
           fun ab cd ->
             let swap r = { left = r.right ; right = r.left } in
-            let (arr_swap : (x : type) -> (y : type) -> A.t (tup x y) (tup y x)) =
-              fun x y -> A.arr (tup x y) (tup y x) swap in 
+            let (arr_swap : (x : type) -> (y : type) -> A.t (Pair.t x y) (Pair.t y x)) =
+              fun x y -> A.arr (Pair.t x y) (Pair.t y x) swap in 
             let ac_bc = A.fst a b c ab in
-            let ac_cb = A.compose (tup a c) (tup b c) (tup c b) (arr_swap b c) ac_bc in
+            let ac_cb = A.compose (Pair.t a c) (Pair.t b c) (Pair.t c b) (arr_swap b c) ac_bc in
             let cb_db = A.fst c d b cd in
-            let ac_db = A.compose (tup a c) (tup c b) (tup d b) cb_db ac_cb in
-            let ac_bd = A.compose (tup a c) (tup d b) (tup b d) (arr_swap d b) ac_db in
+            let ac_db = A.compose (Pair.t a c) (Pair.t c b) (Pair.t d b) cb_db ac_cb in
+            let ac_bd = A.compose (Pair.t a c) (Pair.t d b) (Pair.t b d) (arr_swap d b) ac_db in
             ac_bd
     }

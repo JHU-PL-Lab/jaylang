@@ -1,34 +1,30 @@
 
-let (F : (tf : type -> type) -> (a : type) ->
-  let t = tf a in
-  { empty : unit -> t
-  ;  add   : a -> t -> t
-  }
-  ->
-  { empty   : unit -> t
-  ; add     : a -> t -> t
-  ; of_list : list a -> t
-  })
-  =
-  fun tf a r ->
-    { empty = r.empty
-    ; add = r.add
-    ; of_list =
-      fun ls ->
-        let rec loop acc ls =
-          match ls with
-          | [] -> acc
-          | hd :: tl -> loop (r.add hd acc) tl
-          end
-        in
-        loop (r.empty {}) ls
-    }
+let (F : (tf : type -> type) -> (a : type) -> let t = tf a in sig
+  val empty : unit -> t
+  val add   : a -> t -> t
+end -> sig
+  val empty : unit -> t
+  val add   : a -> t -> t
+  val of_list : list a -> t
+end) = fun tf a M -> struct
+  let empty = M.empty
+  let add = M.add
+  let of_list ls =
+    let rec loop acc ls =
+      match ls with
+      | [] -> acc
+      | hd :: tl -> loop (M.add hd acc) tl
+      end
+    in
+    loop (M.empty {}) ls
+end
 
-let M =
-  let r = 
-    { tf = fun a -> list a
-    ; a  = int
-    ; empty = fun mt -> [] 
-    ; add   = fun a ls -> a :: ls }
+let X =
+  let M = struct
+    let tf a = list a
+    let a = int
+    let empty _ = []
+    let add a ls = a :: ls
+  end
   in
-  F r.tf r.a r
+  F M.tf M.a M

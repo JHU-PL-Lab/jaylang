@@ -64,94 +64,88 @@ We might include something like this:
 
 *)
 
-let Id = 
-  let get =
-    fun x ->
-      match x with
-      | `Id i -> i
+let Id = struct
+  let t = ``Id int
+
+  let get x =
+    match x with
+    | `Id i -> i
+    end
+
+  let make i = `Id i
+
+  let eq i1 i2 =
+    get i1 == get i2
+
+  let initial = `Id 0
+end
+
+let Poly_map = struct
+  let t =
+    list
+      {: key : Id.t
+      ; t    : type
+      ; data : t
+      :}
+
+  let empty = []
+
+  let set map key data_t data = 
+    let item = { key = key ; t = data_t ; data = data } in
+    let rec insert ls =
+      match ls with
+      | [] -> [ item ]
+      | hd :: tl ->
+        if Id.eq key hd.key
+        then item :: tl
+        else hd :: insert tl
       end
-  in
-  { t = ``Id int
-  ; get = get
-  ; make =
-      fun i ->
-        `Id i
-  ; eq = 
-      fun i1 -> fun i2 ->
-        get i1 == get i2
-  ; initial = `Id 0
-  }
+    in
+    insert map
 
-let Poly_map =
-  { t =
-      list
-        {: key : Id.t
-        ; t    : type
-        ; data : t
-        :}
-  ; empty = []
-  ; set = 
-      fun map -> fun key -> fun data_t -> fun data ->
-        let item = { key = key ; t = data_t ; data = data } in
-        let rec insert ls =
-          match ls with
-          | [] -> [ item ]
-          | hd :: tl ->
-            if Id.eq key hd.key
-            then item :: tl
-            else hd :: insert tl
-          end
-        in
-        insert map
-  ; find = 
-      fun map -> fun key ->
-        let rec look ls =
-          match ls with
-          | [] -> assume false
-          | hd :: tl ->
-            if Id.eq key hd.key (* ERROR idea: forgot to project key out of hd *)
-            then hd.data
-            else look tl
-          end
-        in
-        look map
-  ; size =
-      fun map ->
-        let rec length ls =
-          match ls with
-          | [] -> 0
-          | hd :: tl -> 1 + length tl
-          end
-        in
-        length map
-  }
+  let find map key = 
+    let rec look ls =
+      match ls with
+      | [] -> assume false
+      | hd :: tl ->
+        if Id.eq key hd.key (* ERROR idea: forgot to project key out of hd *)
+        then hd.data
+        else look tl
+      end
+    in
+    look map
 
-let state = 
-  let size =
-    fun t ->
-      Poly_map.size t.map
-  in
-  { t =
+  let rec size map =
+    match ls with
+    | [] -> 0
+    | hd :: tl -> 1 + size tl
+    end
+end
+
+let State = struct
+  let t =
     { map     : Poly_map.t
     ; next_id : Id.t
     }
-  ; size = size
-  ; is_progression =
-      fun t1 -> fun t2 ->
-        Id.get t2.next_id >= Id.get t1.next_id
-        and size t2 >= size t1 (* ERROR idea: I had accidentally switched the order of t1 and t2 in this *)
-  ; incr_id =
-      fun t ->
-        { map = t.map ; next_id = Id.make (Id.get t.next_id + 1) }
-  ; set_map =
-      fun t -> fun pm ->
-        { map = pm ; next_id = t.next_id }
-  ; initial = { map = Poly_map.empty ; next_id = Id.initial }
-  }
+
+  let size t = Poly_map.size t.map
+
+  let is_progression t1 t2 =
+    Id.get t2.next_id >= Id.get t1.next_id
+    and size t2 >= size t1 (* ERROR idea: I had accidentally switched the order of t1 and t2 in this *)
+
+  let incr_id t =
+    { map = t.map ; next_id = Id.make (Id.get t.next_id + 1) }
+
+  let set_map t pm =
+    { map = pm ; next_id = t.next_id }
+ 
+  let initial = { map = Poly_map.empty ; next_id = Id.initial }
+end
 
 let m a = 
-  (s : state.t) ->
-    { new_state : { state.t | state.is_progression s }
+  (s : State.t) ->
+    { new_state : { State.t | State.is_progression s }
     ; value     : a
     }
 
@@ -170,7 +164,7 @@ let read =
   fun s ->
     { new_state = s ; value = s }
 
-let run x = (x state.initial).value
+let run x = (x State.initial).value
 
 let modify f =
   fun s ->
@@ -182,7 +176,7 @@ let deref ref_id =
 
 let set_ref ref_id t v =
   modify (fun s ->
-    state.set_map 
+    State.set_map 
       s
       (Poly_map.set s.map ref_id t v)
   )
@@ -190,7 +184,7 @@ let set_ref ref_id t v =
 let new_ref t v =
   let%bind s = read in
   let new_id = s.next_id in
-  let%bind _ = modify state.incr_id in 
+  let%bind _ = modify State.incr_id in 
   let%bind _ = set_ref new_id t v in
   return new_id
 

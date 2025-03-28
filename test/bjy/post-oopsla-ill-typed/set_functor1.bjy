@@ -3,23 +3,18 @@
   (typing Ill_typed)
 ) *)
 
-let F (tf <- type -> type) (a <- type) : 
-  let t = tf a in
-  { empty : unit -> t
-  ;  add   : a -> t -> t
-  }
-  ->
-  { of_list : list a -> t
-  }
-  =
-  fun r ->
-    { of_list =
-      fun ls ->
-        let rec loop acc ls =
-          match ls with
-          | [] -> acc
-          | hd :: tl -> loop (r.add hd acc) tl
-          end
-        in
-        loop r.empty ls (* ERROR: forgot to apply empty record to r.empty *)
-    }
+let F (tf <- type -> type) (a <- type) : let t = tf a in sig
+  val empty : unit -> t
+  val add   : a -> t -> t
+end -> sig
+  val of_list : list a -> t
+end = fun r -> struct
+  let of_list ls =
+    let rec loop acc ls =
+      match ls with
+      | [] -> acc
+      | hd :: tl -> loop (r.add hd acc) tl
+      end
+    in
+    loop r.empty ls (* ERROR: forgot to apply empty record to r.empty *)
+end

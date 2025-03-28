@@ -43,12 +43,12 @@ end) = fun a ->
   let tf = fun a -> list a in
   let t = tf a in
   struct
-  let tf = tf
-  let a = a
-  let t = t
-  let empty = fun mt -> []
-  let add = fun a ls -> a :: ls
- end
+    let tf = tf
+    let a = a
+    let t = t
+    let empty = fun mt -> []
+    let add = fun a ls -> a :: ls
+  end
 
 let MM = F (M int)
 
