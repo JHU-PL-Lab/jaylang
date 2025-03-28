@@ -5,9 +5,9 @@
   (typing Ill_typed)
 ) *)
 
-let (t : type) = (((``A unit) -> int) && ((``B unit) -> int) && ((``C int) -> list int))
+let t : type = (((``A unit) -> int) && ((``B unit) -> int) && ((``C int) -> list int))
 
-let (obj : t) =
+let obj : t =
   let ob =
     fun self ->
       fun arg ->

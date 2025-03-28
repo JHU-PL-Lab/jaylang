@@ -1,12 +1,12 @@
 
-let (F : (tf : type -> type) -> (a : type) -> let t = tf a in sig
+let F : (tf : type -> type) -> (a : type) -> let t = tf a in sig
   val empty : unit -> t
   val add   : a -> t -> t
 end -> sig
   val empty : unit -> t
   val add   : a -> t -> t
   val of_list : list a -> t
-end) = fun tf a M -> struct
+end = fun tf a M -> struct
   let empty = M.empty
   let add = M.add
   let of_list ls =

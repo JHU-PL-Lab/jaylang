@@ -12,14 +12,14 @@
 
 let T = { t : type }
 
-let (F : (State : T) -> (Err : T) -> sig
+let F : (State : T) -> (Err : T) -> sig
   val m : type -> type
   val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b (* having `m b` twice is safe here *)
   val return : (a : type) -> a -> m a
   val fail   : (a : type) -> Err.t -> m a
   val read   : m State.t
   val modify : (State.t -> State.t) -> m unit
-end) =
+end =
   fun State Err -> struct
     let m = fun a -> (* a is the type parameter *)
       (r : type) -> (* r is the result forall type *)
@@ -74,4 +74,4 @@ let sum n =
     (fun res state -> res) (* extract result *)
     0 (* initial state *)
 
-let (x : { i : int | i == 6 }) = sum 3
+let x : { i : int | i == 6 } = sum 3

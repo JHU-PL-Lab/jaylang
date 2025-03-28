@@ -5,11 +5,11 @@
   (typing Ill_typed)
 ) *)
 
-let (coord : type) =
+let coord : type =
   { x : int
    ; y : int }
 
-let (t : type) = Mu tt.
+let t : type = Mu tt.
   { parent : (``Some tt || ``None int)
    ; relative_coord : coord }
 

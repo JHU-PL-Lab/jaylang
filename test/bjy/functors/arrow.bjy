@@ -56,17 +56,16 @@ let ARROW = sig
   val compose : (a : type) -> (b : type) -> (c : type) -> t b c -> t a b -> t a c
 end
 
-let (Make_split : (A : ARROW) ->
+let Make_split : (A : ARROW) ->
   { split :
     (a : type) -> (b : type) -> (c : type) -> (d : type) ->
       A.t a b -> A.t c d -> A.t (Pair.t a c) (Pair.t b d)
-  } )
-  = fun A ->
+  } = fun A ->
     { split =
         fun a b c d ->
           fun ab cd ->
             let swap r = { left = r.right ; right = r.left } in
-            let (arr_swap : (x : type) -> (y : type) -> A.t (Pair.t x y) (Pair.t y x)) =
+            let arr_swap : (x : type) -> (y : type) -> A.t (Pair.t x y) (Pair.t y x) =
               fun x y -> A.arr (Pair.t x y) (Pair.t y x) swap in 
             let ac_bc = A.fst a b c ab in
             let ac_cb = A.compose (Pair.t a c) (Pair.t b c) (Pair.t c b) (arr_swap b c) ac_bc in

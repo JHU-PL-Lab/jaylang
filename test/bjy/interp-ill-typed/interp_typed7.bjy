@@ -206,7 +206,7 @@ let is_closed_and_well_typed e =
   don't have types on subst.
 *)
 let subst e id v =
-  let (_ : Value.t) = v in
+  let _ : Value.t = v in
   let rec sub e =
     let sub_pair p =
       { left = sub p.left

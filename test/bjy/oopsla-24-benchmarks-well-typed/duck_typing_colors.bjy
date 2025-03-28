@@ -1,12 +1,12 @@
 (*** (
   (features (Higher_order_functions OOP_style Refinement_types Dependent_types Records))
 ) *)
-let (Color : { t : type }) =
+let Color : { t : type } =
   { t =
     { int | fun i -> i >= 0 and i < 256 }
   }
 
-let (Point : { t : type }) =
+let Point : { t : type } =
   { t =
     { x : int
     ; y : int
@@ -14,7 +14,7 @@ let (Point : { t : type }) =
     }
   }
 
-let (Colored_point : { t : type }) =
+let Colored_point : { t : type } =
   { t =
     { x : int
     ; y : int
@@ -22,7 +22,7 @@ let (Colored_point : { t : type }) =
     ; c : Color.t }
   }
 
-let (obj : Colored_point.t) =
+let obj : Colored_point.t =
   let ob =
     fun self ->
       { x = 10

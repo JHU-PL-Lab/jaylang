@@ -5,8 +5,8 @@
 
 (* This function is well-typed, and it has a negative forall. *)
 let f (g : (a : type) -> a -> a) : int =
-  let (_ : int) = g int 0 in
-  let (_ : bool) = g bool true in
+  let _ : int = g int 0 in
+  let _ : bool = g bool true in
   0
 
 (*
@@ -20,7 +20,7 @@ let f (g : (a : type) -> a -> a) : int =
 *)
 
 (* Here is an example usage *)
-let (g : ((a : type) -> a -> a)) = fun a x -> x
+let g : ((a : type) -> a -> a) = fun a x -> x
 
 let x = f g
 

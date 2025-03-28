@@ -5,7 +5,7 @@
   (typing Ill_typed)
 ) *)
 
-let (t : type -> type -> int -> type) =
+let t : type -> type -> int -> type =
   fun a b i ->
     if i % 2 == 0
     then b

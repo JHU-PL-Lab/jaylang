@@ -2,7 +2,9 @@
   (features (Variants Mu_types Records))
 ) *)
 
-let tree_type = Mu tt. (``Node { left : tt; right : tt } || ``Leaf { leaf : int })
+let tree_type = Mu tt.
+  ``Node { left : tt; right : tt }
+  || ``Leaf { leaf : int }
 
-let (x : tree_type) = 
+let x : tree_type = 
   `Node { left = `Leaf { leaf = 0 } ; right = `Leaf { leaf = 0 } }

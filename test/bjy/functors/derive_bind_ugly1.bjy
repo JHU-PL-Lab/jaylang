@@ -35,7 +35,7 @@ let BASIC = (a : type) -> (b : type) ->
   ;  return : a -> ma
   :}
 
-let (Id_example : BASIC) = fun a b ->
+let Id_example : BASIC = fun a b ->
   let m a = ``Id a in
   { m = m
   ; ma = m a

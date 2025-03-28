@@ -3,7 +3,7 @@
 ) *)
 (* functions on records *)
 
-let (t : type) = ({ a : int ; b : bool } -> { x : list int }) -> { y : list bool }
+let t : type = ({ a : int ; b : bool } -> { x : list int }) -> { y : list bool }
 
 let f (a : { a : int ; b : bool } -> { x : list int }) : { y : list bool } =
   match (a { a = 0 ; b = false }).x with
@@ -11,4 +11,4 @@ let f (a : { a : int ; b : bool } -> { x : list int }) : { y : list bool } =
   | hd :: tl -> if hd == 0 then { y = [ false ] } else { y = [ true ] }
   end
 
-let (g : t) = f
+let g : t = f

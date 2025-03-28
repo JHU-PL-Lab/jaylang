@@ -5,9 +5,9 @@
   (typing Ill_typed)
 ) *)
 
-let (t : type) = ((``Int int) -> int) && ((``Bool bool) -> bool)
+let t : type = ((``Int int) -> int) && ((``Bool bool) -> bool)
 
-let (f : t) = 
+let f : t = 
   let g (type a_) (x : a_) : a_ =
     match x with
     | `Int i -> i + 1 (* ERROR: type casing on polymorphic type *)

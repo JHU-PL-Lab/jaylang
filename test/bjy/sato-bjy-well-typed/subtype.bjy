@@ -2,8 +2,8 @@
   (features (Higher_order_functions Subtyping Records))
 ) *)
 
-let fun_sig = { a : int; b: int } -> int
+let fun_sig = { a : int ; b : int } -> int
 
 let f (x : { a : int }) : int = x.a
 
-let (type_check : fun_sig) = f
+let _ : fun_sig = f

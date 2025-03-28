@@ -24,4 +24,4 @@ let rec loop x =
   then return int 0
   else bind unit int (return unit {}) (fun _ -> loop (x - 1))
 
-let (_ : { i : m int | i == 0 }) = loop 10
+let _ : { i : m int | i == 0 } = loop 10

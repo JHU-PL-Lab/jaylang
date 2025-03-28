@@ -188,7 +188,7 @@ let new_ref t v =
   let%bind _ = set_ref new_id t v in
   return new_id
 
-let (res : { i : int | i == 10 }) =
+let res : { i : int | i == 10 } =
   run (
     let%bind ref0_id = new_ref int 2 in
     let%bind ref1_id = new_ref int 3 in

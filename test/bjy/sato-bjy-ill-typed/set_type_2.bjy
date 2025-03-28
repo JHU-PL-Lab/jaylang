@@ -5,5 +5,5 @@
   (typing Ill_typed)
 ) *)
 
-let (x : { int | fun a -> (fun b -> 0 > b) a}) =
+let x : { int | fun a -> (fun b -> 0 > b) a } =
   1

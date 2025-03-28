@@ -2,4 +2,4 @@
   (features ())
 ) *)
 
-let (x : list int) = [1]
+let x : list int = [1]

@@ -1,6 +1,6 @@
 (* This is a set functor where we can pass in a generic set module 
 to extend, not one that works on only e.g. ints.   *)
-let (F : 
+let F : 
     (S : sig
       val tf : type -> type 
       val a : type
@@ -14,7 +14,7 @@ let (F :
       val empty   : unit -> S.t
       val add     : S.a -> S.t -> S.t
       val of_list : list S.a -> S.t
-    end)
+    end
   =
   fun S -> struct
     let tf = S.tf
@@ -33,13 +33,13 @@ let (F :
         loop (S.empty {}) ls
   end
 
-let (M : (a : type) -> sig
+let M : (a : type) -> sig
   val tf : type -> type 
   val a : type
   val t : singlet (tf a)
   val empty : unit -> t
   val add   : a -> t -> t
-end) = fun a ->
+end = fun a ->
   let tf = fun a -> list a in
   let t = tf a in
   struct
@@ -52,10 +52,10 @@ end) = fun a ->
 
 let MM = F (M int)
 
-let (r : MM.t) = MM.add 1 (MM.add 2 (MM.empty {}))
+let r : MM.t = MM.add 1 (MM.add 2 (MM.empty {}))
 
-let (r2 : (MM.tf) int) = MM.of_list ([1;2;3;4;5;6;7])
+let r2 : (MM.tf) int = MM.of_list ([1;2;3;4;5;6;7])
 
-let (x : MM.a) = 0
+let x : MM.a = 0
 
-let (list_is_visible : MM.t) = [2]
+let list_is_visible : MM.t = [2]

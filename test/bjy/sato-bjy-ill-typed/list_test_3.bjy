@@ -5,4 +5,4 @@
   (typing Ill_typed)
 ) *)
 
-let (lst : list int) = [true]
+let lst : list int = [true]

@@ -14,5 +14,5 @@ let userinput = input
 
 let v = userinput
 
-let (x : { list int | testFun } ) =
+let x : { list int | testFun }  =
   [ v ; v ]

@@ -6,12 +6,12 @@
 ) *)
 (* The well-typed version of this is the same as the well-typed of duck_typing_colors1 *)
 
-let (Color : { t : type }) =
+let Color : { t : type } =
   { t =
     { int | fun i -> i >= 0 and i < 256 }
   }
 
-let (Point : { t : type }) =
+let Point : { t : type } =
   { t =
     { x : int
     ; y : int
@@ -19,7 +19,7 @@ let (Point : { t : type }) =
     }
   }
 
-let (Colored_point : { t : type }) =
+let Colored_point : { t : type } =
   { t =
     { x : int
     ; y : int
@@ -27,7 +27,7 @@ let (Colored_point : { t : type }) =
     ; c : Color.t }
   }
 
-let (obj : Colored_point.t) =
+let obj : Colored_point.t =
   let ob =
     fun self ->
       { x = 10

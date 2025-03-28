@@ -11,4 +11,4 @@ let t = ({ a : int ; b : int } -> int) -> int
 let f (h : { a : int } -> int) : int =
   0
 
-let (g : t) = f (* ERROR: f is supertype of t; not subtype *)
+let g : t = f (* ERROR: f is supertype of t; not subtype *)

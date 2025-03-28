@@ -4,11 +4,11 @@
 (* Note: error is found quickly when we use uniform target sampling; 70 conditionals deep; 1 increment *)
 (* However; the error is not found to only 50 deep; which is our standard *)
 
-let (coord : type) =
+let coord : type =
   { x : int
   ; y : int }
 
-let (t : type) = Mu tt.
+let t : type = Mu tt.
   { parent : (``Some tt || ``None int)
   ; relative_coord : coord }
 

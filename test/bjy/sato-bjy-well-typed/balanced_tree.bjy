@@ -28,7 +28,7 @@ let tree_type = Mu tt.
   || ``Leaf { leaf : int }
   )
 
-let (x : { tree_type | is_balanced }) = 
+let x : { tree_type | is_balanced } = 
   `Node
   { left = 
     `Node { left = 

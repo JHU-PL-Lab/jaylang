@@ -29,5 +29,5 @@ let adapter obj =
   in
   s s
 
-let (x : int_wrapper) = (adapter obj).square { value = 36 }
+let x : int_wrapper = (adapter obj).square { value = 36 }
  

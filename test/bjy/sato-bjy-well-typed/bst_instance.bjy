@@ -34,7 +34,7 @@ let tree_type = Mu tt.
   || ``Leaf { leaf : bool }
   )
 
-let (x : { tree_type | is_bst }) = 
+let x : { tree_type | is_bst } = 
   `Node { left = 
           `Node { left = `Leaf { leaf = true }
                 ; right = `Leaf { leaf = true }

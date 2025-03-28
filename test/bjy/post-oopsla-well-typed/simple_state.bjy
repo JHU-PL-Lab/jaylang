@@ -11,7 +11,7 @@ let bind (type a b) (x : m a) (f : a -> m b) : m b =
 let modify (f : s -> s) : m unit =
   fun s -> { state = f s ; body = {} }
 
-let (read : m s) =
+let read : m s =
   fun s -> { state = s ; body = s }
 
 let sum n =
@@ -27,7 +27,7 @@ let sum n =
   in
   (loop n 0).body
 
-let (x : { i : int | i == 55 }) = sum 10
+let x : { i : int | i == 55 } = sum 10
 
 (*
   The following program is REALLY slow (and the above is also quite slow) due to wrapping.
