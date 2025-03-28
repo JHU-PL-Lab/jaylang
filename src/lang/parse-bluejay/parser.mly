@@ -128,6 +128,8 @@ statement_list:
   | statement statement_list { $1 :: $2 }
 
 statement:
+  | LET l_ident COLON expr EQUALS expr
+      { STyped { typed_var = { var = $2 ; tau = $4 } ; body = $6 ; do_wrap = true ; do_check = true } : Bluejay.statement }
   | LET l_ident EQUALS expr
       { SUntyped { var = $2 ; body = $4 } : Bluejay.statement }
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr
@@ -154,6 +156,8 @@ expr:
   | FUNCTION l_ident param_list ARROW expr %prec prec_fun
       { EMultiArgFunction { params = $2 :: $3 ; body = $5 } : Bluejay.t }
   // Let
+  | LET l_ident COLON expr EQUALS expr IN expr %prec prec_let
+      { ELetTyped { typed_var = { var = $2 ; tau = $4 } ; body = $6 ; cont = $8 ; do_wrap = true ; do_check = true } : Bluejay.t }
   | LET l_ident EQUALS expr IN expr %prec prec_let
       { ELet { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
   | LET_BIND l_ident EQUALS expr IN expr %prec prec_let
