@@ -124,7 +124,7 @@ module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
     | VTypeMu { var = Ident s ; _ } -> Format.sprintf "(Mu %s. <expr>)" s
     | VTypeVariant ls ->
       Format.sprintf "(%s)"
-        (String.concat ~sep: "|| " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(``%s (%s))" s (to_string tau)))
+        (String.concat ~sep: "| " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(`%s of %s)" s (to_string tau)))
 end
 
 module Constrain (C : sig type constrain end) (Store : STORE) (Cell : T1) (V : V) = struct

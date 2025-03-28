@@ -24,8 +24,8 @@ end
 
 let Tree : T 1 = struct
   let t a = Mu t.
-    ``Node (Node.t a t)
-    || ``Leaf (Leaf.t a)
+    `Node of Node.t a t
+    | `Leaf of Leaf.t a
 end
 
 let Visitor : T 2 = struct

@@ -13,11 +13,11 @@
 (* NOTE: the current seed is just unlucky on this one. That's all. *)
 
 let t : type = Mu tt. 
-  ``Leaf int
-  ||  ``Node { left : tt
-             ; right : tt
-             ; item : int
-             }
+  `Leaf of int
+  | `Node of { left : tt
+              ; right : tt
+              ; item : int
+              }
 
 let empty = `Leaf 00
 

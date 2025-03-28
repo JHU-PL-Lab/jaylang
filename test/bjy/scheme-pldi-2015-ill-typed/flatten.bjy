@@ -7,8 +7,8 @@
 (* flatten the input down to just a list of ints and bools *)
 
 let any_type a = Mu tt.
-  ``L (list tt)
-  || ``A a
+  `L of list tt
+  | `A of a
 
 let rec append a b =
   match a with

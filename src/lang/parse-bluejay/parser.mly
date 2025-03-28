@@ -29,7 +29,7 @@
 %token DOUBLE_COLON
 %token UNDERSCORE
 %token PIPE
-%token DOUBLE_PIPE
+// %token DOUBLE_PIPE
 %token DOUBLE_AMPERSAND
 %token FUNCTION
 %token WITH
@@ -60,6 +60,7 @@
 %token SIG
 %token STRUCT
 %token VAL
+%token OF
 %token PLUS
 %token MINUS
 %token ASTERISK
@@ -181,7 +182,7 @@ type_expr:
       { ETypeArrow { domain = $1 ; codomain = $3 } : Bluejay.t }
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN ARROW expr
       { ETypeArrowD { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
-  | separated_nonempty_list(DOUBLE_PIPE, single_variant_type)
+  | separated_nonempty_list(PIPE, single_variant_type)
       { ETypeVariant $1 : Bluejay.t }
   (* we need at least two here because otherwise it is just an arrow with a single variant type *)
   | separated_at_least_two_list(DOUBLE_AMPERSAND, single_intersection_type)
@@ -194,7 +195,7 @@ single_intersection_type:
       { let (a, b) = $3 in (a, b, $6) }
 
 single_variant_type:
-  | variant_type_label expr %prec prec_variant { $1, $2 }
+  | variant_type_label OF expr %prec prec_variant { $1, $3 }
 
 record_type_or_refinement:
   (* exactly one label *)
@@ -392,7 +393,7 @@ variant_label:
 
 /* e.g. ``Variant int */ 
 variant_type_label:
-  | BACKTICK BACKTICK ident { VariantTypeLabel.VariantTypeLabel $3 }
+  | BACKTICK ident { VariantTypeLabel.VariantTypeLabel $2 }
 
 /* **** Pattern matching **** */
 

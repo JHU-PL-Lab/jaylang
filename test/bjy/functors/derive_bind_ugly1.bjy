@@ -36,7 +36,7 @@ let BASIC = (a : type) -> (b : type) ->
   :}
 
 let Id_example : BASIC = fun a b ->
-  let m a = ``Id a in
+  let m a = `Id of a in
   { m = m
   ; ma = m a
   ; mb = m b

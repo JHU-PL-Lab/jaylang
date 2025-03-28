@@ -33,7 +33,7 @@ end
 
 (* this works well *)
 let Id_example : BASIC = struct
-  let m a = ``Id a
+  let m a = `Id of a
 
   let map = fun a b x f ->
     match x with

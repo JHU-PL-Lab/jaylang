@@ -2,7 +2,7 @@
   (features (Variants Intersection_types Higher_order_functions OOP_style Records Return_type Match))
 ) *)
 
-let t : type = (((``A unit) -> int) && ((``B unit) -> int) && ((``C int) -> list int))
+let t : type = (((`A of unit) -> int) && ((`B of unit) -> int) && ((`C of int) -> list int))
 
 let obj : t =
   let ob =

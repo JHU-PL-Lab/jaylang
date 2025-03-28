@@ -6,7 +6,7 @@
 ) *)
 (* Polymorphic higher order function application is incorrect *)
 
-let sign = (``Even { even : bool } || ``Odd { odd : bool })
+let sign = (`Even of { even : bool } | `Odd of { odd : bool })
 
 let rec list_count (type a_) (ls : list a_) (f : a_ -> bool) : int =
   match ls with

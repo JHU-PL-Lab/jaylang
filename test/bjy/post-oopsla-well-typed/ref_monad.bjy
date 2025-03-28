@@ -53,19 +53,19 @@ Now I need to encode this with the ref monad
 We might include something like this:
 
   let data =
-    ``Diff
+    `Diff of
         {: cell : id.t     (* the id for the ref cell that this diff corresponds to *)
         ; t    : type
         ; val  : t       (* the value that got assigned to the ref cell during this diff *)
         ; gen  : int     (* the generation the diff was done in *)
         ; next : id.t    (* the id for the ref cell of the child of this node *)
         :}
-    || ``Mem unit          (* this node is what is currently stored in memory *)
+    | `Mem of unit          (* this node is what is currently stored in memory *)
 
 *)
 
 let Id = struct
-  let t = ``Id int
+  let t = `Id of int
 
   let get x =
     match x with

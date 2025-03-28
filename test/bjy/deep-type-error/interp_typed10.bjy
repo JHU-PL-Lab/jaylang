@@ -45,8 +45,8 @@ let Type : sig
   val is_int : t -> bool
 end = struct
   let t = Mu tt.
-    ``TArrow (Pair.t tt tt)
-    || ``TInt Nil.t
+    `TArrow of Pair.t tt tt
+    | `TInt of Nil.t
 
   let type_int = `TInt Nil.v
 
@@ -73,7 +73,7 @@ let Ident : sig
   val t : type
   val eq : t -> t -> bool
 end = struct
-  let t = ``Id int
+  let t = `Id of int
   let eq a b = 
     let x = match a with `Id i -> i end in
     let y = match b with `Id i -> i end in
@@ -82,26 +82,26 @@ end
 
 let Expr : T 0 = struct
   let t = Mu tt.
-    ``Int int
-    || ``Var Ident.t
-    || ``Function (Triple.t Ident.t Type.t tt)
-    || ``If_then_else (Triple.t tt tt tt)
-    || ``Plus (Pair.t tt tt)
-    || ``Minus (Pair.t tt tt)
-    || ``Equal (Pair.t tt tt)
-    || ``Appl (Pair.t tt tt)
+    `Int of int
+    | `Var of Ident.t
+    | `Function of Triple.t Ident.t Type.t tt
+    | `If_then_else of Triple.t tt tt tt
+    | `Plus of Pair.t tt tt
+    | `Minus of Pair.t tt tt
+    | `Equal of Pair.t tt tt
+    | `Appl of Pair.t tt tt
 end
 
 let Value : T 0 = struct
   let t =
-    ``Int int
-    || ``Function (Triple.t Ident.t Type.t Expr.t) 
+    `Int of int
+    | `Function of Triple.t Ident.t Type.t Expr.t
 end
 
 let Result = struct
   let t a =
-    ``Ok a 
-    || ``Error Nil.t
+    `Ok of a 
+    | `Error of Nil.t
 
   let bind x f = 
     match x with

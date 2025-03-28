@@ -41,7 +41,7 @@ rule token = parse
 | "::"                 { DOUBLE_COLON }
 | "_"                  { UNDERSCORE }
 | "|"                  { PIPE }
-| "||"                 { DOUBLE_PIPE }
+(* | "||"                 { DOUBLE_PIPE } *)
 | "&&"                 { DOUBLE_AMPERSAND }
 | "and"                { AND }
 | "or"                 { OR }
@@ -77,6 +77,7 @@ rule token = parse
 | "sig"                { SIG }
 | "struct"             { STRUCT }
 | "val"                { VAL }
+| "of"                 { OF }
 | "+"                  { PLUS }
 | "-"                  { MINUS }
 | "*"                  { ASTERISK }

@@ -5,12 +5,11 @@
 (* We check that the insert works on some tree instance. It doesn't ...  *)
 
 let t : type = Mu tt. 
-  (  ``Node { left : tt
-            ; right : tt
-            ; item : int
-            }
-  || ``Leaf int
-  )
+  `Node of { left : tt
+           ; right : tt
+           ; item : int
+           }
+  | `Leaf of int
 
 let empty = `Leaf 00
 

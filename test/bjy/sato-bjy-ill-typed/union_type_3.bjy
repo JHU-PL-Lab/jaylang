@@ -5,5 +5,5 @@
   (typing Ill_typed)
 ) *)
 
-let x : list (``I int || ``B bool) =
+let x : list (`I of int | `B of bool) =
   [{a = 1}]

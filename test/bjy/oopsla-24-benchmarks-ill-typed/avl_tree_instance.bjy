@@ -8,8 +8,8 @@
 (* We check that the insert works on some tree instance. It doesn't ...  *)
 
 let t : type = Mu tt. 
-  ``Leaf int
-  || ``Node { left : tt
+  `Leaf of int
+  | `Node of { left : tt
             ; right : tt
             ; item : int
             }

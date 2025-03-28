@@ -10,7 +10,7 @@ let coord : type =
    ; y : int }
 
 let t : type = Mu tt.
-  { parent : (``Some tt || ``None int)
+  { parent : (`Some of tt | `None of int)
    ; relative_coord : coord }
 
 let is_coord_nonzero c = 
