@@ -132,7 +132,7 @@ let State = struct
 
   let is_progression t1 t2 =
     Id.get t2.next_id >= Id.get t1.next_id
-    and size t2 >= size t1 (* ERROR idea: I had accidentally switched the order of t1 and t2 in this *)
+    && size t2 >= size t1 (* ERROR idea: I had accidentally switched the order of t1 and t2 in this *)
 
   let incr_id t =
     { map = t.map ; next_id = Id.make (Id.get t.next_id + 1) }

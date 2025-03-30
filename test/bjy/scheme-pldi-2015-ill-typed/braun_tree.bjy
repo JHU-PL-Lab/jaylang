@@ -21,8 +21,8 @@ let rec is_braun_tree x =
   | `Leaf l -> true
   | `Node node ->
     is_braun_tree node.l
-    and is_braun_tree node.r
-    and (size node.l == size node.r or size node.l == size node.r + 1)
+    && is_braun_tree node.r
+    && (size node.l == size node.r || size node.l == size node.r + 1)
   end
 
 let bt a = { t a | is_braun_tree }

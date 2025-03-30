@@ -22,7 +22,7 @@ let rec len ls =
   | hd :: tl -> 1 + len tl
   end
 
-let ngram : int -> type -> type = fun n a -> { list a | fun ls -> (len ls == n) and n >= 0 }
+let ngram : int -> type -> type = fun n a -> { list a | fun ls -> (len ls == n) && n >= 0 }
 
 let distribution : int -> type -> type = fun n a -> map (ngram (n - 1) a) (bag a)
 

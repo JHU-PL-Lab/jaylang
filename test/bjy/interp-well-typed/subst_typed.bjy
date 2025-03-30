@@ -57,7 +57,7 @@ end = struct
       match b with
       | `TArrow p2 ->
         eq p1.left p2.left
-        and eq p1.right p2.right
+        && eq p1.right p2.right
       | _ -> false
       end
     | `TInt _ ->
@@ -225,7 +225,7 @@ let typecheck e =
         Result.bind (tc p.right) (fun tau_right ->
           if
             Type.is_int tau_left
-            and Type.is_int tau_right
+            && Type.is_int tau_right
           then
             Result.return Type.type_int
           else
@@ -264,7 +264,7 @@ let set_eq ls1 ls2 eq =
     end
   in
   is_subset ls1 ls2
-  and is_subset ls2 ls1
+  && is_subset ls2 ls1
 
 (* after subst; the expression has the same free variables as e; minus id *)
 let subst (e <- Expr.t) (id <- Ident.t) (v : Value.t) : { new_expr : Expr.t |

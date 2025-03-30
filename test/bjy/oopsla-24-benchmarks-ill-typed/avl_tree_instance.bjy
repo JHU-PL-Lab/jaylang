@@ -104,7 +104,7 @@ let is_bst x =
   in
   is_increasing_strictly (to_list x [])
 
-let avl_tree = { tree : t | is_balanced tree and is_bst tree }
+let avl_tree = { tree : t | is_balanced tree && is_bst tree }
 
 let create_node item left right =
   `Node { item = item ; left = left ; right = right }
@@ -168,7 +168,6 @@ let rec insert tree i =
     rebalance i new_node
   end
 
-(* This on a correct `insert` gets exhausted between 600 and 700 branches in 18 seconds *)
 let res : avl_tree =
   let a =
     `Node {

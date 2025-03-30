@@ -57,7 +57,7 @@ end = struct
       match b with
       | `TArrow p2 ->
         eq p1.left p2.left
-        and eq p1.right p2.right
+        && eq p1.right p2.right
       | _ -> false
       end
     | `TInt _ ->
@@ -180,7 +180,7 @@ let typecheck e =
         Result.bind (tc p.right) (fun tau_right ->
           if
             Type.is_int tau_left
-            and Type.is_int tau_right
+            && Type.is_int tau_right
           then
             Result.return Type.type_int
           else

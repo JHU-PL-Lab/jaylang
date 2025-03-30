@@ -9,6 +9,6 @@ let rec all (type a_) (p : a_ -> bool) (xs : list a_) : bool =
   | x :: xss -> 
     match xss with
     | [] -> p x
-    | _ -> (p x) and (all a_ p xss)
+    | _ -> (p x) && (all a_ p xss)
     end
   end

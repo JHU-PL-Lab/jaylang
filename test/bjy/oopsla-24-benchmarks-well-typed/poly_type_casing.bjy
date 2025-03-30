@@ -2,7 +2,7 @@
   (features (Intersection_types Higher_order_functions Subtyping Type_casing Match))
 ) *)
 
-let t : type = ((`Int of int) -> int) && ((`Bool of bool) -> bool)
+let t : type = ((`Int of int) -> int) & ((`Bool of bool) -> bool)
 
 let f : t = 
   fun x ->

@@ -12,6 +12,6 @@ let rec all (type a_) (p : a_ -> a_) (xs : list a_) : bool =
   | x :: xss -> 
     match xss with
     | [] -> p x (* ERROR: this needs to be a boolean *)
-    | _ -> (p x) and (all a_ p xss)
+    | _ -> (p x) && (all a_ p xss)
     end
   end

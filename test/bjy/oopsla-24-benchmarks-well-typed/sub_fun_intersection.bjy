@@ -4,7 +4,7 @@
 (* subtyping of refined intersection type. *)
 (* wrap is helpful for catching error; but I'm not sure why *)
 
-let t : type = { ((`Int of int) -> int) && ((`Bool of bool) -> bool) | fun f -> f (`Bool true) }
+let t : type = { ((`Int of int) -> int) & ((`Bool of bool) -> bool) | fun f -> f (`Bool true) }
 
 (* this is a subtype of t *)
 let f : t =

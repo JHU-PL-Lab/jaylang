@@ -8,7 +8,7 @@
 
 let Color : { t : type } =
   { t =
-    { int | fun i -> i >= 0 and i < 256 }
+    { int | fun i -> i >= 0 && i < 256 }
   }
 
 let Common_state : { t : type } =

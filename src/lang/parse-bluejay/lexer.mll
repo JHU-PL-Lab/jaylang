@@ -41,10 +41,11 @@ rule token = parse
 | "::"                 { DOUBLE_COLON }
 | "_"                  { UNDERSCORE }
 | "|"                  { PIPE }
-(* | "||"                 { DOUBLE_PIPE } *)
+| "||"                 { DOUBLE_PIPE }
+| "&"                  { AMPERSAND }
 | "&&"                 { DOUBLE_AMPERSAND }
-| "and"                { AND }
-| "or"                 { OR }
+(* | "and"                { AND } *)
+(* | "or"                 { OR } *)
 | "not"                { NOT }
 | "int"                { INT_KEYWORD }
 | "bool"               { BOOL_KEYWORD }

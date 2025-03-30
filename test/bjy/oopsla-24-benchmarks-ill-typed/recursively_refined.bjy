@@ -14,10 +14,10 @@ let t : type = Mu tt.
    ; relative_coord : coord }
 
 let is_coord_nonzero c = 
-  not (c.x == 0) and not (c.y == 0)
+  not (c.x == 0) && not (c.y == 0)
 
 let coord_equal a b =
-  a.x == b.x and a.y == b.y
+  a.x == b.x && a.y == b.y
 
 let has_parent x = 
   match x.parent with

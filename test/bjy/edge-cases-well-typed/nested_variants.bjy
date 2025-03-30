@@ -1,0 +1,28 @@
+(*** (
+  (speed Slow)
+  (typing Well_typed)
+) *)
+
+(* See the indentation for how this parses *)
+
+let t = 
+  (x : `A of int | `B of bool) ->
+    match x with
+    | `A _ -> (
+        `C of bool
+      | `D of (* the following is the body of `D. That is, `Y is not on the same level as `C and `D *)
+          `X of bool
+        | `Y of int
+    )
+    | `B _ -> int
+    end
+
+let f (g : t) : bool =
+  match g (`A 0) with
+  | `C b -> b
+  | `D v ->
+    match v with
+    | `X b -> b
+    | `Y i -> i % 2 == 0
+    end
+  end

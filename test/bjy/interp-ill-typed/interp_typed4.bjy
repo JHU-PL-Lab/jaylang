@@ -58,7 +58,7 @@ end = struct
       match b with
       | `TArrow p2 ->
         eq p1.left p2.left
-        and eq p1.right p2.right
+        && eq p1.right p2.right
       | _ -> false
       end
     | `TInt _ ->
@@ -140,7 +140,7 @@ let typecheck e =
     (* Functions *)
     | `Function trip ->
       Result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
-        Result.return (`Tarrow { left = trip.second ; right = tau }) (* ERROR: The 'a' in Arrow is lowercase and should be uppercase *)
+        Result.return (`Tarrow { left = trip.second ; right = tau }) (* ERROR: The 'a' in Arrow is lowercase && should be uppercase *)
       )
     | `Appl p ->
       Result.bind (tc p.left) (fun res ->
@@ -181,7 +181,7 @@ let typecheck e =
         Result.bind (tc p.right) (fun tau_right ->
           if
             Type.is_int tau_left
-            and Type.is_int tau_right
+            && Type.is_int tau_right
           then
             Result.return Type.type_int
           else

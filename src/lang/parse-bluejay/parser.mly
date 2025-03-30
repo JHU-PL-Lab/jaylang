@@ -29,7 +29,8 @@
 %token DOUBLE_COLON
 %token UNDERSCORE
 %token PIPE
-// %token DOUBLE_PIPE
+%token DOUBLE_PIPE
+%token AMPERSAND
 %token DOUBLE_AMPERSAND
 %token FUNCTION
 %token WITH
@@ -40,8 +41,8 @@
 %token IF
 %token THEN
 %token ELSE
-%token AND
-%token OR
+// %token AND
+// %token OR
 %token NOT
 %token INT_KEYWORD
 %token BOOL_KEYWORD
@@ -82,9 +83,8 @@
 %nonassoc prec_let prec_fun   /* Let-ins and functions */
 %nonassoc prec_if             /* Conditionals */
 %nonassoc prec_mu             /* mu types */
-// %left DOUBLE_PIPE             /* || for variant type */
-%left OR                      /* Or */
-%left AND                     /* And */
+%right DOUBLE_PIPE            /* || for boolean or */
+%right DOUBLE_AMPERSAND       /* && for boolean and */
 %right NOT                    /* Not */
 /* == <> < <= > >= */
 %left EQUAL_EQUAL NOT_EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
@@ -93,8 +93,7 @@
 %left ASTERISK SLASH PERCENT  /* * / % */
 %right ASSERT ASSUME          /* Asserts, Assumes */
 %right ARROW                  /* -> for type declaration */
-%right prec_variant   /* variants, lists */
-// %right DOUBLE_AMPERSAND      /* && for type intersection */
+%right prec_variant           /* variants, lists */
 
 %start <Bluejay.statement list> prog
 %start <Bluejay.statement list option> delim_expr
@@ -185,7 +184,7 @@ type_expr:
   | separated_nonempty_list(PIPE, single_variant_type)
       { ETypeVariant $1 : Bluejay.t }
   (* we need at least two here because otherwise it is just an arrow with a single variant type *)
-  | separated_at_least_two_list(DOUBLE_AMPERSAND, single_intersection_type)
+  | separated_at_least_two_list(AMPERSAND, single_intersection_type)
       { ETypeIntersect $1 : Bluejay.t } 
 
 (* Doesn't *really* need parens I think, but without them we would never get a meaningful intersection type *)
@@ -333,9 +332,9 @@ op_expr:
       { EBinop { left = $1 ; binop = BLeq ; right = $3 } : Bluejay.t }
   | NOT expr
       { ENot $2 : Bluejay.t }
-  | expr AND expr
+  | expr DOUBLE_AMPERSAND expr
       { EBinop { left = $1 ; binop = BAnd ; right = $3 } : Bluejay.t }
-  | expr OR expr
+  | expr DOUBLE_PIPE expr
       { EBinop { left = $1 ; binop = BOr ; right = $3 } : Bluejay.t }
 
 /* **** Idents + labels **** */
