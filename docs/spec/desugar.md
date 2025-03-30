@@ -97,8 +97,8 @@ Here is an initial example for how recursive functions get desugared.
 
 ```ocaml
 [| let rec f1 (x1_1 : tau1_1) ... (x1_m1 tau1_m1) : tau1 = e1
-  with ...
-  with fn (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun = en
+  and ...
+  and fn (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun = en
   in
   e |] =
 (* this record is never accessible to the user, so we don't need to create unusable labels *)
@@ -195,7 +195,7 @@ We get the id, type, parameters, and body using the let rules we've already seen
 ```ocaml
 let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
   e1
-with
+and
 ...
 fn (type an_1 ... a1_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
   en
