@@ -97,8 +97,8 @@ let rec make_dist n =
       (*bag_map_of_list (ngram (n - 1) a_) a_ (map_ng_to_tups ngrams) (compare_list compare) # Notice we need to instantiate the types because `bag_map_of_list` is typed *)
       bag_map_of_list (map_ng_to_tups ngrams) (compare_list compare)
       
-(*with bag_map_of_list (type a_ b_) (ls : list (tuple a_ b_)) : (a_ -> a_ -> int) -> map a_ (bag b_) = *)
-with bag_map_of_list tup_list =
+(*and bag_map_of_list (type a_ b_) (ls : list (tuple a_ b_)) : (a_ -> a_ -> int) -> map a_ (bag b_) = *)
+and bag_map_of_list tup_list =
   fun compare ->
     fun a ->
       let rec loop l =

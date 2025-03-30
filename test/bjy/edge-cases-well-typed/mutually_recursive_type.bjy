@@ -11,7 +11,7 @@
 let rec f (x : int) : t {} =
   x
 
-with t _ = int
+and t _ = int
 
 
 (*
@@ -22,5 +22,5 @@ with t _ = int
 let rec g (x : int) : { int | h } =
   x * x + 1
 
-with h (i : int) : bool =
+and h (i : int) : bool =
   i > 0

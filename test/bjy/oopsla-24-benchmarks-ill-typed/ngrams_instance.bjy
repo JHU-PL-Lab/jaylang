@@ -95,7 +95,7 @@ let rec make_dist n =
       in
       bag_map_of_list (map_ng_to_tups ngrams) (compare_list compare)
       
-with bag_map_of_list tup_list =
+and bag_map_of_list tup_list =
   fun compare ->
     fun a ->
       let rec loop l =

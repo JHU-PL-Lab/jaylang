@@ -41,7 +41,7 @@
 %token IF
 %token THEN
 %token ELSE
-// %token AND
+%token AND
 // %token OR
 %token NOT
 %token INT_KEYWORD
@@ -227,7 +227,7 @@ letfun:
   | LET fun_sig { $2 }
 
 letfun_rec:
-  | LET REC separated_nonempty_list(WITH, fun_sig) { $3 }
+  | LET REC separated_nonempty_list(AND, fun_sig) { $3 }
 
 /* let foo x = ... */
 /* let foo (x : int) ... : int = ... */

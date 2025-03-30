@@ -44,7 +44,7 @@ rule token = parse
 | "||"                 { DOUBLE_PIPE }
 | "&"                  { AMPERSAND }
 | "&&"                 { DOUBLE_AMPERSAND }
-(* | "and"                { AND } *)
+| "and"                { AND }
 (* | "or"                 { OR } *)
 | "not"                { NOT }
 | "int"                { INT_KEYWORD }
