@@ -123,15 +123,6 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
         }
     (* Dependent records / modules *)
     | EModule stmts -> desugar (pgm_to_module stmts)
-      (* build @@
-        let%bind () =
-          iter e_ls ~f:(fun (RecordLabel label_id, e) ->
-            assign label_id @@ desugar e
-          )
-        in
-        return (ERecord (RecordLabel.Map.of_alist_exn
-          @@ List.map e_ls ~f:(fun (((RecordLabel label_id) as l), _) -> l, EVar (label_id))
-        )) *)
     (* Patterns *)
     | EMatch { subject ; patterns } ->
       EMatch { subject = desugar subject ; patterns =
