@@ -4,8 +4,8 @@
 (* simple error that depth should be positive but leaf has depth 0 *)
 
 let t = Mu tt.
-  ``Node { left : tt ; right : tt }
-  || ``Leaf { leaf : bool }
+  `Node of { left : tt ; right : tt }
+  | `Leaf of { leaf : bool }
 
 let max x y =
   if x > y

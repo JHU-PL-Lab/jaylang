@@ -1,5 +1,5 @@
 (* Here we extend set_functor_full.bjy to also include a map on the input module.  This is a bit more complex since there are two list types in the general case and it seems like we need to hoist all of that out.  This is a bit gross so there should probably be some sugar for this kind of stuff.  Other cases where we need a special type in the list module for example are zip/unzip, also concat.  Concat would also be desirable on sets. *)
-let ( F : 
+let F : 
     (S : {: tf : type -> type 
     ; a : type
     ; b : type
@@ -19,7 +19,7 @@ let ( F :
     ; add     : S.a -> S.ta -> S.ta
     ; map : S.ta -> (S.a -> S.b) -> S.tb
     ; of_list : list S.a -> S.ta
-    })
+    }
   =
   fun S ->
     { tf = S.tf
@@ -45,7 +45,7 @@ let ( F :
         loop (S.empty {}) ls
     }
 
-let (M : (a : type) -> (b : type) -> 
+let M : (a : type) -> (b : type) -> 
   {: tf : type -> type 
   ; a : type
   ; b : type
@@ -54,7 +54,7 @@ let (M : (a : type) -> (b : type) ->
   ; empty : unit -> ta
   ; add   : a -> ta -> ta
   ; map : ta -> (a -> b) -> tb
-  :})
+  :}
  = fun a b ->
     let tf = fun a -> list a in
     let ta = tf a in
@@ -77,15 +77,15 @@ let (M : (a : type) -> (b : type) ->
 
 let MM = F (M int int) (* now need to pass in both a and b types *)
 
-let (r : MM.ta) = MM.add 1 (MM.add 2 (MM.empty {}))
+let r : MM.ta = MM.add 1 (MM.add 2 (MM.empty {}))
 
-let (r2 : (MM.tf) int) = MM.of_list ([1;2;3])
+let r2 : (MM.tf) int = MM.of_list ([1;2;3])
 
-let (rmapp : (MM.tf) int) = MM.map r2 (fun x -> x + 1)
+let rmapp : (MM.tf) int = MM.map r2 (fun x -> x + 1)
 
-let (x : MM.a) = 0
+let x : MM.a = 0
 
-let (list_is_visible : MM.ta) = [2]
+let list_is_visible : MM.ta = [2]
 
 (* The above fixes the map type too early perhaps.  In general it might be good to program more like this, instantiate module each time it is used to allow maps etc over arbitrary types.  This is more like the way List.map etc works now in OCaml but the quantifiers are inside the module functions not outside : *)
-let (r3 : ((F (M int bool)).tf) bool) = (F (M int bool)).map r2 (fun x -> x == 1)
+let r3 : ((F (M int bool)).tf) bool = (F (M int bool)).map r2 (fun x -> x == 1)

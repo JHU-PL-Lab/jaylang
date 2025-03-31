@@ -5,5 +5,5 @@
   (typing Ill_typed)
 ) *)
 
-let (x : ``A int) =
+let x : `A of int =
   `A true

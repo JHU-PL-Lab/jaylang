@@ -30,6 +30,7 @@
 %token UNDERSCORE
 %token PIPE
 %token DOUBLE_PIPE
+%token AMPERSAND
 %token DOUBLE_AMPERSAND
 %token FUNCTION
 %token WITH
@@ -41,7 +42,7 @@
 %token THEN
 %token ELSE
 %token AND
-%token OR
+// %token OR
 %token NOT
 %token INT_KEYWORD
 %token BOOL_KEYWORD
@@ -57,6 +58,10 @@
 %token TYPE
 %token MU
 %token LIST
+%token SIG
+%token STRUCT
+%token VAL
+%token OF
 %token PLUS
 %token MINUS
 %token ASTERISK
@@ -78,9 +83,8 @@
 %nonassoc prec_let prec_fun   /* Let-ins and functions */
 %nonassoc prec_if             /* Conditionals */
 %nonassoc prec_mu             /* mu types */
-// %left DOUBLE_PIPE             /* || for variant type */
-%left OR                      /* Or */
-%left AND                     /* And */
+%right DOUBLE_PIPE            /* || for boolean or */
+%right DOUBLE_AMPERSAND       /* && for boolean and */
 %right NOT                    /* Not */
 /* == <> < <= > >= */
 %left EQUAL_EQUAL NOT_EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
@@ -89,8 +93,7 @@
 %left ASTERISK SLASH PERCENT  /* * / % */
 %right ASSERT ASSUME          /* Asserts, Assumes */
 %right ARROW                  /* -> for type declaration */
-%right prec_variant   /* variants, lists */
-// %right DOUBLE_AMPERSAND      /* && for type intersection */
+%right prec_variant           /* variants, lists */
 
 %start <Bluejay.statement list> prog
 %start <Bluejay.statement list option> delim_expr
@@ -125,6 +128,8 @@ statement_list:
   | statement statement_list { $1 :: $2 }
 
 statement:
+  | LET l_ident COLON expr EQUALS expr
+      { STyped { typed_var = { var = $2 ; tau = $4 } ; body = $6 ; do_wrap = true ; do_check = true } : Bluejay.statement }
   | LET l_ident EQUALS expr
       { SUntyped { var = $2 ; body = $4 } : Bluejay.statement }
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr
@@ -151,6 +156,8 @@ expr:
   | FUNCTION l_ident param_list ARROW expr %prec prec_fun
       { EMultiArgFunction { params = $2 :: $3 ; body = $5 } : Bluejay.t }
   // Let
+  | LET l_ident COLON expr EQUALS expr IN expr %prec prec_let
+      { ELetTyped { typed_var = { var = $2 ; tau = $4 } ; body = $6 ; cont = $8 ; do_wrap = true ; do_check = true } : Bluejay.t }
   | LET l_ident EQUALS expr IN expr %prec prec_let
       { ELet { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
   | LET_BIND l_ident EQUALS expr IN expr %prec prec_let
@@ -174,10 +181,10 @@ type_expr:
       { ETypeArrow { domain = $1 ; codomain = $3 } : Bluejay.t }
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN ARROW expr
       { ETypeArrowD { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
-  | separated_nonempty_list(DOUBLE_PIPE, single_variant_type)
+  | separated_nonempty_list(PIPE, single_variant_type)
       { ETypeVariant $1 : Bluejay.t }
   (* we need at least two here because otherwise it is just an arrow with a single variant type *)
-  | separated_at_least_two_list(DOUBLE_AMPERSAND, single_intersection_type)
+  | separated_at_least_two_list(AMPERSAND, single_intersection_type)
       { ETypeIntersect $1 : Bluejay.t } 
 
 (* Doesn't *really* need parens I think, but without them we would never get a meaningful intersection type *)
@@ -187,7 +194,7 @@ single_intersection_type:
       { let (a, b) = $3 in (a, b, $6) }
 
 single_variant_type:
-  | variant_type_label expr %prec prec_variant { $1, $2 }
+  | variant_type_label OF expr %prec prec_variant { $1, $3 }
 
 record_type_or_refinement:
   (* exactly one label *)
@@ -200,7 +207,7 @@ record_type_or_refinement:
   | OPEN_BRACE l_ident COLON expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } : Bluejay.t }
   | OPEN_BRACE_COLON separated_nonempty_list(SEMICOLON, record_type_item) COLON_CLOSE_BRACE
-      { ETypeRecordD $2 : Bluejay.t }
+      { ETypeModule $2 : Bluejay.t }
 
 record_type_item:
   | record_label COLON expr
@@ -220,7 +227,7 @@ letfun:
   | LET fun_sig { $2 }
 
 letfun_rec:
-  | LET REC separated_nonempty_list(WITH, fun_sig) { $3 }
+  | LET REC separated_nonempty_list(AND, fun_sig) { $3 }
 
 /* let foo x = ... */
 /* let foo (x : int) ... : int = ... */
@@ -243,6 +250,7 @@ appl_expr:
   | LIST primary_expr { ETypeList $2 : Bluejay.t } 
   | primary_expr { $1 : Bluejay.t }
 ;
+
 
 /* In a primary_expr, only primitives, vars, records, and lists do not need
    surrounding parentheses. */
@@ -281,6 +289,10 @@ primary_expr:
       { $2 }
   | OPEN_BRACE expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $2 ; predicate = $4 } : Bluejay.t }
+  | SIG nonempty_list(val_item) END
+      { ETypeModule $2 : Bluejay.t }
+  | STRUCT statement_list END
+      { EModule $2 : Bluejay.t }
   | record_type_or_refinement
       { $1 : Bluejay.t }
   | primary_expr DOT record_label
@@ -320,9 +332,9 @@ op_expr:
       { EBinop { left = $1 ; binop = BLeq ; right = $3 } : Bluejay.t }
   | NOT expr
       { ENot $2 : Bluejay.t }
-  | expr AND expr
+  | expr DOUBLE_AMPERSAND expr
       { EBinop { left = $1 ; binop = BAnd ; right = $3 } : Bluejay.t }
-  | expr OR expr
+  | expr DOUBLE_PIPE expr
       { EBinop { left = $1 ; binop = BOr ; right = $3 } : Bluejay.t }
 
 /* **** Idents + labels **** */
@@ -343,6 +355,10 @@ param_list:
   | l_ident param_list { $1 :: $2 }
   | l_ident { [ $1 ] }
 ;
+
+/* val x : t (* for module types *) */
+val_item:
+  | VAL record_type_item { $2 }
 
 %inline record_label:
   | ident { RecordLabel.RecordLabel $1 }
@@ -376,7 +392,7 @@ variant_label:
 
 /* e.g. ``Variant int */ 
 variant_type_label:
-  | BACKTICK BACKTICK ident { VariantTypeLabel.VariantTypeLabel $3 }
+  | BACKTICK ident { VariantTypeLabel.VariantTypeLabel $2 }
 
 /* **** Pattern matching **** */
 

@@ -79,7 +79,7 @@ let test_bjy : Lang.Ast.Bluejay.pgm test =
     in
     let module C = Compute (struct let r = r end) in
     let module P = Overlays.Computation_pool.Process (C) in
-    let res = P.process_all @@ Preface.Nonempty_list.map Lang.Ast.Program.to_expr programs in
+    let res = P.process_all @@ Preface.Nonempty_list.map Lang.Ast_tools.Utils.pgm_to_module programs in
     Format.printf "%s\n" (Status.to_loud_string res);
     res
 

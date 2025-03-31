@@ -14,5 +14,5 @@
 let rec f (x : int) : { i : int | let _ = g i in true } =
   x
 
-with g (b : bool) : int =
+and g (b : bool) : int =
   0

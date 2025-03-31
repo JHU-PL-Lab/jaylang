@@ -5,31 +5,61 @@
   (typing Ill_typed)
 ) *)
 
+(*
+  T n is a module with a type with n parameters, e.g.
 
-let (Nil : {: t : type ; v : t :}) =
-  { t = unit
-  ; v = {}
-  }
+    T 2 is
+      sig val t : type -> type -> type end
 
-let (Pair : { t : type -> type -> type }) =
-  { t = fun a -> fun b -> { left : a ; right : b }
-  }
+    T 0 is
+      sig val t : type end
+*)
+let T n = sig
+  val t : 
+    let rec loop i =
+      if i <= 0
+      then type
+      else type -> loop (i - 1)
+    in
+    loop n
+end
 
-let (Triple : { t : type -> type -> type -> type }) =
-  { t = fun a -> fun b -> fun c -> { first : a ; second : b ; third : c }
-  }
+let Nil : sig 
+  val t : type 
+  val v : t
+end = struct
+  let t = unit
+  let v = {}
+end
 
-let (Type : {: t : type ; tint : (``TInt Nil.t) ; eq : t -> t -> bool ; is_int : t -> bool :}) = 
-  let tint = `TInt Nil.v in
+let Pair : T 2 = struct
+  let t a b = { left : a ; right : b }
+end
+
+let Triple : T 3 = struct
+  let t a b c = { first : a ; second : b ; third : c }
+end
+
+let Type : sig
+  val t : type
+  val type_int : t
+  val eq : t -> t -> bool
+  val is_int : t -> bool
+end = struct
+  let t = Mu tt.
+    `TArrow of Pair.t tt tt
+    | `TInt of Nil.t
+
+  let type_int = `TInt Nil.v
+
   let rec eq a b =
     match a with
     | `TArrow p1 ->
       match b with
       | `TArrow p2 ->
         (* ERROR: these are first and second; but they should be left and right *)
-        (* This error is realized when a condition has a function as both the "then" and "else" bodies; which is a deep error. *)
         eq p1.first p2.first
-        and eq p1.second p2.second
+        && eq p1.second p2.second
       | _ -> false
       end
     | `TInt _ ->
@@ -38,67 +68,66 @@ let (Type : {: t : type ; tint : (``TInt Nil.t) ; eq : t -> t -> bool ; is_int :
       | _ -> false
       end
     end
-  in
-  { t = Mu tt.
-    ``TArrow (Pair.t tt tt)
-    || ``TInt Nil.t
-  ; tint = tint
-  ; eq = eq
-  ; is_int = eq tint
-  }
 
-let (Ident : {: t : type ; eq : t -> t -> bool :}) =
-  { t = ``Id int
-  ; eq =
-      fun a -> fun b -> 
-        let x = match a with `Id i -> i end in
-        let y = match b with `Id i -> i end in
-        x == y
-  }
+  let is_int = eq type_int
+end
 
-let (Expr : { t : type }) =
-  { t = Mu tt.
-    ``Int int
-    || ``Var Ident.t
-    || ``Function (Triple.t Ident.t Type.t tt)
-    || ``If_then_else (Triple.t tt tt tt)
-    || ``Plus (Pair.t tt tt)
-    || ``Minus (Pair.t tt tt)
-    || ``Equal (Pair.t tt tt)
-    || ``Appl (Pair.t tt tt)
-  }
+let Ident : sig
+  val t : type
+  val eq : t -> t -> bool
+end = struct
+  let t = `Id of int
+  let eq a b = 
+    let x = match a with `Id i -> i end in
+    let y = match b with `Id i -> i end in
+    x == y
+end
 
-let Value =
-  { t = ``Int int || ``Function (Triple.t Ident.t Type.t Expr.t)
-  }
+let Expr : T 0 = struct
+  let t = Mu tt.
+    `Int of int
+    | `Var of Ident.t
+    | `Function of Triple.t Ident.t Type.t tt
+    | `If_then_else of Triple.t tt tt tt
+    | `Plus of Pair.t tt tt
+    | `Minus of Pair.t tt tt
+    | `Equal of Pair.t tt tt
+    | `Appl of Pair.t tt tt
+end
 
-let result =
-  { t =
-      fun a ->
-        ``Ok a || ``Error Nil.t
-  ; bind = 
-      fun x -> fun f ->
-        match x with
-        | `Error e -> x
-        | `Ok a -> f a
-        end
-  ; return = 
-      fun a -> `Ok a
-  ; error =
-      `Error Nil.v
-  ; is_ok =
-      fun x ->
-        match x with
-        | `Ok a -> true
-        | _ -> false
-        end
-  }
+let Value : T 0 = struct
+  let t =
+    `Int of int
+    | `Function of Triple.t Ident.t Type.t Expr.t
+end
+
+let Result = struct
+  let t a =
+    `Ok of a 
+    | `Error of Nil.t
+
+  let bind x f = 
+    match x with
+    | `Error e -> x
+    | `Ok a -> f a
+    end
+
+  let return a = `Ok a
+
+  let error = `Error Nil.v
+
+  let is_ok x =
+    match x with
+    | `Ok a -> true
+    | _ -> false
+    end
+end
 
 let typecheck e =
   let add_to_env gamma id tau =
     fun id_ ->
       if Ident.eq id_ id
-      then result.return tau
+      then Result.return tau
       else gamma id_
   in
   let rec typecheck e gamma =
@@ -108,37 +137,37 @@ let typecheck e =
     match e with
     (* Axioms *)
     | `Var id -> gamma id
-    | `Int i -> result.return Type.tint
+    | `Int i -> Result.return Type.type_int
     (* Functions *)
     | `Function trip ->
-      result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
-        result.return (`TArrow { left = trip.second ; right = tau })
+      Result.bind (typecheck trip.third (add_to_env gamma trip.first trip.second)) (fun tau ->
+        Result.return (`TArrow { left = trip.second ; right = tau })
       )
     | `Appl p ->
-      result.bind (tc p.left) (fun res ->
+      Result.bind (tc p.left) (fun res ->
         match res with
         | `TArrow p_arrow ->
-          result.bind (tc p.right) (fun tau_arg ->
+          Result.bind (tc p.right) (fun tau_arg ->
             if Type.eq p_arrow.left tau_arg
-            then result.return p_arrow.right
-            else result.error
+            then Result.return p_arrow.right
+            else Result.error
           )
-        | _ -> result.error
+        | _ -> Result.error
         end
       )
     (* Conditions *)
     | `If_then_else trip -> 
-      result.bind (tc trip.first) (fun tau_cond ->
+      Result.bind (tc trip.first) (fun tau_cond ->
         if Type.is_int tau_cond
         then
-          result.bind (tc trip.second) (fun tau_left ->
-            result.bind (tc trip.third) (fun tau_right ->
+          Result.bind (tc trip.second) (fun tau_left ->
+            Result.bind (tc trip.third) (fun tau_right ->
               if Type.eq tau_left tau_right
-              then result.return tau_left
-              else result.error
+              then Result.return tau_left
+              else Result.error
             )
           )
-        else result.error
+        else Result.error
       )
     (* Simple expressions *)
     | _ ->
@@ -149,29 +178,32 @@ let typecheck e =
         | `Equal p -> p
         end
       in
-      result.bind (tc p.left) (fun tau_left ->
-        result.bind (tc p.right) (fun tau_right ->
+      Result.bind (tc p.left) (fun tau_left ->
+        Result.bind (tc p.right) (fun tau_right ->
           if
             Type.is_int tau_left
-            and Type.is_int tau_right
+            && Type.is_int tau_right
           then
-            result.return Type.tint
+            Result.return Type.type_int
           else
-            result.error
+            Result.error
         )
       )
     end
   in
-  typecheck e (fun _ -> result.error)
+  (* default environment is empty, so it is error given any id *)
+  typecheck e (fun _ -> Result.error)
 
+(* 
+  Note that we don't actually have to check for closed because
+  that would be an unbound variable when typechecking.
+*)
 let is_closed_and_well_typed e =
-  result.is_ok (typecheck e)
-  (* Note we don't actually have to check for closed because that would be an unbound variable when typechecking *)
+  Result.is_ok (typecheck e)
 
-(*let subst (e : Expr.t) (id : Ident.t) (v : Value.t) : Expr.t = *)
 let subst e id v =
   let rec sub e =
-    let sub_Pair p =
+    let sub_pair p =
       { left = sub p.left
       ; right = sub p.right }
     in
@@ -185,10 +217,10 @@ let subst e id v =
         if Ident.eq trip.first id
         then e
         else `Function { first = trip.first ; second = trip.second ;  third = sub trip.third }
-    | `Plus p -> `Plus (sub_Pair p)
-    | `Minus p -> `Minus (sub_Pair p)
-    | `Equal p -> `Equal (sub_Pair p)
-    | `Appl p -> `Appl (sub_Pair p)
+    | `Plus p -> `Plus (sub_pair p)
+    | `Minus p -> `Minus (sub_pair p)
+    | `Equal p -> `Equal (sub_pair p)
+    | `Appl p -> `Appl (sub_pair p)
     | `If_then_else trip -> `If_then_else { first = sub trip.first ; second = sub trip.second ; third = sub trip.third }
     end
   in

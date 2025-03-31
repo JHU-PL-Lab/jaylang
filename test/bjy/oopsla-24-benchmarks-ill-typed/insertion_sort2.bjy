@@ -18,7 +18,7 @@ let rec ne_sorted lst =
   | a :: tl ->
     match tl with
     | [] -> true
-    | b :: tll -> a <= b and ne_sorted tl
+    | b :: tll -> a <= b && ne_sorted tl
     end
   end
 
@@ -40,7 +40,7 @@ let rec insert x l =
 let ret_type xs =
   { list int | fun l ->
     ne_sorted l
-    and
+    &&
       if is_nonempty xs
       then is_nonempty l
       else not (is_nonempty l)

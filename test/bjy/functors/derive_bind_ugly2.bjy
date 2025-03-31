@@ -33,8 +33,8 @@ let BASIC =
   :}
 
 (* this works *)
-let (Id_example : (a : type) -> (b : type) -> BASIC) = fun a b ->
-  let m a = ``Id a in
+let Id_example : (a : type) -> (b : type) -> BASIC = fun a b ->
+  let m a = `Id of a in
   { m = m
   ; a = a
   ; b = b

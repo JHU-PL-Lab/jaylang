@@ -42,9 +42,10 @@ rule token = parse
 | "_"                  { UNDERSCORE }
 | "|"                  { PIPE }
 | "||"                 { DOUBLE_PIPE }
+| "&"                  { AMPERSAND }
 | "&&"                 { DOUBLE_AMPERSAND }
 | "and"                { AND }
-| "or"                 { OR }
+(* | "or"                 { OR } *)
 | "not"                { NOT }
 | "int"                { INT_KEYWORD }
 | "bool"               { BOOL_KEYWORD }
@@ -74,6 +75,10 @@ rule token = parse
 | "type"               { TYPE }
 | "Mu"                 { MU }
 | "list"               { LIST }
+| "sig"                { SIG }
+| "struct"             { STRUCT }
+| "val"                { VAL }
+| "of"                 { OF }
 | "+"                  { PLUS }
 | "-"                  { MINUS }
 | "*"                  { ASTERISK }

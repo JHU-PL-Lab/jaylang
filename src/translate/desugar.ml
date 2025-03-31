@@ -90,8 +90,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       ETypeArrowD { binding ; domain = desugar domain ; codomain = desugar codomain }
     | ETypeRecord m ->
       ETypeRecord (Map.map m ~f:desugar)
-    | ETypeRecordD m ->
-      ETypeRecordD (List.map m ~f:(fun (label, e) -> label, desugar e))
+    | ETypeModule m ->
+      ETypeModule (List.map m ~f:(fun (label, e) -> label, desugar e))
     | ETypeRefinement { tau ; predicate } ->
       ETypeRefinement { tau = desugar tau ; predicate = desugar predicate }
     | ETypeMu { var ; body } ->
@@ -121,6 +121,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
         ; true_body = unit_value
         ; false_body = EDiverge
         }
+    (* Dependent records / modules *)
+    | EModule stmts -> desugar (pgm_to_module stmts)
     (* Patterns *)
     | EMatch { subject ; patterns } ->
       EMatch { subject = desugar subject ; patterns =
@@ -203,7 +205,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     end
     | ELetFunRec { funcs ; cont } ->
       (* just roll up the statements and tell it to finish with cont *)
-      Program.to_expr_with_cont (desugar cont)
+      pgm_to_expr_with_cont (desugar cont)
       @@ desugar_rec_funs_to_stmt_list funcs
 
   (*
@@ -258,7 +260,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
             return (EVar f_id)
       )
     in
-    Program.SUntyped { var = r ; body = appl_list (Desugared_functions.y_n f_names) bodies }
+    Expr.SUntyped { var = r ; body = appl_list (Desugared_functions.y_n f_names) bodies }
     :: (func_comps >>| fun comps ->
       (* do_check and do_wrap are unused arguments in this case because we don't provide the type *)
       make_stmt ~do_wrap:true ~do_check:true ~tau_opt:None comps.func_id
@@ -271,9 +273,9 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     let open List.Let_syntax in
     match stmt with
     | SUntyped { var ; body } ->
-      return @@ Program.SUntyped { var ; body = desugar body }
+      return @@ Expr.SUntyped { var ; body = desugar body }
     | STyped { typed_var = { var ; tau } ; body ; do_wrap ; do_check } ->
-      return @@ Program.STyped { typed_var = { var ; tau = desugar tau } ; body = desugar body ; do_wrap ; do_check }
+      return @@ Expr.STyped { typed_var = { var ; tau = desugar tau } ; body = desugar body ; do_wrap ; do_check }
     | SFun fsig -> begin
       let { func_id ; body ; params ; tau_opt } : desugared Function_components.t = funsig_to_components fsig in
       let body = abstract_over_ids params body in

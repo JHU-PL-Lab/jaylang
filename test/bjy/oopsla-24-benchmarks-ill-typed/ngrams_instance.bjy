@@ -9,13 +9,13 @@
 (* This has been trimmed down to remove any code that had no intersection with the erroring code. *)
 (* We would like to keep types on the helper functions; but we currently don't handle that well. *)
 
-let (pos_int : type) = { int | fun i -> i > 0 }
+let pos_int : type = { int | fun i -> i > 0 }
 
 (* Parametric map *)
-let (map : type -> type -> type) = fun a b -> a -> b
+let map : type -> type -> type = fun a b -> a -> b
 
 (* Parametric bag *)
-let (bag : type -> type) = fun a -> list a
+let bag : type -> type = fun a -> list a
 
 let rec len ls = 
   match ls with
@@ -23,9 +23,9 @@ let rec len ls =
   | hd :: tl -> 1 + len tl
   end
 
-let (ngram : int -> type -> type) = fun n a -> { list a | fun ls -> (len ls == n) and n >= 0 }
+let ngram : int -> type -> type = fun n a -> { list a | fun ls -> (len ls == n) && n >= 0 }
 
-let (distribution : int -> type -> type) = fun n a -> map (ngram (n - 1) a) (bag a)
+let distribution : int -> type -> type = fun n a -> map (ngram (n - 1) a) (bag a)
 
 let rec take n =
   fun l ->
@@ -95,7 +95,7 @@ let rec make_dist n =
       in
       bag_map_of_list (map_ng_to_tups ngrams) (compare_list compare)
       
-with bag_map_of_list tup_list =
+and bag_map_of_list tup_list =
   fun compare ->
     fun a ->
       let rec loop l =
@@ -120,4 +120,4 @@ let compare_bool a b =
     then 1
     else 0 (* both false *)
 
-let (res : distribution 3 bool) = make_dist 3 [ true ; false ; true; false ; false ] compare_bool
+let res : distribution 3 bool = make_dist 3 [ true ; false ; true; false ; false ] compare_bool

@@ -5,7 +5,7 @@
 (* Requiring n > 1 fixes the error *)
 
 let rec mult (x : { n : int ; m : int }) : { i : int | i >= 0 } =
-  if x.n <= 0 or x.m <= 0
+  if x.n <= 0 || x.m <= 0
   then 0
   else x.n + mult { n = x.n ; m = (x.m - 1) } 
 

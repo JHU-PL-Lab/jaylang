@@ -5,5 +5,5 @@
   (typing Ill_typed)
 ) *)
 
-let (x : list int) =
+let x : list int =
   1

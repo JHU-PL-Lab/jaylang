@@ -2,9 +2,9 @@
   (features (Intersection_types Higher_order_functions Subtyping Type_casing Match))
 ) *)
 
-let (t : type) = ((``Int int) -> int) && ((``Bool bool) -> bool)
+let t : type = ((`Int of int) -> int) & ((`Bool of bool) -> bool)
 
-let (f : t) = 
+let f : t = 
   fun x ->
     match x with
     | `Int i -> i + 1

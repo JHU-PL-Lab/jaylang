@@ -7,9 +7,9 @@
 (* This is an avl tree program; where insert on balanced tree returns a balanced tree. *)
 (* We check that the insert works on some tree instance. It doesn't ...  *)
 
-let (t : type) = Mu tt. 
-  ``Leaf int
-  || ``Node { left : tt
+let t : type = Mu tt. 
+  `Leaf of int
+  | `Node of { left : tt
             ; right : tt
             ; item : int
             }
@@ -104,7 +104,7 @@ let is_bst x =
   in
   is_increasing_strictly (to_list x [])
 
-let avl_tree = { tree : t | is_balanced tree and is_bst tree }
+let avl_tree = { tree : t | is_balanced tree && is_bst tree }
 
 let create_node item left right =
   `Node { item = item ; left = left ; right = right }
@@ -168,8 +168,7 @@ let rec insert tree i =
     rebalance i new_node
   end
 
-(* This on a correct `insert` gets exhausted between 600 and 700 branches in 18 seconds *)
-let (res : avl_tree) =
+let res : avl_tree =
   let a =
     `Node {
       left = `Node

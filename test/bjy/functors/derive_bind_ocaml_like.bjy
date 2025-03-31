@@ -24,39 +24,45 @@
   The following is my most ideal, OCaml-like Bluejay code, but it doesn't work.
 *)
 
-let BASIC =
-  {: m : type -> type
-  ;  map  : (a : type) -> (b : type) -> m a -> (a -> b) -> m b
-  ;  join : (a : type) -> m (m a) -> m a
-  ;  return : (a : type) -> a -> m a
-  :}
+let BASIC = sig
+  val m : type -> type
+  val map  : (a : type) -> (b : type) -> m a -> (a -> b) -> m b
+  val join : (a : type) -> m (m a) -> m a
+  val return : (a : type) -> a -> m a
+end
 
 (* this works well *)
-let (Id_example : BASIC) =
-  let m a = ``Id a in
-  { m = m
-  ; map = fun a b x f ->
-      match x with
-      | `Id z -> `Id (f z)
-      end
-  ; join = fun a x ->
-      match x with
-      | `Id m -> m
-      end
-  ; return = fun a x -> `Id x
-  }
+let Id_example : BASIC = struct
+  let m a = `Id of a
+
+  let map = fun a b x f ->
+    match x with
+    | `Id z -> `Id (f z)
+    end
+
+  let join = fun a x ->
+    match x with
+    | `Id m -> m
+    end
+
+  let return = fun a x -> `Id x
+end
 
 (*
   This doesn't work because the checker for the functions M.join and M.map use different instances
   of the application `M.m a`, or similar, than what is in the return type of this Derive_bind.
  *)
-let Derive_bind (M <- BASIC) : { bind : (a : type) -> (b : type) -> let mb = M.m b in M.m a -> (a -> mb) -> mb } =
-  { bind = fun a b x f -> M.join b (M.map a (M.m b) x f)
-  }
+let Derive_bind (M <- BASIC) : sig
+  val bind : (a : type) -> (b : type) -> let mb = M.m b in M.m a -> (a -> mb) -> mb
+end = struct
+  let bind = fun a b x f -> M.join b (M.map a (M.m b) x f)
+end
 
 (*
   Ideally, we can get rid of the `let mb = ...`, which would have the following code (which still cannot type check)
 *)
-let Derive_bind (M <- BASIC) : { bind : (a : type) -> (b : type) -> M.m a -> (a -> M.m b) -> M.m b } =
-  { bind = fun a b x f -> M.join b (M.map a (M.m b) x f)
-  }
+let Derive_bind (M <- BASIC) : sig
+  val bind : (a : type) -> (b : type) -> M.m a -> (a -> M.m b) -> M.m b
+end = struct
+  let bind = fun a b x f -> M.join b (M.map a (M.m b) x f)
+end

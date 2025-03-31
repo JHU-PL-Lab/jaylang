@@ -12,12 +12,12 @@
 
 (* NOTE: the current seed is just unlucky on this one. That's all. *)
 
-let (t : type) = Mu tt. 
-  ``Leaf int
-  ||  ``Node { left : tt
-             ; right : tt
-             ; item : int
-             }
+let t : type = Mu tt. 
+  `Leaf of int
+  | `Node of { left : tt
+              ; right : tt
+              ; item : int
+              }
 
 let empty = `Leaf 00
 
@@ -108,7 +108,7 @@ let is_bst x =
   in
   is_increasing_strictly (to_list x [])
 
-let avl_tree = { tree : t | is_balanced tree and is_bst tree }
+let avl_tree = { tree : t | is_balanced tree && is_bst tree }
 
 let create_node item left right =
   `Node { item = item ; left = left ; right = right }

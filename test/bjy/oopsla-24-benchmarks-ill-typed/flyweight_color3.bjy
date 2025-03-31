@@ -6,24 +6,24 @@
 ) *)
 (* has same well-typed version as flyweight_color1 *)
 
-let (Color : { t : type }) =
+let Color : { t : type } =
   { t =
-    { int | fun i -> i >= 0 and i < 256 }
+    { int | fun i -> i >= 0 && i < 256 }
   }
 
-let (Common_state : { t : type }) =
+let Common_state : { t : type } =
   { t = 
     { c : Color.t } (* Say color is the heavy data we need to offload onto a common state *)
   }
 
-let (Unique_state : { t : type }) = 
+let Unique_state : { t : type } = 
   { t =
     { x : int
     ; y : int
     ; get_deg : unit -> int } (* all of these fields are unique to an instance of a colored point *)
   }
 
-let (Colored_point : { t : type }) =
+let Colored_point : { t : type } =
   { t =
     { intrinsic : Unique_state.t
     ; flyweight : Common_state.t } (* all colored points in this program get the same; common color *)

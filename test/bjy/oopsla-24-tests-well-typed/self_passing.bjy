@@ -10,4 +10,4 @@ let ob =
     { f = fun x -> (self self).x + x
     ; x = 1 }
 
-let (obj : t) = ob ob
+let obj : t = ob ob

@@ -5,37 +5,43 @@
   (typing Ill_typed)
 ) *)
 
-let (Node : { t : type -> type -> type }) = 
-  { t =
-    fun a_t ->
-      fun tree_t ->
-        { v : a_t
-        ; children : list tree_t }
-  }
+let T n = sig
+  val t :
+    let rec loop i =
+      if i <= 0
+      then type
+      else type -> loop (i - 1)
+    in
+    loop n
+  end
 
-let (Leaf : { t : type -> type }) =
-  { t = 
-    fun a ->
-      a
-  }
+let Node : T 2 = struct
+  let t a_t tree_t =
+    { v : a_t
+    ; children : list tree_t }
+end
 
-let (Tree : { t : type -> type }) =
-  { t =
-    fun a ->
-      Mu tt. (``Node (Node.t a tt) || ``Leaf (Leaf.t a))
-  }
+let Leaf : T 1 = struct
+  let t a = a
+end
 
-let (Visitor : { t : type -> type -> type }) = 
-  { t =
-    fun a ->
-      fun result_type ->
-        { visit_node : Node a (tree.t a) -> result_type (* ERROR: is missing the `.t` projection *)
-        ; visit_leaf : Leaf a -> result_type } (* ERROR: is missing the `.t` projection *)
-  }
+let Tree : T 1 = struct
+  let t a = Mu t.
+    `Node of Node.t a t
+    | `Leaf of Leaf.t a
+end
 
-let (client : type -> type -> type -> type) = fun a t result_type ->
-  { self : t
-  ; accept : Visitor.t a result_type -> result_type }
+let Visitor : T 2 = struct
+  let t a result_type =
+    { visit_node : Node a (tree.t a) -> result_type (* ERROR: is missing the `.t` projection *)
+    ; visit_leaf : Leaf a -> result_type } (* ERROR: is missing the `.t` projection *)
+end
+
+let Client : T 3 = struct
+  let t a t result_type =
+    { self : t
+    ; accept : Visitor.t a result_type -> result_type }
+end
 
 let make_list f n = 
   let rec loop i =
@@ -58,7 +64,7 @@ let rec make_tree (n : int) : Tree.t int =
   in
   ob ob
 
-let int_bool_client (tr : Tree.t int) : client int (Tree.t int) bool =
+let int_bool_client (tr : Tree.t int) : Client.t int (Tree.t int) bool =
   { self = tr
   ; accept =
     fun vis ->

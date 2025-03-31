@@ -97,8 +97,8 @@ Here is an initial example for how recursive functions get desugared.
 
 ```ocaml
 [| let rec f1 (x1_1 : tau1_1) ... (x1_m1 tau1_m1) : tau1 = e1
-  with ...
-  with fn (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun = en
+  and ...
+  and fn (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun = en
   in
   e |] =
 (* this record is never accessible to the user, so we don't need to create unusable labels *)
@@ -195,7 +195,7 @@ We get the id, type, parameters, and body using the let rules we've already seen
 ```ocaml
 let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
   e1
-with
+and
 ...
 fn (type an_1 ... a1_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
   en
@@ -257,6 +257,19 @@ Notes:
 [| V_i e |] =
   V_i [| e |]
 ```
+
+## Dependent record / module
+
+```ocaml
+[| struct let l_1 = e_1 ... let l_n = e_n end |] =
+  [| let l_1 = e_1 in
+    ...
+    let l_n = e_n in 
+    { l_1 = l_1 ; ... ; l_n = l_n } |]
+```
+
+Notes:
+* These "lets" are any statement and get desugared as such, even if it's not written well here. That is, the list of statements are transformed into this sequence of let-expressions, and that new expression is desugared.
 
 ## Pattern matching
 

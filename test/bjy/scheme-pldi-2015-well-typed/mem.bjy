@@ -6,7 +6,7 @@
 let rec mem x xs =
   match xs with
   | [] -> false
-  | hd :: tl -> hd == x or mem x tl
+  | hd :: tl -> hd == x || mem x tl
   end
 
 let ret_type x =

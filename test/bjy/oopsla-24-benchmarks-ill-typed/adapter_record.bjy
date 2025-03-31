@@ -21,7 +21,7 @@ let ob =
 
 let ob_5 = ob 5
 
-let (obj : t) = ob_5 ob_5
+let obj : t = ob_5 ob_5
 
 let adapter obj =
   let s =
@@ -32,5 +32,5 @@ let adapter obj =
   in
   s s
 
-let (x : int) = (adapter obj).square { value = 36 } (* ERROR: should be `x : int_wrapper` *)
+let x : int = (adapter obj).square { value = 36 } (* ERROR: should be `x : int_wrapper` *)
  

@@ -5,7 +5,7 @@
 (* This has been trimmed down to remove any code that had no intersection with the erroring code. *)
 (* We would like to keep types on the helper functions; but we currently don't handle that well. *)
 
-let (pos_int : type) = { int | fun i -> i > 0 }
+let pos_int : type = { int | fun i -> i > 0 }
 
 (* Parametric map *)
 let (map : type -> type -> type) = fun a b -> a -> b
@@ -19,7 +19,7 @@ let rec len ls =
   | hd :: tl -> 1 + len tl
   end
 
-let (ngram : int -> type -> type) = fun n a -> { list a | fun ls -> (len ls == n) and n >= 0 }
+let (ngram : int -> type -> type) = fun n a -> { list a | fun ls -> (len ls == n) && n >= 0 }
 
 let (distribution : int -> type -> type) = fun n a -> map (ngram (n - 1) a) (bag a)
 
@@ -97,8 +97,8 @@ let rec make_dist n =
       (*bag_map_of_list (ngram (n - 1) a_) a_ (map_ng_to_tups ngrams) (compare_list compare) # Notice we need to instantiate the types because `bag_map_of_list` is typed *)
       bag_map_of_list (map_ng_to_tups ngrams) (compare_list compare)
       
-(*with bag_map_of_list (type a_ b_) (ls : list (tuple a_ b_)) : (a_ -> a_ -> int) -> map a_ (bag b_) = *)
-with bag_map_of_list tup_list =
+(*and bag_map_of_list (type a_ b_) (ls : list (tuple a_ b_)) : (a_ -> a_ -> int) -> map a_ (bag b_) = *)
+and bag_map_of_list tup_list =
   fun compare ->
     fun a ->
       let rec loop l =
@@ -125,11 +125,11 @@ let compare_bool a b =
 
 let res = make_dist 3 [ true ; false ; true; false ; false ] compare_bool
 
-let (x : distribution 3 bool) = res
+let x : distribution 3 bool = res
 
 (* None of the following fail; which shows the behavior is as expected for the concrete example. *)
-let (y : { list bool | fun ls -> compare_list compare_bool ls [true ; false] == 0 }) = res [true; false]
+let y : { list bool | fun ls -> compare_list compare_bool ls [true ; false] == 0 } = res [true; false]
 
-let (z : { list bool | fun ls -> compare_list compare_bool ls [] == 0 }) = res [true; true]
+let z : { list bool | fun ls -> compare_list compare_bool ls [] == 0 } = res [true; true]
 
-let (w : { list bool | fun ls -> compare_list compare_bool ls [] == 0 }) = res []
+let w : { list bool | fun ls -> compare_list compare_bool ls [] == 0 } = res []

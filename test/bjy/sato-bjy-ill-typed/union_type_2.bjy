@@ -5,5 +5,5 @@
   (typing Ill_typed)
 ) *)
 
-let (x : { a : bool; b : (``R { a : bool ; b: int } || ``I int) }) =
+let x : { a : bool ; b : `R of { a : bool ; b: int } | `I of int } =
   { a = true; b = true }

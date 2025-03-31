@@ -12,4 +12,4 @@ let ob =
     (* NOTE: don't try to precompute `self self` because it diverges *)
     { f = fun x -> (self self).x + x } (* ERROR: `self self` doesn't have label `x` *)
 
-let (obj : t) = ob ob
+let obj : t = ob ob

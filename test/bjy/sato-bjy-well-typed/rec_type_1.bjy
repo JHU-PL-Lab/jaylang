@@ -2,4 +2,5 @@
   (features (Variants Mu_types Records))
 ) *)
 
-let (x : Mu tt. (``R { a : bool; b : tt } || ``B bool)) = `R { a = false; b = `B true }
+let x : Mu tt. `R of { a : bool ; b : tt } | `B of bool =
+  `R { a = false ; b = `B true }

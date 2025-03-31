@@ -6,5 +6,5 @@
 let rec f (x : { x : int | x < 0 }) : int =
   g x
 
-with g (x : { x : int | x > 0 }) : int =
+and g (x : { x : int | x > 0 }) : int =
   x

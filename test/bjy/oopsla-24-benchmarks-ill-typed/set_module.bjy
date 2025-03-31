@@ -5,38 +5,34 @@
   (typing Ill_typed)
 ) *)
 
-let Set_m = 
-  { emptyset = []
-  ; add = fun x -> fun s -> x :: s 
-  ; remove = 
-      let rec f x s equal =
-        match s with
-        | [] -> []
-        | hd :: tl ->
-          if equal hd x
-          then tl
-          else hd (* ERROR: should recursively call on tl *)
-        end
-      in f
-  ; contains = 
-      let rec f x s equal =
-        match s with
-        | [] -> false
-        | hd :: tl ->
-          if equal x hd
-          then true
-          else f x tl equal
-        end
-      in f
-  }
+let Set : (a : type) -> sig
+  val t : type
+  val emptyset : t
+  val add : a -> t -> t
+  val remove : a -> t -> (a -> a -> bool) -> t
+  val contains : a -> t -> (a -> a -> bool) -> bool
+end = fun a -> struct
+  let t = list a
 
-let (Set_m_type : type -> type) = 
-  fun a_ -> (* any type *)
-    let t = list a_ in
-    { emptyset : t
-    ; add : a_ -> t -> t
-    ; remove : a_ -> t -> (a_ -> a_ -> bool) -> t
-    ; contains : a_ -> t -> (a_ -> a_ -> bool) -> bool
-    }
+  let emptyset = []
 
-let (check_type : Set_m_type int) = Set_m
+  let add x s = x :: s 
+
+  let rec remove x s equal = 
+    match s with
+    | [] -> []
+    | hd :: tl ->
+      if equal hd x
+      then tl
+      else hd (* ERROR: should recursively call on tl *)
+    end
+
+  let rec contains x s equal = 
+    match s with
+    | [] -> false
+    | hd :: tl ->
+      if equal x hd
+      then true
+      else contains x tl equal
+    end
+end

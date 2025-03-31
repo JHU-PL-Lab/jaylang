@@ -10,9 +10,9 @@
 (* 1. Don't rotate at all *)
 (* 2. Rotate left only on left insert; and right only on right insert (this was my first bug) *)
 
-let (t : type) = Mu tt. 
-  ``Leaf int
-  || ``Node { left : tt
+let t : type = Mu tt. 
+  `Leaf of int
+  | `Node of { left : tt
             ; right : tt
             ; item : int
             }
@@ -106,7 +106,7 @@ let is_bst x =
   in
   is_increasing_strictly (to_list x [])
 
-let avl_tree = { tree : t | is_balanced tree and is_bst tree }
+let avl_tree = { tree : t | is_balanced tree && is_bst tree }
 
 let create_node item left right =
   `Node { item = item ; left = left ; right = right }

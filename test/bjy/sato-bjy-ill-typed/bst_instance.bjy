@@ -33,11 +33,10 @@ let rec is_bst t =
   end
 
 let tree_type = Mu tt.
-  (  ``Node { left : tt; right : tt; item : int }
-  || ``Leaf { leaf : bool }
-  )
+  `Node of { left : tt; right : tt; item : int }
+  | `Leaf of { leaf : bool }
 
-let (x : { tree_type | is_bst }) = 
+let x : { tree_type | is_bst } = 
   `Node { left = 
           `Node { left = `Leaf { leaf = true }
                 ; right = `Leaf { leaf = true }

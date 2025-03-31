@@ -4,7 +4,7 @@
 
 let t a b =
   { la : a
-   ; lb : b }
+  ; lb : b }
 
 let f (type a) (x : t a a) : a =
   x.la

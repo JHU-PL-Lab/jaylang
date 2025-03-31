@@ -4,7 +4,7 @@
 (* error is n should be greater than 1 *)
 
 let rec mult x y =
-  if x <= 0 or y <= 0
+  if x <= 0 || y <= 0
   then 0
   else x + mult x (y - 1)
 

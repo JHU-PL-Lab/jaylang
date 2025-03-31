@@ -18,17 +18,16 @@ let rec is_balanced t =
   match t with
   | `Node node ->
     is_balanced node.left
-    and is_balanced node.right
-    and abs (get_height node.left - get_height node.right) <= 1
+    && is_balanced node.right
+    && abs (get_height node.left - get_height node.right) <= 1
   | `Leaf leaf -> true
   end
 
 let tree_type = Mu tt.
-  (  ``Node { left : tt; right : tt }
-  || ``Leaf { leaf : int }
-  )
+  `Node of { left : tt; right : tt }
+  | `Leaf of { leaf : int }
 
-let (x : { tree_type | is_balanced }) = 
+let x : { tree_type | is_balanced } = 
   `Node
   { left = 
     `Node { left = 
