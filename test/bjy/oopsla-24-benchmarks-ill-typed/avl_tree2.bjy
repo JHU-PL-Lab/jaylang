@@ -11,7 +11,7 @@
 (* 2. Rotate left only on left insert; and right only on right insert (this was my first bug) *)
 
 let t : type = Mu tt. 
-  `Leaf of int
+  | `Leaf of int
   | `Node of { left : tt
             ; right : tt
             ; item : int

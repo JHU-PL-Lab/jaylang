@@ -181,6 +181,8 @@ type_expr:
       { ETypeArrow { domain = $1 ; codomain = $3 } : Bluejay.t }
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN ARROW expr
       { ETypeArrowD { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
+  | PIPE separated_nonempty_list(PIPE, single_variant_type) (* pipe optional before first variant *)
+      { ETypeVariant $2 : Bluejay.t }
   | separated_nonempty_list(PIPE, single_variant_type)
       { ETypeVariant $1 : Bluejay.t }
   (* we need at least two here because otherwise it is just an arrow with a single variant type *)

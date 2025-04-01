@@ -7,11 +7,11 @@
 
 let coord : type =
   { x : int
-   ; y : int }
+  ; y : int }
 
 let t : type = Mu tt.
-  { parent : (`Some of tt | `None of int)
-   ; relative_coord : coord }
+  { parent : `Some of tt | `None of int
+  ; relative_coord : coord }
 
 let is_coord_nonzero c = 
   not (c.x == 0) && not (c.y == 0)

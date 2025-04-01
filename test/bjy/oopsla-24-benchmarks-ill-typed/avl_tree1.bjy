@@ -10,10 +10,8 @@
 (* 1. Don't rotate at all *)
 (* 2. Rotate left only on left insert; and right only on right insert (this was my first bug) *)
 
-(* NOTE: the current seed is just unlucky on this one. That's all. *)
-
 let t : type = Mu tt. 
-  `Leaf of int
+  | `Leaf of int
   | `Node of { left : tt
               ; right : tt
               ; item : int

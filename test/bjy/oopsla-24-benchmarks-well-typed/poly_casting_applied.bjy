@@ -6,7 +6,7 @@ let f =
   fun x ->
     x
 
-let g (type a_) (x : a_) (y : int) : (`A of a_ | `I of int) =
+let g (type a_) (x : a_) (y : int) : `A of a_ | `I of int =
   if y == 0
   then `A (f x)
   else `I y

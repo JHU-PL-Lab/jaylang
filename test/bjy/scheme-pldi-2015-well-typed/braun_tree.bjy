@@ -3,7 +3,7 @@
 ) *)
 
 let t a = Mu tt.
-  `Leaf of { leaf : bool }
+  | `Leaf of { leaf : bool }
   | `Node of { v : a ; l : tt ; r : tt }
 
 let rec size n = 
