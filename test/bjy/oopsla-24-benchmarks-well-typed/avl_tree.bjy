@@ -60,26 +60,29 @@ let abs a =
   then a
   else (0 - a)
 
+let bind x f = 
+  match x with
+  | `Some y -> f y
+  | `None _ -> x
+  end
+
 (* Checks balancedness in linear time by computing height and balance at same time and level *)
 let is_balanced x =
-  let rec check_balanced x =
+  let rec get_height x =
     match x with
-    | `Leaf l -> { b = true ; h = 0 }
+    | `Leaf _ -> `Some 0
     | `Node node ->
-      let left_res = check_balanced node.left in
-      if left_res.b
-      then
-        let right_res = check_balanced node.right in
-        if right_res.b
-        then
-          { b = abs (left_res.h - right_res.h) < 2 ; h = max left_res.h right_res.h + 1 }
-        else
-          { b = false ; h = 00 } (* height ignored if not balanced *)
-      else
-        { b = false ; h = 00 } (* height ignored if not balanced *)
+      let%bind left_height = get_height node.left in
+      let%bind right_height = get_height node.right in
+      if abs (left_height - right_height) < 2
+      then `Some (max left_height right_height + 1)
+      else `None {}
     end
   in
-  (check_balanced x).b
+  match get_height x with
+  | `Some _ -> true
+  | `None _ -> false
+  end
 
 let is_bst x = 
   let rec to_list x acc =
