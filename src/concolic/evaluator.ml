@@ -159,14 +159,12 @@ let eval_exp
       match
         (* find the matching pattern and add to env any values capture by the pattern *)
         List.find_map patterns ~f:(fun (pat, body) ->
-          match pat, v with
-          | PAny, _ -> Some (body, Fn.id)
-          | PVariable id, _ -> Some (body, Env.add id v)
-          | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
-              when VariantLabel.equal variant_label label ->
-            Some (body, Env.add payload_id payload)
-          | _ -> None
+          match Value.matches v pat with
+          | Some bindings -> Some (body, fun env ->
+            List.fold bindings ~init:env ~f:(fun acc (v_bind, id_bind) -> Env.add id_bind v_bind acc)
           )
+          | None -> None
+        )
       with
       | Some (e, f) -> local f (eval e)
       | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v

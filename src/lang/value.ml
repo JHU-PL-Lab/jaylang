@@ -80,6 +80,19 @@ module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
       laziness is used to implement recursion.    
     *)
     and 'a closure = { expr : 'a Expr.t ; env : 'a env Env_cell.t }
+
+    let matches : type a. a t -> a Pattern.t -> (a t * Ident.t) list option =
+      fun v pattern ->
+        match pattern, v with
+        | PAny, _ -> Some []
+        | PVariable id, _ -> Some [ v, id ]
+        | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
+            when VariantLabel.equal variant_label label ->
+          Some [ payload, payload_id ]
+        | PEmptyList, VList [] -> Some []
+        | PDestructList { hd_id ; tl_id }, VList (v_hd :: v_tl) ->
+          Some [ v_hd, hd_id ; VList v_tl, tl_id ]
+        | _ -> None
   end
 
   module Env = struct
@@ -135,6 +148,8 @@ module Constrain (C : sig type constrain end) (Store : STORE) (Cell : T1) (V : V
   end
   
   include T
+
+  let matches = M.matches
 
   let to_string = M.to_string
 
