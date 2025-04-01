@@ -17,11 +17,11 @@ let last (type a_) (l : list a_) : a_ =
   Y (
     fun self x ->
       match x with
-      | [] -> assert false (* ERROR : `l` could be empty *)
       | x :: xs -> 
         match xs with
         | [] -> x
         | _ -> self xs
         end
       end
+      (* ERROR : `l` could be empty *)
   ) l

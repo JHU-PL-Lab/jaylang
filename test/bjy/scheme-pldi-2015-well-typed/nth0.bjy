@@ -7,14 +7,12 @@ let rec nth n xs =
   if n == 0
   then 
     match xs with
-    | hd :: tl -> hd
-    | [] -> assert false
+    | hd :: _ -> hd
     end
   else
     let tl =
       match xs with
-      | hd :: tl -> tl
-      | [] -> assert false
+      | _ :: tl -> tl
       end
     in
     nth (n - 1) tl

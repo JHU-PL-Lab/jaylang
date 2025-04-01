@@ -11,8 +11,7 @@ let rec makelist n =
 
 let getHead l = 
   match l with
-  | [] -> assert false
-  | hd :: tl -> hd
+  | hd :: _ -> hd
   end
 
 let main (n : { a : int | a >= 0}) : { a : int | a > 0} =

@@ -20,7 +20,6 @@ let last (type a_) (l : { list a_ | is_nonempty }) : a_ =
   Y (
     fun self x ->
       match x with
-      | [] -> assert false
       | x :: xs -> 
         match xs with
         | [] -> x

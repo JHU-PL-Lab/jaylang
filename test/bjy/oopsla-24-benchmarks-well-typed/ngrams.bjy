@@ -27,7 +27,8 @@ let (distribution : int -> type -> type) = fun n a -> map (ngram (n - 1) a) (bag
 let rec take n =
 (*letd rec take (type a_) (n : pos_int) : list a_ -> { list a_ | fun ls -> len ls <= n } = *)
   fun l ->
-    if n == 0 then [] else if n < 0 then assert false else
+    if n == 0 then [] else 
+    let _ = assert (n >= 0) in
     match l with
     | [] -> []
     | hd :: tl ->
