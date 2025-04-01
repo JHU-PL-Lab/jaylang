@@ -90,6 +90,7 @@ rule token = parse
 | "<="                 { LESS_EQUAL }
 | ">"                  { GREATER }
 | ">="                 { GREATER_EQUAL }
+| "|>"                 { PIPELINE }
 | digit+ as n          { INT (int_of_string n) }
 | ident_start ident_cont* as s     { IDENTIFIER s }
 

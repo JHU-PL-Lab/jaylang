@@ -73,6 +73,7 @@
 %token GREATER_EQUAL
 %token EQUAL_EQUAL
 %token NOT_EQUAL
+%token PIPELINE
 
 %token OPEN_BRACE_COLON
 %token COLON_CLOSE_BRACE
@@ -83,6 +84,7 @@
 %nonassoc prec_let prec_fun   /* Let-ins and functions */
 %nonassoc prec_if             /* Conditionals */
 %nonassoc prec_mu             /* mu types */
+%left PIPELINE                /* |> */
 %right DOUBLE_PIPE            /* || for boolean or */
 %right DOUBLE_AMPERSAND       /* && for boolean and */
 %right NOT                    /* Not */
@@ -181,6 +183,8 @@ type_expr:
       { ETypeArrow { domain = $1 ; codomain = $3 } : Bluejay.t }
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN ARROW expr
       { ETypeArrowD { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
+  | PIPE separated_nonempty_list(PIPE, single_variant_type) (* pipe optional before first variant *)
+      { ETypeVariant $2 : Bluejay.t }
   | separated_nonempty_list(PIPE, single_variant_type)
       { ETypeVariant $1 : Bluejay.t }
   (* we need at least two here because otherwise it is just an arrow with a single variant type *)
@@ -336,6 +340,8 @@ op_expr:
       { EBinop { left = $1 ; binop = BAnd ; right = $3 } : Bluejay.t }
   | expr DOUBLE_PIPE expr
       { EBinop { left = $1 ; binop = BOr ; right = $3 } : Bluejay.t }
+  | expr PIPELINE expr (* Note: evaluation order is that e' is evaluated first in e |> e' *)
+      { EAppl { func = $3 ; arg = $1 } }
 
 /* **** Idents + labels **** */
 

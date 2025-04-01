@@ -251,16 +251,11 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%bind v = eval subject in
       let%orzero Some (e, f) =
         List.find_map patterns ~f:(fun (pat, body) ->
-          match pat, v with
-          | PAny, _ -> Some (body, Fn.id)
-          | PVariable id, _ -> Some (body, Env.add id v)
-          | PVariant { variant_label ; payload_id }, VVariant { label ; payload } 
-              when VariantLabel.equal variant_label label -> 
-            Some (body, Env.add payload_id payload)
-          | PEmptyList, VList [] -> Some (body, Fn.id)
-          | PDestructList { hd_id ; tl_id }, VList (v_hd :: v_tl) ->
-            Some (body, fun env -> Env.add tl_id (VList v_tl) (Env.add hd_id v_hd env))
-          | _ -> None
+          match V.matches v pat with
+          | Some bindings -> Some (body, fun env ->
+            List.fold bindings ~init:env ~f:(fun acc (v_bind, id_bind) -> Env.add id_bind v_bind acc)
+          )
+          | None -> None
         )
       in
       local f (eval e)

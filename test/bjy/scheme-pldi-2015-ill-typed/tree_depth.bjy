@@ -6,7 +6,7 @@
 ) *)
 
 let t = Mu tt.
-  `Node of { left : tt ; right : tt }
+  | `Node of { left : tt ; right : tt }
   | `Leaf of { leaf : bool }
 
 let max x y =

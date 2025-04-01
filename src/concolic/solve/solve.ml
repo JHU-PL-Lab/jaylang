@@ -24,6 +24,7 @@ module Make () = struct
     else
       let subs, new_exprs = Expression.simplify exprs in
       match new_exprs with
+      | [] -> `Sat (Feeder.from_model_and_subs Sudu.empty_model subs)
       | [ e ] when Expression.equal e Expression.true_ -> `Sat (Feeder.from_model_and_subs Sudu.empty_model subs)
       | [ e ] when Expression.equal e Expression.false_ -> `Unsat
       | _ ->

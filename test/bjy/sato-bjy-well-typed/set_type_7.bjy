@@ -3,7 +3,7 @@
 ) *)
 
 let tree_type = Mu tt.
-  `Node of { left : tt; right : tt }
+  | `Node of { left : tt; right : tt }
   | `Leaf of { leaf : int }
 
 let x : tree_type = 
