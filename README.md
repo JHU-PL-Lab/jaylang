@@ -126,5 +126,6 @@ be run are currently commented out).
 
 All benchmarks are run in the test suite. Success of each run is not confirmed during
 benchmarking. Instead, use `make test-fast` to see the results or run the file individually
-with `ceval.exe`. Results are deterministic by default and are therefor replicable.
+with `ceval.exe`. Results are deterministic by default (modulo small variations in timeout)
+and are therefore replicable.
 
