@@ -90,8 +90,5 @@ let test_bjy : Lang.Ast.Bluejay.pgm test =
 *)
 
 let test : Filename.t test =
-  Options.Arrow.make
-  @@ fun r -> fun s -> fun ~do_wrap ->
-    In_channel.read_all s
-    |> Lang.Parse.parse_single_pgm_string
-    |> Options.Arrow.appl test_bjy r ~do_wrap
+  (fun s -> Lang.Parse.parse_single_pgm_string @@ In_channel.read_all s)
+  ^>> test_bjy
