@@ -204,12 +204,12 @@ module Embedded = Constrain (struct type constrain = Ast.Constraints.embedded en
 
 (*
   Values in the desugared language. Uses laziness to implement recursion.
-  Usage is unknonw, so use a Map as the environment to be general.
+  Usage is unknown, so use a Map as the environment to be general.
 *)
 module Desugared = Constrain (struct type constrain = Ast.Constraints.desugared end) (Map_store) (Lazy)
 
 (*
   Values in Bluejay. Uses laziness to implement recursion.
-  Usage is unknonw, so use a Map as the environment to be general.
+  Usage is unknown, so use a Map as the environment to be general.
 *)
 module Bluejay = Constrain (struct type constrain = Ast.Constraints.bluejay end) (Map_store) (Lazy)
