@@ -91,6 +91,20 @@ module V1 = struct
 end
 
 module V2 = struct
+  (*
+    Complete metadata:
+    
+    (***
+      (
+        (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
+        (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
+        (speed <Fast or Slow>)
+        (typing <Well_typed or Ill_typed>)
+      )
+    *)
+
+  *)
+
   type t =
     | Polymorphic_types
     | Refinement_types
