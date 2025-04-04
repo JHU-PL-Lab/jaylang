@@ -2,6 +2,7 @@
   (features (Higher_order_functions Refinement_types))
 ) *)
 
+(* Note that this doesn't really do anything because of nondeterminism. *)
 let t = { (int -> int) | fun f -> (f 0) == 0 }
 
 let g (x : t) : int =

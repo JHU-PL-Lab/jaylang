@@ -2,7 +2,7 @@
 let F (tf <- type -> type) (a <- type) :
   let t = tf a in
   { empty : unit -> t
-  ;  add   : a -> t -> t
+  ; add   : a -> t -> t
   }
   ->
   { of_list : list a -> t
