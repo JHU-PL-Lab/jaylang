@@ -1,6 +1,5 @@
 
 %{
-  module Langs = struct end (* Ugly fix for Menhir issue with nested modules *)
   (* Note: because AST uses GADTs and constraints, I must do some type annotation in this file *)
   open Ast
   open Binop
