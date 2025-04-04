@@ -21,7 +21,7 @@ end
 (* The following is when we hoist out `a`, which makes this well-typed. *)
 let S a = sig
   val t : type -> type
-  val ta : singlet (t a)
+  val ta = t a
   val f : a -> ta
 end
 

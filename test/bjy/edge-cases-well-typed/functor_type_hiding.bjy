@@ -8,7 +8,7 @@ end
 
 let MONOID_WITH_REDUCE t = sig
   (* include MONOID with type t = t *) (* would be nice, but we have to write it out *)
-  val t : singlet t
+  val t = t
   val neutral : t
   val combine : t -> t -> t
   val reduce : list t -> t (* returns neutral on empty list *)
@@ -27,7 +27,7 @@ let F : (X : MONOID) -> MONOID_WITH_REDUCE X.t = fun X -> struct
     end
 end
 
-let L : MONOID_WITH_REDUCE top = 
+let L : MONOID = 
   let Int : MONOID = struct
     let t = int
     let neutral = 0
