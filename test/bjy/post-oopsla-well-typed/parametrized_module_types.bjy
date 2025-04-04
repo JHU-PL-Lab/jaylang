@@ -1,0 +1,33 @@
+
+(*
+  Takes a module type and returns a module type.
+  While OCaml has parametric polymorphism for types, it doesn't
+  have parametrized module types, so it can't do this.
+
+  Since our module types are just like any other type, we can do this.
+  However, we can't go a level higher. We don't have a way to say
+    NEST : (S : module type) -> ...
+  We could say
+    NEST : (S : type) -> ...
+  but we can't refine it down to be only a module type.
+*)
+
+let NEST S = sig
+  val Inner : S
+end
+
+let MONOID = sig
+  val t : type
+  val neutral : t
+  val combine : t -> t -> t
+end
+
+let Int : MONOID = struct
+  let t = int
+  let neutral : t = 0
+  let combine : t -> t -> t = fun a b -> a + b
+end
+
+let X : NEST MONOID = struct
+  let Inner = Int
+end

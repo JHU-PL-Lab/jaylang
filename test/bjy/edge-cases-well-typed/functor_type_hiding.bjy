@@ -1,0 +1,44 @@
+
+(* standard monoid signature *)
+let MONOID = sig
+  val t : type
+  val neutral : t
+  val combine : t -> t -> t
+end
+
+let MONOID_WITH_REDUCE t = sig
+  (* include MONOID with type t = t *) (* would be nice, but we have to write it out *)
+  val t : singlet t
+  val neutral : t
+  val combine : t -> t -> t
+  val reduce : list t -> t (* returns neutral on empty list *)
+end
+
+(* functor that derives `reduce` given a monoid *)
+let F : (X : MONOID) -> MONOID_WITH_REDUCE X.t = fun X -> struct
+  let t = X.t (* wrap hides/removes this *)
+  let neutral = X.neutral
+  let combine = X.combine
+
+  let rec reduce l =
+    match l with
+    | [] -> neutral
+    | hd :: tl -> combine hd (reduce tl)
+    end
+end
+
+let L : MONOID_WITH_REDUCE top = 
+  let Int : MONOID = struct
+    let t = int
+    let neutral = 0
+    let combine a b = a + b + 1 (* not a good "combine", but satisfies the types *)
+  end in
+  let Bool : MONOID = struct
+    let t = bool
+    let neutral = false
+    let combine a b = a || b
+  end in
+  let i = input in
+  if i % 2 == 0
+  then F Int
+  else F Bool

@@ -1,0 +1,10 @@
+
+let M : sig 
+  val t : singlet int
+  val f : t -> t
+end = struct
+  let t = int (* not actually a subtype anymore *)
+  let f = fun x -> x
+end
+
+let _ = M.f 0 

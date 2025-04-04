@@ -207,12 +207,12 @@ Because of the desugaring, we only have types and dependent types instead of pol
         else $e == `~Untouched i
     ; ~wrap = fun $e -> $e
     }
-  , ~check = fun $e ->
+  ; ~check = fun $e ->
     let _ = $e.~gen in
     let _ = $e.~check in
     let _ = $e.~wrap in
     {}
-  , ~wrap = fun $e -> $e
+  ; ~wrap = fun $e -> $e
   }
 ```
 
@@ -232,27 +232,27 @@ The `List` type has been desugared into a variant, so nothing is needed here.
 ```ocaml
 [[ top ]] = 
   { ~gen = freeze @@ `~Top {}
-  , ~check = fun _ -> {} (* anything is in top *)
-  , ~wrap = fun $e -> $e
+  ; ~check = fun _ -> {} (* anything is in top *)
+  ; ~wrap = fun $e -> $e
   }
 
 [[ bottom ]] =
   { ~gen = freeze @@ diverge (* can't make a value of type bottom, so exit safely *)
-  , ~check = fun _ -> (`~Bottom {}) (`~Bottom {}) (* nothing is in bottom *)
-  , ~wrap = fun $e -> $e
+  ; ~check = fun _ -> (`~Bottom {}) (`~Bottom {}) (* nothing is in bottom *)
+  ; ~wrap = fun $e -> $e
   }
 ```
 
 ### Dependent records
 
 ```ocaml
-[[ {: l_0 : tau_0 , ... , l_n : tau_n :} ]] =
+[[ {: l_0 : tau_0 ; ... ; l_n : tau_n :} ]] =
   { ~gen = freeze @@
     let l_0 = thaw [[tau_0]].~gen in (* use the name l_0 to put it in scope *)
     ...
     let l_(n-1) = thaw [[tau_(n-1)]].~gen in (* use the name l_(n-1) to put it in scope *)
-    { l_0 = l_0 , ... , l_(n-1) = l_(n-1) , l_n = thaw [[tau_n]].~gen }
-  , ~check = fun $e ->
+    { l_0 = l_0 ; ... ; l_(n-1) = l_(n-1) ; l_n = thaw [[tau_n]].~gen }
+  ; ~check = fun $e ->
     let _ = [[tau_0]].~check $e.l_0 in
     let l_0 = $e.l_0 in (* put the name l_0 in scope *) 
     ...
@@ -260,11 +260,11 @@ The `List` type has been desugared into a variant, so nothing is needed here.
     let l_(n-1) = $e.l_(n-1) in (* put the name l_(n-1) in scope *)
     let _ = [[tau_n]].~check $e.l_n in
     {}
-  , ~wrap = fun $e ->
+  ; ~wrap = fun $e ->
     let l_0 = = [[tau_0]].~wrap $e.l_0 in (* put the name l_0 in scope *)
     ...
     let l_(n-1) = = [[tau_(n-1)]].~wrap $e.l_(n-1) in (* put the name l_(n-1) in scope *)
-    { l_0 = l_0 , ..., l_(n-1) = l_(n-1) , l_n = [[tau_n]].~wrap $e.l_n }
+    { l_0 = l_0 ; ...; l_(n-1) = l_(n-1) ; l_n = [[tau_n]].~wrap $e.l_n }
   }
 ```
 
@@ -293,13 +293,13 @@ These ideas are not in the implementation. The only one here (refinement types a
 
 ```ocaml
 [[ { tau | e_p }]] =
-  let $r = [[ {: ~value : tau , ~dummy = if e_p value then unit else bottom :} ]] in (* note this is a dependent record *)
+  let $r = [[ {: ~value : tau ; ~dummy = if e_p value then unit else bottom :} ]] in (* note this is a dependent record *)
   { ~gen = freeze @@
     (thaw $r.~gen).~value
-  , ~check = fun $e ->
-    $r.~check { ~value = $e , ~dummy = {} }
-  , ~wrap = fun $e ->
-    $r.~wrap { ~value = $e , ~dummy = {} }
+  ; ~check = fun $e ->
+    $r.~check { ~value = $e ; ~dummy = {} }
+  ; ~wrap = fun $e ->
+    $r.~wrap { ~value = $e ; ~dummy = {} }
   }
 ```
 
