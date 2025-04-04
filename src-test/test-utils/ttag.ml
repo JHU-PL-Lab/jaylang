@@ -46,7 +46,7 @@ module V1 = struct
   | Return_type            -> "Return type"
   | Match                  -> "Match"
 
-  let to_string_with_underline = function
+  let to_name_with_underline = function
   | Polymorphic_types      -> "\\underline{P}olymorphic types"  
   | Variants               -> "\\underline{V}ariants"           
   | Intersection_types     -> "\\underline{I}ntersection types" 
@@ -88,4 +88,99 @@ module V1 = struct
 
   let sort_list =
     List.sort ~compare:(fun a b -> Int.compare (Variants.to_rank a) (Variants.to_rank b))
+end
+
+module V2 = struct
+  type t =
+    | Polymorphic_types
+    | Refinement_types
+    | Dependent_arrows
+    | Modules
+    | Mu_types
+    | Parametric_types
+    | First_class_types
+    | Variants
+    | Records
+    | Recursive_functions
+    | Higher_order_functions
+    | Subtyping
+    | OOP_style
+    | Return_error
+    | Usage_error
+    | Other
+    [@@deriving variants, sexp, compare, enumerate, equal]
+
+  (* Description, if not totally trivial *)
+  (* Lists are often excluded because they are trivial, built in, and used so often *)
+  let to_description = function
+    | Polymorphic_types      -> "Untouchable polymorphic values"
+    | Refinement_types       -> "Type is refined with a predicate"
+    | Dependent_arrows       -> "Codomain depends on a value"
+    | Modules                -> "Modules and module types are used, or dependent record types"
+    | Mu_types               -> "Recursive types, excluding lists"
+    | Parametric_types       -> "Type functions with simple parameters, excluding lists"
+    | First_class_types      -> "Types are used as values for more than simple parametric types"
+    | Variants               -> "Excluding lists"
+    | Records                -> "Not including dependent records types, which are modules"
+    | Recursive_functions    -> "Including mutual recursion"
+    | Higher_order_functions -> "Including intersection/match types"
+    | Subtyping              -> "The program using subtyping, or the error is in the spirit of subtyping"
+    | OOP_style              -> "Self-referential records"
+    | Return_error           -> "The value returned from a function has the wrong type"
+    | Usage_error            -> "A function is used with an argument of the wrong type"
+    | Other                  -> "Anything not included in the above"
+
+  let to_name = function
+    | Polymorphic_types      -> "Polymorphic types"
+    | Refinement_types       -> "Refinement types"
+    | Dependent_arrows       -> "Dependent arrows"
+    | Modules                -> "Modules"
+    | Mu_types               -> "Mu types"
+    | Parametric_types       -> "Parametric types"
+    | First_class_types      -> "First class types"
+    | Variants               -> "Variants"
+    | Records                -> "Records"
+    | Recursive_functions    -> "Recursive functions"
+    | Higher_order_functions -> "Higher order functions"
+    | Subtyping              -> "Subtyping"
+    | OOP_style              -> "OOP-style"
+    | Return_error           -> "Return error"
+    | Usage_error            -> "Usage error"
+    | Other                  -> "Other"
+
+  let to_name_with_underline = function
+    | Polymorphic_types      -> "\\underline{P}olymorphic types"
+    | Refinement_types       -> "Re\\underline{f}inement types"
+    | Dependent_arrows       -> "\\underline{D}ependent arrows"
+    | Modules                -> "\\underline{M}odules"
+    | Mu_types               -> "M\\underline{u} types"
+    | Parametric_types       -> "P\\underline{a}rametric types"
+    | First_class_types      -> "First class \\underline{t}ypes"
+    | Variants               -> "\\underline{V}ariants"
+    | Records                -> "Re\\underline{c}ords"
+    | Recursive_functions    -> "\\underline{R}ecursive functions"
+    | Higher_order_functions -> "\\underline{H}igher order functions"
+    | Subtyping              -> "\\underline{S}ubtyping"
+    | OOP_style              -> "\\underline{O}OP-style"
+    | Return_error           -> "Retur\\underline{n} error"
+    | Usage_error            -> "Usa\\underline{g}e error"
+    | Other                  -> "Oth\\underline{e}r"
+
+  let to_char = function
+    | Polymorphic_types      -> 'P'
+    | Refinement_types       -> 'F'
+    | Dependent_arrows       -> 'D'
+    | Modules                -> 'M'
+    | Mu_types               -> 'U'
+    | Parametric_types       -> 'A'
+    | First_class_types      -> 'T'
+    | Variants               -> 'V'
+    | Records                -> 'C'
+    | Recursive_functions    -> 'R'
+    | Higher_order_functions -> 'H'
+    | Subtyping              -> 'S'
+    | OOP_style              -> 'O'
+    | Return_error           -> 'N'
+    | Usage_error            -> 'G'
+    | Other                  -> 'E'
 end

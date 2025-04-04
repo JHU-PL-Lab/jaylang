@@ -26,17 +26,20 @@ module Tbl = struct
       { tag  : Ttag.V1.t
       ; uses : int (* number of tests in which the tag is used at all *)
       ; errs : int (* number of ill-typed tests in which the tag is a fundamental involved in the error *)
+      (* description not needed because can be derived from the tag *)
       }
 
     let names = 
       [ "Features"
       ; "Uses"
-      ; "Errors" ]
+      ; "Errors"
+      ; "Description" ]
 
     let to_strings (x : t) : string list =
       [ Format.sprintf "%s (%c)" (Ttag.V1.to_name x.tag) (Ttag.V1.to_char x.tag)
       ; Int.to_string x.uses
-      ; Int.to_string x.errs ]
+      ; Int.to_string x.errs
+      ; "Intentionally empty" (* Use Ttag.to_description if defined *) ]
   end
 
   let make_of_dirs (dirs : Filename.t list) : Row.t Latex_tbl.t =
