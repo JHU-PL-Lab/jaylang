@@ -5,8 +5,8 @@
   (typing Ill_typed)
 ) *)
 
-let t = Mu tt.
-  | `Node of { left : tt ; right : tt }
+let t = Mu t.
+  | `Node of { left : t ; right : t }
   | `Leaf of { leaf : bool }
 
 let max x y =

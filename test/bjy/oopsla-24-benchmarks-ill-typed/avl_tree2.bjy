@@ -7,9 +7,9 @@
 (* This is an avl tree program; where insert on balanced tree returns a balanced tree *)
 (* There is a type error in `rotate_right_left`. See the comment *)
 
-let t : type = Mu tt. 
+let t : type = Mu t. 
   | `Leaf of int
-  | `Node of { left : tt ; right : tt ; item : int }
+  | `Node of { left : t ; right : t ; item : int }
 
 let empty = `Leaf 00
 

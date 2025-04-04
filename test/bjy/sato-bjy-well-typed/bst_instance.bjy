@@ -29,8 +29,8 @@ let rec is_bst t =
   | `Leaf leaf -> true
   end
 
-let tree_type = Mu tt.
-  | `Node of { left : tt; right : tt; item : int }
+let tree_type = Mu t.
+  | `Node of { left : t; right : t; item : int }
   | `Leaf of { leaf : bool }
 
 let x : { tree_type | is_bst } = 

@@ -8,8 +8,8 @@ let coord : type =
   { x : int
   ; y : int }
 
-let t : type = Mu tt.
-  { parent : `Some of tt | `None of int
+let t : type = Mu t.
+  { parent : `Some of t | `None of unit
   ; relative_coord : coord }
 
 let is_coord_nonzero c = 

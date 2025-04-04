@@ -5,7 +5,7 @@
   (typing Ill_typed)
 ) *)
 
-let t = Mu tt. { f : int -> tt }
+let t = Mu t. { f : int -> t }
 
 let g (x : t) : bool =
   let y : t = x in

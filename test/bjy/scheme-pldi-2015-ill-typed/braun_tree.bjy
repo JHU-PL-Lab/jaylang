@@ -6,9 +6,9 @@
 ) *)
 (* error is that item is always inserted on the left; so it doesn't stay balanced *)
 
-let t a = Mu tt.
+let t a = Mu t.
   | `Leaf of { leaf : bool }
-  | `Node of { v : a ; l : tt ; r : tt }
+  | `Node of { v : a ; l : t ; r : t }
 
 let rec size n = 
   match n with
