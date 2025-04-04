@@ -275,13 +275,15 @@ The singleton of a type is just the singleton set containing that type.
 ```ocaml
 [[singlet tau]] =
   { ~gen = freeze @@ [[tau]]
-  , ~check = [[type]].~check
-  , ~wrap = [[type]].~wrap
+  ; ~check = fun $t ->
+      [[tau]].~check $t.~gen
+  ; ~wrap = fun $t -> $t
   }
 ```
 
 Note:
 * The word `singlet` is used instead of `singleton` because it only works on types. e.g. `singlet 5` is bad, whereas a programmer might expect `singleton 5` to work.
+* The check makes sure that it is a subtype of `tau`, so `t : singlet tau` if `t`'s gen passes `tau`'s check.
 
 #### Other encodings
 

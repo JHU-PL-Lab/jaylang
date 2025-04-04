@@ -494,8 +494,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       embed_type
         { gen = lazy (embed tau)
         (* Note: check and wrap refer to the EType embedding, per the specification *)
-        ; check = lazy (proj (embed ~ask_for:`Check EType) Reserved.check)
-        ; wrap = lazy (proj (embed ~ask_for:`Wrap EType) Reserved.wrap) 
+        ; check = lazy (fresh_abstraction "t_singlet_check" @@ fun t -> check tau (gen (EVar t)))
+        ; wrap = lazy EId
         }
 
     and embed_let ?(do_wrap : bool = do_wrap) ~(do_check : bool) ~(tau : Desugared.t) (body : Desugared.t) : Embedded.t =
