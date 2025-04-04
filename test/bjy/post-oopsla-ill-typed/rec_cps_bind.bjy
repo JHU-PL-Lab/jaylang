@@ -1,0 +1,28 @@
+(*** (
+  (speed Fast)
+  (typing Ill_typed)
+)*)
+
+let (t : type -> type -> type) = fun a r -> { continuation : (a -> r) -> r }
+
+let bind (type a_ b_ r_) (ar_r : t a_ r_) (a_br_r : a_ -> t b_ r_) : t b_ r_ =
+  { continuation = 
+    fun br -> ar_r.continuation (fun a -> (a_br_r a).continuation br)
+  }
+
+let return a = 
+  { continuation = fun k -> k a }
+
+let go n =
+  let bind = bind int int int in (* all uses will be with only integers *)
+  let rec loop i = 
+    if i == 0
+    then return 0
+    else
+      let%bind acc = loop (i - 1) in
+      return (acc + i)
+  in
+  loop n (* ERROR: we don't run/extract here, but we use as int later *)
+
+let _ : { i : int | i == 6 } = go 3
+  

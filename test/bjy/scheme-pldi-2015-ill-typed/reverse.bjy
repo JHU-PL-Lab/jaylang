@@ -21,8 +21,7 @@ let main (len : int) : int =
   if not (len == 0) (* ERROR: should be `not (len < 0)` so there is no list of "negative length" *)
   then
     match reverse xs [] with
-    | hd :: tl -> hd
-    | [] -> assert false
+    | hd :: _ -> hd
     end
   else
     0

@@ -1,0 +1,19 @@
+(*** (
+  (speed Fast)
+  (typing Ill_typed)
+) *)
+
+(*
+  Minimal example of singlet needing to compare types
+*)
+
+let S = sig
+  val t : singlet int
+end
+
+let X : S = struct
+  let t = bool (* ERROR: this needs to be int *)
+end
+
+
+

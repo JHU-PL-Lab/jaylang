@@ -24,7 +24,7 @@ This code is developed by the JHU Programming Languages Lab.
 This monorepo contains all tools built upon this language, which has recently be pruned
 down to contain less code that is better-supported.
 
-There is a snapshot that is the artifact for the paper **Semantic-Type-Guided Bug Finding** at SPLASH-OOPSLA 2024. Find it at the appropriate tag and release.
+There is a snapshot that is the artifact for the paper **Semantic-Type-Guided Bug Finding** at SPLASH-OOPSLA 2024. Find it at the appropriate tag and release. Alternatively, checkout to the `oopsla-24` branch and follow the instructions there to recreate the results.
 
 # Getting Started Guide
 
@@ -44,11 +44,13 @@ docker build -t jaylang .
 docker run -it jaylang
 ```
 
-Then go to section `Run`.
+This may be very slow. To limit memory usage, the dependencies are installed using only four processes. It may be faster to install from source.
+
+After installation, go to section `Run`.
 
 ## Install from source
 
-Prepare and upgrade `apt` and the OCaml environment
+Prepare and upgrade `apt` and the OCaml environment:
 
 ```
 sudo apt upgrade opam
@@ -81,7 +83,7 @@ make ceval
 ```
 
 This makes the executable to run the concolic evaluator on a BlueJay file.
-The resulting executable `ceval.exe`, can be used directly by running the 
+The resulting executable, `ceval.exe`, can be used directly by running the 
 command
 
 ```
@@ -123,4 +125,7 @@ and change the directories run at the bottom of the file (several directories th
 be run are currently commented out).
 
 All benchmarks are run in the test suite. Success of each run is not confirmed during
-benchmarking. Instead, use `make test-concolic` to see the results.
+benchmarking. Instead, use `make test-fast` to see the results or run the file individually
+with `ceval.exe`. Results are deterministic by default (modulo small variations in timeout)
+and are therefore replicable.
+

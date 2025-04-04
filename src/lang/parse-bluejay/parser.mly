@@ -363,8 +363,10 @@ param_list:
 ;
 
 /* val x : t (* for module types *) */
+/* val t = tau (* pure simple sugar for val t : singlet tau *) */
 val_item:
   | VAL record_type_item { $2 }
+  | VAL record_label EQUALS expr { $2, (ETypeSingle $4) : RecordLabel.t * Bluejay.t }
 
 %inline record_label:
   | ident { RecordLabel.RecordLabel $1 }

@@ -214,7 +214,7 @@ module Expr = struct
     | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_only t
     | ETypeForall : { type_variables : Ident.t list ; tau : 'a t } -> 'a bluejay_only t
     | ELetFun : { func : 'a funsig ; cont : 'a t } -> 'a bluejay_only t
-    | ELetFunRec : { funcs : 'a funsig list ; cont : 'a t } -> 'a bluejay_only t (* I think I can make these any combo of typedness, but for now I don't *)
+    | ELetFunRec : { funcs : 'a funsig list ; cont : 'a t } -> 'a bluejay_only t
 
   (* the let-function signatures *)
   and _ funsig =

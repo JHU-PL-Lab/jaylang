@@ -4,13 +4,13 @@ let F :
     (S : sig
       val tf : type -> type 
       val a : type
-      val t : singlet (tf a)
+      val t = tf a
       val empty : unit -> t
       val add   : a -> t -> t
     end) -> sig
       val tf : type -> type
       val a : type
-      val t : singlet (S.t)
+      val t = S.t
       val empty   : unit -> S.t
       val add     : S.a -> S.t -> S.t
       val of_list : list S.a -> S.t
@@ -36,7 +36,7 @@ let F :
 let M : (a : type) -> sig
   val tf : type -> type 
   val a : type
-  val t : singlet (tf a)
+  val t = tf a
   val empty : unit -> t
   val add   : a -> t -> t
 end = fun a ->

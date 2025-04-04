@@ -1,7 +1,7 @@
 (**
   Module [Interp].
 
-  This module interpretes any language defined in this system.
+  This module interprets any language defined in this system.
   It uses GADTs and type constraints to define the interpreter
   for all languages in one function.
 

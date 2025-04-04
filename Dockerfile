@@ -1,18 +1,14 @@
-FROM ocaml/opam:ubuntu-23.04-ocaml-5.2
-
-RUN sudo apt-get update && sudo apt-get install -y libgmp-dev python3 vim emacs graphviz time
-WORKDIR /home/opam
-RUN sudo ln -f /usr/bin/opam-2.1 /usr/bin/opam && opam init --reinit -ni
-RUN echo "eval $(opam env)" >> .bashrc
-
-RUN eval $(opam env) && opam update
-RUN eval $(opam env) && opam install utop ocaml-lsp-server ocamlformat
-RUN eval $(opam env) && opam install core core_unix psq z3 fmt ppx_deriving yojson ppx_deriving_yojson lwt_ppx landmarks-ppx jhupllib alcotest-lwt moonpool
-
+FROM ocaml/opam:ubuntu-22.04-ocaml-5.2
 WORKDIR /home/opam/jaylang
+
+# Z3 needs python3, and something else needs libgmp-dev and pkg-config
+RUN sudo apt-get update && sudo apt-get install -y python3 libgmp-dev pkg-config
+
+# Force at most four processes with -j 4 to reduce memory usage
+ADD jay.opam .
+RUN opam exec -- opam pin add -y --no-action jay .
+RUN opam exec -- opam depext jay
+RUN opam exec -- opam install -j 4 --deps-only jay
+
 COPY --chown=opam . .
-RUN git checkout ocaml-5.2.0
-
-RUN eval $(opam env) && opam exec -- dune build
-
-ENTRYPOINT [ "/bin/bash" ]
+RUN opam exec -- dune build
