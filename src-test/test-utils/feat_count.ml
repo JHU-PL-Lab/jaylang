@@ -23,7 +23,7 @@ open List.Let_syntax
 module Tbl = struct
   module Row = struct
     type t =
-      { tag  : Ttag.t
+      { tag  : Ttag.V1.t
       ; uses : int (* number of tests in which the tag is used at all *)
       ; errs : int (* number of ill-typed tests in which the tag is a fundamental involved in the error *)
       }
@@ -34,7 +34,7 @@ module Tbl = struct
       ; "Errors" ]
 
     let to_strings (x : t) : string list =
-      [ Format.sprintf "%s (%s)" (Ttag.to_string x.tag) (Ttag.to_string_short x.tag)
+      [ Format.sprintf "%s (%c)" (Ttag.V1.to_name x.tag) (Ttag.V1.to_char x.tag)
       ; Int.to_string x.uses
       ; Int.to_string x.errs ]
   end
@@ -48,12 +48,12 @@ module Tbl = struct
       >>| Metadata.tags_of_t 
       >>| (function `Sorted_list ls -> ls)
       |> List.transpose_exn
-      |> List.zip_exn Ttag.all
+      |> List.zip_exn Ttag.V1.all
       >>| (fun (tag, ls) ->
         List.fold ls ~init:Row.{ tag ; uses = 0 ; errs = 0 } ~f:(fun acc -> function
           | `Absent -> acc
-          | `Feature t -> assert (Ttag.equal t tag); { acc with uses = acc.uses + 1 }
-          | `Reason t -> assert (Ttag.equal t tag); { acc with errs = acc.errs + 1 ; uses = acc.uses + 1 }
+          | `Feature t -> assert (Ttag.V1.equal t tag); { acc with uses = acc.uses + 1 }
+          | `Reason t -> assert (Ttag.V1.equal t tag); { acc with errs = acc.errs + 1 ; uses = acc.uses + 1 }
           )
       )
       >>| Latex_tbl.Row_or_hline.return
