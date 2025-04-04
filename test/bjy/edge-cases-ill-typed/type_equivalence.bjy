@@ -12,7 +12,7 @@ let S = sig
 end
 
 let X : S = struct
-  let t = bool (* ERROR: this needs to be a subtype of int *)
+  let t = bool (* ERROR: this needs to be int *)
 end
 
 

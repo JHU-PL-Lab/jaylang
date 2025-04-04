@@ -276,14 +276,15 @@ The singleton of a type is just the singleton set containing that type.
 [[singlet tau]] =
   { ~gen = freeze @@ [[tau]]
   ; ~check = fun $t ->
-      [[tau]].~check $t.~gen
+      let _ =  [[tau]].~check (thaw $t.~gen) in
+      $t.~check (thaw [[tau]].~gen)
   ; ~wrap = fun $t -> $t
   }
 ```
 
 Note:
 * The word `singlet` is used instead of `singleton` because it only works on types. e.g. `singlet 5` is bad, whereas a programmer might expect `singleton 5` to work.
-* The check makes sure that it is a subtype of `tau`, so `t : singlet tau` if `t`'s gen passes `tau`'s check.
+* The check goes in both directions: it first asks if `t` is a subtype of `tau` (anything that `t` generates is in `tau`) and then that `tau` is a subtype of `t`, giving equality.
 
 #### Other encodings
 
