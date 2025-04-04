@@ -380,7 +380,13 @@ Division and modulus can go wrong if right expression is `0`. We instrument duri
   (x : [| tau1 |]) -> [| tau2 |]
 ```
 
-## Monadic syntax
+## Parse-time
+
+The following desugaring steps are trivial and are done while the program is parsed, so there is no language construct for them.
+
+This is certainly a slight hack, but the scope is small enough that it's fine for now.
+
+### Monadic syntax
 
 ```ocaml
 [| let%bind x = e in e' |] =
@@ -389,6 +395,27 @@ Division and modulus can go wrong if right expression is `0`. We instrument duri
 
 Notes:
 * This implicitly fails if there is no appropriate function called `bind` in scope
+
+### Pipelining
+
+```ocaml
+[| e |> e' |] =
+  [|  e' e |]
+```
+
+Notes:
+* This means `e'` is evaluated first, which is a somewhat unintuitive evaluation order, and it motivates actually having the pipelining operator in the language, or desugaring to `(fun a b -> b a) e e'`
+
+### Singlet in module types
+
+```ocaml
+(* as a line in a module type *)
+[| val t = tau |] =
+  [| val t : singlet (tau) |]
+```
+
+Notes:
+* This is like OCaml's `type t = tau` in a module type. It is simple sugar for the singleton type.
 
 ## Conclusion
 

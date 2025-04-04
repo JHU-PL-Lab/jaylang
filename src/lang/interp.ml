@@ -173,13 +173,6 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       | _ -> type_mismatch ()
     end
     | ELet { var ; body ; cont } -> eval_let var ~body ~cont
-    | ELetBind { var ; body ; cont } -> (* just do the desugar in place instead of a repeating behavior from EAppl *)
-      eval (
-        EAppl
-          { func = EAppl { func = EVar (Ident "bind") ; arg = body }
-          ; arg = EFunction { param = var ; body = cont }
-          }
-      )
     | ELetTyped { typed_var = { var ; _ } ; body ; cont ; _ } -> eval_let var ~body ~cont
     | EIgnore { ignored ; cont } ->
       let%bind _ = eval ignored in

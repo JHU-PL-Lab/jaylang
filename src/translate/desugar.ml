@@ -102,12 +102,6 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       ELetTyped { typed_var = { var ; tau = desugar tau } ; body = desugar body ; cont = desugar cont ; do_wrap ; do_check }
     | ETypeSingle tau ->
       ETypeSingle (desugar tau)
-    (* monads *)
-    | ELetBind { var ; body ; cont } ->
-      desugar @@ EAppl
-        { func = EAppl { func = EVar (Ident "bind") ; arg = body}
-        ; arg = EFunction { param = var ; body = cont }
-        }
     (* Assert/assume *)
     | EAssert assert_expr ->
       EIf

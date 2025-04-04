@@ -162,8 +162,8 @@ expr:
       { ELetTyped { typed_var = { var = $2 ; tau = $4 } ; body = $6 ; cont = $8 ; do_wrap = true ; do_check = true } : Bluejay.t }
   | LET l_ident EQUALS expr IN expr %prec prec_let
       { ELet { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
-  | LET_BIND l_ident EQUALS expr IN expr %prec prec_let
-      { ELetBind { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
+  | LET_BIND l_ident EQUALS expr IN expr %prec prec_let (* this is desugared in place, which is a little ugly... *)
+      { EAppl { func = EAppl { func = EVar (Ident "bind") ; arg = $4 } ; arg = EFunction { param = $2 ; body = $6 }} : Bluejay.t } 
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
       { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 ; cont = $10 ; do_wrap = true ; do_check = true } : Bluejay.t }
   // Functions
