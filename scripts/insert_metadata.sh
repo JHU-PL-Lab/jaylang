@@ -1,3 +1,21 @@
+#!/bin/bash
+
+# Check if directory argument is provided
+if [ -z "$1" ]; then
+  echo "Usage: $0 <directory>"
+  exit 1
+fi
+
+TARGET_DIR="$1"
+
+# Verify that the argument is a directory
+if [ ! -d "$TARGET_DIR" ]; then
+  echo "Error: '$TARGET_DIR' is not a directory."
+  exit 1
+fi
+
+# Block to prepend
+read -r -d '' header <<'EOF'
 (***
   (
     (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
@@ -6,22 +24,13 @@
     (typing <Well_typed or Ill_typed>)
   )
 *)
-(*** (
-  (features (Variants Recursive_functions Mu_types Refinement_types Records Match))
-) *)
-(* simple error that depth should be positive but leaf has depth 0 *)
+EOF
 
-let t = Mu t.
-  | `Node of { left : t ; right : t }
-  | `Leaf of { leaf : bool }
-
-let max x y =
-  if x > y
-  then x
-  else y
-
-let rec depth (tree : t) : { i : int | i >= 0 } =
-  match tree with
-  | `Leaf leaf -> 0
-  | `Node node -> 1 + max (depth node.left) (depth node.right)
-  end
+# Find all regular files under the directory (recursively)
+find "$TARGET_DIR" -type f | while IFS= read -r file; do
+  tmp=$(mktemp)
+  {
+    echo "$header"
+    cat "$file"
+  } > "$tmp" && mv "$tmp" "$file"
+done

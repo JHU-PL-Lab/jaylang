@@ -1,3 +1,11 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
+    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
+    (speed <Fast or Slow>)
+    (typing <Well_typed or Ill_typed>)
+  )
+*)
 (*** (
   (features (Polymorphic_types Higher_order_functions Parametric_types Records Return_type))
   (reasons (Polymorphic_types Parametric_types Return_type))

@@ -1,7 +1,11 @@
-(*** (
-  (speed Slow) ; this is our slowest test even though ill-typed. It takes several minutes
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions))
+    (reasons (Mu_types Variants Records Recursive_functions))
+    (speed Slow)
+    (typing Ill_typed)
+  )
+*)
 
 (*
   T n is a module with a type with n parameters, e.g.

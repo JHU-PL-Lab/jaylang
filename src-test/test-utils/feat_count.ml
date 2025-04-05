@@ -66,16 +66,16 @@ module Tbl = struct
     }
 end
 
+(* Note we only include ill-typed tests *)
 let () =
   [ "deep-type-error"
-  ; "oopsla-24-tests-ill-typed"
+  ; "edge-cases-ill-typed"
+  ; "interp-ill-typed"
   ; "oopsla-24-benchmarks-ill-typed"
+  ; "oopsla-24-tests-ill-typed"
+  ; "post-oopsla-ill-typed"
   ; "sato-bjy-ill-typed"
   ; "scheme-pldi-2015-ill-typed"
-  ; "interp-ill-typed" (* not tagged with features yet, so contributes nothing *)
-  ; "functors" (* .. *)
-  ; "edge-cases-ill-typed" (* .. *)
-  ; "post-oopsla-ill-typed" (* .. *)
   ]
   >>| String.append "./test/bjy/"
   |> Tbl.make_of_dirs
