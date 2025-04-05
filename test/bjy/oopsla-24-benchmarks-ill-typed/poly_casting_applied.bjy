@@ -1,17 +1,11 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types))
+    (reasons (Polymorphic_types))
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (features (Polymorphic_types Operator_misuse))
-  (reasons (Polymorphic_types Operator_misuse))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
 
 let f =
   fun x ->
@@ -19,7 +13,7 @@ let f =
 
 let g (type a_) (x : a_) (y : int) : int =
   if y == 0
-  then f x (* ERROR: polymorphic variable applied where int is expected *)
+  then f x (* ERROR: polymorphic variable applied where int is expected because it is used in `+ 1` *)
   else y
 
 let z = g int 10 0

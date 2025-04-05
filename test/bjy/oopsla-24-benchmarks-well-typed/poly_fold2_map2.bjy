@@ -1,15 +1,10 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
   )
 *)
-(*** (
-  (features (Polymorphic_types Recursive_functions Higher_order_functions Match))
-) *)
-(* Polymorphic types in higher order functions are wrong *)
 
 (* No error in this. It is here to slow down the concolic evaluator and make a bigger haystack in which to find the needle *)
 let rec fold2 (type a_ b_ acc_) (ls1 : list a_) (ls2 : list b_) (init : acc_) (f : acc_ -> a_ -> b_ -> acc_) : acc_ =

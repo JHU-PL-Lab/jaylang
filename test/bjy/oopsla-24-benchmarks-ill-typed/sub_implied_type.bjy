@@ -1,17 +1,14 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Refinement_types Recursive_functions Higher_order_functions Subtyping Usage_error))
+    (reasons (Refinement_types Recursive_functions Higher_order_functions Subtyping Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (features (Recursive_functions Higher_order_functions Subtyping Refinement_types Wrap_required))
-  (reasons (Subtyping Higher_order_functions Refinement_types Wrap_required))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+
+(* a brief summary is that `f (n - 1)` always expects a zero as its arg, but it is checked against `int -> bool` *)
+
 (* The implied type of a function is not a subtype of `int -> bool` when it is applied as such *)
 (* i.e. the type of the parameter `g` below is more general than `f`; which is the only argument ever given. *)
 

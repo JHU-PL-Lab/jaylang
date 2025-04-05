@@ -141,7 +141,7 @@ module V2 = struct
     | Subtyping              -> "The program using subtyping, or the error is in the spirit of subtyping"
     | OOP_style              -> "Self-referential records"
     | Return_error           -> "The value returned from a function has the wrong type"
-    | Usage_error            -> "A function is used with an argument of the wrong type"
+    | Usage_error            -> "A function is used with an argument of the wrong type, including built-in operators"
     | Other                  -> "Anything not included in the above"
 
   let to_name = function

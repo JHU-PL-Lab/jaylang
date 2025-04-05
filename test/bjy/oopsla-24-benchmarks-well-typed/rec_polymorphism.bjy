@@ -1,18 +1,14 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
   )
 *)
-(*** (
-  (features (Polymorphic_types Recursive_functions))
-) *)
 
 let rec f (type a_) (a : a_) (i : int) : a_ =
   if i == 0
   then a 
-  else f (a_) a (i - 1)
+  else f a_ a (i - 1)
 
-let res = f int 1 2
+let _ = f int 1 2

@@ -1,21 +1,17 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Records Higher_order_functions OOP_style))
+    (speed Fast)
+    (typing Well_typed)
   )
 *)
-(*** (
-  (features (Higher_order_functions OOP_style Records Return_type))
-) *)
 
 let int_wrapper = { value : int }
 
 let t =
   { square : int -> int
-  ;  add_x : int -> int
-  ;  x : int }
+  ; add_x  : int -> int
+  ; x : int }
 
 let ob =
   fun x -> 

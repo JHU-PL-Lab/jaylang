@@ -1,18 +1,16 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Modules First_class_types))
+    (reasons (First_class_types))
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (speed Fast)
-  (typing Ill_typed)
-) *)
 
 (*
-  Minimal example of singlet needing to compare types
+  Minimal example of singlet needing to compare types for equality.
+  Technically, the modules are not needed, but they are typical for
+  uses of `singlet`.
 *)
 
 let S = sig

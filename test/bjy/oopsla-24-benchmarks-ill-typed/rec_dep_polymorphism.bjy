@@ -1,17 +1,11 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types Dependent_arrows Parametric_types First_class_types Recursive_functions Usage_error))
+    (reasons (Polymorphic_types Recursive_functions Usage_error)) ; would be return error if wrap were off
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (features (Polymorphic_types Recursive_functions Dependent_types Parametric_types))
-  (reasons (Polymorphic_types Dependent_types Parametric_types Recursive_functions))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
 
 let t : type -> type -> int -> type =
   fun a b i ->

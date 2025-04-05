@@ -1,17 +1,11 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Return_error))
+    (reasons (Refinement_types Dependent_arrows Mu_types Variants Recursive_functions Return_error))
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (features ())
-  (reasons ())
-  (speed Fast)
-  (typing Ill_typed)
-) *)
 
 (*
   T n is a module with a type with n parameters, e.g.
@@ -301,6 +295,7 @@ let subst (e <- Expr.t) (id <- Ident.t) (v : Value.t) : { new_expr : Expr.t |
     | `Equal p -> `Equal (sub_pair p)
     | `Appl p -> `Appl (sub_pair p)
     | `If_then_else trip -> `If_then_else { first = sub trip.second ; second = sub trip.second ; third = sub trip.third } (* ERROR: trip.second should be trip.first in the `first` label *)
+    (* With the above error, we don't have exactly the expected free variables based on the arguments, so we violate the refinement *)
     end
   in
   sub e

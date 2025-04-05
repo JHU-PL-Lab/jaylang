@@ -1,9 +1,9 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Other))
+    (reasons (Other))
+    (speed Fast)
+    (typing Ill_typed) ; because limitation
   )
 *)
 
@@ -17,7 +17,7 @@ let S = sig
 end
 
 let F (X <- S) : sig 
-  val g : (a : type) -> a -> X.t a
+  val g : (a : type) -> a -> X.t a (* ERROR: this t a is generated to be different than the t a in f, so we have an error *)
 end = struct
   let g = X.f
 end

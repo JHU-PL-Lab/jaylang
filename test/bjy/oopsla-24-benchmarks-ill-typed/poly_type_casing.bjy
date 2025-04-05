@@ -1,24 +1,18 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types Dependent_arrows Variants)) ; intersection type is dependent type
+    (features (Polymorphic_types Variants))
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (features (Polymorphic_types Intersection_types Higher_order_functions Subtyping Type_casing Match))
-  (reasons (Polymorphic_types Type_casing))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
 
 let t : type = ((`Int of int) -> int) & ((`Bool of bool) -> bool)
 
 let f : t = 
   let g (type a_) (x : a_) : a_ =
     match x with
-    | `Int i -> i + 1 (* ERROR: type casing on polymorphic type *)
+    | `Int i -> i + 1 (* ERROR: matching (formerly a sort of type casing) on polymorphic type *)
     | `Bool b -> not b
     | _ -> x
     end

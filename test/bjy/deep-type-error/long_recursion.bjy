@@ -1,18 +1,13 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Refinement_types Recursive_functions Return_error))
+    (reasons (Return_error))
+    (speed Slow)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (features (Recursive_functions Refinement_types Return_type))
-  (reasons (Return_type))
-  (speed Slow)
-  (typing Ill_typed)
-) *)
-(* it's expected that the evaluator quits before finishing `g 100000000` *)
+
+(* it's expected that the evaluator quits before finishing `g 100_000_000` *)
 
 let is_100_000_000 x = x == 100000000
 
