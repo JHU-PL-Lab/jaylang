@@ -1,19 +1,14 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Records Higher_order_functions Subtyping))
+    (speed Fast)
+    (typing Well_typed)
   )
 *)
-(*** (
-  (features (Higher_order_functions Subtyping Records Return_type))
-) *)
-(* subtyping of functions *)
 
 let t = ({ a : int ; b : int } -> int) -> int
 
-let f (h : { a : int ; b : int } -> int) : int =
+let f (h : { a : int ; b : int ; c : int } -> int) : int =
   0
 
 let g : t =

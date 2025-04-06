@@ -1,15 +1,10 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types Refinement_types Mu_types Variants Records Recursive_functions))
+    (speed Slow)
+    (typing well_typed)
   )
 *)
-(*** (
-  (features (Variants Recursive_functions Mu_types Refinement_types Records Match))
-) *)
-(* error is that x has 6 on left of root value 2; which is not a bst *)
 
 let rec is_bst t = 
   match t with

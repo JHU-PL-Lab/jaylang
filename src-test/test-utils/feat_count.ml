@@ -23,7 +23,7 @@ open List.Let_syntax
 module Tbl = struct
   module Row = struct
     type t =
-      { tag  : Ttag.V1.t
+      { tag  : Ttag.V2.t
       ; uses : int (* number of tests in which the tag is used at all *)
       ; errs : int (* number of ill-typed tests in which the tag is a fundamental involved in the error *)
       (* description not needed because can be derived from the tag *)
@@ -36,10 +36,10 @@ module Tbl = struct
       ; "Description" ]
 
     let to_strings (x : t) : string list =
-      [ Format.sprintf "%s (%c)" (Ttag.V1.to_name x.tag) (Ttag.V1.to_char x.tag)
+      [ Format.sprintf "%s (%c)" (Ttag.V2.to_name x.tag) (Ttag.V2.to_char x.tag)
       ; Int.to_string x.uses
       ; Int.to_string x.errs
-      ; "Intentionally empty" (* Use Ttag.to_description if defined *) ]
+      ; Ttag.V2.to_description x.tag ]
   end
 
   let make_of_dirs (dirs : Filename.t list) : Row.t Latex_tbl.t =
@@ -51,12 +51,12 @@ module Tbl = struct
       >>| Metadata.tags_of_t 
       >>| (function `Sorted_list ls -> ls)
       |> List.transpose_exn
-      |> List.zip_exn Ttag.V1.all
+      |> List.zip_exn Ttag.V2.all
       >>| (fun (tag, ls) ->
         List.fold ls ~init:Row.{ tag ; uses = 0 ; errs = 0 } ~f:(fun acc -> function
           | `Absent -> acc
-          | `Feature t -> assert (Ttag.V1.equal t tag); { acc with uses = acc.uses + 1 }
-          | `Reason t -> assert (Ttag.V1.equal t tag); { acc with errs = acc.errs + 1 ; uses = acc.uses + 1 }
+          | `Feature t -> assert (Ttag.V2.equal t tag); { acc with uses = acc.uses + 1 }
+          | `Reason t -> assert (Ttag.V2.equal t tag); { acc with errs = acc.errs + 1 ; uses = acc.uses + 1 }
           )
       )
       >>| Latex_tbl.Row_or_hline.return
@@ -72,9 +72,9 @@ let () =
   ; "edge-cases-ill-typed"
   ; "interp-ill-typed"
   ; "oopsla-24-benchmarks-ill-typed"
-  ; "oopsla-24-tests-ill-typed"
+  (* ; "oopsla-24-tests-ill-typed" *) (* these are mostly trivial, so I don't include them *)
   ; "post-oopsla-ill-typed"
-  ; "sato-bjy-ill-typed"
+  (* ; "sato-bjy-ill-typed" *) (* these are so trivial, it doesn't feel fair to include them *)
   ; "scheme-pldi-2015-ill-typed"
   ]
   >>| String.append "./test/bjy/"

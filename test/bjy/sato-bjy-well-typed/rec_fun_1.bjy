@@ -1,0 +1,22 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (speed Slow)
+    (typing well_typed)
+  )
+*)
+
+let rec makelist n = 
+  if n == 0 then []
+  else n :: (makelist (n-1))
+
+let getHead l = 
+  match l with
+  | hd :: _ -> hd
+  end
+
+let main (n : { a : int | a > 0}) : { a : int | a > 0} =
+  let l = makelist n in
+  if n > 0 then getHead l
+  else 0
+    

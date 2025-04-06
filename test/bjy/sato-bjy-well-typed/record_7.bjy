@@ -1,0 +1,18 @@
+(***
+  (
+    (features (Refinement_types Records))
+    (speed Fast)
+    (typing well_typed)
+  )
+*)
+
+let notPos n = n <= 0
+
+let record_constraint re = 
+  (notPos re.b) &&
+  ((re.a + re.b) >= 0)
+
+let isTrue b = b
+
+let test (test_record : { { a : int; b : int } | record_constraint }) : { bool | isTrue } =
+  test_record.a >= 0 

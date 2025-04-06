@@ -1,17 +1,11 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Refinement_types Recursive_functions Return_error))
+    (reasons (Refinement_types Return_error))
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (features (Recursive_functions Refinement_types Match))
-  (reasons (Recursive_functions Refinement_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
 
 let rec makelist n = 
   if n == 0 then []
@@ -22,9 +16,9 @@ let getHead l =
   | hd :: _ -> hd
   end
 
-let main (n : { a : int | a >= 0}) : { a : int | a > 0} =
+let main (n : { a : int | a >= 0 }) : { a : int | a > 0 } =
   let l = makelist n in
   if n > 0
   then getHead l
-  else 0
+  else 0 (* ERROR: not positive *)
   

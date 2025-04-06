@@ -1,21 +1,15 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types))
+    (reasons (Polymorphic_types))
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (features (Polymorphic_types))
-  (reasons (Polymorphic_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
 
 let f (type a_ b_) (a : a_) (b : b_) : b_ =
   b
 
 let g (type b_) (i : int) (b : b_) : b_ =
-  f int (b_) b i (* ERROR: arguments `b` and `i` are in wrong order *)
+  f int b_ b i (* ERROR: arguments `b` and `i` are in wrong order *)
       

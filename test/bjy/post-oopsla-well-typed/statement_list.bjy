@@ -1,9 +1,8 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
   )
 *)
 
@@ -50,7 +49,7 @@ let rec map (type a b) (ls : list a) (f : a -> b) : list b =
   end
 
 (* (* 7 *) *)
-(* It seems that on my machine, we handle up to 6 statements very quickly, and at 7 something goes awry *)
+(* It seems that on my machine (when we check the statements in parallel), we handle up to 6 statements very quickly, and at 7 something goes awry, and it takes a very, very long time to finish *)
 (* Noting that I have 14 cores, but (and I don't know what this means) only 6 are "performance cores". I am also on WSL2, which might matter. *)
 (* let rec map (type a b) (ls : list a) (f : a -> b) : list b =
   match ls with

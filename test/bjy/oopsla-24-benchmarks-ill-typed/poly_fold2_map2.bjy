@@ -1,7 +1,7 @@
 (***
   (
     (features (Polymorphic_types Recursive_functions Higher_order_functions Usage_error))
-    (features (Polymorphic_types Recursive_functions Usage_error))
+    (reasons (Polymorphic_types Recursive_functions Usage_error))
     (speed Fast)
     (typing Ill_typed)
   )

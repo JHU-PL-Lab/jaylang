@@ -1,17 +1,15 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Refinement_types Mu_types Variants Records Recursive_functions))
+    (reasons (Refinement_types Mu_types))
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (features (Variants Recursive_functions Mu_types Refinement_types Records Match))
-  (reasons (Mu_types Refinement_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+
+let tree_type = Mu t.
+  | `Node of { left : t ; right : t }
+  | `Leaf of { leaf : int }
 
 let max x1 x2 = 
   if x1 > x2 then x1 else x2
@@ -33,11 +31,6 @@ let rec is_balanced t =
     && abs (get_height node.left - get_height node.right) <= 1
   | `Leaf leaf -> true
   end
-
-let tree_type = Mu t.
-  | `Node of { left : t; right : t }
-  | `Leaf of { leaf : int }
-  
 
 let x : { tree_type | is_balanced } = 
   `Node

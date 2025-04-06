@@ -1,17 +1,11 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Refinement_types Dependent_arrows Recursive_functions Return_error))
+    (reasons (Refinement_types Dependent_arrows Recursive_functions Return_error))
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (features (Recursive_functions Refinement_types Dependent_types Match))
-  (reasons (Dependent_types Refinement_types Recursive_functions))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
 
 let rec sum x acc = 
   match x with
@@ -20,5 +14,5 @@ let rec sum x acc =
   end
 
 let f (x <- list int) : { int | fun a -> (a == (sum x 0))} =
-  sum x 1
+  sum x 1 (* ERROR: acc begins as 1 here when should be 0 *)
     

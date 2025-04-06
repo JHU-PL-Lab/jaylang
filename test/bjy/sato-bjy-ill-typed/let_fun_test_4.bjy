@@ -1,16 +1,10 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Usage_error))
+    (reasons (Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (features (Operator_misuse))
-  (reasons (Operator_misuse))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
 
 let f (x : bool) : int = x + x

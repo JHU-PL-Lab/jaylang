@@ -1,13 +1,14 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
   )
 *)
+
 (* This is a set functor where we can pass in a generic set module 
 to extend, not one that works on only e.g. ints.   *)
+
 let F : 
     (S : sig
       val tf : type -> type 

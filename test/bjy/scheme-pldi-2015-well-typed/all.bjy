@@ -1,15 +1,10 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
   )
 *)
-(*** (
-  (features (Polymorphic_types Recursive_functions Higher_order_functions Return_type))
-) *)
-(* simple error with return type in singleton case *)
 
 let rec all (type a_) (p : a_ -> bool) (xs : list a_) : bool =
   match xs with

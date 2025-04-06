@@ -1,15 +1,10 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
   )
 *)
-(*** (
-  (features (Recursive_functions Higher_order_functions Match))
-) *)
-(* should be f xx (foldr f z xxs) and xs should be int list *)
 
 let rec foldr (f : int -> bool -> bool) (z : bool) (xs : list int) : bool =
   match xs with

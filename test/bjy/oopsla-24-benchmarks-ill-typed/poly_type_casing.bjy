@@ -1,7 +1,7 @@
 (***
   (
     (features (Polymorphic_types Dependent_arrows Variants)) ; intersection type is dependent type
-    (features (Polymorphic_types Variants))
+    (reasons (Polymorphic_types Variants))
     (speed Fast)
     (typing Ill_typed)
   )

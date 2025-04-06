@@ -1,9 +1,8 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types Dependent_arrows Modules Parametric_types First_class_types Records Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
   )
 *)
 
@@ -47,6 +46,9 @@ let confirm_type_of_state_monad (type a b s) (_ : unit) :
   =
   State_monad
 
+(*
+  This is a neat generation of a type, using a state monad to build it
+*)
 let t n = 
   int -> (
     let rec loop acc_m =
@@ -64,6 +66,9 @@ let t n =
     (* But such an error is instant to catch just in the generation of a value with type t *)
   )
 
+(*
+  Now use the cool type
+*)
 let main (n <- int) (f : t n) : (int -> int) =
   let rec loop i = 
     if i <= 0

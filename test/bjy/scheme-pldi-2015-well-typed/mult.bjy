@@ -1,16 +1,10 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Refinement_types Dependent_arrows Records Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
   )
 *)
-(*** (
-  (features (Recursive_functions Higher_order_functions Refinement_types Dependent_types))
-) *)
-(* error is that squaring 0 or 1 doesn't make it larger like predicate requires *)
-(* Requiring n > 1 fixes the error *)
 
 let rec mult (x : { n : int ; m : int }) : { i : int | i >= 0 } =
   if x.n <= 0 || x.m <= 0

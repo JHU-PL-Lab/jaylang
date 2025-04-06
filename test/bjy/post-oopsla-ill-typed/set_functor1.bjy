@@ -1,15 +1,11 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (reasons (Polymorphic_types Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Subtyping OOP_style Return_error Usage_error Other))
-    (speed <Fast or Slow>)
-    (typing <Well_typed or Ill_typed>)
+    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Recursive_functions Usage_error))
+    (reasons (Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
-(*** (
-  (speed Fast)
-  (typing Ill_typed)
-) *)
 
 let F (tf <- type -> type) (a <- type) : let t = tf a in sig
   val empty : unit -> t

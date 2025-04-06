@@ -20,9 +20,9 @@ module Report_row (* : Latex_table.ROW *) = struct
 
   let names =
     [ "Test Name" ; "Interp" ; "Solve" ; "Total" ; "LOC" ]
-    @ (List.map Ttag.V1.all ~f:(fun tag ->
+    @ (List.map Ttag.V2.all ~f:(fun tag ->
         Latex_format.rotate_90
-        @@ Ttag.V1.to_name_with_underline tag
+        @@ Ttag.V2.to_name_with_underline tag
       )
     )
 
@@ -45,9 +45,9 @@ module Report_row (* : Latex_table.ROW *) = struct
       | `Sorted_list ls ->
         List.map ls ~f:(function
           | `Absent -> "--"
-          | `Feature tag -> Ttag.V1.to_char tag |> Char.to_string
+          | `Feature tag -> Ttag.V2.to_char tag |> Char.to_string
           | `Reason tag ->
-            Ttag.V1.to_char tag
+            Ttag.V2.to_char tag
             |> Char.to_string
             |> Latex_format.red
           )
@@ -135,7 +135,7 @@ module Result_table = struct
       ; [ little_space ;  Vertical_line_to_right ] (* total time *)
       ; [ little_space ; Vertical_line_to_right ] (* loc *) ]
       @
-      List.init (List.length Ttag.V1.all) ~f:(fun _ -> [ little_space ]) 
+      List.init (List.length Ttag.V2.all) ~f:(fun _ -> [ little_space ]) 
     }
 end
 
