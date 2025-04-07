@@ -47,15 +47,6 @@ module Utils = struct
   let unit_type : 'a Constraints.bluejay_or_desugared Expr.t = ETypeRecord RecordLabel.Map.empty
 
   (*
-    [ tau1 ; ... ; taun ], tau |->
-      tau1 -> ..> taun -> tau
-  *)
-  let tau_list_to_arrow_type (taus : 'a Expr.t list) (codomain : 'a Expr.t) : 'a Constraints.bluejay_or_desugared Expr.t =
-    List.fold_right taus ~init:codomain ~f:(fun domain codomain ->
-      Expr.ETypeArrow { domain ; codomain }
-    )
-
-  (*
     [ x1 ; ... ; xn ], e |->
       fun x1 -> ... -> fun xn -> e
   *)
@@ -181,13 +172,15 @@ module Funsig = struct
     | FTyped { type_vars ; func_id ; params ; ret_type ; body } ->
       { func_id ; body ; params = type_vars @ List.map params ~f:Param.to_id
       ; tau_opt = Some (
-        ETypeForall
-          { type_variables = type_vars
-          ; tau = List.fold_right params ~init:ret_type ~f:(fun tvar codomain ->
-              match tvar with
-              | TVar { var = _ ; tau } -> Expr.ETypeArrow { domain = tau ; codomain }
-              | TVarDep { var ; tau } -> ETypeArrowD { binding = var ; domain = tau ; codomain }
-            )
-          }
+        (* Create dependent parameters out of the type variables *)
+        let tvar_params : Bluejay.param list =
+          List.map type_vars ~f:(fun var -> Expr.TVarDep { var ; tau = EType })
+        in
+        (* Create an arrow type (possibly dependent) out of all parameters *)
+        List.fold_right (tvar_params @ params) ~init:ret_type ~f:(fun tvar codomain ->
+          match tvar with
+          | TVar { var = _ ; tau } -> Expr.ETypeArrow { domain = tau ; codomain }
+          | TVarDep { var ; tau } -> ETypeArrowD { binding = var ; domain = tau ; codomain }
+        )
       ) }
 end

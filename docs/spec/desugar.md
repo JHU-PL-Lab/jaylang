@@ -27,69 +27,22 @@ Note that untyped functions are all the same, and we would use untyped let expre
 ### Non-rec functions
 
 ```ocaml
-[| let f (x_1 : tau_1) ... (x_n : tau_n) : tau =
+[| let f (type a_1 ... a_n) (x_1 : tau_1) ... (x_m : tau_m) : tau =
   e
   in
   e' |] =
-let (f : [| tau_1 -> ... -> tau_n -> tau |]) = 
-  fun x_1 -> ... -> fun x_n ->
-    [| e |]
+let (f : [| (a_1 : type) -> ... -> (a_n : type) -> tau_1 -> ... -> tau_m -> tau |]) = 
+  fun a_1 -> ... -> fun a_m ->
+    fun x_1 -> ... -> fun x_m ->
+      [| e |]
 in
 [| e' |] 
 ```
 
-#### Let poly
-
-```ocaml
-[| let f (type a_1 ... a_n) (x_1 : tau_1) ... (x_m : tau_m) : tau =
-    e
-  in
-  e' |] =
-let (f : [| forall a_1, ..., a_n. tau_1 -> ... -> tau_m -> tau |]) =
-  fun a_1 -> ... -> fun a_n ->
-    fun x_1 -> ... -> fun x_m ->
-      [| e |]
-in
-[| e' |]
-
-[| forall alpha_1, ..., alpha_n. tau1 -> tau2 |] =
-  (alpha_1 : type) -> ... -> (alpha_n : type) -> [| tau1 -> tau2 |] 
-```
-
-#### Let dependent
-
-```ocaml
-[| let f (x <- tau_1) : tau_2 =
-    e
-  in
-  e' |] =
-let (f : [| (x : tau_1) -> tau_2 |]) = fun x -> [| e |]
-in
-[| e' |]
-```
-
 Notes:
-* The back arrow is our notation for a dependent parameter. `x` has type `tau1`, and `tau2` depends on `x`.
-* This generalizes to any number of arguments, and non-dependent arguments are handled normally.
-
-#### Let dependent poly
-
-```ocaml
-[| let f (type a_1 ... a_n) (x <- tau_1) : tau_2 =
-    e
-  in
-  e' |] =
-let (f : [| forall a_1, ..., a_n. (x : tau_1) -> tau_2 |]) =
-  fun a_1 -> ... -> fun a_n ->
-    fun x ->
-      [| e |]
-in
-[| e' |]
-
-(* to be clear *)
-[| forall alpha_1, ..., alpha_n. (x : tau1) -> tau2 |] =
-  (alpha_1 : type) -> ... -> (alpha_n : type) -> [| (x : tau1) -> tau2 |] 
-```
+* The back arrow is our notation for a dependent parameter.
+* Any dependent parameter `(x_i <- tau_i)` is instead in the final arrow type as `... -> (x_1 : tau_i) -> ...`, i.e. the dependent parameters are translated naturally into dependent arrows.
+* `n` may be zero (i.e. no type variables), and `m` is positive, as is enforced in the parser.
 
 ### Recursive functions
 

@@ -211,7 +211,6 @@ module Expr = struct
     | EAssert : 'a t -> 'a bluejay_only t
     | EAssume : 'a t -> 'a bluejay_only t
     | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_only t
-    | ETypeForall : { type_variables : Ident.t list ; tau : 'a t } -> 'a bluejay_only t
     | ELetFun : { func : 'a funsig ; cont : 'a t } -> 'a bluejay_only t
     | ELetFunRec : { funcs : 'a funsig list ; cont : 'a t } -> 'a bluejay_only t
 

@@ -165,11 +165,6 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
           )
           ]
       }
-    (* Forall *)
-    | ETypeForall { type_variables ; tau } ->
-      List.fold_right type_variables ~init:(desugar tau) ~f:(fun alpha acc ->
-        ETypeArrowD { binding = alpha ; domain = EType ; codomain = acc }
-      )
     (* Intersection type *)
     | ETypeIntersect ls_e ->
       desugar @@
