@@ -1,9 +1,11 @@
-(*** (
-  (features (Polymorphic_types Higher_order_functions Wrap_required))
-  (reasons (Polymorphic_types Higher_order_functions Wrap_required))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Polymorphic_types Higher_order_functions Usage_error))
+    (reasons (Polymorphic_types Higher_order_functions Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 (* Polymorphic compose *)
 
 let compose (type a b c) (b_c : b -> c) (a_b : a -> b) (a_ : a) : c =
@@ -19,4 +21,4 @@ let r =
     int
     (id int)
     (id int)
-    4 
+    (* 4 *) (* note we don't even need to use this function. Just giving some types is enough (i.e. using the function with some types) *)

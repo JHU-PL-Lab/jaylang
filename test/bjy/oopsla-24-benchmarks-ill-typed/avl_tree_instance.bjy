@@ -1,18 +1,17 @@
-(*** (
-  (features (Variants Recursive_functions Mu_types Refinement_types Records Match))
-  (reasons (Refinement_types Mu_types Recursive_functions))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Mu_types Variants Records Recursive_functions))
+    (reasons (Refinement_types Mu_types Recursive_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 (* This is an avl tree program; where insert on balanced tree returns a balanced tree. *)
 (* We check that the insert works on some tree instance. It doesn't ...  *)
 
-let t : type = Mu tt. 
+let t : type = Mu t. 
   | `Leaf of int
-  | `Node of { left : tt
-            ; right : tt
-            ; item : int
-            }
+  | `Node of { left : t ; right : t ; item : int }
 
 let empty = `Leaf 00
 
@@ -23,13 +22,13 @@ let max a b =
 
 let rec height x =
   match x with
-  | `Leaf l -> 0
+  | `Leaf _ -> 0
   | `Node node -> max (height node.left) (height node.right) + 1
   end
 
 let is_leaf x =
   match x with
-  | `Leaf l -> true
+  | `Leaf _ -> true
   | _ -> false
   end
 
@@ -50,7 +49,7 @@ let right_exn x =
 
 let balance_factor x =
   match x with
-  | `Leaf leaf -> 0
+  | `Leaf _ -> 0
   | `Node node -> height node.left - height node.right
   end
 
@@ -59,34 +58,35 @@ let abs a =
   then a
   else (0 - a)
 
+let bind x f = 
+  match x with
+  | `Some y -> f y
+  | `None _ -> x
+  end
+
 (* Checks balancedness in linear time by computing height and balance at same time and level *)
 let is_balanced x =
-  let rec check_balanced x =
+  let rec get_height x =
     match x with
-    | `Leaf l -> { b = true ; h = 0 }
+    | `Leaf _ -> `Some 0
     | `Node node ->
-      let left_res = check_balanced node.left in
-      if left_res.b
-      then
-        let right_res = check_balanced node.right in
-        if right_res.b
-        then
-          { b = abs (left_res.h - right_res.h) < 2 ; h = max left_res.h right_res.h + 1 }
-        else
-          { b = false ; h = 00 } (* height ignored if not balanced *)
-      else
-        { b = false ; h = 00 } (* height ignored if not balanced *)
+      let%bind left_height = get_height node.left in
+      let%bind right_height = get_height node.right in
+      if abs (left_height - right_height) < 2
+      then `Some (max left_height right_height + 1)
+      else `None {}
     end
   in
-  (check_balanced x).b
+  match get_height x with
+  | `Some _ -> true
+  | `None _ -> false
+  end
 
-(* Check search tree property *)
 let is_bst x = 
   let rec to_list x acc =
     match x with
-    | `Node node ->
-      to_list node.left (node.item :: (to_list node.right acc))
-    | `Leaf l -> acc
+    | `Node node -> to_list node.left (node.item :: (to_list node.right acc))
+    | `Leaf _ -> acc
     end
   in
   let rec is_increasing_strictly ls =
@@ -95,10 +95,7 @@ let is_bst x =
     | hd :: tl ->
       match tl with
       | [] -> true
-      | next :: tll ->
-        if hd < next
-        then is_increasing_strictly tl
-        else false
+      | next :: _ -> hd < next && is_increasing_strictly tl
       end
     end
   in
@@ -137,7 +134,7 @@ let rotate_right_left x =
   | `Node node -> rotate_left (create_node node.item node.left (rotate_right node.right))
   end
 
-let rec insert tree i =
+let rec insert (tree : avl_tree) (i : int) : avl_tree =
   let rebalance i node =
     let bf = balance_factor node in
     if bf > 1
@@ -155,7 +152,7 @@ let rec insert tree i =
         node
   in
   match tree with
-  | `Leaf l -> create_node i empty empty
+  | `Leaf _ -> create_node i empty empty
   | `Node node ->
     let new_node =
       if i < node.item 
@@ -179,4 +176,3 @@ let res : avl_tree =
     }
   in
   insert a 0
-

@@ -1,12 +1,14 @@
-(*** (
-  (features (Variants Recursive_functions Mu_types Refinement_types Records Match))
-  (reasons (Refinement_types Mu_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Mu_types Variants Records Recursive_functions))
+    (reasons (Refinement_types Mu_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
-let t = Mu tt.
-  | `Node of { left : tt ; right : tt }
+let t = Mu t.
+  | `Node of { left : t ; right : t }
   | `Leaf of { leaf : bool }
 
 let max x y =

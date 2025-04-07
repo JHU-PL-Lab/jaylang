@@ -1,7 +1,10 @@
-(*** (
-  (features (Higher_order_functions Refinement_types Dependent_types Wrap_required))
-) *)
-(* error is that > in `h` should be < *)
+(***
+  (
+    (features (Refinement_types Dependent_arrows Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let f x g =
   g (x + 1)

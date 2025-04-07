@@ -1,10 +1,12 @@
-(*** (
-  (features (Polymorphic_types Higher_order_functions))
-  (reasons (Polymorphic_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Polymorphic_types Higher_order_functions Usage_error))
+    (reasons (Polymorphic_types Higher_order_functions Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let appl (type a_ b_) (f : a_ -> b_) (a : a_) : b_ =
-  f (f a) (* ERROR: should be `f a` *)
+  f (f a) (* ERROR: should be `f a`, so this is applying a value of type `b` to `f` *)
   

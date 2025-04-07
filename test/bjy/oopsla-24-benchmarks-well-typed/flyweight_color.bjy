@@ -1,51 +1,60 @@
-(*** (
-  (features (Higher_order_functions OOP_style Refinement_types Dependent_types Records Operator_misuse))
-) *)
+(***
+  (
+    (features (Refinement_types Modules Records Higher_order_functions OOP_style))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
-let Color : { t : type } =
-  { t =
-    { int | fun i -> i >= 0 && i < 256 }
-  }
+let T = sig
+  val t : type
+end
 
-let Common_state : { t : type } =
-  { t = 
-    { c : Color.t } (* Say color is the heavy data we need to offload onto a common state *)
-  }
+let Color : T = struct
+  let t = { int | fun i -> i >= 0 && i < 256 }
+end
 
-let Unique_state : { t : type } = 
-  { t =
+let Common_state : T = struct
+  let t = { c : Color.t } (* Say color is the heavy data we need to offload onto a common state *)
+end
+
+let Unique_state : T = struct
+  let t =
     { x : int
     ; y : int
     ; get_deg : unit -> int } (* all of these fields are unique to an instance of a colored point *)
-  }
+end
 
-let Colored_point : { t : type } =
-  { t =
+let Colored_point : sig
+  val t : type
+  val get_color : t -> Color.t
+  val make : Common_state.t -> int -> int -> t
+end = struct
+  let t =
     { intrinsic : Unique_state.t
     ; flyweight : Common_state.t } (* all colored points in this program get the same; common color *)
-  }
 
-let get_color p =
-  p.flyweight.c
+  let get_color p =
+    p.flyweight.c
 
-let make_obj (cs : Common_state.t) (x : int) (y : int) : Colored_point.t =
-(*let make_obj cs x y = *)
-  let ob =
-    fun self ->
-      { flyweight = cs
-      ; intrinsic =
-        { x = x
-        ; y = y
-        ; get_deg = 
-            fun _ ->
-              let s = (self self) in
-              if s.intrinsic.x == 0 then 0 else
-              let tan = s.intrinsic.y / s.intrinsic.x in
-              tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 (* approx arctan with taylor expansion *)
-        }
-      } 
-  in
-  ob ob
+  let make cs x y =
+    let ob =
+      fun self ->
+        { flyweight = cs
+        ; intrinsic =
+          { x = x
+          ; y = y
+          ; get_deg = 
+              fun _ ->
+                let s = (self self) in
+                if s.intrinsic.x == 0 then 0 else
+                let tan = s.intrinsic.y / s.intrinsic.x in
+                tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 (* approx arctan with taylor expansion *)
+          }
+        } 
+    in
+    ob ob
+end
 
 let dark_color =
   let ob = 
@@ -54,4 +63,4 @@ let dark_color =
   in
   ob ob
 
-let result = get_color (make_obj dark_color 10 20)
+let _ = Colored_point.get_color (Colored_point.make dark_color 10 20)

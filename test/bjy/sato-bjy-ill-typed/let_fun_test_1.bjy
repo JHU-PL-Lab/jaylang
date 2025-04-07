@@ -1,8 +1,10 @@
-(*** (
-  (features (Return_type))
-  (reasons (Return_type))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Return_error))
+    (reasons (Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let id (x : bool) : bool = 1 + 1

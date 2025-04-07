@@ -1,6 +1,10 @@
-(*** (
-  (features (Variants Intersection_types Higher_order_functions OOP_style Records Return_type Match))
-) *)
+(***
+  (
+    (features (Dependent_arrows Variants OOP_style))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let t : type = (((`A of unit) -> int) & ((`B of unit) -> int) & ((`C of int) -> list int))
 

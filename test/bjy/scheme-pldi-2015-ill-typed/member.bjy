@@ -1,9 +1,11 @@
-(*** (
-  (features (Recursive_functions Return_type Match))
-  (reasons (Return_type))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Recursive_functions Return_error))
+    (reasons (Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 (* type-error is base case doesn't return bool *)
 (* issues: we don't have polymorphic equals; so this must be int when it used to be any (i.e. 'a) *)
 

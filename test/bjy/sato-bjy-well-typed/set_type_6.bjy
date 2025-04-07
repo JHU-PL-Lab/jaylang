@@ -1,9 +1,13 @@
-(*** (
-  (features (Variants Mu_types Records))
-) *)
+(***
+  (
+    (features (Mu_types Variants Records))
+    (speed Fast)
+    (typing well_typed)
+  )
+*)
 
-let tree_type = Mu tt.
-  | `Node of { left : tt; right : tt }
+let tree_type = Mu t.
+  | `Node of { left : t; right : t }
   | `Leaf of { leaf : int }
 
 let x : tree_type = 

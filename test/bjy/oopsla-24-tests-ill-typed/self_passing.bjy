@@ -1,9 +1,11 @@
-(*** (
-  (features (Higher_order_functions OOP_style Records))
-  (reasons (Records OOP_style))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Records Higher_order_functions OOP_style))
+    (reasons (Records OOP_style))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let t = { f : int -> int }
 

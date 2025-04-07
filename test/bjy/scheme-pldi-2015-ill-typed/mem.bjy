@@ -1,9 +1,11 @@
-(*** (
-  (features (Recursive_functions Refinement_types Dependent_types Match))
-  (reasons (Recursive_functions Refinement_types Dependent_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Dependent_arrows Parametric_types Recursive_functions))
+    (reasons (Refinement_types Dependent_arrows Recursive_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 (* type-error is that mk_list should contain x; but it doesn't *)
 
 let rec mem x xs =

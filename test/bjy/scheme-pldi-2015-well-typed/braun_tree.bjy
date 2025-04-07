@@ -1,10 +1,14 @@
-(*** (
-  (features (Polymorphic_types Variants Recursive_functions Mu_types Refinement_types Records Match))
-) *)
+(***
+  (
+    (features (Polymorphic_types Refinement_types Mu_types Variants Records Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
-let t a = Mu tt.
+let t a = Mu t.
   | `Leaf of { leaf : bool }
-  | `Node of { v : a ; l : tt ; r : tt }
+  | `Node of { v : a ; l : t ; r : t }
 
 let rec size n = 
   match n with

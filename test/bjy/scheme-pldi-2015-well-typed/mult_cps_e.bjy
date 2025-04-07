@@ -1,6 +1,10 @@
-(*** (
-  (features (Recursive_functions Higher_order_functions Assertions))
-) *)
+(***
+  (
+    (features (Refinement_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let acc z m =
   fun r -> m (z + r)
@@ -11,7 +15,6 @@ let rec mult x y k =
   else x + mult x (y - 1) (acc x k)
 
 let check w =
-  let _ = assert true in
   w
 
 let main (n : int) : int =

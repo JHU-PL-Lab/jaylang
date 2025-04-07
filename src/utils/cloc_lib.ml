@@ -2,6 +2,14 @@
   Module [Cloc_lib].
 
   Count lines of code in Bluejay files.
+
+  To count the total lines of all test files and get a
+  pretty output, try:
+
+    cloc --force-lang="OCaml",bjy ./test
+
+  ... but this `count_bjy_lines` function here is still
+  nice to use as a helper within this system.
 *)
 
 open Core

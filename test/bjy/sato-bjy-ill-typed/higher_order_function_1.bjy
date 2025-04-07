@@ -1,14 +1,16 @@
-(*** (
-  (features (Higher_order_functions Refinement_types Return_type))
-  (reasons (Higher_order_functions Refinement_types Return_type))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Higher_order_functions Return_error))
+    (reasons (Refinement_types Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let isEven x = (x % 2) == 0
 
 let isOdd x = (x % 2) <> 0
 
 let e2o (f : { int | isEven} -> { int | isEven}) : { int | isOdd } -> { int | isOdd } =
-  fun n -> (f (n + 1)) 
+  fun n -> (f (n + 1)) (* ERROR: need to add one to the result to make sure it is even, or return type should be even *)
     

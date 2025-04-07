@@ -1,13 +1,17 @@
-(*** (
-  (features (Higher_order_functions OOP_style Records Return_type))
-) *)
+(***
+  (
+    (features (Records Higher_order_functions OOP_style))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let int_wrapper = { value : int }
 
 let t =
   { square : int -> int
-  ;  add_x : int -> int
-  ;  x : int }
+  ; add_x  : int -> int
+  ; x : int }
 
 let ob =
   fun x -> 

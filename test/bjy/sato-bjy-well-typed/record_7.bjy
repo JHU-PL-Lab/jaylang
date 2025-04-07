@@ -1,6 +1,10 @@
-(*** (
-  (features (Refinement_types Records))
-) *)
+(***
+  (
+    (features (Refinement_types Records))
+    (speed Fast)
+    (typing well_typed)
+  )
+*)
 
 let notPos n = n <= 0
 

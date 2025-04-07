@@ -1,7 +1,10 @@
-(*** (
-  (features (Refinement_types Wrap_required))
-) *)
-(* error is 0 `n` arg to `main` means `g` tries to unclock and already-unlocked state *)
+(***
+  (
+    (features (Refinement_types Parametric_types))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let eq i =
   fun x ->

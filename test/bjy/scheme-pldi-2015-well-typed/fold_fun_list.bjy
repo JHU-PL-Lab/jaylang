@@ -1,6 +1,10 @@
-(*** (
-  (features (Recursive_functions Higher_order_functions Refinement_types Match))
-) *)
+(***
+  (
+    (features (Refinement_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let rec mk_list n =
   if n <= 0

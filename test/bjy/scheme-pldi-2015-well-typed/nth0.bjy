@@ -1,7 +1,10 @@
-(*** (
-  (features (Recursive_functions Assertions Match))
-) *)
-(* error is that we check n == 1 when should check n == 0 *)
+(***
+  (
+    (features (Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let rec nth n xs =
   if n == 0

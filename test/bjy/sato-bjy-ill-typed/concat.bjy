@@ -1,12 +1,14 @@
-(*** (
-  (features (Recursive_functions Return_type Match))
-  (reasons (Recursive_functions Return_type))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Recursive_functions Return_error))
+    (reasons (Recursive_functions Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let rec prepend (l1 : list int) (l2 : list bool) : list int = 
   match l2 with
   | [] -> l1
-  | hd :: tl -> prepend (hd :: l1) tl
+  | hd :: tl -> prepend (hd :: l1) tl (* ERROR: isn't a list of ints. Is combo of int and bull*)
   end

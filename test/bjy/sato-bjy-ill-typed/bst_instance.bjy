@@ -1,10 +1,17 @@
-(*** (
-  (features (Variants Recursive_functions Mu_types Refinement_types Records Match))
-  (reasons (Mu_types Refinement_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Mu_types Variants Records Recursive_functions))
+    (reasons (Refinement_types Mu_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
 (* error is that x has 6 on left of root value 2; which is not a bst *)
+
+let tree_type = Mu t.
+  | `Node of { left : t ; right : t ; item : int }
+  | `Leaf of { leaf : bool }
 
 let rec is_bst t = 
   match t with
@@ -31,10 +38,6 @@ let rec is_bst t =
       false
   | `Leaf leaf -> true
   end
-
-let tree_type = Mu tt.
-  | `Node of { left : tt; right : tt; item : int }
-  | `Leaf of { leaf : bool }
 
 let x : { tree_type | is_bst } = 
   `Node { left = 

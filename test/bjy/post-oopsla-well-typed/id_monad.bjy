@@ -1,3 +1,10 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Parametric_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 (*
   The final predicate is hard to check when wrap is on because

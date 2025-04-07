@@ -1,7 +1,10 @@
-(*** (
-  (features (Recursive_functions Higher_order_functions Refinement_types Wrap_required))
-) *)
-(* This is another well-typed version of `hors` *)
+(***
+  (
+    (features (Refinement_types Recursive_functions Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let zero_type = { i : int | i == 0 }
 

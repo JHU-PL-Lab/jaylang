@@ -1,13 +1,18 @@
-(*** (
-  (features (Recursive_functions Assertions))
-) *)
-(* error is because we can look at assert as `assert : { bool | fun b -> b } -> 'a` *)
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
-let h x =
-  assert x
+(* effectively assert that x is true *)
+let h (_ : { x : bool | x }) : unit =
+  {}
 
-let g x y =
-  assert y
+(* .. but y is true *)
+let g (_ : bool) (_ : { y : bool | y }) : unit =
+  {}
 
 let rec f x y =
   if x

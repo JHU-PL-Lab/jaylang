@@ -1,5 +1,9 @@
-(*** (
-  (features ())
-) *)
+(***
+  (
+    (features (Other))
+    (speed Fast)
+    (typing well_typed)
+  )
+*)
 
 let int_list : list int = [1] 

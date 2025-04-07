@@ -1,3 +1,11 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Other))
+    (reasons (Other))
+    (speed Fast)
+    (typing Ill_typed) ; because limitation
+  )
+*)
 
 (*
   We really wish that this could work so that we have polymorphism in
@@ -9,7 +17,7 @@ let S = sig
 end
 
 let F (X <- S) : sig 
-  val g : (a : type) -> a -> X.t a
+  val g : (a : type) -> a -> X.t a (* ERROR: this t a is generated to be different than the t a in f, so we have an error *)
 end = struct
   let g = X.f
 end

@@ -1,73 +1,69 @@
 
 open Core
 
-module type ROW =
-  sig
-    type t
+module type ROW = sig
+  type t
 
-    val names : string list
-    (** [names] are the column names *)
+  val names : string list
+  (** [names] are the column names *)
 
-    val to_strings : t -> string list
-    (** [to_strings t] are the strings to be put in the table for the row [t], one string for each column. *)
-  end
+  val to_strings : t -> string list
+  (** [to_strings t] are the strings to be put in the table for the row [t], one string for each column. *)
+end
 
-module Row_or_hline =
-  struct
-    type 'a t =
-      | Row of 'a
-      | Hline
+module Row_or_hline = struct
+  type 'a t =
+    | Row of 'a
+    | Hline
 
-    let return x = Row x
-  end
+  let return x = Row x
+end
 
-module Col_option =
-  struct
-    type t =
-      | Right_align
-      | Left_align
-      | Center
-      | No_space
-      | Little_space of { point_size : int } (* incompatible with No_space *)
-      | Vertical_line_to_right
+module Col_option = struct
+  type t =
+    | Right_align
+    | Left_align
+    | Center
+    | No_space
+    | Little_space of { point_size : int } (* incompatible with No_space *)
+    | Vertical_line_to_right
 
-    let to_string = function
-    | Right_align -> "r"
-    | Left_align -> "l"
-    | Center -> "c"
-    | No_space -> "@{}"
-    | Little_space { point_size } -> "@{\\hspace{" ^ Int.to_string point_size ^ "pt}}" (* strangly, Format.sprintf can't show "@{" *)
-    | Vertical_line_to_right -> "|"
-  end
+  let to_string = function
+  | Right_align -> "r"
+  | Left_align -> "l"
+  | Center -> "c"
+  | No_space -> "@{}"
+  | Little_space { point_size } -> "@{\\hspace{" ^ Int.to_string point_size ^ "pt}}" (* strangly, Format.sprintf can't show "@{" *)
+  | Vertical_line_to_right -> "|"
+end
 
-module Column =
-  struct
-    type t = Col_option.t list
-    (* align style must occur before space and vertical line *)
+module Column = struct
+  type t = Col_option.t list
+  (* align style must occur before space and vertical line *)
 
-    let to_string ls =
-      let rec loop = function
-      | [] -> ""
-      | hd :: tl -> Col_option.to_string hd ^ loop tl
-      in
-      match ls with
-      | (Col_option.Center as hd) :: tl
-      | (Right_align as hd) :: tl
-      | (Left_align as hd) :: tl -> Col_option.to_string hd ^ loop tl
-      | _ -> "c" ^ loop ls
+  let to_string ls =
+    let rec loop = function
+    | [] -> ""
+    | hd :: tl -> Col_option.to_string hd ^ loop tl
+    in
+    match ls with
+    | (Col_option.Center as hd) :: tl
+    | (Right_align as hd) :: tl
+    | (Left_align as hd) :: tl -> Col_option.to_string hd ^ loop tl
+    | _ -> "c" ^ loop ls
 
-    let default = []
+  let default = []
 
-    (* n is number of columns in whole table. ls may be shorter *)
-    let tabular_cols (n : int) (ls : t list) : string =
-      let ss = List.map ls ~f:to_string in
-      String.concat
-      begin
-      if List.length ss < n
-      then ss @ List.init (n - List.length ss) ~f:(fun _ -> to_string default)
-      else List.take ss n
-      end
-  end
+  (* n is number of columns in whole table. ls may be shorter *)
+  let tabular_cols (n : int) (ls : t list) : string =
+    let ss = List.map ls ~f:to_string in
+    String.concat
+    begin
+    if List.length ss < n
+    then ss @ List.init (n - List.length ss) ~f:(fun _ -> to_string default)
+    else List.take ss n
+    end
+end
 
 (* This is probably just better as a functor, but this is kind of fun, so I'll leave it *)
 type 'row t =

@@ -1,7 +1,11 @@
-(*** (
-  (speed Fast)
-  (typing Ill_typed)
-)*)
+(***
+  (
+    (features (Refinement_types Higher_order_functions Return_error))
+    (reasons (Refinement_types Higher_order_functions Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let t = { f : (int -> int) | (f 0) == 0 }
 

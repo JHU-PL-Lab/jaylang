@@ -1,7 +1,10 @@
-(*** (
-  (features (Recursive_functions Higher_order_functions Refinement_types))
-) *)
-(* error is fixed when `n` param for `main` is non-negative *)
+(***
+  (
+    (features (Refinement_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let rec f g x =
   if x <= 0

@@ -1,11 +1,13 @@
-(*** (
-  (features (Mu_types Higher_order_functions OOP_style Records Return_type))
-  (reasons (Return_type))
-  (speed Slow)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Mu_types Records Higher_order_functions OOP_style Return_error))
+    (features (Return_error))
+    (speed Slow)
+    (typing Ill_typed)
+  )
+*)
 
-let t = Mu tt. { f : int -> tt }
+let t = Mu t. { f : int -> t }
 
 let g (x : t) : bool =
   let y : t = x in

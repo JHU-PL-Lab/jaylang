@@ -1,9 +1,11 @@
-(*** (
-  (features (Refinement_types Wrap_required))
-  (reasons (Wrap_required Refinement_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Parametric_types Usage_error))
+    (reasons (Refinement_types Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let eq i =
   fun x ->

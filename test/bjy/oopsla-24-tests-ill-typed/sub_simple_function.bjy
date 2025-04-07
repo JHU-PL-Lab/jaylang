@@ -1,9 +1,11 @@
-(*** (
-  (features (Higher_order_functions Subtyping Records Return_type))
-  (reasons (Higher_order_functions Records))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Records Higher_order_functions Subtyping))
+    (reasons (Records Higher_order_functions Subtyping))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 (* subtyping of functions *)
 
 let t = ({ a : int ; b : int } -> int) -> int
@@ -11,4 +13,4 @@ let t = ({ a : int ; b : int } -> int) -> int
 let f (h : { a : int } -> int) : int =
   0
 
-let g : t = f (* ERROR: f is supertype of t; not subtype *)
+let g : t = f (* ERROR: f is supertype of t; not subtype. Needs to at least have labels a and b in the higher order function's parameter *)

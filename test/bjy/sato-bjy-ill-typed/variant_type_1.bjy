@@ -1,9 +1,11 @@
-(*** (
-  (features (Variants))
-  (reasons (Variants))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Variants))
+    (reasons (Variants))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let x : `A of int =
   `A true

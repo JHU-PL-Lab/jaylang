@@ -1,3 +1,10 @@
+(***
+  (
+    (features (Modules First_class_types))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let M : sig 
   val t : singlet int

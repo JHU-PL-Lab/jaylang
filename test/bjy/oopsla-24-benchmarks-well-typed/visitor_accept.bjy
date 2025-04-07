@@ -1,18 +1,23 @@
-(*** (
-  (features (Mu_types Higher_order_functions OOP_style Records))
-) *)
+(***
+  (
+    (features (Records Higher_order_functions OOP_style))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+
 let result_type = { result : int }
 
 let city =
   { population : int
-   ; show_population : bool -> bool }
+  ; show_population : bool -> bool }
 
 let sight =
   { is_open : bool }
 
 let visitor =
   { visit_city : city -> result_type
-   ; visit_sight : sight -> result_type }
+  ; visit_sight : sight -> result_type }
 
 let client =
    { accept : visitor -> result_type }

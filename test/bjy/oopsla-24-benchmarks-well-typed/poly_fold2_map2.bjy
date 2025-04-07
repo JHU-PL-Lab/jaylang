@@ -1,7 +1,10 @@
-(*** (
-  (features (Polymorphic_types Recursive_functions Higher_order_functions Match))
-) *)
-(* Polymorphic types in higher order functions are wrong *)
+(***
+  (
+    (features (Polymorphic_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 (* No error in this. It is here to slow down the concolic evaluator and make a bigger haystack in which to find the needle *)
 let rec fold2 (type a_ b_ acc_) (ls1 : list a_) (ls2 : list b_) (init : acc_) (f : acc_ -> a_ -> b_ -> acc_) : acc_ =

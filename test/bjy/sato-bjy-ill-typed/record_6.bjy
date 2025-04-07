@@ -1,9 +1,11 @@
-(*** (
-  (features (Records Return_type))
-  (reasons (Return_type))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Records Return_error))
+    (reasons (Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let access_record (r : { a : int; b : bool }) : int = 
   r.b

@@ -1,7 +1,10 @@
-(*** (
-  (speed Slow)
-  (typing Well_typed)
-) *)
+(***
+  (
+    (features (Dependent_arrows First_class_types Records))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let t =
   {: t : type

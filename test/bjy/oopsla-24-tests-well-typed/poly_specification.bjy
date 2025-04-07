@@ -1,6 +1,10 @@
-(*** (
-  (features (Polymorphic_types))
-) *)
+(***
+  (
+    (features (Polymorphic_types))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let f (type a_ b_) (a : a_) (b : b_) : b_ =
   b

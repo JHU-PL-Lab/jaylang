@@ -1,7 +1,11 @@
-(*** (
-  (speed Fast)
-  (typing Ill_typed)
-)*)
+(***
+  (
+    (features (Refinement_types Recursive_functions Usage_error))
+    (reasons (Refinement_types Recursive_functions Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let rec f (x : { x : int | x < 0 }) : int =
   g x

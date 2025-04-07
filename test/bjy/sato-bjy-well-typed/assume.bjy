@@ -1,6 +1,10 @@
-(*** (
-  (features (Assertions))
-) *)
+(***
+  (
+    (features (Other))
+    (speed Fast)
+    (typing well_typed)
+  )
+*)
 
 let f = false
 

@@ -1,16 +1,18 @@
-(*** (
-  (features (Variants Recursive_functions Refinement_types Dependent_types Records Match))
-  (reasons (Refinement_types Recursive_functions))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Dependent_arrows Mu_types Variants Records Recursive_functions))
+    (reasons (Refinement_types Mu_types Recursive_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let coord : type =
   { x : int
   ; y : int }
 
-let t : type = Mu tt.
-  { parent : `Some of tt | `None of int
+let t : type = Mu t.
+  { parent : `Some of t | `None of unit
   ; relative_coord : coord }
 
 let is_coord_nonzero c = 

@@ -1,7 +1,11 @@
-(*** (
-  (features (Polymorphic_types Recursive_functions Higher_order_functions Refinement_types Match))
-) *)
-(* no apparent error *)
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+(* no apparent error, and there is no ill-typed version of this program *)
 
 let is_cons xs =
   match xs with

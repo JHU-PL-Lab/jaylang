@@ -1,9 +1,11 @@
-(*** (
-  (features (Higher_order_functions Refinement_types Dependent_types))
-  (reasons (Refinement_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Dependent_arrows Higher_order_functions))
+    (reasons (Refinement_types Dependent_arrows))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 (* error is that max is not performed on `x` but predicate relies on x *)
 
 let max max2 x y z =

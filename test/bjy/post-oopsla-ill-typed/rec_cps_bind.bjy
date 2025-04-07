@@ -1,7 +1,11 @@
-(*** (
-  (speed Fast)
-  (typing Ill_typed)
-)*)
+(***
+  (
+    (features (Polymorphic_types Parametric_types Records Recursive_functions Higher_order_functions Return_error))
+    (reasons (Higher_order_functions Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let (t : type -> type -> type) = fun a r -> { continuation : (a -> r) -> r }
 

@@ -1,7 +1,11 @@
-(*** (
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Other))
+    (reasons (Other))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let f (x : int) : bool =
   if x == 123456789

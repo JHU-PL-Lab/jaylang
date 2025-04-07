@@ -1,9 +1,11 @@
-(*** (
-  (features (Variants Records))
-  (reasons (Variants))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Variants Records))
+    (reasons (Variants))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let x : `R of { a : bool } | `I of int =
   true

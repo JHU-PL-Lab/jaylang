@@ -1,9 +1,11 @@
-(*** (
-  (features (Recursive_functions Higher_order_functions Assertions))
-  (reasons (Assertions))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Recursive_functions Higher_order_functions Usage_error))
+    (reasons (Refinement_types Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let acc z m =
   fun r -> m (z + r)
@@ -13,8 +15,8 @@ let rec mult x y k =
   then k 0
   else x + mult x (y - 1) (acc x k)
 
-let check100 w =
-  assert (600 <= w)
+let check100 (w : { w : int | 600 <= w }) : int =
+  w
 
 let main (n : int) : int =
   mult 100 n check100 (* ERROR: 100 * n does not always exceed 600 *)

@@ -1,5 +1,14 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+
 (* This is a set functor where we can pass in a generic set module 
 to extend, not one that works on only e.g. ints.   *)
+
 let F : 
     (S : sig
       val tf : type -> type 

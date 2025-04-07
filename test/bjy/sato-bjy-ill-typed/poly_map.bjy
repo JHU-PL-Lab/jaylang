@@ -1,12 +1,14 @@
-(*** (
-  (features (Polymorphic_types Recursive_functions Higher_order_functions Return_type Match))
-  (reasons (Recursive_functions Polymorphic_types Return_type))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Polymorphic_types Recursive_functions Higher_order_functions Return_error))
+    (reasons (Polymorphic_types Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let rec map (type a_ b_) (mf : a_ -> b_) (l : list a_) : list b_ =
   match l with
   | [] -> []
-  | hd :: tl -> hd :: (map a_ b_ mf tl)
+  | hd :: tl -> hd :: (map a_ b_ mf tl) (* ERROR: forgot to map hd, so returned type is list a_ *)
   end

@@ -1,9 +1,11 @@
-(*** (
-  (features ())
-  (reasons ())
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Return_error))
+    (reasons (Refinement_types Dependent_arrows Mu_types Variants Recursive_functions Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 (*
   T n is a module with a type with n parameters, e.g.
@@ -46,8 +48,8 @@ let Type : sig
   val eq : t -> t -> bool
   val is_int : t -> bool
 end = struct
-  let t = Mu tt.
-    `TArrow of Pair.t tt tt
+  let t = Mu t.
+    | `TArrow of Pair.t t t
     | `TInt of Nil.t
 
   let type_int = `TInt Nil.v
@@ -83,15 +85,15 @@ end = struct
 end
 
 let Expr : T 0 = struct
-  let t = Mu tt.
-    `Int of int
+  let t = Mu t.
+    | `Int of int
     | `Var of Ident.t
-    | `Function of Triple.t Ident.t Type.t tt
-    | `If_then_else of Triple.t tt tt tt
-    | `Plus of Pair.t tt tt
-    | `Minus of Pair.t tt tt
-    | `Equal of Pair.t tt tt
-    | `Appl of Pair.t tt tt
+    | `Function of Triple.t Ident.t Type.t t
+    | `If_then_else of Triple.t t t t
+    | `Plus of Pair.t t t
+    | `Minus of Pair.t t t
+    | `Equal of Pair.t t t
+    | `Appl of Pair.t t t
 end
 
 let rec mem ls a eq =
@@ -293,6 +295,7 @@ let subst (e <- Expr.t) (id <- Ident.t) (v : Value.t) : { new_expr : Expr.t |
     | `Equal p -> `Equal (sub_pair p)
     | `Appl p -> `Appl (sub_pair p)
     | `If_then_else trip -> `If_then_else { first = sub trip.second ; second = sub trip.second ; third = sub trip.third } (* ERROR: trip.second should be trip.first in the `first` label *)
+    (* With the above error, we don't have exactly the expected free variables based on the arguments, so we violate the refinement *)
     end
   in
   sub e

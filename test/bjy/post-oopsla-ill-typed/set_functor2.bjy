@@ -1,7 +1,11 @@
-(*** (
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Recursive_functions Other))
+    (reasons (Other)) ; because limitation
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let F (tf <- type -> type) (a <- type) : sig
   val empty : unit -> tf a (* ERROR: all of these `tf a` are different *)

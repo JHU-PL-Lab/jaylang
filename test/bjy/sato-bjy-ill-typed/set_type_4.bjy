@@ -1,9 +1,12 @@
-(*** (
-  (features (Recursive_functions Refinement_types Match))
-  (reasons (Refinement_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Recursive_functions Refinement_types))
+    (reasons (Refinement_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
 let rec testFun l = 
   match l with
   | [] -> true

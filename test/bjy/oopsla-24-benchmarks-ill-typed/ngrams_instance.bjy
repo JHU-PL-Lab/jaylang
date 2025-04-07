@@ -1,21 +1,24 @@
-(*** (
-  (features (Polymorphic_types Recursive_functions Higher_order_functions Refinement_types Dependent_types Parametric_types Records Assertions Match))
-  (reasons (Polymorphic_types Records))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
-(* Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program. *)
-(* I have added an instance of an input we'd like the concolic evaluator to generate for this version. *)
-(* This has been trimmed down to remove any code that had no intersection with the erroring code. *)
-(* We would like to keep types on the helper functions; but we currently don't handle that well. *)
+(***
+  (
+    (features (Refinement_types Parametric_types First_class_types Records Recursive_functions Higher_order_functions))
+    (reasons (Records))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
-let pos_int : type = { int | fun i -> i > 0 }
+let rec t n =
+  if n <= 0
+  then type
+  else type -> t (n - 1)
+
+let pos_int : t 0 = { int | fun i -> i > 0 }
 
 (* Parametric map *)
-let map : type -> type -> type = fun a b -> a -> b
+let map : t 2 = fun a b -> a -> b
 
 (* Parametric bag *)
-let bag : type -> type = fun a -> list a
+let bag : t 1 = fun a -> list a
 
 let rec len ls = 
   match ls with
@@ -23,9 +26,9 @@ let rec len ls =
   | hd :: tl -> 1 + len tl
   end
 
-let ngram : int -> type -> type = fun n a -> { list a | fun ls -> (len ls == n) && n >= 0 }
+let ngram : int -> t 1 = fun n a -> { list a | fun ls -> (len ls == n) && n >= 0 }
 
-let distribution : int -> type -> type = fun n a -> map (ngram (n - 1) a) (bag a)
+let distribution : int -> t 1 = fun n a -> map (ngram (n - 1) a) (bag a)
 
 let rec take n =
   fun l ->

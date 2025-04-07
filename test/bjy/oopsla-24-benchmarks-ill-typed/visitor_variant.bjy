@@ -1,9 +1,11 @@
-(*** (
-  (features (Variants Mu_types Higher_order_functions OOP_style Records Match))
-  (reasons (Match Variants))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Mu_types Variants Records Higher_order_functions OOP_style))
+    (reasons (Variants)) ; due to missing match case
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let city = { population : int }
 
@@ -13,7 +15,7 @@ let sight = { is_open : bool }
 
 let node_kind = `City of city | `Shop of shop | `Sight of sight
 
-let node = Mu tt. ({ kind : node_kind ; neighbors : list tt })
+let node = Mu t. { kind : node_kind ; neighbors : list t }
 
 let result_type = { result : int }
 

@@ -1,6 +1,10 @@
-(*** (
-  (features (Polymorphic_types Operator_misuse))
-) *)
+(***
+  (
+    (features (Polymorphic_types))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let f (type a_) (x : a_) : int = 
   1

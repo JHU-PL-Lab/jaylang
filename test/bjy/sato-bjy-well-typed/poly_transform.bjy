@@ -1,5 +1,9 @@
-(*** (
-  (features (Polymorphic_types Higher_order_functions))
-) *)
+(***
+  (
+    (features (Polymorphic_types Higher_order_functions))
+    (speed Fast)
+    (typing well_typed)
+  )
+*)
 let trans (type a_ b_) (a : a_) (f : a_ -> b_) : b_ = 
   f a

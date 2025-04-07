@@ -1,9 +1,11 @@
-(*** (
-  (features (Variants Recursive_functions Mu_types Higher_order_functions OOP_style Parametric_types Records Wrap_required Match))
-  (reasons (Wrap_required OOP_style Mu_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions OOP_style Usage_error))
+    (reasons (Mu_types Parametric_types Variants OOP_style Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let T n = sig
   val t :

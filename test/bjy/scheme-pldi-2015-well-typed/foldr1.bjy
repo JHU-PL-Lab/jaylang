@@ -1,7 +1,10 @@
-(*** (
-  (features (Polymorphic_types Recursive_functions Higher_order_functions Assertions Match))
-) *)
-(* error is that xs should be nonempty *)
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let is_nonempty ls =
   match ls with

@@ -1,6 +1,10 @@
-(*** (
-  (features (Polymorphic_types Recursive_functions Higher_order_functions Match))
-) *)
+(***
+  (
+    (features (Polymorphic_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing well_typed)
+  )
+*)
 
 let rec map (type a_ b_) (mf : a_ -> b_) (l : list a_) : list b_ =
   match l with

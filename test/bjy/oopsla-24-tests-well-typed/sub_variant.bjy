@@ -1,7 +1,10 @@
-(*** (
-  (features (Polymorphic_types Variants Subtyping Return_type))
-) *)
-(* subtype of union type *)
+(***
+  (
+    (features (Polymorphic_types Variants))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let f (type a_) (i : int) (b : bool) (a : a_) : `Int of int | `Bool of bool | `L of list a_ =
   `L (a :: [])

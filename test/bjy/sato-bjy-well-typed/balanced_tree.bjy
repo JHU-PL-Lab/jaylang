@@ -1,6 +1,10 @@
-(*** (
-  (features (Variants Recursive_functions Mu_types Refinement_types Records Match))
-) *)
+(***
+  (
+    (features (Polymorphic_types Refinement_types Mu_types Variants Records Recursive_functions))
+    (speed Slow)
+    (typing well_typed)
+  )
+*)
 
 let max x1 x2 = 
   if x1 > x2 then x1 else x2
@@ -23,8 +27,8 @@ let rec is_balanced t =
   | `Leaf leaf -> true
   end
 
-let tree_type = Mu tt.
-  | `Node of { left : tt; right : tt }
+let tree_type = Mu t.
+  | `Node of { left : t; right : t }
   | `Leaf of { leaf : int }
 
 let x : { tree_type | is_balanced } = 

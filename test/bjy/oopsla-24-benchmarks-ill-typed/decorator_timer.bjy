@@ -1,9 +1,11 @@
-(*** (
-  (features (Higher_order_functions OOP_style Records Operator_misuse))
-  (reasons (Operator_misuse))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Records Higher_order_functions OOP_style Usage_error))
+    (reasons (Usage_error)) ; non-function is used like a function
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let t =
   { f : int -> bool

@@ -1,7 +1,10 @@
-(*** (
-  (features (Polymorphic_types Variants Recursive_functions Higher_order_functions Operator_misuse Match))
-) *)
-(* Polymorphic higher order function application is incorrect *)
+(***
+  (
+    (features (Polymorphic_types Variants Records Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let sign : type = `Even of { even : bool } | `Odd of { odd : bool }
 

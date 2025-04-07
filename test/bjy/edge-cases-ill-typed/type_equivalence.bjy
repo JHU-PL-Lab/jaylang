@@ -1,10 +1,16 @@
-(*** (
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Modules First_class_types))
+    (reasons (First_class_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 (*
-  Minimal example of singlet needing to compare types
+  Minimal example of singlet needing to compare types for equality.
+  Technically, the modules are not needed, but they are typical for
+  uses of `singlet`.
 *)
 
 let S = sig

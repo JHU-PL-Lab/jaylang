@@ -1,9 +1,11 @@
-(*** (
-  (features (Recursive_functions Return_type))
-  (reasons (Return_type))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Recursive_functions Return_error))
+    (reasons (Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let rec f (x : int) : int = 
   if x == 0 

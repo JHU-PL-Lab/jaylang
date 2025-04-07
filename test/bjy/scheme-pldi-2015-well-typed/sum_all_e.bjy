@@ -1,7 +1,10 @@
-(*** (
-  (features (Recursive_functions Refinement_types))
-) *)
-(* error is n should be at least 3 *)
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let rec sum x =
   if x <= 0

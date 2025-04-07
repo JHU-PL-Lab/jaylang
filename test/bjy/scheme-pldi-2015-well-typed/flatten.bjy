@@ -1,10 +1,14 @@
-(*** (
-  (features (Polymorphic_types Variants Recursive_functions Mu_types Match))
-) *)
+(***
+  (
+    (features (Polymorphic_types Mu_types Variants Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 (* flatten the input down to just a list of ints and bools *)
 
-let any_type a = Mu tt.
-  | `L of list tt
+let any_type a = Mu t.
+  | `L of list t
   | `A of a
 
 let rec append a b =

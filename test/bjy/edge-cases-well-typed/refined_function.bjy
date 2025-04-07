@@ -1,9 +1,0 @@
-(*** (
-  (speed Fast)
-  (typing Well_typed)
-)*)
-
-let t = (x : int) -> { i : int | if x == 0 then i == 0 else true }
-
-let g (f : t) : { i : int | i == 0 } =
-  f 0

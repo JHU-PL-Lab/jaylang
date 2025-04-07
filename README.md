@@ -111,6 +111,9 @@ expected to find an error in the test program, run only the fast tests:
 make test-fast
 ```
 
+Note this also runs any well-typed test that has no recursion and is expected to be
+proven well-typed quickly.
+
 ### Benchmarks
 
 ```

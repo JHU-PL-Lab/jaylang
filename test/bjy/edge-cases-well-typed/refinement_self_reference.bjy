@@ -1,7 +1,10 @@
-(*** (
-  (speed Slow)
-  (typing Well_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Dependent_arrows Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let rec f (x : int) : { int | fun i -> (f i) == i } =
   x

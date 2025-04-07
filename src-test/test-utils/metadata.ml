@@ -37,22 +37,22 @@ module Typing = struct
 end
 
 type t =
-  { features : Ttag.t list  [@default []]
-  ; reasons  : Ttag.t list  [@default []]
+  { features : Ttag.V2.t list  [@default []]
+  ; reasons  : Ttag.V2.t list  [@default []]
   ; speed    : Test_speed.t [@default Slow]
   ; typing   : Typing.t     [@default Well_typed]
   } [@@deriving sexp]
 
-let tags_of_t (r : t) : [ `Sorted_list of [ `Feature of Ttag.t | `Reason of Ttag.t | `Absent ] list ] =
+let tags_of_t (r : t) : [ `Sorted_list of [ `Feature of Ttag.V2.t | `Reason of Ttag.V2.t | `Absent ] list ] =
   `Sorted_list (
-    Ttag.all
+    Ttag.V2.all
     |> List.map ~f:(fun tag ->
-      let mem ls = List.mem ls tag ~equal:Ttag.equal in
+      let mem ls = List.mem ls tag ~equal:Ttag.V2.equal in
       if mem r.reasons
       then begin
         (* first need to assert that features are a subset of reasons *)
         if not @@ mem r.features
-        then failwith @@ Format.sprintf "Tag %s found in reasons but not features" (Ttag.to_string tag)
+        then failwith @@ Format.sprintf "Tag %s found in reasons but not features" (Ttag.V2.to_name tag)
         else `Reason tag
       end
       else 

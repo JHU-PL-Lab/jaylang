@@ -1,6 +1,10 @@
-(*** (
-  (features (Variants Mu_types Records))
-) *)
+(***
+  (
+    (features (Mu_types Variants Records))
+    (speed Slow)
+    (typing well_typed)
+  )
+*)
 
-let x : Mu tt. `R of { a : bool ; b : tt } | `B of bool =
+let x : Mu t. `R of { a : bool ; b : t } | `B of bool =
   `R { a = false ; b = `B true }

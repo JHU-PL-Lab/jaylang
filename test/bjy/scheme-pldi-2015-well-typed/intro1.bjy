@@ -1,6 +1,10 @@
-(*** (
-  (features (Higher_order_functions Refinement_types Wrap_required))
-) *)
+(***
+  (
+    (features (Refinement_types Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let f x g =
   g (x + 1)

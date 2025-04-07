@@ -1,6 +1,10 @@
-(*** (
-  (features (Higher_order_functions OOP_style Records))
-) *)
+(***
+  (
+    (features (Records Higher_order_functions OOP_style))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let t = { f : int -> int }
 

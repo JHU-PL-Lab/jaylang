@@ -1,27 +1,37 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Records Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+
 (* Here we extend set_functor_full.bjy to also include a map on the input module.  This is a bit more complex since there are two list types in the general case and it seems like we need to hoist all of that out.  This is a bit gross so there should probably be some sugar for this kind of stuff.  Other cases where we need a special type in the list module for example are zip/unzip, also concat.  Concat would also be desirable on sets. *)
 let F : 
-    (S : {: tf : type -> type 
-    ; a : type
-    ; b : type
-    ; ta : singlet (tf a)
-    ; tb : singlet (tf b)
-    ; empty : unit -> ta
-    ; add   : a -> ta -> ta
-    ; map : ta -> (a -> b) -> tb
-    :})
-    ->
-    { tf : type -> type
-    ; a : type
-    ; b : type
-    ; ta : singlet (S.ta)
-    ; tb : singlet (S.tb)
-    ; empty   : unit -> S.ta
-    ; add     : S.a -> S.ta -> S.ta
-    ; map : S.ta -> (S.a -> S.b) -> S.tb
-    ; of_list : list S.a -> S.ta
-    }
+  (S : sig
+    val tf : type -> type
+    val a : type
+    val b : type
+    val ta = tf a
+    val tb = tf b
+    val empty : unit -> ta
+    val add   : a -> ta -> ta
+    val map   : ta -> (a -> b) -> tb
+  end)
+    -> sig
+    val tf : type -> type
+    val a = S.a
+    val b = S.b
+    val ta = S.ta
+    val tb = S.tb
+    val empty   : unit -> ta
+    val add     : a -> ta -> ta
+    val map     : ta -> (a -> b) -> tb
+    val of_list : list a -> ta
+  end
   =
   fun S ->
+    (* note that records double as modules *)
     { tf = S.tf
     ; a = S.a
     ; b = S.b
@@ -45,35 +55,34 @@ let F :
         loop (S.empty {}) ls
     }
 
-let M : (a : type) -> (b : type) -> 
-  {: tf : type -> type 
-  ; a : type
-  ; b : type
-  ; ta : singlet (tf a)
-  ; tb : singlet (tf b)
-  ; empty : unit -> ta
-  ; add   : a -> ta -> ta
-  ; map : ta -> (a -> b) -> tb
-  :}
- = fun a b ->
-    let tf = fun a -> list a in
-    let ta = tf a in
-    let tb = tf b in
-    { tf = tf
-    ; a = a
-    ; b = b
-    ; ta = ta
-    ; tb = tb
-    ; empty = fun mt -> [] 
-    ; add   = fun a ls -> a :: ls 
-    ; map = 
+let M : (a : type) -> (b : type) -> sig
+    val tf : type -> type 
+    val a : type
+    val b : type
+    val ta = tf a
+    val tb = tf b
+    val empty : unit -> ta
+    val add   : a -> ta -> ta
+    val map : ta -> (a -> b) -> tb
+  end
+  =
+  fun a b -> struct
+    let tf a = list a
+    let a = a
+    let b = b
+    let ta = tf a
+    let tb = tf b
+    let empty = fun mt -> [] 
+    let add   = fun a ls -> a :: ls 
+    let map = 
       let rec mapper ls f =
         match ls with
         | [] -> []
         | hd :: tl -> (f hd) :: (mapper tl f)
         end
       in 
-      mapper }
+      mapper
+  end
 
 let MM = F (M int int) (* now need to pass in both a and b types *)
 

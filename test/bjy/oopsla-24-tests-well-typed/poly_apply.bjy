@@ -1,6 +1,10 @@
-(*** (
-  (features (Polymorphic_types Higher_order_functions Wrap_required))
-) *)
+(***
+  (
+    (features (Polymorphic_types Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let appl (type a_ b_) (f : a_ -> b_) (a : a_) : b_ =
   f a

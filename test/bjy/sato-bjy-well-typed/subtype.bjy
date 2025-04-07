@@ -1,6 +1,10 @@
-(*** (
-  (features (Higher_order_functions Subtyping Records))
-) *)
+(***
+  (
+    (features (Records Higher_order_functions Subtyping))
+    (speed Fast)
+    (typing well_typed)
+  )
+*)
 
 let fun_sig = { a : int ; b : int } -> int
 

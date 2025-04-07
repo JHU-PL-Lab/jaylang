@@ -1,19 +1,26 @@
-(*** (
-  (features (Polymorphic_types Recursive_functions Higher_order_functions Refinement_types Dependent_types Parametric_types Records Assertions Match))
-  (reasons (Polymorphic_types Records))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
-(* Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program. *)
-(* In this test, we have full types on the helper functions, which makes the error quite deep *)
+(***
+  (
+    (features (Polymorphic_types Refinement_types Dependent_arrows Parametric_types First_class_types Records Recursive_functions Higher_order_functions Usage_error))
+    (reasons (Polymorphic_types Records Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
-let pos_int = { int | fun i -> i > 0 }
+(* In this test, we have full types on the helper functions, which makes the error quite deep but not that hard to find. It is still fast. *)
+
+let rec t n =
+  if n <= 0
+  then type
+  else type -> t (n - 1)
+
+let pos_int : t 0 = { int | fun i -> i > 0 }
 
 (* Parametric map *)
-let map a b = a -> b
+let map : t 2 = fun a b -> a -> b
 
 (* Parametric bag *)
-let bag a = list a
+let bag : t 1 = fun a -> list a
 
 let rec len ls = 
   match ls with
@@ -21,9 +28,9 @@ let rec len ls =
   | hd :: tl -> 1 + len tl
   end
 
-let ngram n a = { list a | fun ls -> (len ls == n) && n >= 0 }
+let ngram : int -> t 1 = fun n a -> { list a | fun ls -> (len ls == n) && n >= 0 }
 
-let distribution n a = map (ngram (n - 1) a) (bag a)
+let distribution : int -> t 1 = fun n a -> map (ngram (n - 1) a) (bag a)
 
 let rec take (type a_) (n <- { int | fun i -> i >= 0}) : list a_ -> { list a_ | fun ls -> len ls <= n } =
   fun l ->
@@ -96,7 +103,7 @@ let make_dist (type a_) (n <- pos_int) (l : list a_) (compare : a_ -> a_ -> int)
   let ngrams = make_ngrams a_ n l in
   let tup_of_ng ng =
     { fst = last_exn a_ ng ; snd = take a_ (n - 1) ng } (* ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below *)
-    (*{ snd = last_exn a_ ng ; fst = take a_ (n - 1) ng } # This is the well-typed version *)
+    (*{ snd = last_exn a_ ng ; fst = take a_ (n - 1) ng }*) (* This is the well-typed version *)
   in
   let rec map_ng_to_tups ls =
     match ls with

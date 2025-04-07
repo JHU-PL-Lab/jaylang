@@ -1,3 +1,10 @@
+(***
+  (
+    (features (Dependent_arrows Modules Recursive_functions Subtyping))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 (* standard monoid signature *)
 let MONOID = sig

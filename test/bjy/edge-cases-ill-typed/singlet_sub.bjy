@@ -1,7 +1,11 @@
-(*** (
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Modules First_class_types Subtyping))
+    (reasons (Refinement_types First_class_types Subtyping))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let M : sig 
   val t : singlet int

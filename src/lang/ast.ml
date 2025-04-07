@@ -203,7 +203,6 @@ module Expr = struct
     | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
     | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
     (* bluejay only *)
-    | ELetBind : { var : Ident.t ; body : 'a t ; cont : 'a t } -> 'a bluejay_only t
     | ETypeList : 'a t -> 'a bluejay_only t
     | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
     | EList : 'a t list -> 'a bluejay_only t

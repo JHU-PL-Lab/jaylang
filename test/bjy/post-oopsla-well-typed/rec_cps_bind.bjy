@@ -1,7 +1,10 @@
-(*** (
-  (speed Slow)
-  (typing Well_typed)
-)*)
+(***
+  (
+    (features (Polymorphic_types Refinement_types Parametric_types Records Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let t = fun a r -> { continuation : (a -> r) -> r }
 

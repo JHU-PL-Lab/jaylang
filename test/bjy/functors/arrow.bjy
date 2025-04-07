@@ -1,3 +1,11 @@
+(** (* note this is missing a star, so this isn't counted in tests because it is a limitation of the system, and we would want it to be well typed *)
+  (
+    (features (Polymorphic_types Dependent_arrows Modules Parametric_types First_class_types Records Higher_order_functions Other))
+    (reasons (Other))
+    (speed Fast)
+    (typing Ill_typed) ; only because it is a known limitation, and technically, based on the spec, this is ill-typed
+  )
+*)
 
 (*
   OCaml:

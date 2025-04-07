@@ -1,6 +1,10 @@
-(*** (
-  (features (Intersection_types Higher_order_functions Subtyping Type_casing Match))
-) *)
+(***
+  (
+    (features (Dependent_arrows Variants)) ; intersection type is dependent type
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let t : type = ((`Int of int) -> int) & ((`Bool of bool) -> bool)
 

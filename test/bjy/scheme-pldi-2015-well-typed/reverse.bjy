@@ -1,7 +1,10 @@
-(*** (
-  (features (Recursive_functions Assertions Match))
-) *)
-(* error is tries to get hd of list that is made from "negative length" *)
+(***
+  (
+    (features (Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let rec reverse l ac =
   match l with

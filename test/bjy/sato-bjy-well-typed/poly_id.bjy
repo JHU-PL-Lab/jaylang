@@ -1,6 +1,10 @@
-(*** (
-  (features (Polymorphic_types))
-) *)
+(***
+  (
+    (features (Polymorphic_types))
+    (speed Fast)
+    (typing well_typed)
+  )
+*)
 
 let id (type a_) (x : a_) : a_ = 
   x

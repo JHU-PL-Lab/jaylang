@@ -1,8 +1,10 @@
-(*** (
-  (features ())
-  (speed Slow)
-  (typing Well_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 (*
   T n is a module with a type with n parameters, e.g.
@@ -45,8 +47,8 @@ let Type : sig
   val eq : t -> t -> bool
   val is_int : t -> bool
 end = struct
-  let t = Mu tt.
-    `TArrow of Pair.t tt tt
+  let t = Mu t.
+    | `TArrow of Pair.t t t
     | `TInt of Nil.t
 
   let type_int = `TInt Nil.v
@@ -82,15 +84,15 @@ end = struct
 end
 
 let Expr : T 0 = struct
-  let t = Mu tt.
-    `Int of int
+  let t = Mu t.
+    | `Int of int
     | `Var of Ident.t
-    | `Function of Triple.t Ident.t Type.t tt
-    | `If_then_else of Triple.t tt tt tt
-    | `Plus of Pair.t tt tt
-    | `Minus of Pair.t tt tt
-    | `Equal of Pair.t tt tt
-    | `Appl of Pair.t tt tt
+    | `Function of Triple.t Ident.t Type.t t
+    | `If_then_else of Triple.t t t t
+    | `Plus of Pair.t t t
+    | `Minus of Pair.t t t
+    | `Equal of Pair.t t t
+    | `Appl of Pair.t t t
 end
 
 let Value : T 0 = struct

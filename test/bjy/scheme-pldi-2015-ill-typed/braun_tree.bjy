@@ -1,14 +1,16 @@
-(*** (
-  (features (Polymorphic_types Variants Recursive_functions Mu_types Refinement_types Records Match))
-  (reasons (Recursive_functions Mu_types Refinement_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Polymorphic_types Refinement_types Mu_types Variants Records Recursive_functions))
+    (reasons (Refinement_types Mu_types Recursive_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 (* error is that item is always inserted on the left; so it doesn't stay balanced *)
 
-let t a = Mu tt.
+let t a = Mu t.
   | `Leaf of { leaf : bool }
-  | `Node of { v : a ; l : tt ; r : tt }
+  | `Node of { v : a ; l : t ; r : t }
 
 let rec size n = 
   match n with

@@ -1,9 +1,12 @@
-(*** (
-  (speed Slow)
-  (typing Well_typed)
-) *)
+(***
+  (
+    (features (Dependent_arrows Variants Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
-(* See the indentation for how this parses *)
+(* See the indentation for how this parses. This is more of a sanity check that the parser is as expected *)
 
 let t = 
   (x : `A of int | `B of bool) ->

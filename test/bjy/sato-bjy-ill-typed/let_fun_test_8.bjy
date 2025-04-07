@@ -1,9 +1,11 @@
-(*** (
-  (features (Higher_order_functions Return_type))
-  (reasons (Return_type))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Return_error))
+    (reasons (Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let f (x : bool) : (int -> int) = 
   let g (y : int) : int =

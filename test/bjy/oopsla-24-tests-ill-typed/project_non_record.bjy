@@ -1,8 +1,10 @@
-(*** (
-  (features (Records))
-  (reasons (Records))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(*** 
+  (
+    (features (Records))
+    (reasons (Records))
+    (speed Fast)
+    (typing Ill_typed)
+  ) 
+*)
 
 let res = (fun i -> 0).x

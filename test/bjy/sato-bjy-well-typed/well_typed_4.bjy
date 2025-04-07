@@ -1,6 +1,10 @@
-(*** (
-  (features ())
-) *)
+(***
+  (
+    (features (Other))
+    (speed Fast)
+    (typing well_typed)
+  )
+*)
 
 let intId (x : int) : int = 
   let intId2 y = y in

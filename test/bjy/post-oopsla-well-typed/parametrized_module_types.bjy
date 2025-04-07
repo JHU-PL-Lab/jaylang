@@ -1,3 +1,10 @@
+(***
+  (
+    (features (Modules Parametric_types))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 (*
   Takes a module type and returns a module type.

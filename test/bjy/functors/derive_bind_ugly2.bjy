@@ -1,3 +1,11 @@
+(**
+  (
+    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Higher_order_functions Other))
+    (reasons (Other))
+    (speed Fast)
+    (typing Ill_typed) ; because limitation 
+  )
+*)
 
 (*
   OCaml
@@ -17,42 +25,6 @@
 *)
 
 (*
-  Existential types inside module.
-*)
-
-let BASIC =
-  {: m : type -> type
-  ;  a : type
-  ;  b : type
-  ;  ma : singlet (m a)
-  ;  mb : singlet (m b)
-  ;  mma : singlet (m ma)
-  ;  map  : ma -> (a -> b) -> mb
-  ;  join : mma -> ma
-  ;  return : a -> ma
-  :}
-
-(* this works *)
-let Id_example : (a : type) -> (b : type) -> BASIC = fun a b ->
-  let m a = `Id of a in
-  { m = m
-  ; a = a
-  ; b = b
-  ; ma = m a
-  ; mb = m b
-  ; mma = m (m a)
-  ; map = fun x f ->
-      match x with
-      | `Id z -> `Id (f z)
-      end
-  ; join = fun x ->
-      match x with
-      | `Id m -> m
-      end
-  ; return = fun x -> `Id x
-  }
-
-(*
   This doesn't work because M.map only allows `f` to have type `a -> b`.
   Here, we need it to typecheck with type `a -> m b`, which is not the same,
   so we fail the wrap check when calling `M.map x f`.
@@ -60,3 +32,48 @@ let Id_example : (a : type) -> (b : type) -> BASIC = fun a b ->
 let Derive_bind (M <- BASIC) : { bind : M.ma -> (M.a -> M.mb) -> M.mb } =
   { bind = fun x f -> M.join (M.map x f)
   }
+
+(*
+  Existential types inside module.
+*)
+
+let BASIC = sig
+  val m : type -> type
+  val a : type
+  val b : type
+  val ma = m a
+  val mb = m b
+  val mma = m ma
+  val map  : ma -> (a -> b) -> mb
+  val join : mma -> ma
+  val return : a -> ma
+end
+
+let Id_example : (a : type) -> (b : type) -> BASIC = fun a b -> struct
+  let m a = `Id of a
+  let a = a
+  let b = b
+  let ma = m a
+  let mb = m b
+  let mma = m (m a)
+  let map x f =
+    match x with
+    | `Id z -> `Id (f z)
+    end
+  let join x =
+    match x with
+    | `Id m -> m
+    end
+  let return x = fun x -> `Id x
+end
+
+(*
+  This doesn't work because M.map only allows `f` to have type `a -> b`.
+  Here, we need it to typecheck with type `a -> m b`, which is not the same,
+  so we fail the wrap check when calling `M.map x f`.
+*)
+let Derive_bind (M <- BASIC) : sig
+  val bind : M.ma -> (M.a -> M.mb) -> M.mb
+end = struct
+  let bind x f = M.join (M.map x f)
+end

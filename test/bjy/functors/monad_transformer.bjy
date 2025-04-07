@@ -1,3 +1,11 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Higher_order_functions Other))
+    (reasons (Other))
+    (speed Fast)
+    (typing Ill_typed) ; because limitation
+  )
+*)
 
 let MONAD = sig
   val m : type -> type
@@ -18,6 +26,7 @@ end
       do anything), which is annoying and better done as a functor in any case I can think of.
     * Or we would need Haskell typeclasses, which obviously we don't have.
 *)
+(* ERROR: multiple applications of m a go wrong because of nondeterminism of generated functions *)
 let Make : (M : MONAD) -> (T : TRANSFORMER) -> (a : type) -> a -> T.t M.m a =
   fun M T a x ->
     T.lift M.m a (M.return a x)

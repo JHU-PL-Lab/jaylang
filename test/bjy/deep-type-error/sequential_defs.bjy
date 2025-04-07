@@ -1,9 +1,11 @@
-(*** (
-  (features (Recursive_functions Return_type))
-  (reasons (Return_type))
-  (speed Slow)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Recursive_functions Return_error))
+    (reasons (Return_error))
+    (speed Slow)
+    (typing Ill_typed)
+  )
+*)
 
 let rec loop (x : int) : bool = 
   loop x

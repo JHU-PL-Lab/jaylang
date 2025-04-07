@@ -1,26 +1,34 @@
-(*** (
-  (features (Higher_order_functions OOP_style Refinement_types Dependent_types Records))
-) *)
-let Color : { t : type } =
-  { t =
-    { int | fun i -> i >= 0 && i < 256 }
-  }
+(***
+  (
+    (features (Refinement_types Modules Records Higher_order_functions OOP_style))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
-let Point : { t : type } =
-  { t =
+let T = sig
+  val t : type
+end
+
+let Color : T = struct
+  let t = { int | fun i -> i >= 0 && i < 256 }
+end
+
+let Point : T = struct
+  let t =
     { x : int
     ; y : int
     ; get_deg : unit -> int
     }
-  }
+end
 
-let Colored_point : { t : type } =
-  { t =
+let Colored_point : T = struct
+  let t =
     { x : int
     ; y : int
     ; get_deg : unit -> int
     ; c : Color.t }
-  }
+end
 
 let obj : Colored_point.t =
   let ob =

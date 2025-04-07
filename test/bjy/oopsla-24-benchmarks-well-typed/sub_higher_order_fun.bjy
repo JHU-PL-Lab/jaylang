@@ -1,6 +1,10 @@
-(*** (
-  (features (Higher_order_functions Subtyping Records Match))
-) *)
+(***
+  (
+    (features (Records Higher_order_functions Subtyping))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 (* functions on records *)
 
 let t : type = ({ a : int ; b : bool } -> { x : list int }) -> { y : list bool }

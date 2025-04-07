@@ -1,8 +1,10 @@
-(*** (
-  (features (Recursive_functions Return_type Match))
-) *)
-(* type-error is base case doesn't return bool *)
-(* issues: we don't have polymorphic equals; so this must be int when it used to be any (i.e. 'a) *)
+(***
+  (
+    (features (Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let rec member (x : int) (l : list int) : bool =
   match l with

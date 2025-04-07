@@ -1,9 +1,11 @@
-(*** (
-  (features (Recursive_functions Higher_order_functions Parametric_types Records Return_type))
-  (reasons (Return_type Records))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Polymorphic_types Modules Recursive_functions Higher_order_functions Return_error))
+    (reasons (Modules Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let Set : (a : type) -> sig
   val t : type

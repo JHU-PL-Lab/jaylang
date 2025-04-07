@@ -1,7 +1,10 @@
-(*** (
-  (features (Polymorphic_types Recursive_functions Higher_order_functions Assertions Match))
-) *)
-(* type error is that list can be empty and has no last. An `is_nonempty` predicate fixes it. *)
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 (* y combinator *)
 let Y f =

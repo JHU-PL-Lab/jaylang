@@ -1,9 +1,11 @@
-(*** (
-  (features (Recursive_functions Refinement_types))
-  (reasons (Refinement_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (reasons (Refinement_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let rec sum x =
   if x <= 0

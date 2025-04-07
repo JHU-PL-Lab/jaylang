@@ -1,9 +1,11 @@
-(*** (
-  (features (Polymorphic_types Recursive_functions Higher_order_functions Assertions Match))
-  (reasons (Assertions))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions Higher_order_functions Other))
+    (reasons (Other)) ; missing match case
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 (* error is that xs should be nonempty *)
 
 let rec foldr1 (type a_) (f : a_ -> a_ -> a_) (xs : list a_) : a_ =

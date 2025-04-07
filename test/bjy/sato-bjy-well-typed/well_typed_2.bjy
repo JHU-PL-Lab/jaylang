@@ -1,5 +1,9 @@
-(*** (
-  (features ())
-) *)
+(***
+  (
+    (features (Other))
+    (speed Fast)
+    (typing well_typed)
+  )
+*)
 
 let x : int = 5

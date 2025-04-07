@@ -1,11 +1,14 @@
-(*** (
-  (features (Higher_order_functions Subtyping Records Return_type))
-) *)
-(* subtyping of functions *)
+(***
+  (
+    (features (Records Higher_order_functions Subtyping))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let t = ({ a : int ; b : int } -> int) -> int
 
-let f (h : { a : int ; b : int } -> int) : int =
+let f (h : { a : int ; b : int ; c : int } -> int) : int =
   0
 
 let g : t =

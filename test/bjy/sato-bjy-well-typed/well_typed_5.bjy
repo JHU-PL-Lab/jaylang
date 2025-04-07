@@ -1,6 +1,10 @@
-(*** (
-  (features (Higher_order_functions))
-) *)
+(***
+  (
+    (features (Higher_order_functions))
+    (speed Fast)
+    (typing well_typed)
+  )
+*)
 
 let twice (f : int -> int) (x : int) : int = f (f x)
 

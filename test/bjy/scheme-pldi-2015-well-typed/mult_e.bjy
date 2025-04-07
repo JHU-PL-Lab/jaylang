@@ -1,6 +1,10 @@
-(*** (
-  (features (Recursive_functions Refinement_types))
-) *)
+(***
+  (
+    (features (Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
 
 let rec mult x y =
   if x <= 0 || y <= 0

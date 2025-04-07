@@ -1,7 +1,11 @@
-(*** (
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Recursive_functions Usage_error))
+    (reasons (Refinement_types Recursive_functions Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 (*
   These are mutually recursive functions, where there is a usage error
@@ -9,7 +13,6 @@
   are wrapped and if they are visible (in their wrapped form) to the types
   of the other functions.
 *)
-
 
 let rec f (x : int) : { i : int | let _ = g i in true } =
   x

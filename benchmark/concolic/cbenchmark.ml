@@ -15,14 +15,14 @@ module Report_row (* : Latex_table.ROW *) = struct
     ; time_to_solve     : Time_float.Span.t
     ; total_time        : Time_float.Span.t
     ; trial             : Trial.t
-    ; lines_of_code     : int
+    (* ; lines_of_code     : int *) (* not needed because is derived from the testname *)
     ; metadata          : Metadata.t }
 
   let names =
     [ "Test Name" ; "Interp" ; "Solve" ; "Total" ; "LOC" ]
-    @ (List.map Ttag.all ~f:(fun tag ->
+    @ (List.map Ttag.V2.all ~f:(fun tag ->
         Latex_format.rotate_90
-        @@ Ttag.to_string_with_underline tag
+        @@ Ttag.V2.to_name_with_underline tag
       )
     )
 
@@ -39,16 +39,17 @@ module Report_row (* : Latex_table.ROW *) = struct
     ; span_to_ms_string x.time_to_interpret
     ; span_to_ms_string x.time_to_solve
     ; span_to_ms_string x.total_time
-    ; Int.to_string x.lines_of_code ]
+    ; Int.to_string (Utils.Cloc_lib.count_bjy_lines x.testname) ]
     @ (
       match Metadata.tags_of_t x.metadata with
       | `Sorted_list ls ->
         List.map ls ~f:(function
           | `Absent -> "--"
-          | `Feature tag -> Ttag.to_string_short tag
+          | `Feature tag -> Ttag.V2.to_char tag |> Char.to_string
           | `Reason tag ->
-            Latex_format.red
-            @@ Ttag.to_string_short tag
+            Ttag.V2.to_char tag
+            |> Char.to_string
+            |> Latex_format.red
           )
     )
 
@@ -76,7 +77,6 @@ module Report_row (* : Latex_table.ROW *) = struct
         ; time_to_solve = Time_float.Span.of_sec (solve1 -. solve0)
         ; total_time = Time_float.Span.of_sec (t1 -. t0)
         ; trial = Number n
-        ; lines_of_code = Utils.Cloc_lib.count_bjy_lines testname
         ; metadata }
       in
       row
@@ -92,7 +92,6 @@ module Report_row (* : Latex_table.ROW *) = struct
           ; time_to_solve = Time_float.Span.of_sec 0.0
           ; total_time = Time_float.Span.of_sec 0.0
           ; trial = Average
-          ; lines_of_code = Utils.Cloc_lib.count_bjy_lines testname (* won't even average the remaining fields out. Just pre-calculate it *)
           ; metadata
         }
         ~f:(fun acc x ->
@@ -136,7 +135,7 @@ module Result_table = struct
       ; [ little_space ;  Vertical_line_to_right ] (* total time *)
       ; [ little_space ; Vertical_line_to_right ] (* loc *) ]
       @
-      List.init (List.length Ttag.all) ~f:(fun _ -> [ little_space ]) 
+      List.init (List.length Ttag.V2.all) ~f:(fun _ -> [ little_space ]) 
     }
 end
 

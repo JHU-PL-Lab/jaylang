@@ -1,6 +1,10 @@
-(*** (
-  (features (Polymorphic_types Operator_misuse Variants))
-) *)
+(***
+  (
+    (features (Polymorphic_types Variants))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let f =
   fun x ->

@@ -1,9 +1,11 @@
-(*** (
-  (features (Polymorphic_types Recursive_functions Refinement_types Match))
-  (reasons (Refinement_types))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions))
+    (reasons (Refinement_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 (* predicate violated because can return empty list *)
 
 let is_nonempty ls = 

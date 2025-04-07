@@ -1,7 +1,10 @@
-(*** (
-  (speed Fast)
-  (typing Well_typed)
-)*)
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 (*
   `t` is hard to find with trivial translation.

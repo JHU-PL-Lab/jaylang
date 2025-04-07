@@ -1,9 +1,11 @@
-(*** (
-  (features (Refinement_types Dependent_types Return_type))
-  (reasons (Refinement_types Dependent_types Return_type))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Dependent_arrows Return_error))
+    (reasons (Refinement_types Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let f x g = g (x + 1)
 
@@ -13,5 +15,5 @@ let h (x <- int) (y <- { a : int | a > x }) : { a : int | a > y } =
 let main (n : int) : { c : int | c < 0 } =
   if (n >= 0) 
   then f n (h n)
-  else 1
+  else 1 (* ERROR: not less than 0 *)
     

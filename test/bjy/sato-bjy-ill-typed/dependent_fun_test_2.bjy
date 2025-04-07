@@ -1,9 +1,11 @@
-(*** (
-  (features (Recursive_functions Refinement_types Dependent_types Return_type Match))
-  (reasons (Recursive_functions Refinement_types Dependent_types Return_type))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Refinement_types Dependent_arrows Recursive_functions Return_error))
+    (reasons (Refinement_types Dependent_arrows Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let rec length x acc = 
   match x with
@@ -13,7 +15,7 @@ let rec length x acc =
 
 let rec f (x <- list int) (y <- list int) (z : list int) : { a : list int | (length a 0) == (length x 0) + (length y 0) } =
   match y with
-  | [] -> []
+  | [] -> [] (* ERROR: needs to return x to pass the refinement *)
   | _ :: tl -> f y tl z
   end
     

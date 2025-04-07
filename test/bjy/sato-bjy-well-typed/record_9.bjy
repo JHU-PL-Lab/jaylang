@@ -1,5 +1,9 @@
-(*** (
-  (features (Subtyping Records))
-) *)
+(***
+  (
+    (features (Records Subtyping))
+    (speed Fast)
+    (typing well_typed)
+  )
+*)
 
 let x : { a : int } = {a = 1; b = 2}

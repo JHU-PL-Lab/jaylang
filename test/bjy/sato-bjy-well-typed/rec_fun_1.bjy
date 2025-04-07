@@ -1,6 +1,10 @@
-(*** (
-  (features (Recursive_functions Refinement_types Match))
-) *)
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (speed Slow)
+    (typing well_typed)
+  )
+*)
 
 let rec makelist n = 
   if n == 0 then []

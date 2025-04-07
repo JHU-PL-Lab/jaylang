@@ -1,7 +1,10 @@
-(*** (
-  (speed Slow)
-  (typing Well_typed)
-) *)
+(***
+  (
+    (features (Polymorphic_types Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let f (type a) (x : a) : a = 
   let g (type a) (y : a) : a =

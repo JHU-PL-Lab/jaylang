@@ -1,9 +1,11 @@
-(*** (
-  (features (Variants Intersection_types Higher_order_functions OOP_style Records Return_type Match))
-  (reasons (Intersection_types Higher_order_functions OOP_style Return_type))
-  (speed Fast)
-  (typing Ill_typed)
-) *)
+(***
+  (
+    (features (Dependent_arrows Variants OOP_style))
+    (reasons (Dependent_arrows OOP_style)) ; "intersection type" is dep arrow, and when checking it, we hit the error
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
 
 let t : type = (((`A of unit) -> int) & ((`B of unit) -> int) & ((`C of int) -> list int))
 
