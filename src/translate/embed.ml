@@ -163,7 +163,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
   let cur_mu_vars : Ident.t Stack.t = Stack.create () in
 
   let rec embed ?(ask_for : E.labels = `All) (expr : Desugared.t) : Embedded.t =
-    let embed_type = E.make ~ask_for in
+    let make_embedded_type = E.make ~ask_for in
 
     match expr with
     (* base cases *)
@@ -196,7 +196,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       stmt_to_expr (embed_statement (STyped { typed_var ; body ; do_wrap ; do_check })) (embed cont)
     (* types *)
     | ETypeInt ->
-      embed_type
+      make_embedded_type
         { gen = lazy EPick_i
         ; check = lazy (
           fresh_abstraction "e_int_check" @@ fun e ->
@@ -207,7 +207,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ; wrap = lazy EId
         }
     | ETypeBool ->
-      embed_type
+      make_embedded_type
         { gen = lazy EPick_b
         ; check = lazy (
           fresh_abstraction "e_bool_check" @@ fun e ->
@@ -218,7 +218,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ; wrap = lazy EId
         }
     | ETypeArrow { domain = tau1 ; codomain = tau2 } ->
-      embed_type
+      make_embedded_type
         { gen = lazy (
           fresh_abstraction "arg_arrow_gen" @@ fun arg ->
             build @@
@@ -240,7 +240,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         )
         }
     | ETypeRecord m ->
-      embed_type
+      make_embedded_type
         { gen = lazy (ERecord (Map.map m ~f:gen))
         ; check = lazy (
           fresh_abstraction "e_rec_check" @@ fun e ->
@@ -262,7 +262,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         )
         }
     | ETypeModule ls ->
-      embed_type
+      make_embedded_type
         { gen = lazy (
           build @@
             let%bind () =
@@ -299,7 +299,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         )
         }
     | EType ->
-      embed_type
+      make_embedded_type
         { gen = lazy (
           build @@
             let%bind i = capture EPick_i in
@@ -334,7 +334,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ; wrap = lazy EId
         }
     | ETypeArrowD { binding = x ; domain = tau1 ; codomain = tau2 } ->
-      embed_type
+      make_embedded_type
         { gen = lazy (
           fresh_abstraction "xp_arrowd_gen" @@ fun x' ->
             build @@
@@ -360,7 +360,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         )
         }
     | ETypeRefinement { tau ; predicate = e_p } ->
-      embed_type
+      make_embedded_type
         { gen = lazy (
           build @@
             let%bind gend = capture @@ gen tau in
@@ -394,7 +394,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           VariantTypeLabel.to_variant_label type_label, tau
         )
       in
-      embed_type
+      make_embedded_type
         { gen = lazy (
           let of_case_list = function
             | [] -> failwith "invalid empty variant"
@@ -455,7 +455,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           fresh_abstraction "self_mu" @@ fun self ->
             EFreeze (
               let thaw_self = EThaw (EVar self) in
-              embed_type
+              make_embedded_type
                 { gen = lazy (
                   apply (EFunction { param = b ; body = gen tau }) thaw_self
                 )
@@ -474,13 +474,13 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       let _ = Stack.pop_exn cur_mu_vars in
       res
     | ETypeTop ->
-      embed_type
+      make_embedded_type
         { gen = lazy (EVariant { label = Reserved.top ; payload = unit_value })  
         ; check = lazy (fresh_abstraction "e_top_check" @@ fun _ -> unit_value)
         ; wrap = lazy EId
         }
     | ETypeBottom ->
-      embed_type
+      make_embedded_type
         { gen = lazy EDiverge
         ; check = lazy (
           fresh_abstraction "e_top_check" @@ fun _ ->
@@ -491,7 +491,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ; wrap = lazy EId
         }
     | ETypeSingle tau ->
-      embed_type
+      make_embedded_type
         { gen = lazy (embed tau)
         (* Note: check and wrap refer to the EType embedding, per the specification *)
         ; check = lazy (fresh_abstraction "t_singlet_check" @@ fun t -> 
