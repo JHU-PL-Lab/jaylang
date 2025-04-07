@@ -51,9 +51,9 @@ module State_M = struct
     let%bind ({ session ; _ }, _) = read in
     fail @@ f session
 
-  let abort : 'a m = fail_map Eval_session.abort
   let diverge : 'a m = fail_map Eval_session.diverge
-  let type_mismatch s : 'a m = fail_map @@ Fn.flip Eval_session.type_mismatch s
+  let abort msg: 'a m = fail_map @@ Eval_session.abort msg
+  let type_mismatch msg : 'a m = fail_map @@ Eval_session.type_mismatch msg
 
   let[@inline always] fetch (id : Ident.t) : Value.t m =
     let%bind env = read_env in
@@ -245,7 +245,7 @@ let eval_exp
     | EPick_i -> modify_and_return @@ Eval_session.get_input (Stepkey.I step)
     | EPick_b -> modify_and_return @@ Eval_session.get_input (Stepkey.B step)
     (* Failure cases *)
-    | EAbort -> abort
+    | EAbort msg -> abort msg
     | EDiverge -> diverge
   in
 

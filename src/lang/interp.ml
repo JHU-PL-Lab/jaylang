@@ -85,7 +85,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       using_env @@ fun env ->
       VTypeForall { type_variables ; tau = { expr = tau ; env = lazy env } }
     | EType -> return VType
-    | EAbort -> abort ()
+    | EAbort _ -> abort () (* ignore error message *)
     | EDiverge -> diverge ()
     | EFunction { param ; body } -> 
       using_env @@ fun env ->

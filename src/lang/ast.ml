@@ -185,7 +185,7 @@ module Expr = struct
     | EId : 'a embedded_only t
     | EIgnore : { ignored : 'a t ; cont : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in cont` but is more efficient *)
     (* these exist in the desugared and embedded languages *)
-    | EAbort : 'a desugared_or_embedded t
+    | EAbort : string -> 'a desugared_or_embedded t (* string is error message *)
     | EDiverge : 'a desugared_or_embedded t
     (* these exist in the bluejay and desugared languages *)
     | EType : 'a bluejay_or_desugared t

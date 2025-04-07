@@ -286,7 +286,7 @@ match [| e |] with
 | [| p1 -> e1 |] 
 | ...
 | [| pi -> ei |]
-| `~Untouched $ignore -> abort
+| `~Untouched $ignore -> abort "Matched untouchable value"
 | (any or variable) ->
   [| eany |]
 (* the patterns following `any` or a catchall variable are not reachable *)
@@ -326,7 +326,7 @@ Notes:
 [| assert e |] =
   if [| e |]
   then {}
-  else abort
+  else abort "Failed assertion"
 
 [| assume e |]
   if [| e |]
@@ -360,13 +360,13 @@ Division and modulus can go wrong if right expression is `0`. We instrument duri
 [| e / e' |] =
   let $v = [| e' |] in (* only evaluate once *)
   if $v == 0
-  then abort
+  then abort "Divide by 0"
   else [| e |] / $v
 
 [| e % e' |] =
   let $v = [| e' |] in (* only evaluate once *)
   if $v == 0
-  then abort
+  then abort "Modulo by 0"
   else [| e |] % $v
 ```
 

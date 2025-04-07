@@ -64,7 +64,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
           let%bind () = assign v @@ desugar right in
           return @@ EIf 
             { cond = EBinop { left = EVar v ; binop = BEqual ; right = EInt 0 }
-            ; true_body = EAbort
+            ; true_body = EAbort "Divide or modulo by 0"
             ; false_body = EBinop { left = desugar left ; binop ; right = EVar v } }
       | _ -> EBinop { left = desugar left ; binop ; right = desugar right }
     end
@@ -107,7 +107,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       EIf
         { cond = desugar assert_expr
         ; true_body = unit_value
-        ; false_body = EAbort
+        ; false_body = EAbort "Failed assertion"
         }
     | EAssume assume_expr ->
       EIf
@@ -129,7 +129,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
               :: (PVariant
                   { variant_label = Reserved.untouched
                   ; payload_id = Reserved.catchall }
-                , EAbort)
+                , EAbort "Matched untouchable value")
               :: acc
             )
           | _ -> Continue (desugar_pattern pat e :: acc)

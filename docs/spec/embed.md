@@ -148,7 +148,7 @@ Notes:
     let _ = [[tau]].~check $e in
     if [[ e_p ]] $e
     then {}
-    else (`~Predicate_failed $e) e_p (* unsafely quit with a type mismatch *)
+    else abort "Failed predicate"
   ; ~wrap = fun $e ->
     [[tau]].~wrap $e
   }
@@ -204,7 +204,7 @@ Because of the desugaring, we only have types and dependent types instead of pol
       | `~Untouched v ->
         if v == i
         then {}
-        else $e == `~Untouched i
+        else abort "Non-equal untouchable values"
     ; ~wrap = fun $e -> $e
     }
   ; ~check = fun $e ->
@@ -215,9 +215,6 @@ Because of the desugaring, we only have types and dependent types instead of pol
   ; ~wrap = fun $e -> $e
   }
 ```
-
-Notes:
-* The `else` case (the only one in the code above) is a nice way to fail unsafely with a type mismatch instead of an `abort`, and if the error finder is instrumented with a way to show the reason for the type mismatch, then this yields a nice error message. `$e` is `~Untouched v`, and `==` only works on int and bool, so this causes a type mismatch suredly.
 
 ### Intersection types
 
@@ -238,7 +235,7 @@ The `List` type has been desugared into a variant, so nothing is needed here.
 
 [[ bottom ]] =
   { ~gen = freeze @@ diverge (* can't make a value of type bottom, so exit safely *)
-  ; ~check = fun _ -> (`~Bottom {}) (`~Bottom {}) (* nothing is in bottom *)
+  ; ~check = fun _ -> abort "Nothing is in bottom"
   ; ~wrap = fun $e -> $e
   }
 ```

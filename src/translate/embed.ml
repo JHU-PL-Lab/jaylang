@@ -108,7 +108,7 @@ end
 let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   let rec loop (e : Desugared.t) : bool =
     match e with
-    | (EInt _ | EBool _ | EPick_i | EAbort | EDiverge | EType | ETypeInt | ETypeBool | ETypeTop | ETypeBottom) -> false
+    | (EInt _ | EBool _ | EPick_i | EAbort _ | EDiverge | EType | ETypeInt | ETypeBool | ETypeTop | ETypeBottom) -> false
     | EVar id' -> Ident.equal id id'
     (* capturing variables *)
     | ELet { var ; body ; _ } when Ident.equal var id -> loop body
@@ -167,7 +167,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
 
     match expr with
     (* base cases *)
-    | (EInt _ | EBool _ | EVar _ | EPick_i | EAbort | EDiverge) as e -> e
+    | (EInt _ | EBool _ | EVar _ | EPick_i | EAbort _ | EDiverge) as e -> e
     (* Simple propogation *)
     | EBinop { left ; binop ; right } ->
       EBinop { left = embed left ; binop ; right = embed right }
@@ -314,7 +314,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                       , EIf
                           { cond = EBinop { left = EVar v ; binop = BEqual ; right = EVar i }
                           ; true_body = unit_value
-                          ; false_body = EBinop { left = EVar e ; binop = BEqual ; right = EVariant { label = Reserved.untouched ; payload = EVar i }}
+                          ; false_body = EAbort "Non-equal untouchable values"
                           })
                     ]
                   }
@@ -377,10 +377,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               return @@ EIf
                 { cond = apply (embed e_p) (EVar e)
                 ; true_body = unit_value
-                ; false_body =
-                  apply 
-                    (EVariant { label = Reserved.predicate_failed ; payload = EVar e })
-                    (embed e_p)
+                ; false_body = EAbort "Failed predicate"
                 }
         )
         ; wrap = lazy (
@@ -482,12 +479,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     | ETypeBottom ->
       make_embedded_type
         { gen = lazy EDiverge
-        ; check = lazy (
-          fresh_abstraction "e_top_check" @@ fun _ ->
-            apply
-              (EVariant { label = Reserved.bottom ; payload = unit_value })
-              (EVariant { label = Reserved.bottom ; payload = unit_value })
-        )
+        ; check = lazy (fresh_abstraction "e_top_check" @@ fun _ -> EAbort "Nothing is in bottom")
         ; wrap = lazy EId
         }
     | ETypeSingle tau ->

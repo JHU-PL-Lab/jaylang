@@ -25,7 +25,7 @@ type 'a eval = 'a constraint 'a = [ `Eval ]
 type 'a in_progress = 'a constraint 'a = [ `In_progress ]
 
 type _ t =
-  | Found_abort : Input.t list -> 'a t
+  | Found_abort : Input.t list * string -> 'a t
   | Type_mismatch : Input.t list * string -> 'a t
   | Unbound_variable : Input.t list * Lang.Ast.Ident.t -> 'a t
 

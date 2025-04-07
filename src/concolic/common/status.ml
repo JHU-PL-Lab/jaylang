@@ -8,7 +8,7 @@ type 'a eval = 'a constraint 'a = [ `Eval ]
 type 'a in_progress = 'a constraint 'a = [ `In_progress ]
 
 type _ t =
-  | Found_abort : Input.t list -> 'a t
+  | Found_abort : Input.t list * string -> 'a t
   | Type_mismatch : Input.t list * string -> 'a t
   | Unbound_variable : Input.t list * Lang.Ast.Ident.t -> 'a t
 
@@ -38,7 +38,7 @@ let is_error_found (type a) (x : a t) : bool =
 
 let to_string (type a) (x : a t) : string =
   match x with
-  | Found_abort _            -> "Found abort"
+  | Found_abort (_, s)       -> Format.sprintf "Found abort:\n  %s" s
   | Type_mismatch (_, s)     -> Format.sprintf "Type mismatch:\n  %s" s
   | Unbound_variable (_, id) -> Format.sprintf "Unbound variable:\n  %s" (Lang.Ast.Ident.to_string id)
   | Exhausted_full_tree      -> "Exhausted"
