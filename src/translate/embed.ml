@@ -77,7 +77,7 @@ module Embedded_type (W : sig val do_wrap : bool end) = struct
         else []
       | `Gen -> [ (Reserved.gen, Expr.EFreeze (force r.gen)) ]
       | `Check -> [ (Reserved.check, (force r.check)) ]
-      | `Wrap -> if W.do_wrap then [ (Reserved.wrap, (force r.wrap)) ] else []
+      | `Wrap -> assert W.do_wrap; [ (Reserved.wrap, (force r.wrap)) ]
     in
     ERecord (Parsing_tools.record_of_list record_body)
 
@@ -153,7 +153,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
   let open LetMonad (Names) in
 
   (* alias because sometimes we shadow do_wrap, and we need this to embed let-expressions *)
-  let wrap_flag = do_wrap in
+  let pgm_wrap_flag = do_wrap in
 
   let fresh_abstraction (type a) (suffix : string) (e : Ident.t -> a Expr.t) : a Expr.t =
     let id = Names.fresh_id ~suffix () in
@@ -493,7 +493,6 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     | ETypeSingle tau ->
       make_embedded_type
         { gen = lazy (embed tau)
-        (* Note: check and wrap refer to the EType embedding, per the specification *)
         ; check = lazy (fresh_abstraction "t_singlet_check" @@ fun t -> 
           build @@
             let%bind _ = ignore @@ check tau (gen (EVar t)) in
@@ -510,8 +509,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           then ignore @@ check tau (EVar v)
           else return ()
         in
-        (* wrap_flag here is the external do_wrap that tells us whether we *ever* wrap *)
-        if wrap_flag && do_wrap
+        (* pgm_wrap_flag here is the external do_wrap that tells us whether we *ever* wrap *)
+        if pgm_wrap_flag && do_wrap
         then return @@ wrap tau (EVar v)
         else return (EVar v)
 
