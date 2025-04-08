@@ -1,7 +1,7 @@
 (***
   (
     (features (Mu_types Records Higher_order_functions OOP_style Return_error))
-    (features (Return_error))
+    (reasons (Return_error))
     (speed Slow)
     (typing Ill_typed)
   )
