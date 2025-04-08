@@ -231,11 +231,11 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         )
         ; wrap = lazy (
           fresh_abstraction "e_arrow_wrap" @@ fun e ->
-            fresh_abstraction "x_arrow_wrap" @@ fun x ->
+            fresh_abstraction "x_arrow_wrap" @@ fun arg ->
               build @@
-                let%bind () = ignore (check tau1 (EVar x)) in
+                let%bind () = ignore (check tau1 (EVar arg)) in
                 return @@ wrap tau2 (
-                  apply (EVar e) (wrap tau1 (EVar x))
+                  apply (EVar e) (wrap tau1 (EVar arg))
                 )
         )
         }
@@ -336,27 +336,25 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     | ETypeArrowD { binding = x ; domain = tau1 ; codomain = tau2 } ->
       make_embedded_type
         { gen = lazy (
-          fresh_abstraction "xp_arrowd_gen" @@ fun x' ->
+          fresh_abstraction "arg_arrowd_gen" @@ fun arg ->
             build @@
-              let%bind () = ignore (check tau1 (EVar x')) in
-              return @@ apply (EFunction { param = x ; body = gen tau2 }) (EVar x')
+              let%bind () = ignore (check tau1 (EVar arg)) in
+              let%bind () = assign x (EVar arg) in
+              return (gen tau2)
         )
         ; check = lazy (
           fresh_abstraction "e_arrowd_check" @@ fun e ->
             build @@
-              let%bind arg = capture @@ gen tau1 in
-              return @@ appl_list
-                (EFunction { param = x ; body = proj (embed ~ask_for:`Check tau2) Reserved.check })
-                [ (EVar arg) ; apply (EVar e) (EVar arg) ]
+              let%bind () = assign x @@ gen tau1 in
+              return (check tau2 (apply (EVar e) (EVar x)))
         )
         ; wrap = lazy (
           fresh_abstraction "e_arrowd_wrap" @@ fun e ->
-            fresh_abstraction "xp_arrowd_wrap" @@ fun x' ->
+            fresh_abstraction "arg_arrowd_wrap" @@ fun arg ->
               build @@
-                let%bind () = ignore (check tau1 (EVar x')) in
-                return @@ appl_list
-                  (EFunction { param = x ; body = proj (embed ~ask_for:`Wrap tau2) Reserved.wrap })
-                  [ (EVar x') ; apply (EVar e) (wrap tau1 (EVar x')) ]
+                let%bind () = ignore (check tau1 (EVar arg)) in
+                let%bind () = assign x @@ wrap tau1 (EVar arg) in
+                return (wrap tau2 (apply (EVar e) (EVar x)))
         )
         }
     | ETypeRefinement { tau ; predicate = e_p } ->

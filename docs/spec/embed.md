@@ -52,9 +52,9 @@ Statements are embedded exactly like their corresponding let-expression as it is
   ; ~check = fun $e ->
     [[tau2]].~check ($e (thaw [[tau1]].~gen))
   ; ~wrap = fun $e ->
-    fun $x ->
-      let _ = [[tau1]].~check $x in
-      [[tau2]].~wrap ($e ([[tau1]].~wrap $x))
+    fun $arg ->
+      let _ = [[tau1]].~check $arg in
+      [[tau2]].~wrap ($e ([[tau1]].~wrap $arg))
   }
 ```
 
@@ -63,16 +63,18 @@ Statements are embedded exactly like their corresponding let-expression as it is
 ```ocaml
 [[(x : tau_1) -> tau_2]] =
   { ~gen = freeze @@
-    fun $x' -> 
-      let _ = [[tau1]].check $x' in
-      (fun x -> thaw [[tau_2]].~gen) $x'
+    fun $arg -> 
+      let _ = [[tau1]].check $arg in
+      let x = $arg in
+      thaw [[tau_2]].~gen
   ; ~check = fun $e ->
-    let $arg = thaw [[tau_1]].~gen in
-    (fun x -> [[tau_2]].~check) $arg ($e $arg)
+    let x = thaw [[tau_1]].~gen in
+    [[tau_2]].~check ($e x)
   ; ~wrap = fun $e ->
-    fun $x' ->
-      let _ = [[tau1]].~check $x' in
-      (fun x -> [[tau_2]].~wrap) $x' ($e ([[tau_1]].~wrap $x'))
+    fun $arg ->
+      let _ = [[tau_1]].~check $arg in
+      let x = [[tau_1]].~wrap $arg in
+      [[tau_2]].~wrap ($e x)
   }
 ```
 
@@ -292,24 +294,23 @@ These ideas are not in the implementation. The only one here (refinement types a
 ```ocaml
 [[ let (x : tau) = e in e' ]] =
   let x = 
-    let $r = [[tau]] in
     let $v = [[ e ]] in
-    let _ = $r.~check $v in
-    $r.~wrap $v
+    let _ = [[tau]].~check $v in
+    [[tau]].~wrap $v
   in
   [[ e' ]]
 ```
 
 ```ocaml
 (* with this flag, we don't run the checker--only wrap *)
-[[ let (x : tau (no check)) = e in e' ]] =
+[[ let_no_check (x : tau) = e in e' ]] =
   let x =
     [[tau]].~wrap [[ e ]]
   in
   [[ e' ]]
 
 (* with this flag, we don't wrap--only run the checker *)
-[[ let (x : tau (no wrap)) = e in e' ]] =
+[[ let_no_wrap (x : tau) = e in e' ]] =
   let x =
     let $v = [[ e ]] in
     let _ = [[tau]].~check $v in
