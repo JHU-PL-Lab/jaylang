@@ -127,21 +127,13 @@ let filter_list x =
   | `~Cons of { ~hd : [| tau |] ; ~tl : $t } (* so is this *)
 
 [| x :: xs |] =
-  `~Cons { ~hd = x ; ~tl = filter_list [| xs |] }
+  `~Cons { ~hd = [| x |] ; ~tl = filter_list [| xs |] }
 
 [| [] |] =
   `~Nil {} 
 
 [| [ x1 ; ... ; xn ] |] =
   [| x1 :: ... :: xn :: [] |]
-
-(* pattern *)
-[| [] -> e |] =
-  `~Nil _ -> [| e |]
-
-(* pattern *)
-[| hd :: tl -> e |] =
-  `~Cons $r -> let hd = $r.~hd in let tl = $r.~tl in [| e |]
 ```
 
 Notes:
@@ -150,48 +142,44 @@ Notes:
 ## Dependent record / module
 
 ```ocaml
-[| struct let l_1 = e_1 ... let l_n = e_n end |] =
+[| struct let l_1 : tau_1 = e_1 ... let l_n : tau_n = e_n end |] =
   [| let l_1 = e_1 in
     ...
     let l_n = e_n in 
     { l_1 = l_1 ; ... ; l_n = l_n } |]
 ```
 
-Notes:
-* These "lets" are any statement and get desugared as such, even if it's not written well here. That is, the list of statements are transformed into this sequence of let-expressions, and that new expression is desugared.
-
 ## Pattern matching
 
 ```ocaml
 [| match e with
-  | p1 -> e1
+  | p_1 -> e_1
   | ...
-  | pi -> ei
-  | (any or variable) -> eany
+  | p_i -> e_i
+  | l_ident -> e_l_ident
   | ...
-  | pn -> en
+  | p_n -> e_n
   end |] =
 match [| e |] with
-| [| p1 -> e1 |] 
+| [| p_1 -pat-> e_1 |] 
 | ...
-| [| pi -> ei |]
-| `~Untouched $ignore -> abort "Matched untouchable value"
-| (any or variable) ->
-  [| eany |]
-(* the patterns following `any` or a catchall variable are not reachable *)
+| [| p_i -pat-> e_i |]
+| `~Untouched _ -> abort "Matched untouchable value"
+| l_ident -> [| e_l_ident |]
+(* the patterns following `any` or a variable pattern are not reachable and can be ignore *)
 end
 
 (* patterns. See List for these cases, too. They are copied here *)
-[| p -> e |] =
-  p -> [| e |]
+[| p -pat-> e |] =
+  p -pat-> [| e |]
 
 (* Empty list pattern *)
-[| [] -> e |] =
-  `~Nil -> [| e |]
+[| [] -pat-> e |] =
+  `~Nil -pat-> [| e |]
 
 (* Cons pattern *)
-[| hd :: tl -> e |] =
-  `~Cons $r -> let hd = $r.~hd in let tl = $r.~tl in [| e |]
+[| hd :: tl -pat-> e |] =
+  `~Cons $r -pat-> let hd = $r.~hd in let tl = $r.~tl in [| e |]
 ```
 
 Notes:
@@ -201,12 +189,12 @@ Notes:
 ## Intersection types
 
 ```ocaml
-[| ((V_0 of tau_0) -> tau_0') && ... && ((V_n of tau_n) -> tau_n') |] =
-  [| ($x : V_0 of tau_0 | ... | V_n of tau_n)  ->
+[| ((`V_0 of tau_0) -> tau_0') & ... & ((`V_n of tau_n) -> tau_n') |] =
+  [| ($x : `V_0 of tau_0 | ... | `V_n of tau_n) ->
         match $x with
-        | V_0 _ -> tau_0'
+        | `V_0 _ -> tau_0'
         | ...
-        | V_n _ -> tau_n' |]
+        | `V_n _ -> tau_n' |]
 ```
 
 ## Assert/assume
@@ -228,12 +216,12 @@ Notes:
 We need to desugar and/or to short-circuit, and this is required so that we can try to solve for the case of the left expression that causes us to evaluate the right expression. This way, in interpretation of the target language, we don't have to think about how the short-circuiting of the boolean operations affects branches.
 
 ```ocaml
-[| e and e' |] =
+[| e && e' |] =
   if [| e |]
   then [| e' |]
   else false
 
-[| e or e' |] = 
+[| e || e' |] = 
   if [| e |]
   then true
   else [| e' |]
@@ -241,7 +229,7 @@ We need to desugar and/or to short-circuit, and this is required so that we can 
 
 I am still unsure if we want to do this. The alternative (which is the old solution) is to not short-circuit at all. Adding the short-circuit introduces branches (but it may help us identify solves to skip that are pinned). I will for now NOT do this desugar here, and instead I will leave and/or as binops in the target language which we might later remove with this. Note, though, that we often add this branch ourselves if we want to short-circuit (which is often) because we want to skip all of the branches in `e'`. I am likely to benchmark how this affects performance.
 
-## Division/modulus
+## Division/modulo
 
 Division and modulus can go wrong if right expression is `0`. We instrument during the desugar process to add this as a branch in the program.
 
