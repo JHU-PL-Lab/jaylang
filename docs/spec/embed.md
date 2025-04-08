@@ -113,14 +113,14 @@ Notes:
       case pick_i on
       | 1 -> V_i1 (thaw [[tau_i1]].~gen)
       | ...
-      | n -> V_im (thaw [[tau_im]].~gen)
+      | m -> V_im (thaw [[tau_im]].~gen)
       | _ -> V_i0 (thaw [[tau_i0]].~gen)
     else
       (* generate a constructor that is more likely to be terminal *)
       case pick_i on
       | 1 -> V_j1 (thaw [[tau_j1]].~gen)
       | ...
-      | n -> V_jl (thaw [[tau_jl]].~gen)
+      | l -> V_jl (thaw [[tau_jl]].~gen)
       | _ -> V_j0 (thaw [[tau_j0]].~gen)
   ; ~check = fun $e ->
     match $e with
@@ -244,9 +244,9 @@ The `List` type has been desugared into a variant, so nothing is needed here.
     let _ = [[tau_n]].~check $e.l_n in
     {}
   ; ~wrap = fun $e ->
-    let l_0 = = [[tau_0]].~wrap $e.l_0 in (* put the name l_0 in scope *)
+    let l_0 = [[tau_0]].~wrap $e.l_0 in (* put the name l_0 in scope *)
     ...
-    let l_(n-1) = = [[tau_(n-1)]].~wrap $e.l_(n-1) in (* put the name l_(n-1) in scope *)
+    let l_(n-1) = [[tau_(n-1)]].~wrap $e.l_(n-1) in (* put the name l_(n-1) in scope *)
     { l_0 = l_0 ; ...; l_(n-1) = l_(n-1) ; l_n = [[tau_n]].~wrap $e.l_n }
   }
 ```
