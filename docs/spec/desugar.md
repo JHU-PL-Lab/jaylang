@@ -32,7 +32,7 @@ Note that untyped functions are all the same, and we would use untyped let expre
   in
   e' |] =
 let (f : [| (a_1 : type) -> ... -> (a_n : type) -> tau_1 -> ... -> tau_m -> tau |]) = 
-  fun a_1 -> ... -> fun a_m ->
+  fun a_1 -> ... -> fun a_n ->
     fun x_1 -> ... -> fun x_m ->
       [| e |]
 in
@@ -46,38 +46,40 @@ Notes:
 
 ### Recursive functions
 
-Here is an initial example for how recursive functions get desugared.
-
 ```ocaml
-[| let rec f1 (x1_1 : tau1_1) ... (x1_m1 tau1_m1) : tau1 = e1
+[| let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
+  e1
   and ...
-  and fn (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun = en
+  and fn (type an_1 ... an_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
+    en
   in
   e |] =
 (* this record is never accessible to the user, so we don't need to create unusable labels *)
-let $r = Y_n 
-  (fun f1 ... fn ->
-    let (f1 : tau1_1 -> ... -> tau1_m1 -> tau1 (no check)) = 
-      fun x1_1 -> ... fun x1_m1 ->
-        [| e1 |] 
+let $r = Y_n
+  (fun f1 -> ... -> fun fn ->
+    let_no_check f1 : (a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1 =
+      fun a1_1 -> ... -> fun a1_n1 ->
+        fun x1_1 -> ... -> fun x1_m1 ->
+          [| e1 |]
     in
-    f1) 
-  ... 
-  (fun f1 ... fn ->
-    let (fn : taun_1 -> ... -> taun_mn -> taun (no check)) = 
-      fun xn_1 -> ... -> fun xn_mn ->
-        [| en |] 
+    f1)
+  ...
+  (fun f1 -> ... -> fun fn ->
+    let_no_check fn : (an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun =
+      fun an_1 -> ... -> fun an_nn ->
+        fun xn_1 -> ... -> fun xn_mn ->
+          [| en |]
     in
     fn)
 
 (* first expose the names so that the types can use them *)
-let f1 = $r.l1
+let f1 = $r.f1
 ...
-let fn = $r.ln
+let fn = $r.fn
 (* then run the checkers on the types, but don't wrap because that would be a double wrap *)
-let (f1 : tau1_1 -> ... -> tau1_m1 -> tau1 (no wrap)) = f1
+let_no_wrap f1 : (a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1 = f1
 ...
-let (fn : taun_1 -> ... -> taun_mn -> taun (no wrap)) = fn
+let_no_wrap fn : (an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun = fn
 ```
 
 for `Y_n` the fixed point combinator on `n` mutually recursive functions.
@@ -100,67 +102,8 @@ Y = fun f ->
   (fun s -> fun x -> f (s s) x)
 ```
 
-
-Note:
-* This is only how we would desugar non polymorphic functions.
-* We need to specially handle each type of function, which is a mess. This motivates a two-step process which I describe below.
-
-The process of the general desugar is as follows:
-* We can send any mutally recursive functions to a list of their id, type, parameters, and body.
-* We take that list and map it as in the following code block.
-
-```ocaml
-[ (f1, tau_f1_opt, [ x1_1 , ... , x1_m1 ], e1)
-; ...
-; (fn, tau_fn_opt, [ xn_1 , ... , xn_mn ], en)
-], e |->
-let $r = Y_n 
-  (fun f1 ... fn ->
-    let (f1 : tau_f1_opt (no check)) = 
-      fun x1_1 -> ... fun x1_m1 ->
-        [| e1 |] 
-    in
-    f1) 
-  ... 
-  (fun f1 ... fn ->
-    let (fn : tau_fn_opt (no check)) = 
-      fun xn_1 -> ... -> fun xn_mn ->
-        [| en |] 
-    in
-    fn)
-
-(* first expose the names so that the types can use them *)
-let f1 = $r.l1
-...
-let fn = $r.ln
-(* then run the checkers on the types, but don't wrap because that would be a double wrap *)
-let (f1 : tau_f1_opt (no wrap)) = f1
-...
-let (fn : tau_fn_opt (no wrap)) = fn
-```
-
 Notes:
-* If the tau is None, then we do an untyped let-expression. I leave this as a note for conciseness because I feel it is clear from context what we mean in the definition above.
-* We have the "no check" because it is unecessary to check the function's type inside of every recursive call. We leave the checking to only the top level statement.
-
-We get the id, type, parameters, and body using the let rules we've already seen. Here is an example for let-poly functions.
-
-```ocaml
-let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
-  e1
-and
-...
-fn (type an_1 ... a1_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
-  en
-in
-e
-|->
-[ (f1, Some ((a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1), [ a1_1 , ... , a1_n1 , x1_1 , .... , x1_m1 ], e1)
-; ...
-; (fn, Some ((an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun), [ an_1 , ... , an_nn , xn_1 , .... , xn_mn ], en)
-], e
-```
-
+* The same as non-rec functions...
 
 ### Multi-arg functions
 
@@ -174,42 +117,35 @@ e
 ```ocaml
 let filter_list x =
   match x with
-  | `Nil _ -> x
-  | `Cons _ -> x
+  | `~Nil _ -> x
+  | `~Cons _ -> x
   end
 
-[| List tau |] =
+[| list tau |] =
   Mu $t.
-  ``Nil unit (* This is a unique variant name that the user cannot create, and unit is a dummy payload *)
-  || ``Cons {: ~hd : [| tau |] , ~tl : $t :} (* so is this *)
+  | `~Nil of unit (* This is a unique variant name that the user cannot create, and unit is a dummy payload *)
+  | `~Cons of { ~hd : [| tau |] ; ~tl : $t } (* so is this *)
 
 [| x :: xs |] =
-  `Cons { ~hd = x , ~tl = filter_list [| xs |] }
+  `~Cons { ~hd = x ; ~tl = filter_list [| xs |] }
 
 [| [] |] =
-  `Nil {} 
+  `~Nil {} 
 
 [| [ x1 ; ... ; xn ] |] =
   [| x1 :: ... :: xn :: [] |]
 
 (* pattern *)
 [| [] -> e |] =
-  `Nil -> [| e |]
+  `~Nil _ -> [| e |]
 
 (* pattern *)
 [| hd :: tl -> e |] =
-  `Cons $r -> let hd = $r.~hd in let tl = $r.~tl in [| e |]
+  `~Cons $r -> let hd = $r.~hd in let tl = $r.~tl in [| e |]
 ```
 
 Notes:
 * We need to instrument cons because otherwise it always looks well-typed. So we filter all things on the right of `(::)` to be lists.
-
-## Variant
-
-```ocaml
-[| V_i e |] =
-  V_i [| e |]
-```
 
 ## Dependent record / module
 
@@ -251,11 +187,11 @@ end
 
 (* Empty list pattern *)
 [| [] -> e |] =
-  `Nil -> [| e |]
+  `~Nil -> [| e |]
 
 (* Cons pattern *)
 [| hd :: tl -> e |] =
-  `Cons $r -> let hd = $r.~hd in let tl = $r.~tl in [| e |]
+  `~Cons $r -> let hd = $r.~hd in let tl = $r.~tl in [| e |]
 ```
 
 Notes:
