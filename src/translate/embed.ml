@@ -449,15 +449,11 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         EThaw (apply Embedded_functions.y_freeze_thaw @@ 
           fresh_abstraction "self_mu" @@ fun self ->
             EFreeze (
-              let thaw_self = EThaw (EVar self) in
+              let with_beta cont = ELet { var = beta ; body = EThaw (EVar self) ; cont } in
               make_embedded_type
-                { gen = lazy (ELet { var = beta ; body = thaw_self ; cont = gen tau })
-                ; check = lazy (fresh_abstraction "e_mu_check" @@ fun e ->
-                  ELet { var = beta ; body = thaw_self ; cont = check tau (EVar e) }
-                )
-                ; wrap = lazy (fresh_abstraction "e_mu_wrap" @@ fun e ->
-                  ELet { var = beta ; body = thaw_self ; cont = wrap tau (EVar e) }
-                )
+                { gen = lazy (with_beta (gen tau))
+                ; check = lazy (fresh_abstraction "e_mu_check" @@ fun e -> with_beta (check tau (EVar e)))
+                ; wrap = lazy (fresh_abstraction "e_mu_wrap" @@ fun e -> with_beta (wrap tau (EVar e)))
                 }
               )
         )
