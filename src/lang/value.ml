@@ -187,7 +187,9 @@ module Map_store = struct
   let empty : 'a t = Ident.Map.empty
 
   let[@inline always] add (id : Ident.t) (v : 'a) (env : 'a t) : 'a t =
-    Map.set env ~key:id ~data:v
+    if Ident.equal (Ast_tools.Reserved.catchall) id
+    then env
+    else Map.set env ~key:id ~data:v
 
   let[@inline always] fetch (id : Ident.t) (env : 'a t) : 'a option =
     Map.find env id
