@@ -8,6 +8,8 @@ Definitions:
 * A tilde `~` prefixes a reserved label that the programmer cannot create.
 * A dollar sign `$` prefixes a fresh name.
 
+Anything that is not explicitly mapped in this specification is handled trivially by recursively embedding the components and reconstructing the same structure again.
+
 
 # Target language
 
@@ -53,6 +55,24 @@ Statements are embedded exactly like their corresponding let-expression as it is
     fun $x ->
       let _ = [[tau1]].~check $x in
       [[tau2]].~wrap ($e ([[tau1]].~wrap $x))
+  }
+```
+
+### Dependent arrow
+
+```ocaml
+[[(x : tau_1) -> tau_2]] =
+  { ~gen = freeze @@
+    fun $x' -> 
+      let _ = [[tau1]].check $x' in
+      (fun x -> thaw [[tau_2]].~gen) $x'
+  ; ~check = fun $e ->
+    let $arg = thaw [[tau_1]].~gen in
+    (fun x -> [[tau_2]].~check) $arg ($e $arg)
+  ; ~wrap = fun $e ->
+    fun $x' ->
+      let _ = [[tau1]].~check $x' in
+      (fun x -> [[tau_2]].~wrap) $x' ($e ([[tau_1]].~wrap $x'))
   }
 ```
 
@@ -151,42 +171,6 @@ Notes:
     else abort "Failed predicate"
   ; ~wrap = fun $e ->
     [[tau]].~wrap $e
-  }
-```
-
-### Dependent types
-
-```ocaml
-[[(x : tau_1) -> tau_2]] =
-  { ~gen = freeze @@
-    fun $x' -> 
-      let _ = [[tau1]].~check $x' in
-      thaw [[tau_2[$x'/x]]].~gen
-  ; ~check = fun $e ->
-    let $arg = thaw [[tau_1]].~gen in
-    [[tau_2[$arg/x]]].~check ($e $arg)
-  ; ~wrap = fun $e ->
-    fun $x' ->
-      let _ = [[tau1]].~check $x' in
-      [[tau_2[$x'/x]]].~wrap ($e ([[tau_1]].~wrap $x'))
-  }
-```
-
-Or alternatively, if we do the substitution at interpretation time (which is indeed how we do it in the implementation):
-
-```ocaml
-[[(x : tau_1) -> tau_2]] =
-  { ~gen = freeze @@
-    fun $x' -> 
-      let _ = [[tau1]].check $x' in
-      (fun x -> thaw [[tau_2]].~gen) $x'
-  ; ~check = fun $e ->
-    let $arg = thaw [[tau_1]].~gen in
-    (fun x -> [[tau_2]].~check) $arg ($e $arg)
-  ; ~wrap = fun $e ->
-    fun $x' ->
-      let _ = [[tau1]].~check $x' in
-      (fun x -> [[tau_2]].~wrap) $x' ($e ([[tau_1]].~wrap $x'))
   }
 ```
 
@@ -332,34 +316,4 @@ These ideas are not in the implementation. The only one here (refinement types a
     $v
   in
   [[ e' ]]
-```
-
-### Binary operations
-
-```ocaml
-[[ e binop e' ]] =
-  [[ e ]] binop [[ e' ]]
-```
-
-### Application
-
-```ocaml
-[[ e e' ]] =
-  [[ e ]]  [[ e' ]]
-```
-
-### Records
-
-```ocaml
-[[ { l1 = e1 ; ... ; ln = en } ]] =
-  { l1 = [[ e1 ]] ; ... ; ln = [[ en ]] }
-```
-
-Note:
-* Nothing really to do here because `wrap` handles record subtyping.
-
-### Values
-
-```ocaml
-[[ v ]] = v
 ```
