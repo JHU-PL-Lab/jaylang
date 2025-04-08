@@ -361,10 +361,10 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       make_embedded_type
         { gen = lazy (
           build @@
-            let%bind gend = capture @@ gen tau in
+            let%bind candidate = capture @@ gen tau in
             return @@ EIf
-              { cond = apply (embed e_p) (EVar gend)
-              ; true_body = EVar gend
+              { cond = apply (embed e_p) (EVar candidate)
+              ; true_body = EVar candidate
               ; false_body = EDiverge
               }
         )

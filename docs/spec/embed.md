@@ -162,9 +162,9 @@ Notes:
 ```ocaml
 [[{ tau | e_p }]] =
   { ~gen = freeze @@
-    let $gend = thaw [[tau]].~gen in
-    if [[ e_p ]] $gend
-    then $gend
+    let $candidate = thaw [[tau]].~gen in
+    if [[ e_p ]] $candidate
+    then $candidate
     else diverge (* i.e. safely quit *)
   ; ~check = fun $e ->
     let _ = [[tau]].~check $e in
