@@ -85,11 +85,11 @@ Statements are embedded exactly like their corresponding let-expression as it is
   thaw @@
   Y (fun $self -> freeze
     { ~gen = freeze @@
-      (fun B -> thaw [[tau]].~gen) (thaw $self)
+      let B = thaw $self in thaw [[tau]].~gen
     ; ~check = fun $e ->
-      (fun B -> [[tau]].~check $e) (thaw $self)
+      let B = thaw $self in [[tau]].~check $e
     ; ~wrap = fun $e ->
-      (fun B -> [[tau]].~wrap $e) (thaw $self)
+      let B = thaw $self in [[tau]].~wrap $e
     }
   )
 

@@ -443,24 +443,20 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
             }  
         ) 
         }
-    | ETypeMu { var = b ; body = tau } ->
-      Stack.push cur_mu_vars b;
+    | ETypeMu { var = beta ; body = tau } ->
+      Stack.push cur_mu_vars beta;
       let res =
         EThaw (apply Embedded_functions.y_freeze_thaw @@ 
           fresh_abstraction "self_mu" @@ fun self ->
             EFreeze (
               let thaw_self = EThaw (EVar self) in
               make_embedded_type
-                { gen = lazy (
-                  apply (EFunction { param = b ; body = gen tau }) thaw_self
+                { gen = lazy (ELet { var = beta ; body = thaw_self ; cont = gen tau })
+                ; check = lazy (fresh_abstraction "e_mu_check" @@ fun e ->
+                  ELet { var = beta ; body = thaw_self ; cont = check tau (EVar e) }
                 )
-                ; check = lazy (
-                  fresh_abstraction "e_mu_check" @@ fun e ->
-                    apply (EFunction { param = b ; body = check tau (EVar e) }) thaw_self
-                )
-                ; wrap = lazy (
-                  fresh_abstraction "e_mu_wrap" @@ fun e ->
-                    apply (EFunction { param = b ; body = wrap tau (EVar e) }) thaw_self
+                ; wrap = lazy (fresh_abstraction "e_mu_wrap" @@ fun e ->
+                  ELet { var = beta ; body = thaw_self ; cont = wrap tau (EVar e) }
                 )
                 }
               )
