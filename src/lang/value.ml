@@ -70,7 +70,6 @@ module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
       | VTypeSingle : 'a t -> 'a bluejay_or_desugared t
       (* types in bluejay only *)
       | VTypeList : 'a t -> 'a bluejay_only t
-      | VTypeForall : { type_variables : Ident.t list ; tau : 'a closure } -> 'a bluejay_only t
       | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
 
     and 'a env = 'a t Store.t
@@ -130,7 +129,6 @@ module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
     | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (to_string tau) (to_string predicate)
     | VTypeSingle v -> Format.sprintf "(singlet (%s))" (to_string v)
     | VTypeList v -> Format.sprintf "(list (%s))" (to_string v)
-    | VTypeForall { type_variables ; _ } -> Format.sprintf "(Forall %s. <expr>)" (String.concat ~sep:" " @@ List.map ~f:(fun (Ident s) -> s) type_variables)
     | VTypeIntersect ls ->
       Format.sprintf "(%s)"
         (String.concat ~sep:" && " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((``%s (%s)) -> %s)" s (to_string tau1) (to_string tau2)))
@@ -189,7 +187,9 @@ module Map_store = struct
   let empty : 'a t = Ident.Map.empty
 
   let[@inline always] add (id : Ident.t) (v : 'a) (env : 'a t) : 'a t =
-    Map.set env ~key:id ~data:v
+    if Ident.equal (Ast_tools.Reserved.catchall) id
+    then env
+    else Map.set env ~key:id ~data:v
 
   let[@inline always] fetch (id : Ident.t) (env : 'a t) : 'a option =
     Map.find env id

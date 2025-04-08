@@ -115,10 +115,10 @@ let finish (s : t) : Status.Eval.t =
 let diverge (s : t) : Status.Eval.t =
   finish s
 
-let abort (s : t) : Status.Eval.t =
-  Found_abort (List.rev s.rev_inputs)
+let abort (msg : string) (s : t) : Status.Eval.t =
+  Found_abort (List.rev s.rev_inputs, msg)
 
-let type_mismatch (s : t) (reason : string) : Status.Eval.t =
+let type_mismatch (reason : string) (s : t) : Status.Eval.t =
   Type_mismatch (List.rev s.rev_inputs, reason)
 
 let unbound_variable (s : t) (id : Lang.Ast.Ident.t) : Status.Eval.t =

@@ -59,15 +59,16 @@ val hit_case : int Direction.t -> int Expression.t -> other_cases:int list -> t 
 val diverge : t -> Status.Eval.t
 (** [diverge session] tells the [session] that the interpretation diverged. *)
 
-val abort : t -> Status.Eval.t
-(** [abort session] tells the [session] that the interpretation aborted. *)
+val abort : string -> t -> Status.Eval.t
+(** [abort msg session] tells the [session] that the interpretation aborted with the
+    error message [msg]. *)
 
 val unbound_variable : t -> Lang.Ast.Ident.t -> Status.Eval.t
 (** [unbound_variable session id] tells the [session] that the interpretation found
     that [id] is an unbound variable. *)
 
-val type_mismatch : t -> string -> Status.Eval.t
-(** [type_mismatch session reason] tells the [session] that the interpretation ended
+val type_mismatch : string -> t -> Status.Eval.t
+(** [type_mismatch reason session] tells the [session] that the interpretation ended
     due to type mismatch, explained by [reason]. *)
 
 val reach_max_step : t -> Status.Eval.t

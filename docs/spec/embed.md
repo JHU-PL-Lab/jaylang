@@ -8,6 +8,8 @@ Definitions:
 * A tilde `~` prefixes a reserved label that the programmer cannot create.
 * A dollar sign `$` prefixes a fresh name.
 
+Anything that is not explicitly mapped in this specification is handled trivially by recursively embedding the components and reconstructing the same structure again.
+
 
 # Target language
 
@@ -50,9 +52,29 @@ Statements are embedded exactly like their corresponding let-expression as it is
   ; ~check = fun $e ->
     [[tau2]].~check ($e (thaw [[tau1]].~gen))
   ; ~wrap = fun $e ->
-    fun $x ->
-      let _ = [[tau1]].~check $x in
-      [[tau2]].~wrap ($e ([[tau1]].~wrap $x))
+    fun $arg ->
+      let _ = [[tau1]].~check $arg in
+      [[tau2]].~wrap ($e ([[tau1]].~wrap $arg))
+  }
+```
+
+### Dependent arrow
+
+```ocaml
+[[(x : tau_1) -> tau_2]] =
+  { ~gen = freeze @@
+    fun $arg -> 
+      let _ = [[tau1]].check $arg in
+      let x = $arg in
+      thaw [[tau_2]].~gen
+  ; ~check = fun $e ->
+    let x = thaw [[tau_1]].~gen in
+    [[tau_2]].~check ($e x)
+  ; ~wrap = fun $e ->
+    fun $arg ->
+      let _ = [[tau_1]].~check $arg in
+      let x = [[tau_1]].~wrap $arg in
+      [[tau_2]].~wrap ($e x)
   }
 ```
 
@@ -63,11 +85,11 @@ Statements are embedded exactly like their corresponding let-expression as it is
   thaw @@
   Y (fun $self -> freeze
     { ~gen = freeze @@
-      (fun B -> thaw [[tau]].~gen) (thaw $self)
+      let B = thaw $self in thaw [[tau]].~gen
     ; ~check = fun $e ->
-      (fun B -> [[tau]].~check $e) (thaw $self)
+      let B = thaw $self in [[tau]].~check $e
     ; ~wrap = fun $e ->
-      (fun B -> [[tau]].~wrap $e) (thaw $self)
+      let B = thaw $self in [[tau]].~wrap $e
     }
   )
 
@@ -91,14 +113,14 @@ Notes:
       case pick_i on
       | 1 -> V_i1 (thaw [[tau_i1]].~gen)
       | ...
-      | n -> V_im (thaw [[tau_im]].~gen)
+      | m -> V_im (thaw [[tau_im]].~gen)
       | _ -> V_i0 (thaw [[tau_i0]].~gen)
     else
       (* generate a constructor that is more likely to be terminal *)
       case pick_i on
       | 1 -> V_j1 (thaw [[tau_j1]].~gen)
       | ...
-      | n -> V_jl (thaw [[tau_jl]].~gen)
+      | l -> V_jl (thaw [[tau_jl]].~gen)
       | _ -> V_j0 (thaw [[tau_j0]].~gen)
   ; ~check = fun $e ->
     match $e with
@@ -140,53 +162,17 @@ Notes:
 ```ocaml
 [[{ tau | e_p }]] =
   { ~gen = freeze @@
-    let $gend = thaw [[tau]].~gen in
-    if [[ e_p ]] $gend
-    then $gend
+    let $candidate = thaw [[tau]].~gen in
+    if [[ e_p ]] $candidate
+    then $candidate
     else diverge (* i.e. safely quit *)
   ; ~check = fun $e ->
     let _ = [[tau]].~check $e in
     if [[ e_p ]] $e
     then {}
-    else (`~Predicate_failed $e) e_p (* unsafely quit with a type mismatch *)
+    else abort "Failed predicate"
   ; ~wrap = fun $e ->
     [[tau]].~wrap $e
-  }
-```
-
-### Dependent types
-
-```ocaml
-[[(x : tau_1) -> tau_2]] =
-  { ~gen = freeze @@
-    fun $x' -> 
-      let _ = [[tau1]].~check $x' in
-      thaw [[tau_2[$x'/x]]].~gen
-  ; ~check = fun $e ->
-    let $arg = thaw [[tau_1]].~gen in
-    [[tau_2[$arg/x]]].~check ($e $arg)
-  ; ~wrap = fun $e ->
-    fun $x' ->
-      let _ = [[tau1]].~check $x' in
-      [[tau_2[$x'/x]]].~wrap ($e ([[tau_1]].~wrap $x'))
-  }
-```
-
-Or alternatively, if we do the substitution at interpretation time (which is indeed how we do it in the implementation):
-
-```ocaml
-[[(x : tau_1) -> tau_2]] =
-  { ~gen = freeze @@
-    fun $x' -> 
-      let _ = [[tau1]].check $x' in
-      (fun x -> thaw [[tau_2]].~gen) $x'
-  ; ~check = fun $e ->
-    let $arg = thaw [[tau_1]].~gen in
-    (fun x -> [[tau_2]].~check) $arg ($e $arg)
-  ; ~wrap = fun $e ->
-    fun $x' ->
-      let _ = [[tau1]].~check $x' in
-      (fun x -> [[tau_2]].~wrap) $x' ($e ([[tau_1]].~wrap $x'))
   }
 ```
 
@@ -204,7 +190,7 @@ Because of the desugaring, we only have types and dependent types instead of pol
       | `~Untouched v ->
         if v == i
         then {}
-        else $e == `~Untouched i
+        else abort "Non-equal untouchable values"
     ; ~wrap = fun $e -> $e
     }
   ; ~check = fun $e ->
@@ -215,9 +201,6 @@ Because of the desugaring, we only have types and dependent types instead of pol
   ; ~wrap = fun $e -> $e
   }
 ```
-
-Notes:
-* The `else` case (the only one in the code above) is a nice way to fail unsafely with a type mismatch instead of an `abort`, and if the error finder is instrumented with a way to show the reason for the type mismatch, then this yields a nice error message. `$e` is `~Untouched v`, and `==` only works on int and bool, so this causes a type mismatch suredly.
 
 ### Intersection types
 
@@ -238,7 +221,7 @@ The `List` type has been desugared into a variant, so nothing is needed here.
 
 [[ bottom ]] =
   { ~gen = freeze @@ diverge (* can't make a value of type bottom, so exit safely *)
-  ; ~check = fun _ -> (`~Bottom {}) (`~Bottom {}) (* nothing is in bottom *)
+  ; ~check = fun _ -> abort "Nothing is in bottom"
   ; ~wrap = fun $e -> $e
   }
 ```
@@ -261,9 +244,9 @@ The `List` type has been desugared into a variant, so nothing is needed here.
     let _ = [[tau_n]].~check $e.l_n in
     {}
   ; ~wrap = fun $e ->
-    let l_0 = = [[tau_0]].~wrap $e.l_0 in (* put the name l_0 in scope *)
+    let l_0 = [[tau_0]].~wrap $e.l_0 in (* put the name l_0 in scope *)
     ...
-    let l_(n-1) = = [[tau_(n-1)]].~wrap $e.l_(n-1) in (* put the name l_(n-1) in scope *)
+    let l_(n-1) = [[tau_(n-1)]].~wrap $e.l_(n-1) in (* put the name l_(n-1) in scope *)
     { l_0 = l_0 ; ...; l_(n-1) = l_(n-1) ; l_n = [[tau_n]].~wrap $e.l_n }
   }
 ```
@@ -311,58 +294,27 @@ These ideas are not in the implementation. The only one here (refinement types a
 ```ocaml
 [[ let (x : tau) = e in e' ]] =
   let x = 
-    let $r = [[tau]] in
     let $v = [[ e ]] in
-    let _ = $r.~check $v in
-    $r.~wrap $v
+    let _ = [[tau]].~check $v in
+    [[tau]].~wrap $v
   in
   [[ e' ]]
 ```
 
 ```ocaml
 (* with this flag, we don't run the checker--only wrap *)
-[[ let (x : tau (no check)) = e in e' ]] =
+[[ let_no_check (x : tau) = e in e' ]] =
   let x =
     [[tau]].~wrap [[ e ]]
   in
   [[ e' ]]
 
 (* with this flag, we don't wrap--only run the checker *)
-[[ let (x : tau (no wrap)) = e in e' ]] =
+[[ let_no_wrap (x : tau) = e in e' ]] =
   let x =
     let $v = [[ e ]] in
     let _ = [[tau]].~check $v in
     $v
   in
   [[ e' ]]
-```
-
-### Binary operations
-
-```ocaml
-[[ e binop e' ]] =
-  [[ e ]] binop [[ e' ]]
-```
-
-### Application
-
-```ocaml
-[[ e e' ]] =
-  [[ e ]]  [[ e' ]]
-```
-
-### Records
-
-```ocaml
-[[ { l1 = e1 ; ... ; ln = en } ]] =
-  { l1 = [[ e1 ]] ; ... ; ln = [[ en ]] }
-```
-
-Note:
-* Nothing really to do here because `wrap` handles record subtyping.
-
-### Values
-
-```ocaml
-[[ v ]] = v
 ```

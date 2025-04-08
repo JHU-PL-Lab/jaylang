@@ -27,104 +27,59 @@ Note that untyped functions are all the same, and we would use untyped let expre
 ### Non-rec functions
 
 ```ocaml
-[| let f (x_1 : tau_1) ... (x_n : tau_n) : tau =
+[| let f (type a_1 ... a_n) (x_1 : tau_1) ... (x_m : tau_m) : tau =
   e
   in
   e' |] =
-let (f : [| tau_1 -> ... -> tau_n -> tau |]) = 
-  fun x_1 -> ... -> fun x_n ->
-    [| e |]
-in
-[| e' |] 
-```
-
-#### Let poly
-
-```ocaml
-[| let f (type a_1 ... a_n) (x_1 : tau_1) ... (x_m : tau_m) : tau =
-    e
-  in
-  e' |] =
-let (f : [| forall a_1, ..., a_n. tau_1 -> ... -> tau_m -> tau |]) =
+let (f : [| (a_1 : type) -> ... -> (a_n : type) -> tau_1 -> ... -> tau_m -> tau |]) = 
   fun a_1 -> ... -> fun a_n ->
     fun x_1 -> ... -> fun x_m ->
       [| e |]
 in
-[| e' |]
-
-[| forall alpha_1, ..., alpha_n. tau1 -> tau2 |] =
-  (alpha_1 : type) -> ... -> (alpha_n : type) -> [| tau1 -> tau2 |] 
-```
-
-#### Let dependent
-
-```ocaml
-[| let f (x <- tau_1) : tau_2 =
-    e
-  in
-  e' |] =
-let (f : [| (x : tau_1) -> tau_2 |]) = fun x -> [| e |]
-in
-[| e' |]
+[| e' |] 
 ```
 
 Notes:
-* The back arrow is our notation for a dependent parameter. `x` has type `tau1`, and `tau2` depends on `x`.
-* This generalizes to any number of arguments, and non-dependent arguments are handled normally.
-
-#### Let dependent poly
-
-```ocaml
-[| let f (type a_1 ... a_n) (x <- tau_1) : tau_2 =
-    e
-  in
-  e' |] =
-let (f : [| forall a_1, ..., a_n. (x : tau_1) -> tau_2 |]) =
-  fun a_1 -> ... -> fun a_n ->
-    fun x ->
-      [| e |]
-in
-[| e' |]
-
-(* to be clear *)
-[| forall alpha_1, ..., alpha_n. (x : tau1) -> tau2 |] =
-  (alpha_1 : type) -> ... -> (alpha_n : type) -> [| (x : tau1) -> tau2 |] 
-```
+* The back arrow is our notation for a dependent parameter.
+* Any dependent parameter `(x_i <- tau_i)` is instead in the final arrow type as `... -> (x_1 : tau_i) -> ...`, i.e. the dependent parameters are translated naturally into dependent arrows.
+* `n` may be zero (i.e. no type variables), and `m` is positive, as is enforced in the parser.
 
 ### Recursive functions
 
-Here is an initial example for how recursive functions get desugared.
-
 ```ocaml
-[| let rec f1 (x1_1 : tau1_1) ... (x1_m1 tau1_m1) : tau1 = e1
+[| let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
+  e1
   and ...
-  and fn (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun = en
+  and fn (type an_1 ... an_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
+    en
   in
   e |] =
 (* this record is never accessible to the user, so we don't need to create unusable labels *)
-let $r = Y_n 
-  (fun f1 ... fn ->
-    let (f1 : tau1_1 -> ... -> tau1_m1 -> tau1 (no check)) = 
-      fun x1_1 -> ... fun x1_m1 ->
-        [| e1 |] 
+let $r = Y_n
+  (fun f1 -> ... -> fun fn ->
+    let_no_check f1 : (a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1 =
+      fun a1_1 -> ... -> fun a1_n1 ->
+        fun x1_1 -> ... -> fun x1_m1 ->
+          [| e1 |]
     in
-    f1) 
-  ... 
-  (fun f1 ... fn ->
-    let (fn : taun_1 -> ... -> taun_mn -> taun (no check)) = 
-      fun xn_1 -> ... -> fun xn_mn ->
-        [| en |] 
+    f1)
+  ...
+  (fun f1 -> ... -> fun fn ->
+    let_no_check fn : (an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun =
+      fun an_1 -> ... -> fun an_nn ->
+        fun xn_1 -> ... -> fun xn_mn ->
+          [| en |]
     in
     fn)
 
 (* first expose the names so that the types can use them *)
-let f1 = $r.l1
+let f1 = $r.f1
 ...
-let fn = $r.ln
+let fn = $r.fn
 (* then run the checkers on the types, but don't wrap because that would be a double wrap *)
-let (f1 : tau1_1 -> ... -> tau1_m1 -> tau1 (no wrap)) = f1
+let_no_wrap f1 : (a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1 = f1
 ...
-let (fn : taun_1 -> ... -> taun_mn -> taun (no wrap)) = fn
+let_no_wrap fn : (an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun = fn
 ```
 
 for `Y_n` the fixed point combinator on `n` mutually recursive functions.
@@ -147,67 +102,8 @@ Y = fun f ->
   (fun s -> fun x -> f (s s) x)
 ```
 
-
-Note:
-* This is only how we would desugar non polymorphic functions.
-* We need to specially handle each type of function, which is a mess. This motivates a two-step process which I describe below.
-
-The process of the general desugar is as follows:
-* We can send any mutally recursive functions to a list of their id, type, parameters, and body.
-* We take that list and map it as in the following code block.
-
-```ocaml
-[ (f1, tau_f1_opt, [ x1_1 , ... , x1_m1 ], e1)
-; ...
-; (fn, tau_fn_opt, [ xn_1 , ... , xn_mn ], en)
-], e |->
-let $r = Y_n 
-  (fun f1 ... fn ->
-    let (f1 : tau_f1_opt (no check)) = 
-      fun x1_1 -> ... fun x1_m1 ->
-        [| e1 |] 
-    in
-    f1) 
-  ... 
-  (fun f1 ... fn ->
-    let (fn : tau_fn_opt (no check)) = 
-      fun xn_1 -> ... -> fun xn_mn ->
-        [| en |] 
-    in
-    fn)
-
-(* first expose the names so that the types can use them *)
-let f1 = $r.l1
-...
-let fn = $r.ln
-(* then run the checkers on the types, but don't wrap because that would be a double wrap *)
-let (f1 : tau_f1_opt (no wrap)) = f1
-...
-let (fn : tau_fn_opt (no wrap)) = fn
-```
-
 Notes:
-* If the tau is None, then we do an untyped let-expression. I leave this as a note for conciseness because I feel it is clear from context what we mean in the definition above.
-* We have the "no check" because it is unecessary to check the function's type inside of every recursive call. We leave the checking to only the top level statement.
-
-We get the id, type, parameters, and body using the let rules we've already seen. Here is an example for let-poly functions.
-
-```ocaml
-let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
-  e1
-and
-...
-fn (type an_1 ... a1_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
-  en
-in
-e
-|->
-[ (f1, Some ((a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1), [ a1_1 , ... , a1_n1 , x1_1 , .... , x1_m1 ], e1)
-; ...
-; (fn, Some ((an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun), [ an_1 , ... , an_nn , xn_1 , .... , xn_mn ], en)
-], e
-```
-
+* The same as non-rec functions...
 
 ### Multi-arg functions
 
@@ -221,88 +117,69 @@ e
 ```ocaml
 let filter_list x =
   match x with
-  | `Nil _ -> x
-  | `Cons _ -> x
+  | `~Nil _ -> x
+  | `~Cons _ -> x
   end
 
-[| List tau |] =
+[| list tau |] =
   Mu $t.
-  ``Nil unit (* This is a unique variant name that the user cannot create, and unit is a dummy payload *)
-  || ``Cons {: ~hd : [| tau |] , ~tl : $t :} (* so is this *)
+  | `~Nil of unit (* This is a unique variant name that the user cannot create, and unit is a dummy payload *)
+  | `~Cons of { ~hd : [| tau |] ; ~tl : $t } (* so is this *)
 
 [| x :: xs |] =
-  `Cons { ~hd = x , ~tl = filter_list [| xs |] }
+  `~Cons { ~hd = [| x |] ; ~tl = filter_list [| xs |] }
 
 [| [] |] =
-  `Nil {} 
+  `~Nil {} 
 
 [| [ x1 ; ... ; xn ] |] =
   [| x1 :: ... :: xn :: [] |]
-
-(* pattern *)
-[| [] -> e |] =
-  `Nil -> [| e |]
-
-(* pattern *)
-[| hd :: tl -> e |] =
-  `Cons $r -> let hd = $r.~hd in let tl = $r.~tl in [| e |]
 ```
 
 Notes:
 * We need to instrument cons because otherwise it always looks well-typed. So we filter all things on the right of `(::)` to be lists.
 
-## Variant
-
-```ocaml
-[| V_i e |] =
-  V_i [| e |]
-```
-
 ## Dependent record / module
 
 ```ocaml
-[| struct let l_1 = e_1 ... let l_n = e_n end |] =
+[| struct let l_1 : tau_1 = e_1 ... let l_n : tau_n = e_n end |] =
   [| let l_1 = e_1 in
     ...
     let l_n = e_n in 
     { l_1 = l_1 ; ... ; l_n = l_n } |]
 ```
 
-Notes:
-* These "lets" are any statement and get desugared as such, even if it's not written well here. That is, the list of statements are transformed into this sequence of let-expressions, and that new expression is desugared.
-
 ## Pattern matching
 
 ```ocaml
 [| match e with
-  | p1 -> e1
+  | p_1 -> e_1
   | ...
-  | pi -> ei
-  | (any or variable) -> eany
+  | p_i -> e_i
+  | l_ident -> e_l_ident
   | ...
-  | pn -> en
+  | p_n -> e_n
   end |] =
 match [| e |] with
-| [| p1 -> e1 |] 
+| [| p_1 -pat-> e_1 |] 
 | ...
-| [| pi -> ei |]
-| `~Untouched $ignore -> abort
-| (any or variable) ->
-  [| eany |]
-(* the patterns following `any` or a catchall variable are not reachable *)
+| [| p_i -pat-> e_i |]
+| `~Untouched _ -> abort "Matched untouchable value"
+| l_ident -> [| e_l_ident |]
+(* the patterns following `any` or a variable pattern are not reachable and can be ignore *)
 end
 
 (* patterns. See List for these cases, too. They are copied here *)
-[| p -> e |] =
-  p -> [| e |]
+[| p -pat-> e |] =
+  p -pat-> [| e |]
 
 (* Empty list pattern *)
-[| [] -> e |] =
-  `Nil -> [| e |]
+[| [] -pat-> e |] =
+  `~Nil -pat-> [| e |]
 
 (* Cons pattern *)
-[| hd :: tl -> e |] =
-  `Cons $r -> let hd = $r.~hd in let tl = $r.~tl in [| e |]
+[| hd :: tl -pat-> e |] =
+  `~Cons $r -pat-> let hd = $r.~hd in let tl = $r.~tl in [| e |]
 ```
 
 Notes:
@@ -312,12 +189,12 @@ Notes:
 ## Intersection types
 
 ```ocaml
-[| ((V_0 of tau_0) -> tau_0') && ... && ((V_n of tau_n) -> tau_n') |] =
-  [| ($x : V_0 of tau_0 | ... | V_n of tau_n)  ->
+[| ((`V_0 of tau_0) -> tau_0') & ... & ((`V_n of tau_n) -> tau_n') |] =
+  [| ($x : `V_0 of tau_0 | ... | `V_n of tau_n) ->
         match $x with
-        | V_0 _ -> tau_0'
+        | `V_0 _ -> tau_0'
         | ...
-        | V_n _ -> tau_n' |]
+        | `V_n _ -> tau_n' |]
 ```
 
 ## Assert/assume
@@ -326,7 +203,7 @@ Notes:
 [| assert e |] =
   if [| e |]
   then {}
-  else abort
+  else abort "Failed assertion"
 
 [| assume e |]
   if [| e |]
@@ -339,12 +216,12 @@ Notes:
 We need to desugar and/or to short-circuit, and this is required so that we can try to solve for the case of the left expression that causes us to evaluate the right expression. This way, in interpretation of the target language, we don't have to think about how the short-circuiting of the boolean operations affects branches.
 
 ```ocaml
-[| e and e' |] =
+[| e && e' |] =
   if [| e |]
   then [| e' |]
   else false
 
-[| e or e' |] = 
+[| e || e' |] = 
   if [| e |]
   then true
   else [| e' |]
@@ -352,7 +229,7 @@ We need to desugar and/or to short-circuit, and this is required so that we can 
 
 I am still unsure if we want to do this. The alternative (which is the old solution) is to not short-circuit at all. Adding the short-circuit introduces branches (but it may help us identify solves to skip that are pinned). I will for now NOT do this desugar here, and instead I will leave and/or as binops in the target language which we might later remove with this. Note, though, that we often add this branch ourselves if we want to short-circuit (which is often) because we want to skip all of the branches in `e'`. I am likely to benchmark how this affects performance.
 
-## Division/modulus
+## Division/modulo
 
 Division and modulus can go wrong if right expression is `0`. We instrument during the desugar process to add this as a branch in the program.
 
@@ -360,13 +237,13 @@ Division and modulus can go wrong if right expression is `0`. We instrument duri
 [| e / e' |] =
   let $v = [| e' |] in (* only evaluate once *)
   if $v == 0
-  then abort
+  then abort "Divide by 0"
   else [| e |] / $v
 
 [| e % e' |] =
   let $v = [| e' |] in (* only evaluate once *)
   if $v == 0
-  then abort
+  then abort "Modulo by 0"
   else [| e |] % $v
 ```
 

@@ -1,0 +1,25 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_arrows Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+(*
+  This is semantically well-typed, but it reveals an incompleteness in
+  the forall types, and our system claims that this is ill-typed.
+
+  This is a current limitation (or bug, or issue, whatever you may choose
+  to call it) in our work.
+
+  The only possible definition of `id` is the identity function, so
+  `id int 2` should always be `2`, but we generate a random integer for
+  its results, hence allowing us to hit the `else` case.
+*)
+
+let _ : ((tau : type) -> tau -> tau) -> int = 
+  fun id ->
+    if (id int 2) == 2
+    then 0
+    else assert false

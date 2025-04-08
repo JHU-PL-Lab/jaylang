@@ -49,8 +49,8 @@ let eval_exp
   let ref_step = ref 0 in
   let max_step = Eval_session.get_max_step !ref_sess in
 
-  let type_mismatch s = 
-    raise @@ Failed_interp (Eval_session.type_mismatch !ref_sess s) in
+  let type_mismatch msg = 
+    raise @@ Failed_interp (Eval_session.type_mismatch msg !ref_sess) in
 
   let rec eval (expr : Embedded.t) (env : Env.t) : Value.t =
     let open Value.M in (* expose Value constructors *)
@@ -193,7 +193,7 @@ let eval_exp
       ref_sess := sess;
       input
     (* Failure cases *)
-    | EAbort -> raise @@ Failed_interp (Eval_session.abort !ref_sess)
+    | EAbort msg -> raise @@ Failed_interp (Eval_session.abort msg !ref_sess)
     | EDiverge -> raise @@ Failed_interp (Eval_session.diverge !ref_sess)
   in
 

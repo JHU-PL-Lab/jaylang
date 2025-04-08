@@ -1,0 +1,21 @@
+(***
+  (
+    (features (Refinement_types Dependent_arrows First_class_types Other))
+    (reasons (Dependent_arrows Other)) ; unbound variable
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+(*
+  This tests makes sure that during the translation of (x : tau1) -> tau2, we
+  don't accidentally put x in scope too soon such that tau1 can find it.
+
+  `x` is an unbound variable in tau1 here.
+*)
+
+let f : (x : if x then bool else { b : bool | b }) -> { i : int | if x then i > 0 else i < 0 } =
+  fun x ->
+    if x
+    then 1
+    else (0 - 1)

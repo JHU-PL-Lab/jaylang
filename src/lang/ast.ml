@@ -185,7 +185,7 @@ module Expr = struct
     | EId : 'a embedded_only t
     | EIgnore : { ignored : 'a t ; cont : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in cont` but is more efficient *)
     (* these exist in the desugared and embedded languages *)
-    | EAbort : 'a desugared_or_embedded t
+    | EAbort : string -> 'a desugared_or_embedded t (* string is error message *)
     | EDiverge : 'a desugared_or_embedded t
     (* these exist in the bluejay and desugared languages *)
     | EType : 'a bluejay_or_desugared t
@@ -211,7 +211,6 @@ module Expr = struct
     | EAssert : 'a t -> 'a bluejay_only t
     | EAssume : 'a t -> 'a bluejay_only t
     | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_only t
-    | ETypeForall : { type_variables : Ident.t list ; tau : 'a t } -> 'a bluejay_only t
     | ELetFun : { func : 'a funsig ; cont : 'a t } -> 'a bluejay_only t
     | ELetFunRec : { funcs : 'a funsig list ; cont : 'a t } -> 'a bluejay_only t
 
