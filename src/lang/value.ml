@@ -165,7 +165,9 @@ module List_store = struct
   let empty : 'a t = []
 
   let[@inline always] add (id : Ident.t) (v : 'a) (env : 'a t) : 'a t =
-    (id, v) :: env
+    if Ident.equal Ast_tools.Reserved.catchall id
+    then env
+    else (id, v) :: env
 
   (*
     Inlining is pretty important here. We fetch a lot, and the compiler can 
@@ -187,7 +189,7 @@ module Map_store = struct
   let empty : 'a t = Ident.Map.empty
 
   let[@inline always] add (id : Ident.t) (v : 'a) (env : 'a t) : 'a t =
-    if Ident.equal (Ast_tools.Reserved.catchall) id
+    if Ident.equal Ast_tools.Reserved.catchall id
     then env
     else Map.set env ~key:id ~data:v
 
