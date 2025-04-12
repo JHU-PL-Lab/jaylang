@@ -25,6 +25,7 @@ module Process (C : Computation) = struct
     | Last item -> C.Work.run_with_internal_timeout item
     | _ ->
       let t0 = Caml_unix.gettimeofday () in
+      (* We create one thread per work item, but it may be recommended to do fewer if this number is huge *)
       let pool = Ws_pool.create ~num_threads:(Preface.Nonempty_list.length ls) () in
       let futures = 
         ls

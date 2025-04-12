@@ -49,10 +49,36 @@ let rec map (type a b) (ls : list a) (f : a -> b) : list b =
   end
 
 (* (* 7 *) *)
-(* It seems that on my machine (when we check the statements in parallel), we handle up to 6 statements very quickly, and at 7 something goes awry, and it takes a very, very long time to finish *)
-(* Noting that I have 14 cores, but (and I don't know what this means) only 6 are "performance cores". I am also on WSL2, which might matter. *)
-(* let rec map (type a b) (ls : list a) (f : a -> b) : list b =
+let rec map (type a b) (ls : list a) (f : a -> b) : list b =
   match ls with
   | [] -> []
   | hd :: tl -> f hd :: map a b tl f
-  end *)
+  end
+
+(* (* 8 *) *)
+let rec map (type a b) (ls : list a) (f : a -> b) : list b =
+  match ls with
+  | [] -> []
+  | hd :: tl -> f hd :: map a b tl f
+  end
+
+(* (* 9 *) *)
+let rec map (type a b) (ls : list a) (f : a -> b) : list b =
+  match ls with
+  | [] -> []
+  | hd :: tl -> f hd :: map a b tl f
+  end
+
+(* (* 10 *) *)
+let rec map (type a b) (ls : list a) (f : a -> b) : list b =
+  match ls with
+  | [] -> []
+  | hd :: tl -> f hd :: map a b tl f
+  end
+
+(* (* 11 *) *)
+let rec map (type a b) (ls : list a) (f : a -> b) : list b =
+  match ls with
+  | [] -> []
+  | hd :: tl -> f hd :: map a b tl f
+  end
