@@ -14,6 +14,8 @@ let opt_fst = Option.map ~f:Tuple2.get1
 (*
   Note that in a psq, the same priority can exist for multiple keys (e.g. two different targets
   can both have priority 0), and the one that was pushed most recently is popped first.
+
+  Also note that targets are compared using the order they are created.
 *)
 module Q = Psq.Make (Target) (Int) (* functional priority search queue *)
 
@@ -39,15 +41,9 @@ module Uniform = struct
 end
 
 (*
-  This implementation of BFS is somewhat dishonest. It is breadth-first in that shallower targets
-  are popped first, but the lexicographically smaller targets of the same depth are popped first, which is
-  not typical. 
-
-  Further, because many new targets get added at once from a single run that are not like the neighbors of a
-  node in a typical tree search, no list-like queue can really ensure we visit the shallowest neighbors first.
+  Because many new targets get added at once from a single run that are not like the neighbors of a node
+  in a typical tree search, no list-like queue can really ensure we visit the shallowest neighbors first.
   Thus, we use a priority search queue with the depth of the targets as the priority.
-
-  To be sure that targets found first are dequeued first, we could use run number as the tie-breaker in priority.
 *)
 module BFS = struct
   type t = Bfs of Q.t [@@unboxed]
