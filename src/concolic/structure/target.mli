@@ -13,6 +13,14 @@
     but over several iterations of this system (many of which allowed such
     assertions), we feel sure about correctness.
 
+    Note that because targets are only built using `cons`, the expressions
+    are shared, and all of the targets built effectively create a path tree
+    that is spread quite randomly across memory. It is conjectured, then, that
+    it would be no more efficient to store a path tree to explicitly share the
+    expressions than to let them be shared this way. To summarize: all targets
+    implicitly build a path tree and share expressions along shared paths.
+
+
     SUPER IMPORTANT NOTE:
       It is an invariant in this implementation of concolic evaluation
       that each target is only created once, and therefore we use an
