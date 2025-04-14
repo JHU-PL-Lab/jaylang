@@ -31,18 +31,22 @@ let push_case (stem : t) (dir : int Direction.t) (e : int Expression.t) (other_i
       ; other_cases = other_claims
       ; tail = stem }
 
-let to_rev_path (stem : t) : Path.Reverse.t =
-  let rec loop = function
-    | Root -> []
-    | Beginning_from target -> (Target.to_rev_path target).backward_path
-    | Bool_branch { claim = Equality (_, dir) ; tail } -> Direction.pack dir :: loop tail
-    | Int_branch { claim = Equality (_, dir) ; tail ; _ } -> Direction.pack dir :: loop tail
+(*
+  Only builds the targets that are necessarily new: they
+  come after the target that this stem comes from.
+*)
+let to_new_targets (stem : t) : Target.t list =
+  let rec build_targets = function
+    | Root -> Target.empty, []
+    | Beginning_from target -> target, []
+    | Bool_branch { claim ; tail } ->
+      let prev_target, targets = build_targets tail in
+      Target.cons claim prev_target
+      , Target.cons (Claim.flip claim) prev_target :: targets
+    | Int_branch { claim ; other_cases ; tail } ->
+      let prev_target, targets = build_targets tail in
+      let new_targets = List.map other_cases ~f:(fun claim -> Target.cons claim prev_target) in
+      Target.cons claim prev_target
+      , new_targets @ targets
   in
-  { backward_path = loop stem }
-
-let rec to_target (stem : t) : Target.t option =
-  match stem with
-  | Root -> None
-  | Beginning_from target -> Some target
-  | Bool_branch { tail ; _ } | Int_branch { tail ; _ } -> to_target tail
-
+  Tuple2.get2 @@ build_targets stem

@@ -3,13 +3,13 @@
   Purpose: handle logic between each interpretation
 
   Detailed description:
-    This session holds the path tree, and it accepts the result
-    of evaluations (see [accum_eval]), adds them to the path
-    tree, and then can tell whether to proceed with more evaluations
-    of the program or to quit.
+    This session holds the queue of targets, and it accepts the
+    result of evaluations (see [accum_eval]), adds them to the queues,
+    and then can tell whether to proceed with more evaluations of the
+    program or to quit.
 
-    The evaluator interfaces with this instead of the path tree. It is
-    mainly just a layer on top of the path tree with a few extra
+    The evaluator interfaces with this instead of the underlying queues.
+    It is mainly just a layer on top of the queues with a few extra
     details about the status of evaluation.
 *)
 

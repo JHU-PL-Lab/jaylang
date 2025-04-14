@@ -1,0 +1,25 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (reasons (Refinement_types Recursive_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let rec len ls = 
+  match ls with
+  | [] -> 0
+  | _ :: tl -> 1 + len tl
+  end
+
+let rec sum ls =
+  match ls with
+  | [] -> 0
+  | hd :: tl -> hd + sum tl
+  end
+
+(* The challenge is to generate a list that has at least 10 elements and the sum is 123456 *)
+(* Inspired by the "Some Experiences" section of Giantsios' Erlang concolic evaluator paper *)
+let f (l : list int) : { ls : list int | not (len ls > 10 && sum ls == 123456)} =
+  l

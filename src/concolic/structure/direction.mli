@@ -11,10 +11,6 @@
 
     We get reuse by using a GADT, so we can have [int] directions
     and [bool] directions.
-
-    We also have to frequently represent these together (similarly
-    to how we have to represent integer and boolean inputs together),
-    so we provide support to pack directions into a single type.
 *)
 
 module T : sig
@@ -34,8 +30,3 @@ val of_bool : bool -> bool t
 
 val of_int : int -> int t
 (** [of_int i] is the integer case direction on [i]. *)
-
-module Packed : module type of Utils.Pack.Make (T)
-
-val pack : 'a t -> Packed.t
-(** [pack dir] packs the int or bool direction [dir]. *)

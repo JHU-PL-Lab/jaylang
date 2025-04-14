@@ -31,10 +31,3 @@ let of_bool (b : bool) : bool t =
 
 let of_int (i : int) : int t =
   Case_int i
-
-module Packed = Utils.Pack.Make (T)
-
-let pack (type a) (dir : a t) : Packed.t =
-  match dir with
-  | (True_direction | False_direction) as d -> B d
-  | (Case_int _ | Case_default _) as d -> I d

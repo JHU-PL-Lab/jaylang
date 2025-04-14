@@ -40,8 +40,7 @@ module type Context = sig
 end
 
 module Make_common_builders (C : Context) = struct
-  module E = Utils.Separate.Make (struct type t = Z3.Expr.expr end)
-  include E
+  include Utils.Separate.Make (struct type t = Z3.Expr.expr end)
 
   let ctx = C.ctx
 
@@ -84,13 +83,10 @@ module Make_common_builders (C : Context) = struct
   let constrained_vars model = 
     List.map ~f:(fun decl -> FuncDecl.get_name decl |> Symbol.get_int)
     @@ Model.get_decls model
-     
 end
 
 module Make_datatype_builders (C : Context) = struct
   include Make_common_builders (C)
-
-  open E
 
   let op_two_ints ret op =
     fun (e1 : int t) (e2 : int t) ->
@@ -122,7 +118,7 @@ module Make_datatype_builders (C : Context) = struct
 
   let bool_expr_list_to_expr ls = 
     Boolean.mk_and ctx
-    @@ E.extract_list ls
+    @@ extract_list ls
 end
 
 module Make_solver (C : Context) = struct
@@ -154,7 +150,7 @@ module Make_solver (C : Context) = struct
     |> Int.to_string
     |> Z3.Params.update_param_value ctx "timeout"
 
-  let solve : bool E.t list -> Solve_status.t = fun bool_formulas ->
+  let solve : bool t list -> Solve_status.t = fun bool_formulas ->
     (* It is a bit faster to `and` all formulas together and only run `check` with that one. *)
     (* That is, instead of adding to the solver, keep the solver empty and check the one formula. *)
     let res = Z3.Solver.check solver [ bool_expr_list_to_expr bool_formulas ] in
@@ -162,7 +158,7 @@ module Make_solver (C : Context) = struct
     | Z3.Solver.SATISFIABLE ->
       let model = Z3.Solver.get_model solver in
       Solve_status.Sat (Option.value_exn model)
-    | _ -> Z3.Solver.reset solver; Unsat
+    | _ -> Unsat
 end
 
 module Make (C : Context) = struct

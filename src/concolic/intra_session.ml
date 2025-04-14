@@ -1,37 +1,33 @@
 open Core
 
 module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
-  module Tree = Path_tree.Make (S) (Target_queue.All) (P) (O)
+  module TQ = Target_queue.All
 
-  (* ignore warning about prev_res not used *)
-  type[@ocaml.warning "-69"] t =
-    { tree         : Tree.t (* pointer to the root of the entire tree of paths *)
+  type t =
+    { target_queue : TQ.t
     ; run_num      : int
     ; status       : Status.In_progress.t
-    ; has_pruned   : bool
-    ; prev_res     : Status.Eval.t option }
+    ; has_pruned   : bool }
 
   let empty : t =
-    { tree         = Tree.empty
+    { target_queue = Options.Arrow.appl TQ.of_options O.r ()
     ; run_num      = 1
     ; status       = In_progress
-    ; has_pruned   = false
-    ; prev_res     = None }
+    ; has_pruned   = false }
 
   let accum_eval (x : t) (ev : Status.Eval.t) : t =
     ev
     |> begin function
-      | (Status.Found_abort _ | Type_mismatch _ | Unbound_variable _) as res -> x.tree, x.has_pruned, res
+      | (Status.Found_abort _ | Type_mismatch _ | Unbound_variable _) as res -> x.target_queue, x.has_pruned, res
       | Finished { pruned ; reached_max_step ; stem } ->
-        Tree.add_stem x.tree stem
+        TQ.push_list x.target_queue (Stem.to_new_targets stem)
         , x.has_pruned || pruned || reached_max_step
         , x.status
     end
-    |> fun (tree, new_pruned, new_status) ->
-      { x with tree
+    |> fun (target_queue, new_pruned, new_status) ->
+      { x with target_queue 
       ; status = new_status
-      ; has_pruned = new_pruned
-      ; prev_res = Some ev }
+      ; has_pruned = new_pruned }
 
   let finish_status (x : t) : Status.Terminal.t =
     match x.status with
@@ -41,6 +37,18 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
       then Exhausted_pruned_tree
       else Exhausted_full_tree
 
+  let rec get_sat_target (target_queue : TQ.t) : (TQ.t * Target.t * Input_feeder.t) option P.t =
+    let open P in
+    let* () = pause () in
+    match TQ.peek target_queue with
+    | None -> return None
+    | Some target ->
+      let exprs = Target.to_expressions target in
+      let tq = TQ.remove target_queue target in
+      match S.solve exprs with
+      | `Sat feeder -> P.return @@ Option.return (tq, target, feeder)
+      | `Unsat -> get_sat_target tq
+
   let[@landmark] next (x : t) : [ `Done of Status.Terminal.t | `Next of (t * Eval_session.t) ] P.t =
     let open P in
     let done_ () =
@@ -48,12 +56,12 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
       @@ `Done (finish_status x)
     in
     if Status.is_terminal x.status then done_ () else
-    let* res = Tree.get_sat_target x.tree in
+    let* res = get_sat_target x.target_queue in
     match res with
-    | Some (tree, target, input_feeder) ->
+    | Some (target_queue, target, input_feeder) ->
       return
       @@ `Next ( 
-        { x with tree ; run_num = x.run_num + 1 }
+        { x with target_queue ; run_num = x.run_num + 1 }
         , Eval_session.make target input_feeder
           |> Options.Arrow.appl Eval_session.with_options O.r
       )
@@ -61,5 +69,4 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
 
   let run_num ({ run_num ; _ } : t) : int =
     run_num
-
 end
