@@ -34,17 +34,15 @@ let State_monad = struct
     (x s).res
 end
 
-(* We don't that easily have a forall type, so I do this little trick *)
-let confirm_type_of_state_monad (type a b s) (_ : unit) :
-  (let m = State_monad.m in 
-  { read : m s s
-  ; bind : m a s -> (a -> m b s) -> m b s
-  ; return : a -> m a s
-  ; modify : (s -> s) -> m s s
-  ; run : m a s -> s -> a
-  })
-  =
-  State_monad
+let confirm_type_of_state_monad 
+  : (a : type) -> (b : type) -> (s : type) -> 
+      let m = State_monad.m in
+      { read : m s s
+      ; bind : m a s -> (a -> m b s) -> m b s
+      ; return : a -> m a s
+      ; modify : (s -> s) -> m s s
+      ; run : m a s -> s -> a }
+  = fun _ _ _ -> State_monad
 
 (*
   This is a neat generation of a type, using a state monad to build it
@@ -73,6 +71,6 @@ let main (n <- int) (f : t n) : (int -> int) =
   let rec loop i = 
     if i <= 0
     then f
-    else (loop (i - 1)) i
+    else loop (i - 1) i
   in
   loop (n - 2)

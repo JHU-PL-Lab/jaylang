@@ -219,6 +219,10 @@ module Expr = struct
     | FUntyped : { func_id : Ident.t ; params : Ident.t list ; body : 'a t } -> 'a funsig
     | FTyped : ('a, 'a param list) typed_fun -> 'a funsig
 
+  (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
+  and ('a, 'p) typed_fun = { type_vars : Ident.t list ; func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
+
+  (* a variable with its type, where the type is an expression *)
   and 'a typed_var = { var : Ident.t ; tau : 'a t }
 
   and _ param =
@@ -226,11 +230,6 @@ module Expr = struct
     | TVarDep : 'a typed_var -> 'a bluejay_or_desugared param
 
   and 'a let_typed = { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t }
-
-  (* a variable with its type, where the type is an expression *)
-
-  (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
-  and ('a, 'p) typed_fun = { type_vars : Ident.t list ; func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
 
   and _ statement =
     (* all *)

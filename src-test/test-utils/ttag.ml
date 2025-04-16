@@ -138,10 +138,10 @@ module V2 = struct
     | Records                -> "Not including dependent records types, which are modules"
     | Recursive_functions    -> "Including mutual recursion"
     | Higher_order_functions -> "Including intersection/match types"
-    | Subtyping              -> "The program using subtyping, or the error is in the spirit of subtyping"
+    | Subtyping              -> "The program uses subtyping, or the error is in the spirit of subtyping"
     | OOP_style              -> "Self-referential records"
     | Return_error           -> "The value returned from a function has the wrong type"
-    | Usage_error            -> "A function is used with an argument of the wrong type, including built-in operators"
+    | Usage_error            -> "A function is used with the wrong type, including built-in operators"
     | Other                  -> "Anything not included in the above"
 
   let to_name = function
