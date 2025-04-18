@@ -53,8 +53,8 @@ let () =
     ; "oopsla-24-benchmarks-ill-typed"
     ; "oopsla-24-benchmarks-well-typed"
 
-    ; "scheme-pldi-2015-ill-typed"
-    ; "scheme-pldi-2015-well-typed"
+    ; "soft-contract-ill-typed"
+    ; "soft-contract-well-typed"
 
     ; "sato-bjy-ill-typed"
     ; "sato-bjy-well-typed"

@@ -172,7 +172,7 @@ let run n_trials dirs =
 let () =
   run 50 [ 
     "test/bjy/oopsla-24-benchmarks-ill-typed";
-    (* "test/bjy/scheme-pldi-2015-ill-typed"; *)
+    (* "test/bjy/soft-contract-ill-typed"; *)
     (* "test/bjy/deep-type-error"; *)
     (* "test/bjy/oopsla-24-tests-ill-typed"; "test/bjy/sato-bjy-ill-typed"; *)
     (* "test/bjy/interp-ill-typed"; *)

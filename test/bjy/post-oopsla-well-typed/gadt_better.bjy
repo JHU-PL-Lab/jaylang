@@ -1,0 +1,74 @@
+(***
+  (
+    (features (Dependent_arrows Parametric_types First_class_types Variants Records Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+
+
+(*
+  The goal is to emulate the following OCaml GADT
+
+  type _ t =
+    | Const : 'a -> 'a t
+    | Var : 'a Var.t -> 'a t
+    | Plus : int t * int t -> int t
+    | Equal : 'a t * 'a t -> bool t
+
+  Note that the 'a inside of Equal is a forall. That is, Equal
+  is like a function that works on all 'a. Then, any value that
+  is created with the Equal constructor has an existential 'a,
+  so we model this with a dependent record.
+
+  The general idea is to make a universe type `ty` on which we can
+  match in order to constrain each constructor. We will introduce
+  the constructors and then match on the member of `ty`, diverging
+  (i.e. quitting safely) if it is incompatible with this constructor.
+
+  There is then no need for a `'a` member of `ty` because we can
+  simply leave it unconstrained.
+
+  This feels strictly nicer than the "ugly" encoding we have, which
+  is also a test in this directory.
+*)
+
+let ty : type = `TInt of unit | `TBool of unit
+
+let interp_ty : ty -> type = fun a ->
+  match a with
+  | `TInt _ -> int
+  | `TBool _ -> bool
+  end
+
+let tint = `TInt {}
+let tbool = `TBool {}
+
+let rec t (a : ty) : type =
+  | `Const of interp_ty a
+  | `Var of { id : int }
+  | `Plus of
+    match a with
+    | `TBool _ -> assume false (* `Plus is not a `bool t` *)
+    | `TInt _ -> { left : t tint ; right : t tint }
+    end
+  | `Equal of
+    match a with
+    | `TInt _ -> assume false (* `Equal is not an `int t` *)
+    | `TBool _ -> {: a : ty ; left : t a ; right : t a :}
+    end
+
+let rec any_to_int (a <- ty) (x : t a) : int =
+  match x with
+  | `Const _ -> 0
+  | `Var v -> v.id
+  | `Plus r -> any_to_int tint r.left + any_to_int tint r.right
+  | `Equal r -> any_to_int r.a r.left + any_to_int r.a r.right
+  end
+
+let rec bool_t_to_int (x : t tbool) : int =
+  match x with
+  | `Const b -> if b then 0 else 1
+  | `Var v -> v.id
+  | `Equal r -> any_to_int tbool x + 1
+  end

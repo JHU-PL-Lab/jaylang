@@ -8,40 +8,35 @@
 
 (* This test is slow because there are so many types. It is way faster with parallelism on, which is a good thing! *)
 
-(* These sorts of types are not needed in Bluejay, but they are in OCaml (and they would be private) *)
-(* let one = `One of unit
-let succ a = `Succ of a *)
-
 (* These are the possible forms of the type parameter for t *)
-(* OCaml infers this stuff using those types we have commented above *)
-let type_param = Mu t.
-  | `One_type of unit
-  | `Succ_type of t
+let ty = Mu t.
+  | `TOne of unit
+  | `TSucc of t
 
-(* A "GADT" *)
-let rec t (a : type_param) : type =
-  match a with
-  | `One_type _ -> (
-    (* The constructors for this type parameter *)
-    | `One of unit
-  )
-  | `Succ_type tp -> (
-    (* The constructors for this type parameter *)
-    | `Succ of (t tp)
-  )
-  end
+(* a "GADT" *)
+let rec t (a : ty) : type =
+  | `One of
+    match a with
+    | `TOne _ -> unit
+    | `TSucc _ -> assume false (* not a valid type parameter for the `One constructor *)
+    end
+  | `Succ of
+    match a with
+    | `TOne _ -> assume false (* not a valid type parameter for the `Succ constructor *)
+    | `TSucc a -> t a
+    end
 
-(* example *)
-let three_type_param = `Succ_type (`Succ_type (`One_type {}))
+(* concrete, constant example *)
+let three_type_param = `TSucc (`TSucc (`TOne {}))
 let three_type = t three_type_param
 let three : three_type = `Succ (`Succ (`One {}))
 
-let rec to_int (a <- type_param) (x : t a) : int =
+let rec to_int (a <- ty) (x : t a) : int =
   match x with
   | `One _ -> 1
   | `Succ y ->
     match a with
-    | `Succ_type b -> 1 + to_int b y
+    | `TSucc b -> 1 + to_int b y
     end
   end
 
@@ -56,9 +51,9 @@ let rec of_int (i : { i : int | i > 0 }) : top =
     `Succ (of_int (i - 1))
 
 (* return type as value from result, and also have a predicate to check that it's the inverse of to_int *)
-let rec of_int (i <- { i : int | i > 0 }) : { r : {: a : type_param ; v : t a :} | to_int r.a r.v == i } =
+let rec of_int (i <- { i : int | i > 0 }) : { r : {: a : ty ; v : t a :} | to_int r.a r.v == i } =
   if i == 1 then 
-    { a = `One_type {} ; v = `One {} }
+    { a = `TOne {} ; v = `One {} }
   else
     let r = of_int (i - 1) in
-    { a = `Succ_type r.a ; v = `Succ r.v }
+    { a = `TSucc r.a ; v = `Succ r.v }
