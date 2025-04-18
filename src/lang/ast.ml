@@ -225,11 +225,13 @@ module Expr = struct
   (* a variable with its type, where the type is an expression *)
   and 'a typed_var = { var : Ident.t ; tau : 'a t }
 
+  (* function parameters for use in funsigs *)
   and _ param =
-    | TVar : 'a typed_var -> 'a bluejay_or_desugared param
-    | TVarDep : 'a typed_var -> 'a bluejay_or_desugared param
+    | TVar : 'a typed_var -> 'a bluejay_only param
+    | TVarDep : 'a typed_var -> 'a bluejay_only param
 
-  and 'a let_typed = { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t }
+  (* Bluejay and desugared have typed let-expressions *)
+  and 'a let_typed = { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } constraint 'a = 'a bluejay_or_desugared
 
   and _ statement =
     (* all *)
