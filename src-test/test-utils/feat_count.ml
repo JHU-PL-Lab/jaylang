@@ -77,7 +77,7 @@ let () =
   ; "oopsla-24-tests-ill-typed" (* trivial errors *)
   ; "post-oopsla-ill-typed"
   ; "sato-bjy-ill-typed"  (* trivial errors *)
-  ; "scheme-pldi-2015-ill-typed"
+  ; "soft-contract-ill-typed"
   ]
   >>| String.append "./test/bjy/"
   |> Tbl.make_of_dirs
