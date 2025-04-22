@@ -1,6 +1,6 @@
 (***
   (
-    (features (Polymorphic_types Dependent_arrows Refinement_types Modules Parametric_types First_class_types Records Recursive_functions Higher_order_functions))
+    (features (Polymorphic_types Dependent_types Refinement_types Modules Parametric_types First_class_types Records Recursive_functions Higher_order_functions))
     (speed Fast)
     (typing Well_typed)
   )

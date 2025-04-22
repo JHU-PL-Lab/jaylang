@@ -1,6 +1,6 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows Return_error))
+    (features (Refinement_types Dependent_types Return_error))
     (reasons (Refinement_types Return_error))
     (speed Fast)
     (typing Ill_typed)

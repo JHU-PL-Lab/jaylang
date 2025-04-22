@@ -1,6 +1,6 @@
 (***
   (
-    (features (Dependent_arrows Parametric_types First_class_types Variants Records Recursive_functions))
+    (features (Dependent_types Parametric_types First_class_types Variants Records Recursive_functions))
     (speed Slow)
     (typing Well_typed)
   )

@@ -1,6 +1,6 @@
 (***
   (
-    (features (Dependent_arrows Modules Recursive_functions Subtyping))
+    (features (Dependent_types Modules Recursive_functions Subtyping))
     (speed Slow)
     (typing Well_typed)
   )

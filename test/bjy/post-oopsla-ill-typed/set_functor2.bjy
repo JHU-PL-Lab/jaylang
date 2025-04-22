@@ -1,6 +1,6 @@
 (***
   (
-    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Recursive_functions Other))
+    (features (Polymorphic_types Dependent_types Modules Parametric_types Recursive_functions Other))
     (reasons (Other)) ; because limitation
     (speed Fast)
     (typing Ill_typed)

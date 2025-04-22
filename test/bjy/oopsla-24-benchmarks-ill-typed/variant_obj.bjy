@@ -1,7 +1,7 @@
 (***
   (
-    (features (Dependent_arrows Variants OOP_style))
-    (reasons (Dependent_arrows OOP_style)) ; "intersection type" is dep arrow, and when checking it, we hit the error
+    (features (Dependent_types Variants OOP_style))
+    (reasons (Dependent_types OOP_style)) ; "intersection type" is dep arrow, and when checking it, we hit the error
     (speed Fast)
     (typing Ill_typed)
   )

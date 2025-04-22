@@ -1,7 +1,7 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Parametric_types Records Higher_order_functions Return_error))
-    (reasons (Refinement_types Dependent_arrows Records Return_error))
+    (features (Polymorphic_types Refinement_types Dependent_types Parametric_types Records Higher_order_functions Return_error))
+    (reasons (Refinement_types Dependent_types Records Return_error))
     (speed Fast)
     (typing Ill_typed)
   )

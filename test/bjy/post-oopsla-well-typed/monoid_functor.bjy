@@ -1,6 +1,6 @@
 (***
   (
-    (features (Dependent_arrows Modules Variants))
+    (features (Dependent_types Modules Variants))
     (speed Fast)
     (typing Well_typed)
   )

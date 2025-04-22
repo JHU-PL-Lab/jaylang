@@ -1,6 +1,6 @@
 (***
   (
-    (features (Dependent_arrows First_class_types Return_error))
+    (features (Dependent_types First_class_types Return_error))
     (reasons (Return_error))
     (speed Fast)
     (typing Ill_typed)

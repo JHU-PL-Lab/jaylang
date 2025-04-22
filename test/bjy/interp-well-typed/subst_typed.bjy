@@ -1,6 +1,6 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions))
+    (features (Refinement_types Dependent_types Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions))
     (speed Slow)
     (typing Well_typed)
   )

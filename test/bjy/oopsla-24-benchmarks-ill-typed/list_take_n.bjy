@@ -1,6 +1,6 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Recursive_functions Return_error))
+    (features (Polymorphic_types Refinement_types Dependent_types Recursive_functions Return_error))
     (reasons (Return_error))
     (speed Fast)
     (typing Ill_typed)

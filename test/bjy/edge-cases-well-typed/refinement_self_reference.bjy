@@ -1,6 +1,6 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows Recursive_functions))
+    (features (Refinement_types Dependent_types Recursive_functions))
     (speed Slow)
     (typing Well_typed)
   )
