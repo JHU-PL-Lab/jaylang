@@ -171,7 +171,7 @@ expr:
   | letfun IN expr %prec prec_fun
       { ELetFun { func = $1 ; cont = $3 } : Bluejay.t }
   // Match
-  | MATCH expr WITH PIPE? separated_nonempty_list(PIPE, match_expr) END
+  | MATCH expr WITH PIPE? match_expr_list END
       { EMatch { subject = $2 ; patterns = $5 } : Bluejay.t }
 ;
 
@@ -403,16 +403,24 @@ variant_type_label:
 
 /* **** Pattern matching **** */
 
-match_expr:
+match_expr_list:
+  | terminating_pattern ARROW expr
+      { [ $1, $3 ] : (Bluejay.pattern * Bluejay.t) list }
+  | pattern ARROW expr PIPE match_expr_list (* does not include terminating patterns *)
+      { ($1, $3) :: $5 : (Bluejay.pattern * Bluejay.t) list }
   | pattern ARROW expr
-      { ($1, $3) : Bluejay.pattern * Bluejay.t }
+      { [ $1, $3 ] : (Bluejay.pattern * Bluejay.t) list }
 
 pattern:
-  | UNDERSCORE { PAny } (* for efficiency later, handle underscore separately *)
-  | ident { PVariable $1 } (* not l_ident because we handle underscore above *)
   | variant_label l_ident { PVariant { variant_label = $1 ; payload_id = $2 } }
   | variant_label OPEN_PAREN l_ident CLOSE_PAREN { PVariant { variant_label = $1 ; payload_id = $3 } }
   | OPEN_BRACKET CLOSE_BRACKET { PEmptyList }
   | l_ident DOUBLE_COLON l_ident { PDestructList { hd_id = $1 ; tl_id = $3 } }
   | OPEN_PAREN pattern CLOSE_PAREN { $2 }
 ;
+
+(* no patterns may follow these in a list of match expressions *)
+terminating_pattern:
+  | UNDERSCORE { PAny }
+  | ident { PVariable $1 } (* not l_ident because we handle underscore above *)
+  | OPEN_PAREN terminating_pattern CLOSE_PAREN { $2 }

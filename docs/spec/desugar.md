@@ -155,18 +155,15 @@ Notes:
 [| match e with
   | p_1 -> e_1
   | ...
-  | p_i -> e_i
-  | l_ident -> e_l_ident
-  | ...
   | p_n -> e_n
+  | l_ident -> e_l_ident
   end |] =
 match [| e |] with
 | [| p_1 -pat-> e_1 |] 
 | ...
-| [| p_i -pat-> e_i |]
+| [| p_n -pat-> e_n |]
 | `~Untouched _ -> abort "Matched untouchable value"
 | l_ident -> [| e_l_ident |]
-(* the patterns following `any` or a variable pattern are not reachable and can be ignore *)
 end
 
 (* patterns. See List for these cases, too. They are copied here *)
@@ -185,6 +182,7 @@ end
 Notes:
 * This involves desugaring list patterns, which is why we capture the whole `pat -> expr` instead of pattern and expression separately.
 * We assume that Untouched is a unique variant name the user cannot create.
+* It is a parse error to have any patterns following a catchall pattern (any/_ or an identifier)
 
 ## Intersection types
 

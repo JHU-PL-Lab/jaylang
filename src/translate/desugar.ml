@@ -119,21 +119,20 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     | EModule stmts -> desugar (pgm_to_module stmts)
     (* Patterns *)
     | EMatch { subject ; patterns } ->
-      EMatch { subject = desugar subject ; patterns =
-        List.fold_until patterns ~init:[] ~f:(fun acc (pat, e) ->
-          match pat with
-          | PAny
-          | PVariable _ ->
-            Stop (List.rev @@
-              desugar_pattern pat e
-              :: (PVariant
-                  { variant_label = Reserved.untouched
-                  ; payload_id = Reserved.catchall }
-                , EAbort "Matched untouchable value")
-              :: acc
-            )
-          | _ -> Continue (desugar_pattern pat e :: acc)
-        ) ~finish:List.rev
+      EMatch { subject = desugar subject ; patterns = 
+        match patterns with
+        | [] -> raise @@ Ast_tools.Exceptions.InvariantFailure "Impossible empty pattern list"
+        | [ p, e ] -> [ desugar_pattern p e ]
+        | _ -> 
+          List.bind patterns ~f:(fun (p, e) ->
+            match p with
+            | PAny | PVariable _ ->
+              (PVariant
+                { variant_label = Reserved.untouched
+                ; payload_id = Reserved.catchall }
+              , EAbort "Matched untouchable value") :: [ desugar_pattern p e ]
+            | _ -> [ desugar_pattern p e ]
+          )
       }
     (* Lists *)
     | EList [] ->
@@ -213,15 +212,13 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
     | PEmptyList ->
       PVariant
         { variant_label = Reserved.nil
-        ; payload_id = Reserved.catchall
-        }
+        ; payload_id = Reserved.catchall }
       , desugar e
-    | PDestructList { hd_id ; tl_id } ->
+    | PDestructList { hd_id ; tl_id } -> 
       let r = Names.fresh_id () in
       PVariant
         { variant_label = Reserved.cons
-        ; payload_id = r
-        }
+        ; payload_id = r }
       , build @@
         let%bind () = assign hd_id (EProject { record = EVar r ; label = Reserved.hd }) in
         let%bind () = assign tl_id (EProject { record = EVar r ; label = Reserved.tl }) in
