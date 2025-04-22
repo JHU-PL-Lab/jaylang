@@ -1,0 +1,25 @@
+{
+  "name": "bluejay",
+  "displayName": "bluejay-syntax",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "bluejay",
+      "aliases": ["Jay Lang", "bluejay"],
+      "extensions": [".bjy"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "bluejay",
+      "scopeName": "source.bluejay",
+      "path": "./syntaxes/bluejay.tmLanguage.json"
+    }]
+  }
+}

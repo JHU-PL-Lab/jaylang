@@ -1,0 +1,19 @@
+(***
+  (
+    (features (Return_error))
+    (reasons (Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let bad_x : { int | fun x -> x > 10 } = 9 
+
+let count : { int ref | fun x -> !x = 0 || !x = 1 } = 0 ref
+let decrement () = x := (!x) - 1
+let increment () = x := (!x) + 1
+
+let main =
+  increment(); (* ok : x = 1 *)
+  decrement(); (* ok : x = 0 *)
+  decrement(); (* whoops... *)

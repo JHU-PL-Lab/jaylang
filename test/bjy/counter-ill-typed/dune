@@ -1,0 +1,7 @@
+
+(library
+ (name up_down)
+ (modules up_down)
+ (libraries
+  core)
+ )

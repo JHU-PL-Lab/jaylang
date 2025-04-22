@@ -1,0 +1,58 @@
+{
+  "scopeName": "source.bluejay",
+  "fileTypes": ["bjy"],
+  "name": "Bluejay",
+  "patterns": [
+    { "include": "#keywords" },
+    { "include": "#keysymbols" },
+    { "include": "#built_in_types" },
+    { "include": "#comments" },
+    { "include": "#operators" },
+    { "include": "#bindings" }
+  ],
+  "repository": {
+    "keywords": {
+      "match": "\\b(let|fun|match|if|then|else|type|module|with|rec)\\b",
+      "name": "keyword.control.bluejay"
+    },
+    "keysymbols": {
+      "match": "\\|",
+      "name": "keyword.control.bluejay"
+    },
+    "built_in_types": {
+      "match": "\\b(int|bool|unit|float)\\b",
+      "name": "storage.type.bluejay"
+    },
+    "comments": {
+      "begin": "\\(\\*",
+      "end": "\\*\\)",
+      "name": "comment.block.bluejay"
+    },
+    "operators": {
+      "patterns": [
+        {
+          "comment": "vertical bar (used in match patterns)",
+          "name": "keyword.operator.match.bluejay",
+          "match": "(?<!\\[)(\\|)(?!\\])"
+        },
+        {
+          "comment": "standard math and comparison operators",
+          "name": "keyword.operator.bluejay",
+          "match": "(>=|<=|>|<|\\+|\\-|\\*|/|%)"
+        }
+      ]
+    },
+
+    "bindings": {
+      "patterns": [
+        {
+          "match": "\\blet\\s+(rec\\s+)?([a-z_][a-zA-Z0-9_']*)\\b",
+          "captures": {
+            "1": { "name": "keyword.control" },
+            "2": { "name": "variable.other.readwrite" }
+          }
+        }
+      ]
+    }
+  }
+}

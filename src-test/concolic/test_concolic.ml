@@ -58,5 +58,7 @@ let () =
 
     ; "sato-bjy-ill-typed"
     ; "sato-bjy-well-typed"
+
+    ; "counter-ill-typed"
     ]
     
