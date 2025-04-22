@@ -158,7 +158,8 @@ module Make_solver (C : Context) = struct
     | Z3.Solver.SATISFIABLE ->
       let model = Z3.Solver.get_model solver in
       Solve_status.Sat (Option.value_exn model)
-    | _ -> Unsat
+    | UNKNOWN -> Unknown
+    | UNSATISFIABLE -> Unsat
 end
 
 module Make (C : Context) = struct

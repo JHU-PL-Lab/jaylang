@@ -1,0 +1,20 @@
+
+let p = 2147483647 (* A large prime number *)
+let b = 3          (* A small primitive root mod prime *)
+
+(* computes b^x mod p *)
+let rec hash x =
+  if x == 0 then 1
+  else
+    let r = hash (x / 2) in
+    let r2 = (r * r) % p in
+    if x % 2 == 0 then r2 else (b * r2) % p
+
+(* This x is not actually too large for us to invert, but it takes tens of seconds *)
+let x = 123456
+let y = hash x
+
+let f (x : { i : int | i >= 0 } ) : int = 
+  if hash x == y
+  then assert false (* ERROR: this is obviously reachable, but it's very difficult when x is large *)
+  else 0
