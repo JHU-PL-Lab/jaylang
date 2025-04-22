@@ -1,3 +1,11 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions Other))
+    (reasons (Recursive_functions Other)) ; assertion
+    (speed Slow)
+    (typing Ill_typed)
+  )
+*)
 
 let p = 2147483647 (* A large prime number *)
 let b = 3          (* A small primitive root mod prime *)
