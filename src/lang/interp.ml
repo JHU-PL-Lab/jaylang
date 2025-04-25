@@ -12,8 +12,7 @@
 open Core
 open Ast
 open Expr
-
-exception InvariantFailure of string
+open Ast_tools.Exceptions
 
 module V = Value.Make (Value.Map_store) (Lazy) (Utils.Identity)
 open V

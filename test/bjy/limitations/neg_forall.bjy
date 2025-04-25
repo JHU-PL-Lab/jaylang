@@ -1,6 +1,6 @@
 (***
   (
-    (features (Polymorphic_types Dependent_arrows Higher_order_functions))
+    (features (Polymorphic_types Dependent_types Higher_order_functions))
     (speed Fast)
     (typing Well_typed)
   )
@@ -18,8 +18,6 @@
   its results, hence allowing us to hit the `else` case.
 *)
 
-let _ : ((tau : type) -> tau -> tau) -> int = 
+let _ : ((tau : type) -> tau -> tau) -> unit = 
   fun id ->
-    if (id int 2) == 2
-    then 0
-    else assert false
+    assert (id int 0 == 0)

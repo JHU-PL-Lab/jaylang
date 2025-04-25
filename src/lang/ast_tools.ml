@@ -12,6 +12,10 @@
 open Core
 open Ast
 
+module Exceptions = struct
+  exception InvariantFailure of string
+end
+
 (*
   Here are some reserved names that don't parse, so the programmer cannot
   write them, and we are safe to inject them into the AST.

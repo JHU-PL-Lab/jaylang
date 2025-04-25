@@ -1,7 +1,7 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows Higher_order_functions Variants Records Subtyping Return_error))
-    (reasons (Dependent_arrows Subtyping Return_error))
+    (features (Refinement_types Dependent_types Higher_order_functions Variants Records Subtyping Return_error))
+    (reasons (Dependent_types Subtyping Return_error))
     (speed Fast)
     (typing Ill_typed)
   )

@@ -1,0 +1,38 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules Parametric_types Higher_order_functions Other))
+    (reasons (Other)) ; nondeterminism of generated type functions
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+(* This is yet another test demonstrating the limitation due to nondeterminism in generated type functions *)
+
+let MONOID = sig
+  val t : type
+  val neutral : t 
+  val combine : t -> t -> t
+end
+
+let MONAD = sig
+  val m : type -> type
+  val return : (a : type) -> a -> m a
+  val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b
+end
+
+let F : (X : MONOID) -> (M : MONAD) -> sig
+  val t = M.m X.t
+  val neutral : t
+  val combine : t -> t -> t
+end = fun X M -> struct
+  let t = M.m X.t
+  let neutral = M.return X.t X.neutral (* ERROR: this `M.m X.t` is not the same as the one in the type declaration *)
+  let combine a_m b_m = (* the errors is also here *)
+    let bind = M.bind X.t X.t in
+    bind a_m (fun a ->
+      bind b_m (fun b ->
+        M.return X.t (X.combine a b)
+      )
+    )
+end

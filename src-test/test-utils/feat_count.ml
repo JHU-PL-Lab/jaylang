@@ -62,7 +62,7 @@ module Tbl = struct
       >>| Latex_tbl.Row_or_hline.return
       |> List.cons Latex_tbl.Row_or_hline.Hline
     end
-    ; columns = [ [ Right_align ; Vertical_line_to_right ] ]
+    ; columns = [ [ Right_align ; Vertical_line_to_right ] ; [ Center ] ; [ Center ; Vertical_line_to_right ] ; [ Left_align ] ]
     }
 end
 
@@ -70,12 +70,14 @@ end
 let () =
   [ "deep-type-error"
   ; "edge-cases-ill-typed"
+  ; "functors"
   ; "interp-ill-typed"
+  ; "limitations"
   ; "oopsla-24-benchmarks-ill-typed"
-  (* ; "oopsla-24-tests-ill-typed" *) (* these are mostly trivial, so I don't include them *)
+  ; "oopsla-24-tests-ill-typed" (* trivial errors *)
   ; "post-oopsla-ill-typed"
-  (* ; "sato-bjy-ill-typed" *) (* these are so trivial, it doesn't feel fair to include them *)
-  ; "scheme-pldi-2015-ill-typed"
+  ; "sato-bjy-ill-typed"  (* trivial errors *)
+  ; "soft-contract-ill-typed"
   ]
   >>| String.append "./test/bjy/"
   |> Tbl.make_of_dirs

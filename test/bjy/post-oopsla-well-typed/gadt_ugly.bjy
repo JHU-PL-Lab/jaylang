@@ -1,0 +1,75 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Parametric_types First_class_types Variants Records Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+
+(*
+  This is an ugly way to encode GADTs, where we create a universe type
+  and then match on a member of it, and following that we declare all
+  constructors that exist in it. However, we have to redefine the
+  constructors many times, and it's rather bad. However, it works, I guess.
+*)
+
+let tparam =
+  | `Any of type
+  | `Int of unit
+  | `Bool of unit
+
+let b = `Bool {}
+let i = `Int {}
+
+let Const = struct
+  let t a =
+    match a with
+    | `Int _ -> int
+    | `Bool _ -> bool
+    | `Any a -> a 
+    end
+end
+
+let Var = struct
+  let t _ = { id : int }
+end
+
+(*
+  Any case that is OCaml's `'a t` is unified with the constrained cases
+  by manually pasting them under such cases.
+*)
+let rec t (tp : tparam) : type =
+  match tp with
+  | `Int _ -> (
+    | `Const of Const.t tp
+    | `Var of Var.t tp
+    | `Plus of { left : t tp ; right : t tp }
+  )
+  | `Bool _ -> (
+    | `Const of Const.t tp
+    | `Var of Var.t tp
+    | `Equal of {: a : tparam ; left : t a ; right : t a :}
+  )
+  | `Any _ -> (
+    | `Const of Const.t tp
+    | `Var of Var.t tp
+    | `Plus of { left : t i ; right : t i }
+    | `Equal of {: a : tparam ; left : t a ; right : t a :} 
+  )
+  end
+
+let rec any_to_int (a <- tparam) (x : t a) : int =
+  match x with
+  | `Const _ -> 0 (* would have to case on a to determine the type of the constant value, or encode it in Const.t *)
+  | `Var v -> v.id
+  | `Plus r -> any_to_int i r.left + any_to_int i r.right
+  | `Equal r -> any_to_int r.a r.left + any_to_int r.a r.right
+  end
+
+let rec bool_t_to_int (x : t b) : int =
+  match x with
+  | `Const b -> if b then 0 else 1
+  | `Var v -> v.id
+  | `Equal r -> any_to_int b x + 1
+  end
+  

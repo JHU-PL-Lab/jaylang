@@ -1,6 +1,6 @@
 (***
   (
-    (features (Polymorphic_types Dependent_arrows Parametric_types Records Recursive_functions))
+    (features (Polymorphic_types Dependent_types Parametric_types Records Recursive_functions))
     (speed Slow)
     (typing Well_typed)
   )

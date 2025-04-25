@@ -1,6 +1,6 @@
 (***
   (
-    (features (Dependent_arrows First_class_types Records))
+    (features (Dependent_types First_class_types Records))
     (speed Fast)
     (typing Well_typed)
   )

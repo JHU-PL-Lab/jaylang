@@ -1,6 +1,6 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows Mu_types Variants Records Recursive_functions))
+    (features (Refinement_types Dependent_types Mu_types Variants Records Recursive_functions))
     (reasons (Refinement_types Mu_types Recursive_functions))
     (speed Fast)
     (typing Ill_typed)

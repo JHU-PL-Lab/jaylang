@@ -1,7 +1,7 @@
 (***
   (
-    (features (Dependent_arrows Recursive_functions Return_error))
-    (reasons (Dependent_arrows Recursive_functions Return_error))
+    (features (Dependent_types Recursive_functions Return_error))
+    (reasons (Dependent_types Recursive_functions Return_error))
     (speed Fast)
     (typing Ill_typed)
   )

@@ -1,0 +1,33 @@
+(***
+  (
+    (features (Dependent_types Modules Variants))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+let MONOID = sig
+  val t : type
+  val neutral : t 
+  val combine : t -> t -> t
+end
+
+let F : (X : MONOID) -> sig
+  val t = `Some of X.t | `None of unit
+  val i : { i : int | i == 0}
+  val neutral : t
+  val combine : t -> t -> t
+end = fun X -> struct
+  let t = `Some of X.t | `None of unit
+  let i = 0
+  let neutral = `Some X.neutral
+  let combine = fun a b ->
+    match a with
+    | `Some x ->
+      match b with
+      | `Some y -> `Some (X.combine x y)
+      | `None _ -> a
+      end
+    | `None _ -> b
+    end
+end
