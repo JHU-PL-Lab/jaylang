@@ -49,12 +49,12 @@ let rec t (a : ty) : type =
   | `Var of { id : int }
   | `Plus of
     match a with
-    | `TBool _ -> assume false (* `Plus is not a `bool t` *)
+    | `TBool _ -> bottom (* `Plus is not a `bool t` *)
     | `TInt _ -> { left : t tint ; right : t tint }
     end
   | `Equal of
     match a with
-    | `TInt _ -> assume false (* `Equal is not an `int t` *)
+    | `TInt _ -> bottom (* `Equal is not an `int t` *)
     | `TBool _ -> {: a : ty ; left : t a ; right : t a :}
     end
 

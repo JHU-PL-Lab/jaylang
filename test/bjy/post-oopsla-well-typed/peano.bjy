@@ -10,30 +10,30 @@
 
 (* These are the possible forms of the type parameter for t *)
 let ty = Mu t.
-  | `TOne of unit
+  | `TZero of unit
   | `TSucc of t
 
 (* a "GADT" *)
 let rec t (a : ty) : type =
-  | `One of
+  | `Zero of
     match a with
-    | `TOne _ -> unit
-    | `TSucc _ -> assume false (* not a valid type parameter for the `One constructor *)
+    | `TZero _ -> unit
+    | `TSucc _ -> bottom (* not a valid type parameter for the `Zero constructor *)
     end
   | `Succ of
     match a with
-    | `TOne _ -> assume false (* not a valid type parameter for the `Succ constructor *)
+    | `TZero _ -> bottom (* not a valid type parameter for the `Succ constructor *)
     | `TSucc a -> t a
     end
 
 (* concrete, constant example *)
-let three_type_param = `TSucc (`TSucc (`TOne {}))
-let three_type = t three_type_param
-let three : three_type = `Succ (`Succ (`One {}))
+let two_type_param = `TSucc (`TSucc (`TZero {}))
+let two_type = t two_type_param
+let two : two_type = `Succ (`Succ (`Zero {}))
 
 let rec to_int (a <- ty) (x : t a) : int =
   match x with
-  | `One _ -> 1
+  | `Zero _ -> 0
   | `Succ y ->
     match a with
     | `TSucc b -> 1 + to_int b y
@@ -41,19 +41,23 @@ let rec to_int (a <- ty) (x : t a) : int =
   end
 
 (* example usage *)
-let _ : { i : int | i == 3 } = to_int three_type_param three
+let _ : { i : int | i == 2 } = to_int two_type_param two
 
 (* of_int with untyped return *)
-let rec of_int (i : { i : int | i > 0 }) : top =
-  if i == 1 then 
-    `One {}
+let rec of_int (i : { i : int | i >= 0 }) : top =
+  if i == 0 then 
+    `Zero {}
   else
     `Succ (of_int (i - 1))
 
 (* return type as value from result, and also have a predicate to check that it's the inverse of to_int *)
-let rec of_int (i <- { i : int | i > 0 }) : { r : {: a : ty ; v : t a :} | to_int r.a r.v == i } =
-  if i == 1 then 
-    { a = `TOne {} ; v = `One {} }
+let rec of_int (i <- { i : int | i >= 0 }) : { r : {: a : ty ; v : t a :} | to_int r.a r.v == i } =
+  if i == 0 then 
+    { a = `TZero {} ; v = `Zero {} }
   else
     let r = of_int (i - 1) in
     { a = `TSucc r.a ; v = `Succ r.v }
+
+let div (a <- ty) (b <- ty) (x : t a) (y : t (`TSucc b)) : {: a : ty ; v : t a :} =
+  of_int (to_int a x / to_int (`TSucc b) y)
+

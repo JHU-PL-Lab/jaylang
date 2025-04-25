@@ -17,11 +17,11 @@ let rec t (a : ty) : type =
   | `One of
     match a with
     | `TOne _ -> unit
-    | `TSucc _ -> assume false (* not a valid type parameter for the `One constructor *)
+    | `TSucc _ -> bottom (* not a valid type parameter for the `One constructor *)
     end
   | `Succ of
     match a with
-    | `TOne _ -> assume false (* not a valid type parameter for the `Succ constructor *)
+    | `TOne _ -> bottom (* not a valid type parameter for the `Succ constructor *)
     | `TSucc a -> t a
     end
 

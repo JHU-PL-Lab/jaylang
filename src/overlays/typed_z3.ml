@@ -150,6 +150,8 @@ module Make_solver (C : Context) = struct
     |> Int.to_string
     |> Z3.Params.update_param_value ctx "timeout"
 
+  let () = set_timeout (Time_float.Span.of_sec 2.)
+
   let solve : bool t list -> Solve_status.t = fun bool_formulas ->
     (* It is a bit faster to `and` all formulas together and only run `check` with that one. *)
     (* That is, instead of adding to the solver, keep the solver empty and check the one formula. *)
