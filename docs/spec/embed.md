@@ -41,7 +41,7 @@ Statements are embedded exactly like their corresponding let-expression as it is
   }
 ```
 
-### Arrow
+### Function type
 
 ```ocaml
 [[tau1 -> tau2]] =
@@ -58,7 +58,7 @@ Statements are embedded exactly like their corresponding let-expression as it is
   }
 ```
 
-### Dependent arrow
+### Dependent function type
 
 ```ocaml
 [[(x : tau_1) -> tau_2]] =
@@ -78,7 +78,7 @@ Statements are embedded exactly like their corresponding let-expression as it is
   }
 ```
 
-### Mu
+### Recursive types
 
 ```ocaml
 [[Mu B. tau]] =
@@ -102,7 +102,7 @@ Y =
 Notes:
 * This Y-combinator is special-made with freezing and thawing because this is its only use case.
 
-### Variants
+### Variant declarations
 
 ```ocaml
 [[V_0 of tau_0 | ... | V_n of tau_n]] =
@@ -141,7 +141,7 @@ Notes:
 * `i0,...,im, j0,...,jl` are a permutation of `0,...,n`, and `tau_i0,...,tau_im` contain in their AST the identifier of some in-scope Mu type variable while `tau_j0,...,tau_jl` do not.
 * No `case` in the generation is needed when there is only one variant constructor. In such a scenario, the entire `gen` is replaced the `default` case.
 
-### Records
+### Record types
 
 ```ocaml
 [[{ l_0 : tau_0 ; ... ; l_n : tau_n }]] =
@@ -176,7 +176,7 @@ Notes:
   }
 ```
 
-### Polymorphic functions / type
+### Type / polymorphic types
 
 Because of the desugaring, we only have types and dependent types instead of polymorphic functions. See the desugaring, and then see the definition of `type` here.
 
@@ -202,14 +202,6 @@ Because of the desugaring, we only have types and dependent types instead of pol
   }
 ```
 
-### Intersection types
-
-The "intersection" type has been desugared into a dependent function, so nothing is needed here.
-
-### List type
-
-The `List` type has been desugared into a variant, so nothing is needed here.
-
 ### Top/bottom
 
 ```ocaml
@@ -226,10 +218,10 @@ The `List` type has been desugared into a variant, so nothing is needed here.
   }
 ```
 
-### Dependent records
+### Module types
 
 ```ocaml
-[[ {: l_0 : tau_0 ; ... ; l_n : tau_n :} ]] =
+[[ sig val l_0 : tau_0 ... val l_n : tau_n end ]] =
   { ~gen = freeze @@
     let l_0 = thaw [[tau_0]].~gen in (* use the name l_0 to put it in scope *)
     ...
@@ -251,7 +243,10 @@ The `List` type has been desugared into a variant, so nothing is needed here.
   }
 ```
 
-### Singleton
+Notes:
+* This is the same as dependent records with the `{: :}` syntax.
+
+### Singleton type
 
 The singleton of a type is just the singleton set containing that type.
 
@@ -268,6 +263,14 @@ The singleton of a type is just the singleton set containing that type.
 Note:
 * The word `singlet` is used instead of `singleton` because it only works on types. e.g. `singlet 5` is bad, whereas a programmer might expect `singleton 5` to work.
 * The check goes in both directions: it first asks if `t` is a subtype of `tau` (anything that `t` generates is in `tau`) and then that `tau` is a subtype of `t`, giving equality.
+
+### Intersection types
+
+The "intersection" type has been desugared into a dependent function, so nothing is needed here.
+
+### List type
+
+The `list` type has been desugared into a variant, so nothing is needed here.
 
 #### Other encodings
 

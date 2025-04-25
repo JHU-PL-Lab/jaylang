@@ -61,9 +61,9 @@ module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
       | VTypeTop : 'a bluejay_or_desugared t
       | VTypeBottom : 'a bluejay_or_desugared t
       | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
-      | VTypeRecordD : (RecordLabel.t * 'a closure) list -> 'a bluejay_or_desugared t
-      | VTypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
-      | VTypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure } -> 'a bluejay_or_desugared t
+      | VTypeModule : (RecordLabel.t * 'a closure) list -> 'a bluejay_or_desugared t
+      | VTypeFun : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
+      | VTypeDepFun : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
       | VTypeMu : { var : Ident.t ; body : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
@@ -123,9 +123,9 @@ module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
     | VTypeTop -> "top"
     | VTypeBottom -> "bottom"
     | VTypeRecord record_body -> RecordLabel.record_body_to_string ~sep:":" record_body to_string
-    | VTypeRecordD ls -> Format.sprintf "{: %s :}" (String.concat ~sep:" ; " @@ List.map ls ~f:(fun (label, _) -> Format.sprintf "%s : <expr>" (RecordLabel.to_string label)))
-    | VTypeArrow { domain ; codomain } -> Format.sprintf "(%s -> %s)" (to_string domain) (to_string codomain)
-    | VTypeArrowD { binding = Ident s ; domain ; _ } -> Format.sprintf "((%s : %s) -> <expr>)" s (to_string domain)
+    | VTypeModule ls -> Format.sprintf "{: %s :}" (String.concat ~sep:" ; " @@ List.map ls ~f:(fun (label, _) -> Format.sprintf "%s : <expr>" (RecordLabel.to_string label)))
+    | VTypeFun { domain ; codomain } -> Format.sprintf "(%s -> %s)" (to_string domain) (to_string codomain)
+    | VTypeDepFun { binding = Ident s ; domain ; _ } -> Format.sprintf "((%s : %s) -> <expr>)" s (to_string domain)
     | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (to_string tau) (to_string predicate)
     | VTypeSingle v -> Format.sprintf "(singlet (%s))" (to_string v)
     | VTypeList v -> Format.sprintf "(list (%s))" (to_string v)

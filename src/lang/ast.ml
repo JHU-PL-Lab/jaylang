@@ -195,8 +195,8 @@ module Expr = struct
     | ETypeBottom : 'a bluejay_or_desugared t
     | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
     | ETypeModule : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
-    | ETypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
-    | ETypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
+    | ETypeFun : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
+    | ETypeDepFun : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
     | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
     | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
     | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t

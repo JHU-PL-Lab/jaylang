@@ -109,14 +109,14 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ETypeSingle tau ->
       let%bind vtau = eval tau in
       return (VTypeSingle vtau)
-    | ETypeArrow { domain ; codomain } ->
+    | ETypeFun { domain ; codomain } ->
       let%bind domain = eval domain in
       let%bind codomain = eval codomain in
-      return (VTypeArrow { domain ; codomain })
-    | ETypeArrowD { binding ; domain ; codomain } ->
+      return (VTypeFun { domain ; codomain })
+    | ETypeDepFun { binding ; domain ; codomain } ->
       let%bind domain = eval domain in
       using_env @@ fun env ->
-      VTypeArrowD { binding ; domain ; codomain = { expr = codomain ; env = lazy env } }
+      VTypeDepFun { binding ; domain ; codomain = { expr = codomain ; env = lazy env } }
     | ETypeRefinement { tau ; predicate } ->
       let%bind tau = eval tau in
       let%bind predicate = eval predicate in
@@ -145,7 +145,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       return (VTypeRecord new_record)
     | ETypeModule e_ls ->
       using_env @@ fun env ->
-      VTypeRecordD (List.map e_ls ~f:(fun (label, tau) -> label, { expr = tau ; env = lazy env } ))
+      VTypeModule (List.map e_ls ~f:(fun (label, tau) -> label, { expr = tau ; env = lazy env } ))
     | EThaw e ->
       let%bind v_frozen = eval e in
       let%orzero (VFrozen { expr = e_frozen ; env = lazy env }) = v_frozen in

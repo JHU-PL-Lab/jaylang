@@ -114,7 +114,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | ELet { var ; body ; _ } when Ident.equal var id -> loop body
     | EFunction { param ; _ } when Ident.equal param id -> false
     | ETypeMu { var ; _  } when Ident.equal var id -> false
-    | ETypeArrowD { binding ; domain ; _ } when Ident.equal binding id -> loop domain
+    | ETypeDepFun { binding ; domain ; _ } when Ident.equal binding id -> loop domain
     | ELetTyped { typed_var = { var ; tau } ; body ; _ } when Ident.equal var id -> loop tau || loop body
     (* simple unary cases *)
     | EFunction { body = e ; _ }
@@ -127,8 +127,8 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | ELet { body = e1 ; cont = e2 ; _ }
     | EAppl { func = e1 ; arg = e2 }
     | EBinop { left = e1 ; right = e2 ; _ }
-    | ETypeArrow { domain = e1 ; codomain = e2 }
-    | ETypeArrowD { domain = e1 ; codomain = e2 ; _ }
+    | ETypeFun { domain = e1 ; codomain = e2 }
+    | ETypeDepFun { domain = e1 ; codomain = e2 ; _ }
     | ETypeRefinement { tau = e1 ; predicate = e2 } -> loop e1 || loop e2
     (* special cases *)
     | ERecord m -> Map.exists m ~f:loop
@@ -217,7 +217,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         )
         ; wrap = lazy EId
         }
-    | ETypeArrow { domain = tau1 ; codomain = tau2 } ->
+    | ETypeFun { domain = tau1 ; codomain = tau2 } ->
       make_embedded_type
         { gen = lazy (
           fresh_abstraction "arg_arrow_gen" @@ fun arg ->
@@ -333,7 +333,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ) 
         ; wrap = lazy EId
         }
-    | ETypeArrowD { binding = x ; domain = tau1 ; codomain = tau2 } ->
+    | ETypeDepFun { binding = x ; domain = tau1 ; codomain = tau2 } ->
       make_embedded_type
         { gen = lazy (
           fresh_abstraction "arg_arrowd_gen" @@ fun arg ->

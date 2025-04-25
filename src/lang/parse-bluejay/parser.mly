@@ -179,9 +179,9 @@ type_expr:
   | MU l_ident DOT expr %prec prec_mu
       { ETypeMu { var = $2 ; body = $4 } : Bluejay.t}
   | expr ARROW expr
-      { ETypeArrow { domain = $1 ; codomain = $3 } : Bluejay.t }
+      { ETypeFun { domain = $1 ; codomain = $3 } : Bluejay.t }
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN ARROW expr
-      { ETypeArrowD { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
+      { ETypeDepFun { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
   | PIPE separated_nonempty_list(PIPE, single_variant_type) (* pipe optional before first variant *)
       { ETypeVariant $2 : Bluejay.t }
   | separated_nonempty_list(PIPE, single_variant_type)
