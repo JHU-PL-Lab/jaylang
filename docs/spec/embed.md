@@ -43,6 +43,18 @@ Statements are embedded exactly like their corresponding let-expression as it is
 
 ### Function type
 
+There is a lot of overlap between all four variations created by two toggles:
+1. Dependent
+2. Deterministic
+
+We are wordy here and write out the full definition for each, but the implementation is more concise and makes use of the overlap.
+
+Note that `det` forces any execution inside of it to not use any nondeterminism, unless that nondeterminism is used in an `escape_det`.
+
+`tbl_appl` uses the table to lookup up the associated value, and the table is mutated to map to a new generated value if the key didn't exist.
+
+#### Basic function type
+
 ```ocaml
 [[tau1 -> tau2]] =
   { ~gen = freeze @@
@@ -50,7 +62,7 @@ Statements are embedded exactly like their corresponding let-expression as it is
       let _ = [[tau1]].~check $arg in
       thaw [[tau2]].~gen
   ; ~check = fun $e ->
-    [[tau2]].~check ($e (thaw [[tau1]].~gen))
+    [[tau2]].~check ($e (escape_det(thaw [[tau1]].~gen)))
   ; ~wrap = fun $e ->
     fun $arg ->
       let _ = [[tau1]].~check $arg in
@@ -58,7 +70,28 @@ Statements are embedded exactly like their corresponding let-expression as it is
   }
 ```
 
-### Dependent function type
+#### Deterministic function type
+
+```ocaml
+[[tau1 --> tau2]] =
+  { ~gen = freeze @@ 
+    let $tb = table in
+    fun $arg ->
+      let _ = [[tau1]].check $arg in
+      tbl_appl($tb, [[tau2]].~gen, $arg)
+  ; ~check = fun $e ->
+    [[tau2]].~check (det($e (escape_det(thaw [[tau1]].~gen))))
+  ; ~wrap = fun $e ->
+    fun $arg ->
+      let _ = [[tau1]].~check $arg in
+      [[tau2]].~wrap ($e ([[tau1]].~wrap $arg))
+  }
+```
+
+Notes:
+* The `det` ensures that the application of `$e` is deterministic.
+
+#### Dependent function type
 
 ```ocaml
 [[(x : tau_1) -> tau_2]] =
@@ -68,8 +101,29 @@ Statements are embedded exactly like their corresponding let-expression as it is
       let x = $arg in
       thaw [[tau_2]].~gen
   ; ~check = fun $e ->
-    let x = thaw [[tau_1]].~gen in
+    let x = escape_det(thaw [[tau_1]].~gen) in
     [[tau_2]].~check ($e x)
+  ; ~wrap = fun $e ->
+    fun $arg ->
+      let _ = [[tau_1]].~check $arg in
+      let x = [[tau_1]].~wrap $arg in
+      [[tau_2]].~wrap ($e x)
+  }
+```
+
+#### Dependent deterministic function type
+
+```ocaml
+[[(x : tau_1) -> tau_2]] =
+  { ~gen = freeze @@
+    let $tb = table in
+    fun $arg -> 
+      let _ = [[tau1]].check $arg in
+      let x = $arg in
+      tbl_appl($tb, [[tau_2]].~gen, x)
+  ; ~check = fun $e ->
+    let x = escape_det(thaw [[tau_1]].~gen) in
+    [[tau_2]].~check det($e x)
   ; ~wrap = fun $e ->
     fun $arg ->
       let _ = [[tau_1]].~check $arg in
