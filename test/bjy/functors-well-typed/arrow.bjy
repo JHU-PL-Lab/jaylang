@@ -1,7 +1,7 @@
 (***
   (
     (features (Polymorphic_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions Records Higher_order_functions))
-    (speed Fast)
+    (speed Slow)
     (typing Well_typed)
   )
 *)

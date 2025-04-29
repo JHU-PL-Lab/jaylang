@@ -170,20 +170,18 @@ let eval_exp
       let%bind payload = eval e_payload in
       return @@ VVariant { label ; payload }
     | EProject { record = e_record ; label } -> begin
-      let%bind v = eval e_record in
-      match v with
-      | VRecord record_body -> begin
+      match%bind eval e_record with
+      | VRecord record_body as v -> begin
         match Map.find record_body label with
         | Some v -> return v
         | None -> type_mismatch @@ Error_msg.project_missing_label label v
       end
-      | _ -> type_mismatch @@ Error_msg.project_non_record label v
+      | v -> type_mismatch @@ Error_msg.project_non_record label v
     end
     | EThaw e_frozen -> begin
-      let%bind v = eval e_frozen in
-      match v with
+      match%bind eval e_frozen with
       | VFrozen { expr ; env } -> local_env (fun _ -> env) (eval expr)
-      | _ -> type_mismatch @@ Error_msg.thaw_non_frozen v
+      | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
     end
     | ERecord record_body ->
       let%bind value_record_body =
@@ -252,25 +250,22 @@ let eval_exp
       | _ -> type_mismatch @@ Error_msg.bad_binop vleft binop vright
     end
     | ENot e_not_body -> begin
-      let%bind v = eval e_not_body in
-      match v with
+      match%bind eval e_not_body with
       | VBool (b, e_b) -> return @@ VBool (not b, Expression.not_ e_b) 
-      | _ -> type_mismatch @@ Error_msg.bad_not v
+      | v -> type_mismatch @@ Error_msg.bad_not v
     end
     (* Branching *)
     | EIf { cond ; true_body ; false_body } -> begin
-      let%bind v = eval cond in
-      match v with
+      match%bind eval cond with
       | VBool (b, e) ->
         let body = if b then true_body else false_body in
         let%bind () = modify_session @@ Eval_session.hit_branch (Direction.of_bool b) e in
         eval body
-      | _ -> type_mismatch @@ Error_msg.cond_non_bool v
+      | v -> type_mismatch @@ Error_msg.cond_non_bool v
     end
     | ECase { subject ; cases ; default } -> begin
-      let%bind v = eval subject in
       let int_cases = List.map cases ~f:Tuple2.get1 in
-      match v with
+      match%bind eval subject with
       | VInt (i, e) -> begin
         let body_opt = List.find_map cases ~f:(fun (i', body) -> if i = i' then Some body else None) in
         match body_opt with
@@ -282,7 +277,7 @@ let eval_exp
           let%bind () = modify_session @@ Eval_session.hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases in
           eval default
       end
-      | _ -> type_mismatch @@ Error_msg.case_non_int v
+      | v -> type_mismatch @@ Error_msg.case_non_int v
     end
     (* Inputs *)
     | EPick_i ->
@@ -291,26 +286,32 @@ let eval_exp
     | EPick_b ->
       let%bind () = assert_nondeterminism in
       modify_and_return @@ Eval_session.get_input (Stepkey.B step)
-    (* Tables *)
+    (* Tables -- includes some branching *)
     | ETable -> return (VTable { alist = [] })
     | ETblAppl { tbl ; gen ; arg } -> begin
-      let%bind tb = eval tbl in
-      match tb with
+      match%bind eval tbl with
       | VTable mut_r -> begin
         let%bind v = eval arg in
-        List.find_map ~f:(fun (input, output) ->
-          if Value.equal input v
-          then Some output
-          else None
-        ) mut_r.alist
-        |> function
-          | Some output -> return output
-          | None -> 
+        let%bind output_opt =
+          List.fold mut_r.alist ~init:(return None) ~f:(fun acc_m (input, output) ->
+            match%bind acc_m with
+            | None -> 
+              let (b, e) = Value.equal input v in
+              let%bind () = modify_session @@ Eval_session.hit_branch (Direction.of_bool b) e in
+              if b
+              then return (Some output)
+              else return None
+            | Some _ -> acc_m (* already found an output, so go unchanged *)
+          )
+        in
+        match output_opt with
+        | Some output -> return output
+        | None ->
             let%bind new_output = with_escaped_det @@ eval gen in
             mut_r.alist <- (v, new_output) :: mut_r.alist;
             return new_output
       end
-      | _ -> type_mismatch @@ Error_msg.appl_non_table tb
+      | tb -> type_mismatch @@ Error_msg.appl_non_table tb
     end
     (* Failure cases *)
     | EAbort msg -> abort msg

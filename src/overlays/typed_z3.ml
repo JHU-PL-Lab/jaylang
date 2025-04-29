@@ -155,6 +155,7 @@ module Make_solver (C : Context) = struct
   let solve : bool t list -> Solve_status.t = fun bool_formulas ->
     (* It is a bit faster to `and` all formulas together and only run `check` with that one. *)
     (* That is, instead of adding to the solver, keep the solver empty and check the one formula. *)
+    (* Format.printf "Formulas:%s\n" (String.concat ~sep:" " @@ List.map bool_formulas ~f:(fun x -> Z3.Expr.to_string @@ extract x)); *)
     let res = Z3.Solver.check solver [ bool_expr_list_to_expr bool_formulas ] in
     match res with
     | Z3.Solver.SATISFIABLE ->

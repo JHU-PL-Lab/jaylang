@@ -23,6 +23,6 @@ include module type of Lang.Value.Embedded (Concolic_value)
 
 include module type of T with type t = t
 
-val equal : t -> t -> bool
+val equal : t -> t -> bool Concolic_value.t
 (** [equal a b] is intensional equality of [a] and [b], comparing expressions
     in the case of ints and bools. *)

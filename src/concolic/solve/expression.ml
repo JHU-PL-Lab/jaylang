@@ -168,6 +168,11 @@ module Subst = Utils.Pack.Make (struct
     | c -> c
 end)
 
+(*
+  We would also like to notice when two keys must be equal, and then we
+  substitute those through. This would help a lot with the formulas we
+  get from deterministic functions.
+*)
 let is_trivial (e : bool t) : [ `Trivial of Subst.t | `Nontrivial | `Const of bool ] =
   match e with
   | Const (B b) -> `Const b
