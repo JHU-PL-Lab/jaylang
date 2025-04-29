@@ -22,3 +22,7 @@ module Concolic_value : Lang.Value.V with type 'a t = 'a * 'a Expression.t
 include module type of Lang.Value.Embedded (Concolic_value)
 
 include module type of T with type t = t
+
+val equal : t -> t -> bool
+(** [equal a b] is intensional equality of [a] and [b], comparing expressions
+    in the case of ints and bools. *)

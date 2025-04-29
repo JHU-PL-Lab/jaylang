@@ -51,6 +51,7 @@ module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
       (* embedded only *)
       | VId : 'a embedded_only t
       | VFrozen : 'a closure -> 'a embedded_only t
+      | VTable : { mutable alist : ('a t * 'a t) list } -> 'a embedded_only t
       (* bluejay only *)
       | VList : 'a t list -> 'a bluejay_only t
       | VMultiArgFunClosure : { params : Ident.t list ; body : 'a closure } -> 'a bluejay_only t
@@ -62,8 +63,8 @@ module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
       | VTypeBottom : 'a bluejay_or_desugared t
       | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
       | VTypeModule : (RecordLabel.t * 'a closure) list -> 'a bluejay_or_desugared t
-      | VTypeFun : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
-      | VTypeDepFun : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure } -> 'a bluejay_or_desugared t
+      | VTypeFun : { domain : 'a t ; codomain : 'a t ; det : bool } -> 'a bluejay_or_desugared t
+      | VTypeDepFun : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure ; det : bool } -> 'a bluejay_or_desugared t
       | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
       | VTypeMu : { var : Ident.t ; body : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
@@ -115,6 +116,9 @@ module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
     | VDiverge -> "Diverge"
     | VId -> "(fun x -> x)"
     | VFrozen _ -> "(Freeze <expr>)"
+    | VTable { alist } -> 
+      Format.sprintf "Table (%s)\n"
+        (String.concat ~sep:" ; " @@ List.map ~f:(fun (k, v) -> Format.sprintf "(%s, %s)" (to_string k) (to_string v)) alist)
     | VList ls -> Format.sprintf "[ %s ]" (String.concat ~sep:" ; " @@ List.map ~f:to_string ls)
     | VMultiArgFunClosure { params ; _ } -> Format.sprintf "(fun %s -> <expr>)" (String.concat ~sep:" ; " @@ List.map ~f:(fun (Ident s) -> s) params)
     | VType -> "type"
@@ -124,8 +128,8 @@ module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
     | VTypeBottom -> "bottom"
     | VTypeRecord record_body -> RecordLabel.record_body_to_string ~sep:":" record_body to_string
     | VTypeModule ls -> Format.sprintf "{: %s :}" (String.concat ~sep:" ; " @@ List.map ls ~f:(fun (label, _) -> Format.sprintf "%s : <expr>" (RecordLabel.to_string label)))
-    | VTypeFun { domain ; codomain } -> Format.sprintf "(%s -> %s)" (to_string domain) (to_string codomain)
-    | VTypeDepFun { binding = Ident s ; domain ; _ } -> Format.sprintf "((%s : %s) -> <expr>)" s (to_string domain)
+    | VTypeFun { domain ; codomain ; det } -> Format.sprintf "(%s %s %s)" (to_string domain) (if det then "-->" else "->") (to_string codomain)
+    | VTypeDepFun { binding = Ident s ; domain ; det ; _ } -> Format.sprintf "((%s : %s) %s <expr>)" s (if det then "-->" else "->") (to_string domain)
     | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (to_string tau) (to_string predicate)
     | VTypeSingle v -> Format.sprintf "(singlet (%s))" (to_string v)
     | VTypeList v -> Format.sprintf "(list (%s))" (to_string v)

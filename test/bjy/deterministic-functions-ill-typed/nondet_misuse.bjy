@@ -1,0 +1,15 @@
+(***
+  (
+    (features (Higher_order_functions Usage_error))
+    (reasons (Higher_order_functions Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+(*
+  Using nondeterministic function where a deterministic one is expected
+*)
+let _ : ((int --> int) -> int) -> (int -> int) -> int =
+  fun f g ->
+    f g

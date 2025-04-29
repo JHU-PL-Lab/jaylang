@@ -67,6 +67,11 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
   let zero () = type_mismatch () in
   let rec eval (e : a Expr.t) : a V.t m =
     match e with
+    (* TODO: unhandled *)
+    | ETable
+    | ETblAppl _
+    | EDet _
+    | EEscapeDet _ -> failwith "unimplemented interpreter"
     (* direct values *)
     | EInt i -> return (VInt i)
     | EBool b -> return (VBool b)
@@ -109,14 +114,14 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ETypeSingle tau ->
       let%bind vtau = eval tau in
       return (VTypeSingle vtau)
-    | ETypeFun { domain ; codomain } ->
-      let%bind domain = eval domain in
+    | ETypeFun { domain = _ ; codomain = _ ; dep = _ ; det = _ } -> failwith "unimplemented interp fun type"
+      (* let%bind domain = eval domain in
       let%bind codomain = eval codomain in
-      return (VTypeFun { domain ; codomain })
-    | ETypeDepFun { binding ; domain ; codomain } ->
+      return (VTypeFun { domain ; codomain ; det }) *)
+    (* | ETypeDepFun { binding ; domain ; codomain } ->
       let%bind domain = eval domain in
       using_env @@ fun env ->
-      VTypeDepFun { binding ; domain ; codomain = { expr = codomain ; env = lazy env } }
+      VTypeDepFun { binding ; domain ; codomain = { expr = codomain ; env = lazy env } } *)
     | ETypeRefinement { tau ; predicate } ->
       let%bind tau = eval tau in
       let%bind predicate = eval predicate in

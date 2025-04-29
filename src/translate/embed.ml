@@ -114,7 +114,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | ELet { var ; body ; _ } when Ident.equal var id -> loop body
     | EFunction { param ; _ } when Ident.equal param id -> false
     | ETypeMu { var ; _  } when Ident.equal var id -> false
-    | ETypeDepFun { binding ; domain ; _ } when Ident.equal binding id -> loop domain
+    | ETypeFun { domain ; dep = `Binding binding ; _ } when Ident.equal binding id -> loop domain
     | ELetTyped { typed_var = { var ; tau } ; body ; _ } when Ident.equal var id -> loop tau || loop body
     (* simple unary cases *)
     | EFunction { body = e ; _ }
@@ -127,8 +127,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | ELet { body = e1 ; cont = e2 ; _ }
     | EAppl { func = e1 ; arg = e2 }
     | EBinop { left = e1 ; right = e2 ; _ }
-    | ETypeFun { domain = e1 ; codomain = e2 }
-    | ETypeDepFun { domain = e1 ; codomain = e2 ; _ }
+    | ETypeFun { domain = e1 ; codomain = e2 ; _ }
     | ETypeRefinement { tau = e1 ; predicate = e2 } -> loop e1 || loop e2
     (* special cases *)
     | ERecord m -> Map.exists m ~f:loop
@@ -217,26 +216,49 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         )
         ; wrap = lazy EId
         }
-    | ETypeFun { domain = tau1 ; codomain = tau2 } ->
+    | ETypeFun { domain = tau1 ; codomain = tau2 ; dep ; det } ->
       make_embedded_type
         { gen = lazy (
-          fresh_abstraction "arg_arrow_gen" @@ fun arg ->
-            build @@
-              let%bind () = ignore (check tau1 (EVar arg)) in
-              return @@ gen tau2
+          let tb = Names.fresh_id ~suffix:"tb" () in
+          build @@
+            let%bind () = if det then assign tb ETable else return () in
+            return @@fresh_abstraction "arg_arrow_gen" @@ fun arg ->
+              build @@
+                let%bind () = ignore (check tau1 (EVar arg)) in
+                let%bind () =
+                  match dep with 
+                  | `Binding x -> assign x (EVar arg)
+                  | `No -> return ()
+                in
+                if det
+                then return (ETblAppl { tbl = EVar tb ; gen = gen tau2 ; arg = EVar arg })
+                else return @@ gen tau2
         )
         ; check = lazy (
           fresh_abstraction "e_arrow_check" @@ fun e ->
-            check tau2 @@ apply (EVar e) (gen tau1)
+            match dep with
+            | `Binding x ->
+              build @@
+                let%bind () = assign x @@ EEscapeDet (gen tau1) in
+                let appl = apply (EVar e) (EVar x) in
+                return (check tau2 @@ if det then EDet appl else appl)
+            | `No ->
+                let appl = apply (EVar e) (EEscapeDet (gen tau1)) in
+                check tau2 @@ if det then EDet appl else appl
         )
         ; wrap = lazy (
           fresh_abstraction "e_arrow_wrap" @@ fun e ->
             fresh_abstraction "x_arrow_wrap" @@ fun arg ->
               build @@
                 let%bind () = ignore (check tau1 (EVar arg)) in
-                return @@ wrap tau2 (
-                  apply (EVar e) (wrap tau1 (EVar arg))
-                )
+                match dep with
+                | `Binding x ->
+                  let%bind () = assign x @@ wrap tau1 (EVar arg) in
+                  return (wrap tau2 (apply (EVar e) (EVar x)))
+                | `No ->
+                  return @@ wrap tau2 (
+                    apply (EVar e) (wrap tau1 (EVar arg))
+                  )
         )
         }
     | ETypeRecord m ->
@@ -332,30 +354,6 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               return unit_value
         ) 
         ; wrap = lazy EId
-        }
-    | ETypeDepFun { binding = x ; domain = tau1 ; codomain = tau2 } ->
-      make_embedded_type
-        { gen = lazy (
-          fresh_abstraction "arg_arrowd_gen" @@ fun arg ->
-            build @@
-              let%bind () = ignore (check tau1 (EVar arg)) in
-              let%bind () = assign x (EVar arg) in
-              return (gen tau2)
-        )
-        ; check = lazy (
-          fresh_abstraction "e_arrowd_check" @@ fun e ->
-            build @@
-              let%bind () = assign x @@ gen tau1 in
-              return (check tau2 (apply (EVar e) (EVar x)))
-        )
-        ; wrap = lazy (
-          fresh_abstraction "e_arrowd_wrap" @@ fun e ->
-            fresh_abstraction "arg_arrowd_wrap" @@ fun arg ->
-              build @@
-                let%bind () = ignore (check tau1 (EVar arg)) in
-                let%bind () = assign x @@ wrap tau1 (EVar arg) in
-                return (wrap tau2 (apply (EVar e) (EVar x)))
-        )
         }
     | ETypeRefinement { tau ; predicate = e_p } ->
       make_embedded_type

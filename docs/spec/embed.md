@@ -47,7 +47,7 @@ There is a lot of overlap between all four variations created by two toggles:
 1. Dependent
 2. Deterministic
 
-We are wordy here and write out the full definition for each, but the implementation is more concise and makes use of the overlap.
+We are wordy here and write out the full definition for each, but the implementation makes use of the overlap, though the code is not necessarily that clean because of it.
 
 Note that `det` forces any execution inside of it to not use any nondeterminism, unless that nondeterminism is used in an `escape_det`.
 
@@ -78,7 +78,7 @@ Note that `det` forces any execution inside of it to not use any nondeterminism,
     let $tb = table in
     fun $arg ->
       let _ = [[tau1]].check $arg in
-      tbl_appl($tb, [[tau2]].~gen, $arg)
+      tbl_appl($tb, thaw [[tau2]].~gen, $arg)
   ; ~check = fun $e ->
     [[tau2]].~check (det($e (escape_det(thaw [[tau1]].~gen))))
   ; ~wrap = fun $e ->
@@ -120,7 +120,7 @@ Notes:
     fun $arg -> 
       let _ = [[tau1]].check $arg in
       let x = $arg in
-      tbl_appl($tb, [[tau_2]].~gen, x)
+      tbl_appl($tb, thaw [[tau_2]].~gen, x)
   ; ~check = fun $e ->
     let x = escape_det(thaw [[tau_1]].~gen) in
     [[tau_2]].~check det($e x)

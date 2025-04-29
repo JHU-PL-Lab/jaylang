@@ -16,7 +16,7 @@ let MONOID = sig
 end
 
 let MONAD = sig
-  val m : type -> type
+  val m : type --> type
   val return : (a : type) -> a -> m a
   val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b
 end

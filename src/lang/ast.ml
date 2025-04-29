@@ -125,6 +125,7 @@ module Binop = struct
     | BGeq
     | BAnd
     | BOr
+  [@@deriving equal, compare]
 
   let to_string = function
     | BPlus -> "+"
@@ -184,6 +185,10 @@ module Expr = struct
     | EThaw : 'a t -> 'a embedded_only t 
     | EId : 'a embedded_only t
     | EIgnore : { ignored : 'a t ; cont : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in cont` but is more efficient *)
+    | ETable : 'a embedded_only t
+    | ETblAppl : { tbl : 'a t ; gen : 'a t ; arg : 'a t } -> 'a embedded_only t
+    | EDet : 'a t -> 'a embedded_only t
+    | EEscapeDet : 'a t -> 'a embedded_only t
     (* these exist in the desugared and embedded languages *)
     | EAbort : string -> 'a desugared_or_embedded t (* string is error message *)
     | EDiverge : 'a desugared_or_embedded t
@@ -195,8 +200,8 @@ module Expr = struct
     | ETypeBottom : 'a bluejay_or_desugared t
     | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
     | ETypeModule : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
-    | ETypeFun : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
-    | ETypeDepFun : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
+    | ETypeFun : { domain : 'a t ; codomain : 'a t ; dep : [ `No | `Binding of Ident.t ] ; det : bool } -> 'a bluejay_or_desugared t
+    (* | ETypeDepFun : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t *)
     | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
     | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
     | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t

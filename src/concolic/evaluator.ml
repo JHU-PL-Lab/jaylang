@@ -6,17 +6,33 @@ open Value
 
 module State_M = struct
   module State = struct
-    type t = { step : int ; max_step : int ; session : Eval_session.t }
+    type t =
+      { step : int 
+      ; max_step : int 
+      ; session : Eval_session.t }
   end
 
-  include Utils.State_read_result.Make (State) (Env) (Status.Eval)
+  module Read_env = struct
+    type t =
+      { env : Env.t
+      ; det_depth : [ `Escaped | `Depth of int ] } 
+
+    let empty : t = { env = Env.empty ; det_depth = `Depth 0 }
+
+    let is_determinism_allowed ({ det_depth ; _ } : t) : bool =
+      match det_depth with
+      | `Escaped -> true
+      | `Depth i -> i = 0
+  end
+
+  include Utils.State_read_result.Make (State) (Read_env) (Status.Eval)
 
   let run (x : 'a m) (session : Eval_session.t) : Status.Eval.t =
     x.run
       ~reject:Fn.id
       ~accept:(fun _ s -> Eval_session.finish s.session)
       State.{ step = 0 ; max_step = Eval_session.get_max_step session ; session }
-      Env.empty
+      Read_env.empty
 
   let[@inline always][@specialise] modify_session (f : Eval_session.t -> Eval_session.t) : unit m =
     modify (fun s -> { s with session = f s.session })
@@ -43,9 +59,23 @@ module State_M = struct
         accept a { s with session }
     }
 
+  let[@inline always][@specialise] local_env (f : Env.t -> Env.t) (x : 'a m) : 'a m =
+    local (fun r -> { r with env = f r.env }) x
+
+  let with_incr_depth (x : 'a m) : 'a m =
+    local (fun r -> { r with det_depth =
+      match r.det_depth with
+      | `Escaped -> `Escaped
+      | `Depth i -> `Depth (i + 1)
+      }
+    ) x
+
+  let with_escaped_det (x : 'a m) : 'a m =
+    local (fun r -> { r with det_depth = `Escaped}) x
+
   let read_env : Env.t m =
-    let%bind (_, e) = read in
-    return e
+    let%bind (_, { env ; _ }) = read in
+    return env
 
   let[@inline always] fail_map (f : Eval_session.t -> Status.Eval.t) : 'a m =
     let%bind ({ session ; _ }, _) = read in
@@ -54,6 +84,13 @@ module State_M = struct
   let diverge : 'a m = fail_map Eval_session.diverge
   let abort msg: 'a m = fail_map @@ Eval_session.abort msg
   let type_mismatch msg : 'a m = fail_map @@ Eval_session.type_mismatch msg
+
+  let assert_nondeterminism : unit m =
+    let%bind (_, e) = read in
+    if Read_env.is_determinism_allowed e
+    then return ()
+    else fail_map @@ Eval_session.abort "Nondeterminism used when not allowed."
+
 
   let[@inline always] fetch (id : Ident.t) : Value.t m =
     let%bind env = read_env in
@@ -94,6 +131,9 @@ module Error_msg = struct
 
   let case_non_int v = 
     Format.sprintf "Case on non-int `%s`" (Value.to_string v)
+
+  let appl_non_table v =
+    Format.sprintf "Use non-table `%s` as a table" (Value.to_string v)
 end
 
 (*
@@ -111,6 +151,9 @@ let eval_exp
     let open Value.M in (* puts the value constructors in scope *)
     let%bind step = incr_step in
     match expr with
+    (* Determinism *)
+    | EDet e -> with_incr_depth @@ eval e
+    | EEscapeDet e -> with_escaped_det @@ eval e
     (* Ints and bools -- constant expressions *)
     | EInt i -> return @@ VInt (i, Expression.const_int i)
     | EBool b -> return @@ VBool (b, Expression.const_bool b)
@@ -139,7 +182,7 @@ let eval_exp
     | EThaw e_frozen -> begin
       let%bind v = eval e_frozen in
       match v with
-      | VFrozen { expr ; env } -> local (fun _ -> env) (eval expr)
+      | VFrozen { expr ; env } -> local_env (fun _ -> env) (eval expr)
       | _ -> type_mismatch @@ Error_msg.thaw_non_frozen v
     end
     | ERecord record_body ->
@@ -166,19 +209,19 @@ let eval_exp
           | None -> None
         )
       with
-      | Some (e, f) -> local f (eval e)
+      | Some (e, f) -> local_env f (eval e)
       | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v
     end
     | ELet { var ; body ; cont } ->
       let%bind v = eval body in
-      local (Env.add var v) (eval cont)
+      local_env (Env.add var v) (eval cont)
     | EAppl { func ; arg } -> begin
       let%bind vfunc = eval func in
       let%bind varg = eval arg in
       match vfunc with
       | VId -> return varg
       | VFunClosure { param ; body } ->
-        local (fun _ -> Env.add param varg body.env) (eval body.expr)
+        local_env (fun _ -> Env.add param varg body.env) (eval body.expr)
       | _ -> type_mismatch @@ Error_msg.bad_appl vfunc varg
     end
     (* Operations -- build new expressions *)
@@ -242,8 +285,33 @@ let eval_exp
       | _ -> type_mismatch @@ Error_msg.case_non_int v
     end
     (* Inputs *)
-    | EPick_i -> modify_and_return @@ Eval_session.get_input (Stepkey.I step)
-    | EPick_b -> modify_and_return @@ Eval_session.get_input (Stepkey.B step)
+    | EPick_i ->
+      let%bind () = assert_nondeterminism in
+      modify_and_return @@ Eval_session.get_input (Stepkey.I step)
+    | EPick_b ->
+      let%bind () = assert_nondeterminism in
+      modify_and_return @@ Eval_session.get_input (Stepkey.B step)
+    (* Tables *)
+    | ETable -> return (VTable { alist = [] })
+    | ETblAppl { tbl ; gen ; arg } -> begin
+      let%bind tb = eval tbl in
+      match tb with
+      | VTable mut_r -> begin
+        let%bind v = eval arg in
+        List.find_map ~f:(fun (input, output) ->
+          if Value.equal input v
+          then Some output
+          else None
+        ) mut_r.alist
+        |> function
+          | Some output -> return output
+          | None -> 
+            let%bind new_output = with_escaped_det @@ eval gen in
+            mut_r.alist <- (v, new_output) :: mut_r.alist;
+            return new_output
+      end
+      | _ -> type_mismatch @@ Error_msg.appl_non_table tb
+    end
     (* Failure cases *)
     | EAbort msg -> abort msg
     | EDiverge -> diverge

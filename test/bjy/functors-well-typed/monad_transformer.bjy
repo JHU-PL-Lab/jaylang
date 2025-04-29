@@ -8,14 +8,14 @@
 *)
 
 let MONAD = sig
-  val m : type -> type
+  val m : type --> type
   val return : (a : type) -> a -> m a
   val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b
 end
 
 let TRANSFORMER = sig
-  val t : (type -> type) -> type -> type
-  val lift : (m : type -> type) -> (a : type) -> m a -> t m a
+  val t : (type --> type) --> type --> type
+  val lift : (m : type --> type) -> (a : type) -> m a -> t m a
 end
 
 (*

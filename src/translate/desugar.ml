@@ -84,10 +84,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       EVariant { label ; payload = desugar payload }
     | ERecord m ->
       ERecord (Map.map m ~f:desugar)
-    | ETypeFun { domain ; codomain } ->
-      ETypeFun { domain = desugar domain ; codomain = desugar codomain }
-    | ETypeDepFun { binding ; domain ; codomain } ->
-      ETypeDepFun { binding ; domain = desugar domain ; codomain = desugar codomain }
+    | ETypeFun { domain ; codomain ; det ; dep } ->
+      ETypeFun { domain = desugar domain ; codomain = desugar codomain ; det ; dep }
     | ETypeRecord m ->
       ETypeRecord (Map.map m ~f:desugar)
     | ETypeModule m ->
@@ -169,14 +167,15 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) : Desugared
       desugar @@
         let x = Names.fresh_id ~suffix:"x_match_type" () in
         let open List.Let_syntax in
-        ETypeDepFun
-          { binding = x 
-          ; domain = ETypeVariant (ls_e >>| fun (label, tau, _) -> label, tau)
+        ETypeFun
+          { domain = ETypeVariant (ls_e >>| fun (label, tau, _) -> label, tau)
           ; codomain = EMatch { subject = EVar x ; patterns = 
               ls_e >>| fun (label, _, tau') ->
                 PVariant { variant_label = VariantTypeLabel.to_variant_label label ; payload_id = Reserved.catchall }
                 , tau'
             }
+          ; dep = `Binding x
+          ; det = false
           }
     (* Functions *)
     | EMultiArgFunction { params ; body } ->

@@ -1,0 +1,14 @@
+(***
+  (
+    (features (Higher_order_functions Other))
+    (reasons (Higher_order_functions Other))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let _ : ((int -> int) --> int) -> (int -> int) -> (int -> int) -> int =
+  fun f g h ->
+    if f g == f h
+    then 0
+    else true (* to get here, we need to be able to tell g and h apart *)

@@ -60,10 +60,11 @@ rule token = parse
 | "then"               { THEN }
 | "else"               { ELSE }
 | "let"                { LET }
-| "let%bind"          { LET_BIND}
+| "let%bind"           { LET_BIND}
 | "rec"                { REC }
 | "in"                 { IN }
 | "->"                 { ARROW }
+| "-->"                { LONG_ARROW }
 | "<-"                 { BACK_ARROW }
 | "false"              { BOOL false }
 | "true"               { BOOL true }

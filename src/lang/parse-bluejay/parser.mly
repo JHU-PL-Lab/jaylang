@@ -22,6 +22,7 @@
 %token CLOSE_BRACKET
 %token EQUALS
 %token ARROW
+%token LONG_ARROW
 %token BACK_ARROW
 %token DOT
 %token COLON
@@ -93,7 +94,7 @@
 %left PLUS MINUS              /* + - */
 %left ASTERISK SLASH PERCENT  /* * / % */
 %right ASSERT ASSUME          /* Asserts, Assumes */
-%right ARROW                  /* -> for type declaration */
+%right ARROW LONG_ARROW       /* -> for type declaration, and --> for deterministic */
 %right prec_variant           /* variants, lists */
 
 %start <Bluejay.statement list> prog
@@ -179,9 +180,13 @@ type_expr:
   | MU l_ident DOT expr %prec prec_mu
       { ETypeMu { var = $2 ; body = $4 } : Bluejay.t}
   | expr ARROW expr
-      { ETypeFun { domain = $1 ; codomain = $3 } : Bluejay.t }
+      { ETypeFun { domain = $1 ; codomain = $3 ; dep = `No ; det = false } : Bluejay.t }
+  | expr LONG_ARROW expr
+      { ETypeFun { domain = $1 ; codomain = $3 ; dep = `No ; det = true } : Bluejay.t }
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN ARROW expr
-      { ETypeDepFun { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
+      { ETypeFun { domain = $4 ; codomain = $7 ; dep = `Binding $2 ; det = false } : Bluejay.t }
+  | OPEN_PAREN l_ident COLON expr CLOSE_PAREN LONG_ARROW expr
+      { ETypeFun { domain = $4 ; codomain = $7 ; dep = `Binding $2 ; det = true } : Bluejay.t }
   | PIPE separated_nonempty_list(PIPE, single_variant_type) (* pipe optional before first variant *)
       { ETypeVariant $2 : Bluejay.t }
   | separated_nonempty_list(PIPE, single_variant_type)

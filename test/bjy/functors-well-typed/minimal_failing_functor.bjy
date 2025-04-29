@@ -12,7 +12,7 @@
   S, but it doesn't, and we'd have to hoist out the type `a`.
 *)
 let S = sig
-  val t : type -> type
+  val t : type --> type
   val f : (a : type) -> a -> t a
 end
 

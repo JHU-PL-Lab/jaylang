@@ -47,6 +47,9 @@ let () =
     ; "edge-cases-ill-typed"
     ; "edge-cases-well-typed"
 
+    ; "deterministic-functions-well-typed"
+    ; "deterministic-functions-ill-typed"
+
     ; "oopsla-24-tests-ill-typed"
     ; "oopsla-24-tests-well-typed"
 
