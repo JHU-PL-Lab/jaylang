@@ -1,6 +1,6 @@
 (***
   (
-    (features (Higher_order_functions))
+    (features (Deterministic_functions Higher_order_functions))
     (speed Fast)
     (typing Well_typed)
   )

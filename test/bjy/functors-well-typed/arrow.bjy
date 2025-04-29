@@ -1,9 +1,8 @@
-(** (* note this is missing a star, so this isn't counted in tests because it is a limitation of the system, and we would want it to be well typed *)
+(***
   (
-    (features (Polymorphic_types Dependent_types Modules Parametric_types First_class_types Records Higher_order_functions Other))
-    (reasons (Other))
+    (features (Polymorphic_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions Records Higher_order_functions))
     (speed Fast)
-    (typing Ill_typed) ; only because it is a known limitation, and technically, based on the spec, this is ill-typed
+    (typing Well_typed)
   )
 *)
 
@@ -58,7 +57,7 @@ let Pair : T 2 = struct
 end
 
 let ARROW = sig
-  val t : type -> type -> type
+  val t : type --> type --> type
   val arr : (a : type) -> (b : type) -> (a -> b) -> t a b
   val fst : (a : type) -> (b : type) -> (d : type) -> t a b -> t (Pair.t a d) (Pair.t b d)
   val compose : (a : type) -> (b : type) -> (c : type) -> t b c -> t a b -> t a c

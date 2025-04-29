@@ -1,7 +1,7 @@
 (***
   (
-    (features (Higher_order_functions Usage_error))
-    (reasons (Higher_order_functions Usage_error))
+    (features (Deterministic_functions Higher_order_functions Usage_error))
+    (reasons (Deterministic_functions Higher_order_functions Usage_error))
     (speed Fast)
     (typing Ill_typed)
   )

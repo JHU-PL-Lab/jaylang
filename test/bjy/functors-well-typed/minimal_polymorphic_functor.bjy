@@ -1,0 +1,18 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules Parametric_types Deterministic_functions))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+let S = sig
+  val t : type --> type
+  val f : (a : type) -> a -> t a
+end
+
+let F (X <- S) : sig 
+  val g : (a : type) -> a -> X.t a
+end = struct
+  let g = X.f
+end

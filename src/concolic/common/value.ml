@@ -23,8 +23,8 @@ let rec equal (a : t) (b : t) : bool =
   (* Intensional equality of expressions in closures *)
   | VFunClosure r1, VFunClosure r2 ->
     equal_closure [ r1.param, r2.param ] r1.body r2.body
-    (* phys_equal r1.body.expr r2.body.expr *)
-  | VFrozen c1, VFrozen c2 -> equal_closure [] c1 c2
+  | VFrozen c1, VFrozen c2 ->
+    equal_closure [] c1 c2
   (* Physical equality of mutable values *) (* TODO: confirm this is safe *)
   | VTable r1, VTable r2 -> phys_equal r1.alist r2.alist
   (* Intensional equality *)

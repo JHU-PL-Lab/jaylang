@@ -50,6 +50,8 @@ let () =
     ; "deterministic-functions-well-typed"
     ; "deterministic-functions-ill-typed"
 
+    ; "functors-well-typed"
+
     ; "oopsla-24-tests-ill-typed"
     ; "oopsla-24-tests-well-typed"
 

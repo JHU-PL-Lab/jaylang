@@ -1,7 +1,7 @@
 (***
   (
-    (features (Higher_order_functions Return_error))
-    (reasons (Higher_order_functions Return_error))
+    (features (Deterministic_functions Higher_order_functions Return_error))
+    (reasons (Deterministic_functions Higher_order_functions Return_error))
     (speed Fast)
     (typing Ill_typed)
   )
