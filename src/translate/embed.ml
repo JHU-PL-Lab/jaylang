@@ -221,9 +221,11 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         { gen = lazy (
           let tb = Names.fresh_id ~suffix:"tb" () in
           build @@
+            let%bind nonce = capture ~suffix:"nonce" EPick_i in
             let%bind () = if det then assign tb ETable else return () in
             return @@fresh_abstraction "arg_arrow_gen" @@ fun arg ->
               build @@
+                let%bind () = ignore (EVar nonce) in
                 let%bind () = ignore (check tau1 (EVar arg)) in
                 let%bind () =
                   match dep with 
