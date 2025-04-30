@@ -106,8 +106,6 @@ module Make_datatype_builders (C : Context) = struct
   let plus = op_two_ints int_ @@ list_curry @@ Arithmetic.mk_add ctx
   let minus = op_two_ints int_ @@ list_curry @@ Arithmetic.mk_sub ctx
   let times = op_two_ints int_ @@ list_curry @@ Arithmetic.mk_mul ctx
-  let divide = op_two_ints int_ @@ Arithmetic.mk_div ctx
-  let modulus = op_two_ints int_ @@ Arithmetic.Integer.mk_mod ctx
   let less_than = op_two_ints bool_ @@ Arithmetic.mk_lt ctx
   let less_than_eq = op_two_ints bool_ @@ Arithmetic.mk_le ctx
   let eq_ints = op_two_ints bool_ @@ Boolean.mk_eq ctx
@@ -115,6 +113,24 @@ module Make_datatype_builders (C : Context) = struct
   let neq e1 e2 = not_ @@ (op_two_ints bool_ @@ Boolean.mk_eq ctx) e1 e2
   let and_ = op_two_bools bool_ @@ list_curry @@ Boolean.mk_and ctx
   let or_ = op_two_bools bool_ @@ list_curry @@ Boolean.mk_or ctx
+
+  (*
+    See the docs at `jaylang/docs/implementation/z3.md` for explanation of division and modulus.
+  *)
+  let divides a b =
+    eq_ints (box_int 0) (op_two_ints int_ (Arithmetic.Integer.mk_mod ctx) a b)
+  let divide x y = 
+    let res = Arithmetic.mk_div ctx (extract x) (extract y) in
+    int_ @@
+      Boolean.mk_ite ctx
+        (extract (or_ (divides x y) (less_than_eq (box_int 0) x)))
+        res
+        (Boolean.mk_ite ctx
+          (extract (less_than_eq (box_int 0) y))
+          (extract (plus (int_ res) (box_int 1)))
+          (extract (minus (int_ res) (box_int 1)))
+        )
+  let modulus a b = minus a (times b (divide a b))
 
   let bool_expr_list_to_expr ls = 
     Boolean.mk_and ctx

@@ -172,6 +172,17 @@ end)
   We would also like to notice when two keys must be equal, and then we
   substitute those through. This would help a lot with the formulas we
   get from deterministic functions.
+
+  Instead of substitutions, it would be a good idea to use union-find
+  to group keys and values. Some constant is always the representative if
+  it exists. Otherwise choose the smallest key. The moment there are two different 
+  constants (i.e. a conflict for representative), then we have an unsat formula.
+  We would probably like to flatten all "ands" to lists of expressions, and that
+  way we have the most simple expressions possible. We look at them for any
+  equality at the top of the formula, and add to the equivalence classes if possible.
+  Then we can substitute through with the representative. It may or may not be
+  good to substitute through because it might be slow, but it also might reveal
+  an unsat formula or constant formula.
 *)
 let is_trivial (e : bool t) : [ `Trivial of Subst.t | `Nontrivial | `Const of bool ] =
   match e with

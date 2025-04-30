@@ -1,11 +1,13 @@
 (***
   (
-    (features (Return_error))
-    (reasons (Return_error))
+    (features (Other))
+    (reasons (Other)) ; modulus semantics
     (speed Fast)
     (typing Ill_typed)
   )
 *)
 
-let f (x : int) : { i : int | i <> (0 - 2)} = 
-  x % 3
+let f (x : int) : bottom =
+  let _ = assume ((x % 3) == (0 - 2)) in
+  let _ = assume ((x % (0 - 3)) == (0 - 2)) in
+  0 (* ERROR: not bottom (obviously), and can get here if we can find x that gives negative result from mod *)
