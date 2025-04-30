@@ -11,4 +11,4 @@ let _ : ((int -> int) --> int) -> (int -> int) -> (int -> int) -> int =
   fun f g h ->
     if f g == f h
     then 0
-    else true (* to get here, we need to be able to tell g and h apart *)
+    else true (* ERROR: g and h are different so f g is not the same as f h *)

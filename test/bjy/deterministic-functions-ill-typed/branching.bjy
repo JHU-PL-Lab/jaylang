@@ -7,9 +7,6 @@
   )
 *)
 
-(*
-  This easy to solve because we use intensional equality.
-*)
 let _ : (int --> int) -> int -> int =
   fun f x ->
     if f x <> 11 then
@@ -21,4 +18,4 @@ let _ : (int --> int) -> int -> int =
     else if x <> (0 - 10) then
       9
     else 
-      not x
+      not x (* ERROR: this is reachable *)

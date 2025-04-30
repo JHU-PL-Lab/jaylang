@@ -24,4 +24,4 @@ let call_twice (f : (int --> bool) --> int) : int =
   else if f (equals 7) <> (0 - 2) then
     3
   else
-    assert false
+    assert false (* ERROR: this is reachable *)

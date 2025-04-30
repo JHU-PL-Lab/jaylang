@@ -12,4 +12,4 @@
 *)
 let _ : ((int --> int) -> int) -> (int -> int) -> int =
   fun f g ->
-    f g
+    f g (* ERROR: g is not deterministic *)
