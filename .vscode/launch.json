@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Bluejay Syntax Highlighter",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/bluejay-vscode",
+        "--disable-extensions",
+        "${workspaceFolder}/test/bjy" // Change this to get a different path
+      ]
+    }
+  ]
+}

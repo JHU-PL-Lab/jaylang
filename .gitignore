@@ -27,9 +27,6 @@ _build
 _coverage
 *.coverage
 
-# Editor related
-.vscode
-
 # Binaries
 *.exe
 /ddpa_toploop
