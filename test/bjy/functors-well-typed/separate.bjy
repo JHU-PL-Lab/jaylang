@@ -1,0 +1,70 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Modules First_class_types Variants Records Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+
+let T = sig
+  val t : type
+end
+
+(* type parameter *)
+let tp = 
+  | `TInt of unit
+  | `TBool of unit
+
+let t_int = `TInt {}
+let t_bool = `TBool {}
+
+let is_t_int a =
+  match a with
+  | `TInt _ -> true
+  | _ -> false
+  end
+
+let is_t_bool a =
+  match a with
+  | `TBool _ -> true
+  | _ -> false
+  end
+
+let Make : (X : T) -> sig
+  val x = X.t
+  val t =
+    {: a : tp 
+     ; v : 
+      | `I of { x | fun _ -> is_t_int a }
+      | `B of { x | fun _ -> is_t_bool a }
+    :} 
+
+  val int_ : X.t -> { x : t | is_t_int x.a }
+  val bool_ : X.t -> { x : t | is_t_bool x.a }
+
+  val extract : t -> x
+  val extract_list : list t -> list x
+end = fun X -> struct
+  let x = X.t
+  let t = 
+    {: a : tp 
+     ; v : 
+      | `I of { x | fun _ -> is_t_int a }
+      | `B of { x | fun _ -> is_t_bool a }
+    :} 
+
+  let int_ x = { a = t_int ; v = `I x }
+  let bool_ x = { a = t_bool ; v = `B x }
+
+  let extract x =
+    match x.v with
+    | `I y -> y
+    | `B y -> y
+    end
+
+  let rec extract_list ls =
+    match ls with
+    | [] -> []
+    | hd :: tl -> extract hd :: extract_list tl
+    end
+end

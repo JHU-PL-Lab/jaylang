@@ -1,0 +1,52 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules Parametric_types Deterministic_functions Variants))
+    (reasons (Modules Variants))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let S = sig
+  val x : type --> type
+  val t =
+    | `I of x int
+    | `B of x bool
+  val compare : t -> t -> int
+end
+
+(*
+  We don't have destructive substitution like we might write in OCaml:
+    ... -> S with type 'a x := 'a X.t
+  so I just leave it unconstrained. We do have singlet, but it doesn't work
+  with higher kinded types like `X.t`.
+*)
+let Make : (X : sig val t : type --> type val compare : (a : type) -> t a -> t a -> int end) -> S =
+  fun X -> struct
+    let x = X.t
+
+    (* 
+      ERROR: didn't apply int here, or bool in the second case.
+      This is more like "separate" than "pack", but it still doesn't make sense.
+
+      A similar error is to accidentally use `singlet (X.t int)` (in both S and here),
+      and leave `compare` unchanged. That would just be on the wrong level of types.
+    *)
+    let t = 
+      | `I of X.t
+      | `B of X.t
+
+    let compare a b =
+      match a with
+      | `I axi ->
+        match b with
+        | `I bxi -> X.compare int axi bxi
+        | `B _ -> 0 - 1 
+        end
+      | `B axb ->
+        match b with
+        | `I bxi -> 1
+        | `B bxb -> X.compare bool axb bxb
+        end
+      end
+  end
