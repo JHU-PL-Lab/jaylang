@@ -1,0 +1,14 @@
+(***
+  (
+    (features (Dependent_types Modules Parametric_types First_class_types Higher_order_functions))
+    (reasons (First_class_types Higher_order_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+(* ERROR: S.t is a function, not a type, so singlet does not work on it *)
+let F : (S : sig val t : type -> type end) -> (sig val t : singlet S.t end) =
+  fun S -> struct
+    let t = S.t
+  end

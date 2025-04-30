@@ -1,8 +1,9 @@
 (***
   (
     (features (Polymorphic_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions Records Higher_order_functions))
-    (speed Slow)
-    (typing Well_typed)
+    (reasons (Polymorphic_types Parametric_types Higher_order_functions))
+    (speed Fast)
+    (typing Ill_typed)
   )
 *)
 
@@ -36,9 +37,6 @@
     end
 
   We would like to be able to type this. If I haven't make any mistakes, the code below should be well-typed.
-
-  We actually are able to prove this is well-typed by searching 150 branches deep, and we exhaust the path tree.
-  I think that some better expression simplification can make this a lot better.
 *)
 
 let T n = sig
@@ -79,6 +77,6 @@ let Make_split : (A : ARROW) ->
             let ac_cb = A.compose (Pair.t a c) (Pair.t b c) (Pair.t c b) (arr_swap b c) ac_bc in
             let cb_db = A.fst c d b cd in
             let ac_db = A.compose (Pair.t a c) (Pair.t c b) (Pair.t d b) cb_db ac_cb in
-            let ac_bd = A.compose (Pair.t a c) (Pair.t d b) (Pair.t b d) (arr_swap d b) ac_db in
+            let ac_bd = A.compose (Pair.t a c) (Pair.t d b) (Pair.t b d) (arr_swap b d) ac_db in (* ERROR: arr_swap b d should be arr_swap d b *)
             ac_bd
     }
