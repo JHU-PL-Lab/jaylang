@@ -1,7 +1,7 @@
 (***
   (
     (features (Polymorphic_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions Higher_order_functions))
-    (speed Slow)
+    (speed Fast)
     (typing Well_typed)
   )
 *)
@@ -16,6 +16,17 @@ end = fun X -> struct
 end
 
 (*
+  Even though singlet checks for equality, let's check one more time
+*)
+let _ =
+  let X = struct let t a = { a : a } end in
+  let M = F X in
+  let f (type a) (x : X.t a) : M.t a =
+    x
+  in
+  f
+
+(*
   This is saying that Y.t = X.t, and we check that it is still type --> type.
 *)
 let F : (X : sig val t : type --> type end) -> (Y : sig val t : (a : type) -> singlet (X.t a) end) -> sig
@@ -23,3 +34,15 @@ let F : (X : sig val t : type --> type end) -> (Y : sig val t : (a : type) -> si
 end = fun X Y -> struct
   let t = Y.t
 end
+
+(*
+  ..
+*)
+let _ =
+  let X = struct let t a = `A of a end in
+  let Y = X in
+  let M = F X Y in
+  let f (type a) (x : X.t a) (y : Y.t a) : { x : M.t a ; y : M.t a } =
+    { x = x ; y = y }
+  in
+  f
