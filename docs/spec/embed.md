@@ -53,12 +53,16 @@ Note that `det` forces any execution inside of it to not use any nondeterminism,
 
 `tbl_appl` uses the table to lookup up the associated value, and the table is mutated to map to a new generated value if the key didn't exist.
 
+Nonces are used to differentiate generated functions.
+
 #### Basic function type
 
 ```ocaml
 [[tau1 -> tau2]] =
   { ~gen = freeze @@
+    let $nonce = pick_i in
     fun $arg -> 
+      let _ = $nonce in
       let _ = [[tau1]].~check $arg in
       thaw [[tau2]].~gen
   ; ~check = fun $e ->
@@ -75,8 +79,10 @@ Note that `det` forces any execution inside of it to not use any nondeterminism,
 ```ocaml
 [[tau1 --> tau2]] =
   { ~gen = freeze @@ 
+    let $nonce = pick_i in
     let $tb = table in
     fun $arg ->
+      let _ = $nonce in
       let _ = [[tau1]].check $arg in
       tbl_appl($tb, thaw [[tau2]].~gen, $arg)
   ; ~check = fun $e ->
@@ -96,7 +102,9 @@ Notes:
 ```ocaml
 [[(x : tau_1) -> tau_2]] =
   { ~gen = freeze @@
+    let $nonce = pick_i in
     fun $arg -> 
+      let _ = $nonce in
       let _ = [[tau1]].check $arg in
       let x = $arg in
       thaw [[tau_2]].~gen
@@ -116,8 +124,10 @@ Notes:
 ```ocaml
 [[(x : tau_1) -> tau_2]] =
   { ~gen = freeze @@
+    let $nonce = pick_i in
     let $tb = table in
     fun $arg -> 
+      let _ = $nonce in
       let _ = [[tau1]].check $arg in
       let x = $arg in
       tbl_appl($tb, thaw [[tau_2]].~gen, x)
