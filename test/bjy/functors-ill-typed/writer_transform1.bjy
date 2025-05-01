@@ -1,0 +1,69 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions Records Higher_order_functions))
+    (reasons (Modules First_class_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let MONOID = sig
+  val t : type
+  val neutral : t
+  val combine : t -> t -> t
+end
+
+let MONAD = sig
+  val m : type --> type
+  val return : (a : type) -> a -> m a
+  val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b
+end
+
+let Derive_map (M <- MONAD) : sig
+  val map : (a : type) -> (b : type) -> M.m a -> (a -> b) -> M.m b
+end = struct
+  let map a b x f = 
+    M.bind a b x (fun a -> M.return b (f a))
+end
+
+let Make : (Monad : MONAD) -> (Tape : MONOID) -> sig
+  val tape = Tape.t
+
+  val with_tape : (a : type) -> singlet { a : a ; tape : tape }
+
+  (* ERROR: needs singlet around (Monad.m a) *)
+  val monad : (a : type) -> Monad.m a
+
+  (* ERROR: same here *)
+  val t : (a : type) -> monad (with_tape a)
+
+  val run : (a : type) -> t a -> monad (with_tape a)
+
+  val upper : (a : type) -> monad a -> t a
+
+  val tell : tape -> t unit
+
+  val listen : (a : type) -> t a -> t (with_tape a)
+end = fun Monad Tape -> struct
+  let map = (Derive_map Monad).map
+
+  let tape = Tape.t
+  let monad a = Monad.m a
+  let with_tape a = { a : a ; tape : tape }
+  let t a = Monad.m { a : a ; tape : tape }
+
+  let run a a_m =
+    a_m
+
+  let upper a a_m =
+    map a (with_tape a) a_m (fun a -> { a = a ; tape = Tape.neutral })
+
+  let tell tape = 
+    Monad.return (with_tape unit) { a = {} ; tape = tape }
+
+  let listen a a_t =
+    map (with_tape a) (with_tape (with_tape a)) a_t (fun r ->
+      { a = { a = r.a ; tape = r.tape } ; tape = r.tape }      
+    )
+end
+

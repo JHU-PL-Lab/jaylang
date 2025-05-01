@@ -1,0 +1,25 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+
+(*
+  Here is how we assert that X.t is the returned t
+*)
+let F : (X : sig val t : type --> type end) -> sig
+  val t : (a : type) -> singlet (X.t a)
+end = fun X -> struct
+  let t = X.t
+end
+
+(*
+  This is saying that Y.t = X.t, and we check that it is still type --> type.
+*)
+let F : (X : sig val t : type --> type end) -> (Y : sig val t : (a : type) -> singlet (X.t a) end) -> sig
+  val t : type --> type
+end = fun X Y -> struct
+  let t = Y.t
+end

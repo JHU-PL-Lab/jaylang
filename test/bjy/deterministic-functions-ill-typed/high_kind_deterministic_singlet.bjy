@@ -1,0 +1,17 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions Higher_order_functions))
+    (reasons (Polymorphic_types First_class_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+(*
+  ERROR: dropped the `singlet` around (X.t a)
+*)
+let F : (X : sig val t : type --> type end) -> (Y : sig val t : (a : type) -> X.t a end) -> sig
+  val t : type --> type
+end = fun X Y -> struct
+  let t = Y.t
+end
