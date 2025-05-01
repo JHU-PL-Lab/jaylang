@@ -6,6 +6,10 @@
   )
 *)
 
+(*
+  This test is inspired by the Preface library.
+*)
+
 let MONOID = sig
   val t : type
   val neutral : t
