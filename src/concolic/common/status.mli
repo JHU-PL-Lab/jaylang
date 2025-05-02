@@ -32,6 +32,7 @@ type _ t =
   (* result from entire concolic evaluation *)
   | Exhausted_full_tree : 'a terminal t
   | Exhausted_pruned_tree : 'a terminal t
+  | Unknown : 'a terminal t (* unknown due to solver timeout, but otherwise no error found, and a best attempt was made *)
   | Timeout : 'a terminal t
 
   (* result from a single run *)

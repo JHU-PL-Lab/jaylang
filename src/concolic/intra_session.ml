@@ -4,16 +4,18 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
   module TQ = Target_queue.All
 
   type t =
-    { target_queue : TQ.t
-    ; run_num      : int
-    ; status       : Status.In_progress.t
-    ; has_pruned   : bool }
+    { target_queue       : TQ.t
+    ; run_num            : int
+    ; status             : Status.In_progress.t
+    ; has_pruned         : bool
+    ; has_solver_unknown : bool }
 
   let empty : t =
-    { target_queue = Options.Arrow.appl TQ.of_options O.r ()
-    ; run_num      = 1
-    ; status       = In_progress
-    ; has_pruned   = false }
+    { target_queue       = Options.Arrow.appl TQ.of_options O.r ()
+    ; run_num            = 1
+    ; status             = In_progress
+    ; has_pruned         = false
+    ; has_solver_unknown = false }
 
   let accum_eval (x : t) (ev : Status.Eval.t) : t =
     ev
@@ -33,21 +35,25 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
     match x.status with
     | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as res -> res
     | Diverge | In_progress -> (* This here is a little sloppy. Diverge is an artifact from eval session *)
-      if x.has_pruned
-      then Exhausted_pruned_tree
-      else Exhausted_full_tree
+      if x.has_solver_unknown then
+        Unknown
+      else if x.has_pruned then
+        Exhausted_pruned_tree
+      else
+        Exhausted_full_tree
 
-  let rec get_sat_target (target_queue : TQ.t) : (TQ.t * Target.t * Input_feeder.t) option P.t =
+  let rec get_sat_target (x : t) : (t * Target.t * Input_feeder.t) option P.t =
     let open P in
     let* () = pause () in
-    match TQ.peek target_queue with
+    match TQ.peek x.target_queue with
     | None -> return None
     | Some target ->
       let exprs = Target.to_expressions target in
-      let tq = TQ.remove target_queue target in
+      let new_x = { x with target_queue = TQ.remove x.target_queue target } in
       match S.solve exprs with
-      | `Sat feeder -> P.return @@ Option.return (tq, target, feeder)
-      | `Unsat -> get_sat_target tq
+      | `Sat feeder -> P.return @@ Option.return (new_x, target, feeder)
+      | `Unknown -> get_sat_target { new_x with has_solver_unknown = true }
+      | `Unsat -> get_sat_target new_x
 
   let[@landmark] next (x : t) : [ `Done of Status.Terminal.t | `Next of (t * Eval_session.t) ] P.t =
     let open P in
@@ -56,12 +62,12 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
       @@ `Done (finish_status x)
     in
     if Status.is_terminal x.status then done_ () else
-    let* res = get_sat_target x.target_queue in
+    let* res = get_sat_target x in
     match res with
-    | Some (target_queue, target, input_feeder) ->
+    | Some (new_x, target, input_feeder) ->
       return
       @@ `Next ( 
-        { x with target_queue ; run_num = x.run_num + 1 }
+        { new_x with run_num = x.run_num + 1 }
         , Eval_session.make target input_feeder
           |> Options.Arrow.appl Eval_session.with_options O.r
       )

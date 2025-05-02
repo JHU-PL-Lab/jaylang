@@ -37,6 +37,7 @@ module Compute (O : Options.V) = struct
           | _, Found_abort _ | _, Type_mismatch _ | _, Unbound_variable _ -> b
           (* none say to quit, so keep the message that says we know the LEAST *)
           | Timeout, _ | _, Timeout -> Timeout
+          | Unknown, _ | _, Unknown -> Unknown
           | Exhausted_pruned_tree, _ | _, Exhausted_pruned_tree -> Exhausted_pruned_tree
           | Exhausted_full_tree, Exhausted_full_tree -> Exhausted_full_tree
     end)

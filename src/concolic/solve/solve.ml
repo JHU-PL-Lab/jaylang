@@ -4,7 +4,7 @@ open Core
 module type S = sig
   include Z3_api.S
 
-  val solve : bool Expression.t list -> [ `Sat of Input_feeder.t | `Unsat ]
+  val solve : bool Expression.t list -> [ `Sat of Input_feeder.t | `Unsat | `Unknown ]
   (** [solve] overwrites the [Z3_api.solve] function. *)
 end
 
@@ -33,7 +33,7 @@ module Make () = struct
         |> Sudu.solve (* the simplifications weren't enough, so need to actually call the solver *)
         |> function
           | Sudu.Solve_status.Unsat -> `Unsat
-          | Unknown -> failwith "unimplemented solver timeout" (* would want to convey that the search wasn't complete, but this doesn't practically happen *)
+          | Unknown -> `Unknown
           | Sat model -> `Sat (Feeder.from_model_and_subs model subs)
 end
 
