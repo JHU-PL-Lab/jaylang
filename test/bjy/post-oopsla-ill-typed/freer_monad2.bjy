@@ -1,0 +1,65 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Mu_types Parametric_types First_class_types Deterministic_functions Variants Records Recursive_functions Higher_order_functions)) ; not really mu types. Recursive type functions, though
+    (reasons (Polymorphic_types Dependent_types First_class_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+(*
+  We have no need for a functor here because we have higher order type parameters.
+  In OCaml for a freer monad, we'd have to use a functor and pass in `f` inside a module.
+
+  This test is inspired by the Preface library.
+*)
+
+let ty n =
+  let rec loop i =
+    if i <= 0
+    then type
+    else type --> loop (i - 1)
+  in
+  loop n
+
+let ty1 = ty 1
+
+(*
+  We don't have recursive deterministic function types.
+  So just define the recursive type, and then check it's type later.
+*)
+let rec t f a =
+  | `Return of a
+  | `Bind of {: b : type ; intermediate : f b ; cont : b -> t f a :}
+
+let _ : ty1 --> type --> type = t
+
+let r_with_cont r k =
+  { b = r.b ; intermediate = r.intermediate ; cont = k }
+
+let perform 
+  : (a : type) -> (f : ty1) -> f a -> t f a
+  = fun a f fa ->
+  `Bind { b = a ; intermediate = fa ; cont = fun a -> `Return a }
+
+let handler 
+  : ty1 --> type
+  = fun f ->
+    (a : type) -> (b : type) -> (a -> b) -> f a -> b
+
+let run
+  : (a : type) -> (f : ty1) -> handler f -> t f a -> a
+  = fun a f h ->
+  let rec loop x =
+    match x with
+    | `Return a -> a
+    | `Bind r -> h r.b a (fun x -> loop (r.cont x)) r.intermediate
+    end
+  in
+  loop
+
+let rec bind (a <- type) (b <- type) (f <- ty1) (tfa : t f a) (h : a -> t f b) : t f b =
+  match tfa with
+  | `Return a -> h a
+  | `Bind r -> `Bind (r_with_cont r (fun x -> bind a r.b f (r.cont x) h)) (* ERROR: r.b should just be b. Easy mistake to make. I made it *)
+  end
