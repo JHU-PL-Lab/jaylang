@@ -105,22 +105,6 @@ let not_ (x : bool t) : bool t =
   | Not e -> e (* cancel a double negation *)
   | _ -> Not x
 
-let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t) : b t =
-  match left, right, binop with
-  | e, Const B b, And -> if b then e else Const (B false)
-  | Const B b, e, And -> if b then e else Const (B false) (* combining with above doesn't typecheck, annoyingly *)
-  | Const B b, e, Or -> if b then Const (B true) else e
-  | e, Const B b, Or -> if b then Const (B true) else e (* .. *)
-  | Const cx, Const cy, _ -> Const (Typed_binop.to_arithmetic binop cx cy)
-  | Key k1, Key k2, Equal_bool when Stepkey.equal k1 k2 -> Const (B true)
-  | Key k1, Key k2, Equal_int when Stepkey.equal k1 k2 -> Const (B true)
-  | Key k1, Key k2, Not_equal when Stepkey.equal k1 k2 -> Const (B false)
-  | Key k, Const B true, Equal_bool -> Key k
-  | Const B true, Key k, Equal_bool -> Key k
-  | Key k, Const B false, Equal_bool -> not_ (Key k)
-  | Const B false, Key k, Equal_bool -> not_ (Key k)
-  | _ -> Binop (binop, left, right)
-
 let rec equal : type a. a t -> a t -> bool =
   fun x y ->
     match x, y with
@@ -146,6 +130,24 @@ let rec equal : type a. a t -> a t -> bool =
       | _ -> false
     end
     | _ -> false
+
+let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t) : b t =
+  match left, right, binop with
+  | e, Const B b, And -> if b then e else Const (B false)
+  | Const B b, e, And -> if b then e else Const (B false) (* combining with above doesn't typecheck, annoyingly *)
+  | e, e', And when equal e (Not e') -> Const (B false)
+  | e, e', And when equal e e' -> e
+  | Const B b, e, Or -> if b then Const (B true) else e
+  | e, Const B b, Or -> if b then Const (B true) else e (* .. *)
+  | Const cx, Const cy, _ -> Const (Typed_binop.to_arithmetic binop cx cy)
+  | Key k1, Key k2, Equal_bool when Stepkey.equal k1 k2 -> Const (B true)
+  | Key k1, Key k2, Equal_int when Stepkey.equal k1 k2 -> Const (B true)
+  | Key k1, Key k2, Not_equal when Stepkey.equal k1 k2 -> Const (B false)
+  | Key k, Const B true, Equal_bool -> Key k
+  | Const B true, Key k, Equal_bool -> Key k
+  | Key k, Const B false, Equal_bool -> not_ (Key k)
+  | Const B false, Key k, Equal_bool -> not_ (Key k)
+  | _ -> Binop (binop, left, right)
 
 let rec subst : type a b. a t -> b Stepkey.t -> b Const.t -> a t =
   fun e k c ->

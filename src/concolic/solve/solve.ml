@@ -18,16 +18,16 @@ module Make () = struct
 
   (* When solving, try simplifications and substitutions first *)
   let solve exprs =
-    let e = List.last_exn exprs |> Expression.not_ in (* get the constraint associated with the target *)
-    if List.exists exprs ~f:(fun e' -> Expression.equal e e') (* check if this constraint is the exact negation of another constraint along the path *)
-    then `Unsat
-    else
-      let subs, new_exprs = Expression.simplify exprs in
-      match new_exprs with
-      | [] -> `Sat (Feeder.from_model_and_subs Sudu.empty_model subs)
-      | [ e ] when Expression.equal e Expression.true_ -> `Sat (Feeder.from_model_and_subs Sudu.empty_model subs)
-      | [ e ] when Expression.equal e Expression.false_ -> `Unsat
-      | _ ->
+    let subs, new_exprs = Expression.simplify exprs in
+    match new_exprs with
+    | [] -> `Sat (Feeder.from_model_and_subs Sudu.empty_model subs)
+    | [ e ] when Expression.equal e Expression.true_ -> `Sat (Feeder.from_model_and_subs Sudu.empty_model subs)
+    | [ e ] when Expression.equal e Expression.false_ -> `Unsat
+    | _ ->
+      let not_e = List.last_exn new_exprs |> Expression.not_ in (* get the constraint associated with the target *)
+      if List.exists new_exprs ~f:(fun e' -> Expression.equal not_e e') (* check if this constraint is the exact negation of another constraint along the path *)
+      then `Unsat
+      else
         new_exprs
         |> List.map ~f:E.to_formula
         |> Sudu.solve (* the simplifications weren't enough, so need to actually call the solver *)
