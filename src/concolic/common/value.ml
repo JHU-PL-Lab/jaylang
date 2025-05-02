@@ -75,10 +75,14 @@ let rec equal (a : t) (b : t) : bool X.t =
     equal_closure [ r1.param, r2.param ] r1.body r2.body
   | VFrozen c1, VFrozen c2 -> 
     equal_closure [] c1 c2
-  (* Physical equality of mutable values *) (* TODO: confirm this is safe *)
   | VTable r1, VTable r2 -> 
-    let%bind () = assert_bool @@ phys_equal r1.alist r2.alist in
-    return true
+    let%bind b = eq_list (fun (k1, v1) (k2, v2) ->
+      let%bind b1 = equal k1 k2 in
+      let%bind b2 = equal v1 v2 in
+      return (b1 && b2)
+      ) r1.alist r2.alist
+    in
+    return b
   (* Intensional equality *)
   | VUnboundVariable id1, VUnboundVariable id2 ->
     let%bind () = assert_bool @@ Lang.Ast.Ident.equal id1 id2 in
@@ -201,7 +205,7 @@ and equal_closure bindings a b =
     | EFreeze e1, EFreeze e2
     | EThaw e1, EThaw e2
     | EDet e1, EDet e2
-    | EEscapeDet e1, EEscapeDet e2 (* TODO: would want to modify env for this *)
+    | EEscapeDet e1, EEscapeDet e2
     | ENot e1, ENot e2 -> eq e1 e2
     (* Intensional equality *)
     | ETable, ETable
