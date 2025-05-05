@@ -171,90 +171,96 @@ module Callsight = struct
 end
 
 module Expr = struct
-  type _ t =
-    (* all languages. 'a is unconstrained *)
-    | EInt : int -> 'a t
-    | EBool : bool -> 'a t
-    | EVar : Ident.t -> 'a t
-    | EBinop : { left : 'a t ; binop : Binop.t ; right : 'a t } -> 'a t
-    | EIf : { cond : 'a t ; true_body : 'a t ; false_body : 'a t } -> 'a t
-    | ELet : { var : Ident.t ; body : 'a t ; cont : 'a t } -> 'a t
-    | EAppl : { func : 'a t ; arg : 'a t } -> 'a t
-    | EMatch : { subject : 'a t ; patterns : ('a Pattern.t * 'a t) list } -> 'a t
-    | EProject : { record : 'a t ; label : RecordLabel.t } -> 'a t
-    | ERecord : 'a t RecordLabel.Map.t -> 'a t
-    | ENot : 'a t -> 'a t 
-    | EPick_i : 'a t (* is parsed as "input", but we can immediately make it pick_i *)
-    | EFunction : { param : Ident.t ; body : 'a t } -> 'a t (* note bluejay also has multi-arg function, which generalizes this *)
-    | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
-    (* embedded only, so constrain 'a to only be `Embedded *)
-    | EPick_b : 'a embedded_only t
-    | ECase : { subject : 'a t ; cases : (int * 'a t) list ; default : 'a t } -> 'a embedded_only t (* simply sugar for nested conditionals *)
-    | EFreeze : 'a t -> 'a embedded_only t
-    | EThaw : 'a t -> 'a embedded_only t 
-    | EId : 'a embedded_only t
-    | EIgnore : { ignored : 'a t ; cont : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in cont` but is more efficient *)
-    | ETable : 'a embedded_only t
-    | ETblAppl : { tbl : 'a t ; gen : 'a t ; arg : 'a t } -> 'a embedded_only t
-    | EDet : 'a t -> 'a embedded_only t
-    | EEscapeDet : 'a t -> 'a embedded_only t
-    (* these exist in the desugared and embedded languages *)
-    | EAbort : string -> 'a desugared_or_embedded t (* string is error message *)
-    | EDiverge : 'a desugared_or_embedded t
-    (* these exist in the bluejay and desugared languages *)
-    | EType : 'a bluejay_or_desugared t
-    | ETypeInt : 'a bluejay_or_desugared t
-    | ETypeBool : 'a bluejay_or_desugared t
-    | ETypeTop : 'a bluejay_or_desugared t
-    | ETypeBottom : 'a bluejay_or_desugared t
-    | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
-    | ETypeModule : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
-    | ETypeFun : { domain : 'a t ; codomain : 'a t ; dep : [ `No | `Binding of Ident.t ] ; det : bool } -> 'a bluejay_or_desugared t
-    (* | ETypeDepFun : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t *)
-    | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
-    | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
-    | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
-    | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
-    | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
-    (* bluejay only *)
-    | ETypeList : 'a t -> 'a bluejay_only t
-    | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
-    | EList : 'a t list -> 'a bluejay_only t
-    | EListCons : 'a t * 'a t -> 'a bluejay_only t
-    | EModule : 'a statement list -> 'a bluejay_only t
-    | EAssert : 'a t -> 'a bluejay_only t
-    | EAssume : 'a t -> 'a bluejay_only t
-    | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_only t
-    | ELetFun : { func : 'a funsig ; cont : 'a t } -> 'a bluejay_only t
-    | ELetFunRec : { funcs : 'a funsig list ; cont : 'a t } -> 'a bluejay_only t
+  module Make (ApplRecord : T1) = struct
+    type _ t =
+      (* all languages. 'a is unconstrained *)
+      | EInt : int -> 'a t
+      | EBool : bool -> 'a t
+      | EVar : Ident.t -> 'a t
+      | EBinop : { left : 'a t ; binop : Binop.t ; right : 'a t } -> 'a t
+      | EIf : { cond : 'a t ; true_body : 'a t ; false_body : 'a t } -> 'a t
+      | ELet : { var : Ident.t ; body : 'a t ; cont : 'a t } -> 'a t
+      | EAppl : 'a t ApplRecord.t -> 'a t
+      | EMatch : { subject : 'a t ; patterns : ('a Pattern.t * 'a t) list } -> 'a t
+      | EProject : { record : 'a t ; label : RecordLabel.t } -> 'a t
+      | ERecord : 'a t RecordLabel.Map.t -> 'a t
+      | ENot : 'a t -> 'a t 
+      | EPick_i : 'a t (* is parsed as "input", but we can immediately make it pick_i *)
+      | EFunction : { param : Ident.t ; body : 'a t } -> 'a t (* note bluejay also has multi-arg function, which generalizes this *)
+      | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
+      (* embedded only, so constrain 'a to only be `Embedded *)
+      | EPick_b : 'a embedded_only t
+      | ECase : { subject : 'a t ; cases : (int * 'a t) list ; default : 'a t } -> 'a embedded_only t (* simply sugar for nested conditionals *)
+      | EFreeze : 'a t -> 'a embedded_only t
+      | EThaw : 'a t -> 'a embedded_only t 
+      | EId : 'a embedded_only t
+      | EIgnore : { ignored : 'a t ; cont : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in cont` but is more efficient *)
+      | ETable : 'a embedded_only t
+      | ETblAppl : { tbl : 'a t ; gen : 'a t ; arg : 'a t } -> 'a embedded_only t
+      | EDet : 'a t -> 'a embedded_only t
+      | EEscapeDet : 'a t -> 'a embedded_only t
+      (* these exist in the desugared and embedded languages *)
+      | EAbort : string -> 'a desugared_or_embedded t (* string is error message *)
+      | EDiverge : 'a desugared_or_embedded t
+      (* these exist in the bluejay and desugared languages *)
+      | EType : 'a bluejay_or_desugared t
+      | ETypeInt : 'a bluejay_or_desugared t
+      | ETypeBool : 'a bluejay_or_desugared t
+      | ETypeTop : 'a bluejay_or_desugared t
+      | ETypeBottom : 'a bluejay_or_desugared t
+      | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
+      | ETypeModule : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
+      | ETypeFun : { domain : 'a t ; codomain : 'a t ; dep : [ `No | `Binding of Ident.t ] ; det : bool } -> 'a bluejay_or_desugared t
+      (* | ETypeDepFun : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t *)
+      | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
+      | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
+      | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
+      | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
+      | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
+      (* bluejay only *)
+      | ETypeList : 'a t -> 'a bluejay_only t
+      | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
+      | EList : 'a t list -> 'a bluejay_only t
+      | EListCons : 'a t * 'a t -> 'a bluejay_only t
+      | EModule : 'a statement list -> 'a bluejay_only t
+      | EAssert : 'a t -> 'a bluejay_only t
+      | EAssume : 'a t -> 'a bluejay_only t
+      | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_only t
+      | ELetFun : { func : 'a funsig ; cont : 'a t } -> 'a bluejay_only t
+      | ELetFunRec : { funcs : 'a funsig list ; cont : 'a t } -> 'a bluejay_only t
 
-  (* the let-function signatures *)
-  and _ funsig =
-    | FUntyped : { func_id : Ident.t ; params : Ident.t list ; body : 'a t } -> 'a funsig
-    | FTyped : ('a, 'a param list) typed_fun -> 'a funsig
+    (* the let-function signatures *)
+    and _ funsig =
+      | FUntyped : { func_id : Ident.t ; params : Ident.t list ; body : 'a t } -> 'a funsig
+      | FTyped : ('a, 'a param list) typed_fun -> 'a funsig
 
-  (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
-  and ('a, 'p) typed_fun = { type_vars : Ident.t list ; func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
+    (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
+    and ('a, 'p) typed_fun = { type_vars : Ident.t list ; func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
 
-  (* a variable with its type, where the type is an expression *)
-  and 'a typed_var = { var : Ident.t ; tau : 'a t }
+    (* a variable with its type, where the type is an expression *)
+    and 'a typed_var = { var : Ident.t ; tau : 'a t }
 
-  (* function parameters for use in funsigs *)
-  and _ param =
-    | TVar : 'a typed_var -> 'a bluejay_only param
-    | TVarDep : 'a typed_var -> 'a bluejay_only param
+    (* function parameters for use in funsigs *)
+    and _ param =
+      | TVar : 'a typed_var -> 'a bluejay_only param
+      | TVarDep : 'a typed_var -> 'a bluejay_only param
 
-  (* Bluejay and desugared have typed let-expressions *)
-  and 'a let_typed = { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } constraint 'a = 'a bluejay_or_desugared
+    (* Bluejay and desugared have typed let-expressions *)
+    and 'a let_typed = { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } constraint 'a = 'a bluejay_or_desugared
 
-  and _ statement =
-    (* all *)
-    | SUntyped : { var : Ident.t ; body : 'a t } -> 'a statement
-    (* bluejay or desugared *)
-    | STyped : { typed_var : 'a typed_var ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared statement
-    (* bluejay only *)
-    | SFun : 'a funsig -> 'a bluejay_only statement
-    | SFunRec : 'a funsig list -> 'a bluejay_only statement
+    and _ statement =
+      (* all *)
+      | SUntyped : { var : Ident.t ; body : 'a t } -> 'a statement
+      (* bluejay or desugared *)
+      | STyped : { typed_var : 'a typed_var ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared statement
+      (* bluejay only *)
+      | SFun : 'a funsig -> 'a bluejay_only statement
+      | SFunRec : 'a funsig list -> 'a bluejay_only statement
+  end
+
+  module Application = struct type 'a t = { func : 'a ; arg : 'a } end
+  module Made = Make (Application)
+  include Made
 end
 
 module Program = struct
@@ -269,6 +275,13 @@ module Embedded = struct
   type pattern = embedded Pattern.t
   type statement = embedded Expr.statement
 
+  module With_callsights = struct
+    module E = struct
+      module Application = struct type 'a t = { func : 'a ; arg : 'a ; callsight : Callsight.t } end
+      module T = Expr.Make (Application)
+      type t = embedded T.t
+    end
+
   (*
     The idea is that we rename each variable to something brand new and then
     substitute that into each subexpression.
@@ -282,7 +295,7 @@ module Embedded = struct
     I had a little bit of fun with monad transformers and state/reader to write
     this, but it was too impractical given that OCaml has effects.
   *)
-  let alphatize (e : t) : t =
+  let alphatized_of_expr (e : t) : E.t =
     (* order does not matter when alphatizing because we don't care about names, so mindless mutation is okay *)
     let new_name = 
       let i = ref 0 in
@@ -294,27 +307,35 @@ module Embedded = struct
       let id' = new_name () in
       id', Map.set env ~key ~data:id'
     in
-    let rec visit (e : t) (env : Ident.t Ident.Map.t) : t =
+    let rec visit (e : t) (env : Ident.t Ident.Map.t) : E.t =
       match e with
-      (* leaves *)
-      | EInt _ | EBool _ | EPick_i | EPick_b | EId | ETable | EAbort _ | EDiverge -> e
+      (* leaves -- these need to be recreated because we don't share constructors *)
+      | EInt i -> EInt i
+      | EBool b -> EBool b
+      | EPick_i -> EPick_i
+      | EPick_b -> EPick_b
+      | EId -> EId
+      | ETable -> ETable
+      | EAbort msg -> EAbort msg
+      | EDiverge -> EDiverge
       (* replacement *)
       | EVar id -> begin
         match Map.find env id with
         | Some id' -> EVar id'
         | None -> EVar (new_name ()) (* unbound variable. We promise to not fail but give a new name instead *)
       end
-      (* binding *)
+      (* binding a new name *)
       | ELet { var ; body ; cont } ->
         let id', env' = replace var env in
         ELet { var = id' ; body = visit body env ; cont = visit cont env' }
       | EFunction { param ; body } ->
         let id', env' = replace param env in
         EFunction { param = id' ; body = visit body env' }
+      (* naming the callsight *)
+      | EAppl { func ; arg } -> EAppl { func = visit func env ; arg = visit arg env ; callsight = Callsight.next () }
       (* propagation *)
       | EBinop { left ; binop ; right } -> EBinop { left = visit left env ; binop ; right = visit right env }
       | EIf { cond ; true_body ; false_body } -> EIf { cond = visit cond env ; true_body = visit true_body env ; false_body = visit false_body env }
-      | EAppl { func ; arg } -> EAppl { func = visit func env ; arg = visit arg env }
       | EMatch { subject ; patterns } ->
         EMatch { subject = visit subject env ; patterns =
           List.map patterns ~f:(fun (pat, expr) ->
@@ -342,80 +363,11 @@ module Embedded = struct
       | ETblAppl { tbl ; gen ; arg } -> ETblAppl { tbl = visit tbl env ; gen = visit gen env ; arg = visit arg env }
       | EDet expr -> EDet (visit expr env)
       | EEscapeDet expr -> EEscapeDet (visit expr env)
-
-    (* let module S = Preface.State.Over (Int) in (* counter for alphatized variables *)
-    let module M = Preface.Make.Reader.Over_monad (S) (struct type t = Ident.t Ident.Map.t end) in
-    let[@inline always] bind x f = M.bind f x in (* our ppx uses the other order *)
-    let return = M.return in
-    let next_name = M.upper (S.state (fun i ->
-      Ident.Ident (Format.sprintf "$%d" i), (i + 1)
-      ))
-    in
-    let replace id =
-      let%bind env = M.ask in
-      let%bind id' = 
-        match Map.find env id with
-        | Some id' -> return id'
-        | None -> next_name
-      in
-      return @@ Expr.EVar id'
-    in
-    let rec visit (e : t) : t M.t =
-      let open Expr in
-      match e with
-      (* leaves *)
-      | EInt _ | EBool _ | EPick_i | EPick_b | EId | ETable | EAbort _ | EDiverge -> return e
-      (* replacement *)
-      | EVar id -> replace id
-      (* binding *)
-      | ELet { var ; body ; cont } ->
-        let%bind id' = next_name in
-        let%bind body' = visit body in
-        M.local (fun env -> Map.set env ~key:var ~data:id') (
-          let%bind cont' = visit cont in
-          return @@ ELet { var = id' ; body = body' ; cont = cont' }
-        )
-      | EFunction { param ; body } ->
-        let%bind id' = next_name in
-        M.local (fun env -> Map.set env ~key:param ~data:id') (
-          let%bind body' = visit body in
-          return @@ EFunction { param = id' ; body = body' }
-        )
-      (* propagation*)
-      | EBinop { left ; binop ; right } ->
-        let%bind left' = visit left in
-        let%bind right' = visit right in
-        return @@ EBinop { left = left' ; binop ; right = right' }
-      | EIf { cond ; true_body ; false_body } ->
-        let%bind cond' = visit cond in
-        let%bind true_body' = visit true_body in
-        let%bind false_body' = visit false_body in
-        return @@ EIf { cond = cond' ; true_body = true_body' ; false_body = false_body' }
-      | EAppl { func ; arg } ->
-        let%bind func' = visit func in
-        let%bind arg' = visit arg in
-        return @@ EAppl { func = func' ; arg = arg' }
-      | ERecord r ->
-        let%bind r' =
-          Map.fold ~init:(return RecordLabel.Map.empty) ~f:(fun ~key ~data acc_m ->
-            let%bind acc = acc_m in
-            let%bind body' = visit data in
-            return @@ Map.set acc ~key ~data:body'
-          ) r
-        in
-        return @@ ERecord r'
-      | ENot expr -> let%bind expr' = visit expr in return @@ ENot expr'
-      | EFreeze expr -> let%bind expr' = visit expr in return @@ EFreeze expr'
-      | EThaw expr -> let%bind expr' = visit expr in return @@ EThaw expr'
-      | EDet expr -> let%bind expr' = visit expr in return @@ EDet expr'
-      | EEscapeDet expr -> let%bind expr' = visit expr in return @@ EEscapeDet expr'
-      | EVariant { label ; payload } ->
-          let%bind payload' = visit payload in
-          return @@ EVariant { label ; payload = payload' }
-      | EIgnore { ignored ; cont } ->
-        let%bind ignored' = visit ignored in ... *)
     in
     visit e Ident.Map.empty
+
+    include E
+  end
 end
 
 module Desugared = struct

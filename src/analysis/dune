@@ -7,7 +7,7 @@
   core
   ; lwt
   ; lwt.unix
-  ; lang
+  lang
   ; translate
   ; preface
   ; psq
@@ -18,8 +18,8 @@
  (inline_tests)
  (preprocess
   (pps
-   ; ppx_sexp_conv
-   ; ppx_compare
+   ppx_sexp_conv
+   ppx_compare
    ; ocaml-monadic
    ; lwt_ppx
    ;bisect_ppx ; should comment when not wanting report because it adds overhead
