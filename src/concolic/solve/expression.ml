@@ -185,6 +185,12 @@ end)
   Then we can substitute through with the representative. It may or may not be
   good to substitute through because it might be slow, but it also might reveal
   an unsat formula or constant formula.
+
+  No bool is any good if we don't branch on it, which means we'll eventually want
+  to simplify its formulas. Might as well do it early to only do it once.
+
+  Problem with an out of the box union find is we don't have control over the
+  representative. I want to be able to choose the representative to be a concrete value.
 *)
 let is_trivial (e : bool t) : [ `Trivial of Subst.t | `Nontrivial | `Const of bool ] =
   match e with

@@ -161,6 +161,15 @@ module Pattern = struct
     | PDestructList { hd_id = Ident hd ; tl_id = Ident tl } -> Format.sprintf "%s :: %s" hd tl
 end
 
+module Callsight = struct
+  type t = Callsight of int [@@unboxed] [@@deriving compare, equal, sexp]
+
+  let next =
+    let counter = Utils.Counter.create () in
+    fun () ->
+      Callsight (Utils.Counter.next counter)
+end
+
 module Expr = struct
   type _ t =
     (* all languages. 'a is unconstrained *)
@@ -259,6 +268,154 @@ module Embedded = struct
   type pgm = embedded Program.t
   type pattern = embedded Pattern.t
   type statement = embedded Expr.statement
+
+  (*
+    The idea is that we rename each variable to something brand new and then
+    substitute that into each subexpression.
+    
+    Do this with a map that maps each name to the new name. When we come across
+    a usage, we replace. When we come across a declaration, we give a new name
+    in the map (and replace that instance, obviously).
+
+    Ignores unbound variables. They get a new name, too.
+
+    I had a little bit of fun with monad transformers and state/reader to write
+    this, but it was too impractical given that OCaml has effects.
+  *)
+  let alphatize (e : t) : t =
+    (* order does not matter when alphatizing because we don't care about names, so mindless mutation is okay *)
+    let new_name = 
+      let i = ref 0 in
+      fun () ->
+        incr i;
+        Ident.Ident (Format.sprintf "$%d" !i)
+    in
+    let replace key env =
+      let id' = new_name () in
+      id', Map.set env ~key ~data:id'
+    in
+    let rec visit (e : t) (env : Ident.t Ident.Map.t) : t =
+      match e with
+      (* leaves *)
+      | EInt _ | EBool _ | EPick_i | EPick_b | EId | ETable | EAbort _ | EDiverge -> e
+      (* replacement *)
+      | EVar id -> begin
+        match Map.find env id with
+        | Some id' -> EVar id'
+        | None -> EVar (new_name ()) (* unbound variable. We promise to not fail but give a new name instead *)
+      end
+      (* binding *)
+      | ELet { var ; body ; cont } ->
+        let id', env' = replace var env in
+        ELet { var = id' ; body = visit body env ; cont = visit cont env' }
+      | EFunction { param ; body } ->
+        let id', env' = replace param env in
+        EFunction { param = id' ; body = visit body env' }
+      (* propagation *)
+      | EBinop { left ; binop ; right } -> EBinop { left = visit left env ; binop ; right = visit right env }
+      | EIf { cond ; true_body ; false_body } -> EIf { cond = visit cond env ; true_body = visit true_body env ; false_body = visit false_body env }
+      | EAppl { func ; arg } -> EAppl { func = visit func env ; arg = visit arg env }
+      | EMatch { subject ; patterns } ->
+        EMatch { subject = visit subject env ; patterns =
+          List.map patterns ~f:(fun (pat, expr) ->
+            match pat with
+            | Pattern.PAny -> pat, visit expr env
+            | PVariable x ->
+              let id', env' = replace x env in
+              PVariable id', visit expr env'
+            | PVariant { variant_label ; payload_id } ->
+              let id', env' = replace payload_id env in
+              PVariant { variant_label ; payload_id = id' }, visit expr env'
+          )
+        }
+      | EProject { record ; label } -> EProject { record = visit record env ; label }
+      | ERecord r -> ERecord (Map.map r ~f:(fun body -> visit body env))
+      | ENot expr -> ENot (visit expr env)
+      | EVariant { label ; payload } -> EVariant { label ; payload = visit payload env }
+      | ECase { subject ; cases ; default } ->
+        ECase { subject = visit subject env ; default = visit default env ; cases =
+          List.map cases ~f:(fun (i, expr) -> i, visit expr env)
+        }
+      | EFreeze expr -> EFreeze (visit expr env)
+      | EThaw expr -> EThaw (visit expr env)
+      | EIgnore { ignored ; cont } -> EIgnore { ignored = visit ignored env ; cont = visit cont env }
+      | ETblAppl { tbl ; gen ; arg } -> ETblAppl { tbl = visit tbl env ; gen = visit gen env ; arg = visit arg env }
+      | EDet expr -> EDet (visit expr env)
+      | EEscapeDet expr -> EEscapeDet (visit expr env)
+
+    (* let module S = Preface.State.Over (Int) in (* counter for alphatized variables *)
+    let module M = Preface.Make.Reader.Over_monad (S) (struct type t = Ident.t Ident.Map.t end) in
+    let[@inline always] bind x f = M.bind f x in (* our ppx uses the other order *)
+    let return = M.return in
+    let next_name = M.upper (S.state (fun i ->
+      Ident.Ident (Format.sprintf "$%d" i), (i + 1)
+      ))
+    in
+    let replace id =
+      let%bind env = M.ask in
+      let%bind id' = 
+        match Map.find env id with
+        | Some id' -> return id'
+        | None -> next_name
+      in
+      return @@ Expr.EVar id'
+    in
+    let rec visit (e : t) : t M.t =
+      let open Expr in
+      match e with
+      (* leaves *)
+      | EInt _ | EBool _ | EPick_i | EPick_b | EId | ETable | EAbort _ | EDiverge -> return e
+      (* replacement *)
+      | EVar id -> replace id
+      (* binding *)
+      | ELet { var ; body ; cont } ->
+        let%bind id' = next_name in
+        let%bind body' = visit body in
+        M.local (fun env -> Map.set env ~key:var ~data:id') (
+          let%bind cont' = visit cont in
+          return @@ ELet { var = id' ; body = body' ; cont = cont' }
+        )
+      | EFunction { param ; body } ->
+        let%bind id' = next_name in
+        M.local (fun env -> Map.set env ~key:param ~data:id') (
+          let%bind body' = visit body in
+          return @@ EFunction { param = id' ; body = body' }
+        )
+      (* propagation*)
+      | EBinop { left ; binop ; right } ->
+        let%bind left' = visit left in
+        let%bind right' = visit right in
+        return @@ EBinop { left = left' ; binop ; right = right' }
+      | EIf { cond ; true_body ; false_body } ->
+        let%bind cond' = visit cond in
+        let%bind true_body' = visit true_body in
+        let%bind false_body' = visit false_body in
+        return @@ EIf { cond = cond' ; true_body = true_body' ; false_body = false_body' }
+      | EAppl { func ; arg } ->
+        let%bind func' = visit func in
+        let%bind arg' = visit arg in
+        return @@ EAppl { func = func' ; arg = arg' }
+      | ERecord r ->
+        let%bind r' =
+          Map.fold ~init:(return RecordLabel.Map.empty) ~f:(fun ~key ~data acc_m ->
+            let%bind acc = acc_m in
+            let%bind body' = visit data in
+            return @@ Map.set acc ~key ~data:body'
+          ) r
+        in
+        return @@ ERecord r'
+      | ENot expr -> let%bind expr' = visit expr in return @@ ENot expr'
+      | EFreeze expr -> let%bind expr' = visit expr in return @@ EFreeze expr'
+      | EThaw expr -> let%bind expr' = visit expr in return @@ EThaw expr'
+      | EDet expr -> let%bind expr' = visit expr in return @@ EDet expr'
+      | EEscapeDet expr -> let%bind expr' = visit expr in return @@ EEscapeDet expr'
+      | EVariant { label ; payload } ->
+          let%bind payload' = visit payload in
+          return @@ EVariant { label ; payload = payload' }
+      | EIgnore { ignored ; cont } ->
+        let%bind ignored' = visit ignored in ... *)
+    in
+    visit e Ident.Map.empty
 end
 
 module Desugared = struct

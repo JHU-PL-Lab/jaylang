@@ -1,0 +1,28 @@
+(include_subdirs unqualified)
+
+(library
+ (name analysis)
+ (public_name jay.analysis)
+ (libraries
+  core
+  ; lwt
+  ; lwt.unix
+  ; lang
+  ; translate
+  ; preface
+  ; psq
+  ; utils
+  ; overlays
+ )
+ (synopsis "Program analysis on embedded-type programs")
+ (inline_tests)
+ (preprocess
+  (pps
+   ; ppx_sexp_conv
+   ; ppx_compare
+   ; ocaml-monadic
+   ; lwt_ppx
+   ;bisect_ppx ; should comment when not wanting report because it adds overhead
+   ; for profiling
+   landmarks-ppx
+   --auto)))
