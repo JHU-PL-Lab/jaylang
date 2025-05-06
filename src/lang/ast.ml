@@ -294,6 +294,14 @@ module Embedded = struct
 
     I had a little bit of fun with monad transformers and state/reader to write
     this, but it was too impractical given that OCaml has effects.
+
+    The following assumption is not sound, we think.
+    Assumption: can partially evaluate `thaw (freeze e)` to `e` because the program
+      analysis is effectively deterministic. In fact, we can just remove thaw and freeze.
+      However, we need to be careful with the fixed point combinator because full removal
+      in all spots would cause that to diverge. But does that matter in program analysis?
+      Probably not.
+      For now, just peval, but see about removing fully.
   *)
   let alphatized_of_expr (e : t) : E.t =
     (* order does not matter when alphatizing because we don't care about names, so mindless mutation is okay *)
@@ -304,8 +312,11 @@ module Embedded = struct
         Ident.Ident (Format.sprintf "$%d" !i)
     in
     let replace key env =
-      let id' = new_name () in
-      id', Map.set env ~key ~data:id'
+      if Ident.equal key (Ident "_")
+      then key, env (* no need to replace ignored values, I think. TODO: check this logic *)
+      else
+        let id' = new_name () in
+        id', Map.set env ~key ~data:id'
     in
     let rec visit (e : t) (env : Ident.t Ident.Map.t) : E.t =
       match e with
@@ -359,6 +370,11 @@ module Embedded = struct
         }
       | EFreeze expr -> EFreeze (visit expr env)
       | EThaw expr -> EThaw (visit expr env)
+        (* begin
+          match visit expr env with
+          | EFreeze expr' -> expr' (* partially evaluate *)
+          | expr' -> EThaw expr'
+        end *)
       | EIgnore { ignored ; cont } -> EIgnore { ignored = visit ignored env ; cont = visit cont env }
       | ETblAppl { tbl ; gen ; arg } -> ETblAppl { tbl = visit tbl env ; gen = visit gen env ; arg = visit arg env }
       | EDet expr -> EDet (visit expr env)
