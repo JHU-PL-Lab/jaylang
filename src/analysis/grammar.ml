@@ -2,10 +2,6 @@
 open Core
 open Lang.Ast
 
-module Closure = struct
-  type t = { body : Embedded.With_callsights.t ; callstack : Callstack.t }
-end
-
 module Callstack = struct
   module T = struct
     type t = Callsight.t list [@@deriving compare, sexp]
@@ -14,6 +10,10 @@ module Callstack = struct
   include T
 
   module Map = Map.Make (T)
+end
+
+module Closure = struct
+  type t = { body : Embedded.With_callsights.t ; callstack : Callstack.t }
 end
 
 (*
