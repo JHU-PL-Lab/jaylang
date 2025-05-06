@@ -67,6 +67,12 @@ module rec Value : sig
     | VVariant of { label : VariantLabel.t ; payload : t }
     | VRecord of t RecordLabel.Map.t
     | VId
+
+  val any_int : t M.m
+  val any_bool : t M.m
+
+  val op : t -> Lang.Ast.Binop.t -> t -> t M.m
+  val not_ : t -> t M.m
 end = struct
   type t =
     | VPosInt
@@ -83,7 +89,6 @@ end = struct
 
   let any_int = M.choose [ VPosInt ; VNegInt ; VZero ]
   let any_bool = M.choose [ VFalse ; VTrue ]
-
   let type_mismatch = M.fail Err.type_mismatch
 
   open M
@@ -226,19 +231,41 @@ end = struct
     | VFalse, VTrue
     | VTrue, VTrue -> return VTrue
     | _ -> type_mismatch
+
+  let op (left : t) (binop : Lang.Ast.Binop.t) (right : t) : t m =
+    let f =
+      match binop with
+      | BPlus -> plus
+      | BMinus -> minus
+      | BTimes -> times
+      | BDivide -> divide
+      | BModulus -> modulus
+      | BEqual -> equal
+      | BNeq -> not_equal
+      | BLessThan -> less_than
+      | BLeq -> leq
+      | BGreaterThan -> greater_than
+      | BGeq -> geq
+      | BAnd -> and_
+      | BOr -> or_
+    in
+    f left right
 end
 
 and Err : sig
   type t 
   val type_mismatch : t
   val abort : t
+  val unbound_variable : Ident.t -> t
 end = struct
   type t =
     | Type_mismatch 
+    | Unbound_variable of Ident.t
     | Abort
 
   let type_mismatch : t = Type_mismatch
   let abort : t = Abort
+  let unbound_variable : Ident.t -> t = fun id -> Unbound_variable id
 end
 
 and Env : sig 
@@ -287,16 +314,24 @@ end
 
 and M : sig 
   type 'a m
+  val run_for_error : 'a m -> (unit, Err.t) Result.t
   val return : 'a -> 'a m
-  val fail : Err.t -> 'a m
+  val fail : 'a. Err.t -> 'a m
   val bind : 'a m -> ('a -> 'b m) -> 'b m
   val choose : 'a list -> 'a m
   val get : Store.t m
   val modify : (Store.t -> Store.t) -> unit m
   val local : (Env.t -> Env.t) -> 'a m -> 'a m
   val ask : Env.t m
+  val vanish : 'a m
 end= struct
+  (* reader needs to include the callstack too *)
   type 'a m = Store.t -> Env.t -> (('a * Store.t) list, Err.t) Result.t
+
+  let run_for_error : 'a m -> (unit, Err.t) Result.t = fun x ->
+    match x Store.empty Env.empty with
+    | Ok _ -> Ok ()
+    | Error e -> Error e
 
   let return : 'a -> 'a m = fun a ->
     fun s _ -> Ok [ a, s ]
@@ -334,4 +369,7 @@ end= struct
 
   let ask : Env.t m =
     fun s e -> Ok [ e, s ]
+
+  let vanish : 'a m =
+    fun _ _ -> Ok []
 end
