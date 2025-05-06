@@ -248,11 +248,11 @@ Because of the desugaring, we only have types and dependent types instead of pol
 [[ type ]] =
   { ~gen = freeze @@
     let i = pick_i in
-    { ~gen = freeze @@ `~Untouched i
+    { ~gen = freeze @@ `~Untouched { ~i = i ; ~nonce = pick_i }
     ; ~check = fun $e ->
       match $e with
       | `~Untouched v ->
-        if v == i
+        if v.~i == i
         then {}
         else abort "Non-equal untouchable values"
     ; ~wrap = fun $e -> $e
@@ -270,7 +270,7 @@ Because of the desugaring, we only have types and dependent types instead of pol
 
 ```ocaml
 [[ top ]] = 
-  { ~gen = freeze @@ `~Top {}
+  { ~gen = freeze @@ `~Top { ~nonce = pick_i }
   ; ~check = fun _ -> {} (* anything is in top *)
   ; ~wrap = fun $e -> $e
   }

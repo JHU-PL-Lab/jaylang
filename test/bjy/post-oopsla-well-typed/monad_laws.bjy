@@ -98,5 +98,9 @@ end *)
 
 (*
   Note that we can generate a member of MONAD. This line works just fine.
+  Actually it doesn't because we fail assertions we generating.
+  We would like to be able to "assume forall" when generating, but this just
+  theoretically isn't possible. We can only "assert forall", which makes sense
+  when checking but isn't good when generating.
 *)
-let _ : MONAD -> int = fun _ -> 0
+(* let _ : MONAD -> int = fun _ -> 0 *)

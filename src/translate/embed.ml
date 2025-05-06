@@ -329,14 +329,19 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
             let%bind i = capture EPick_i in
             return @@
             E.make ~ask_for:`All
-              { gen = lazy (EVariant { label = Reserved.untouched ; payload = EVar i }) 
+              { gen = lazy (EVariant { label = Reserved.untouched ; payload = 
+                ERecord (RecordLabel.Map.of_alist_exn
+                  [ (Reserved.i, EVar i) ; (Reserved.nonce, EPick_i) ]
+                )
+              }
+              )
               ; check = lazy (
                 fresh_abstraction "e_alpha_check" @@ fun e ->
                   EMatch { subject = EVar e ; patterns =
                     let v = Names.fresh_id ~suffix:"v" () in
                     [ (PVariant { variant_label = Reserved.untouched ; payload_id = v }
                       , EIf
-                          { cond = EBinop { left = EVar v ; binop = BEqual ; right = EVar i }
+                          { cond = EBinop { left = EVar i ; binop = BEqual ; right = proj (EVar v) Reserved.i }
                           ; true_body = unit_value
                           ; false_body = EAbort "Non-equal untouchable values"
                           })
@@ -462,7 +467,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       res
     | ETypeTop ->
       make_embedded_type
-        { gen = lazy (EVariant { label = Reserved.top ; payload = unit_value })  
+        { gen = lazy (EVariant { label = Reserved.top ; payload = ERecord (RecordLabel.Map.singleton Reserved.nonce EPick_i ) })  
         ; check = lazy (fresh_abstraction "e_top_check" @@ fun _ -> unit_value)
         ; wrap = lazy EId
         }

@@ -29,6 +29,8 @@ module Reserved = struct
   let wrap : RecordLabel.t = RecordLabel (Ident "~wrap")
   let hd : RecordLabel.t = RecordLabel (Ident "~hd")
   let tl : RecordLabel.t = RecordLabel (Ident "~tl")
+  let i : RecordLabel.t = RecordLabel (Ident "~i")
+  let nonce : RecordLabel.t = RecordLabel (Ident "~nonce")
 
   (* Variant constructors *)
   let cons : VariantLabel.t = VariantLabel (Ident "~Cons") 
