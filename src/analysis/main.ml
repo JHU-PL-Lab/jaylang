@@ -6,6 +6,7 @@ open M
 open Value
 
 let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
+  log e @@
   match e with
   (* immediate *)
   | EInt 0 -> return VZero
