@@ -5,7 +5,7 @@ open Grammar
 open M
 open Value
 
-let rec analyze (e : Embedded.With_callsights.t) : Value.t m =
+let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
   match e with
   (* immediate *)
   | EInt 0 -> return VZero
@@ -14,10 +14,10 @@ let rec analyze (e : Embedded.With_callsights.t) : Value.t m =
   | EBool true -> return VTrue
   | EBool false -> return VFalse
   | EVar id -> begin
-    let%bind env = ask in
+    let%bind env = ask_env in
     match Env.find id env with
     | Some v -> return v
-    | None -> fail @@ Err.unbound_variable id
+    | None -> vanish (* fail @@ Err.unbound_variable id *)
   end
   | EId -> return VId
   (* inputs *)
@@ -84,13 +84,48 @@ let rec analyze (e : Embedded.With_callsights.t) : Value.t m =
       analyze expr
     | _ -> fail @@ Err.type_mismatch
   end
-  (* todos *)
-  | ELet _
-  | EAppl _
-  | EFunction _
-  | EFreeze _
-  | EThaw _
-  | EIgnore _ -> failwith "unhandled todo"
+  (* closures and applications *)
+  | EFunction { param ; body } ->
+    let%bind env, callstack = ask in
+    let%bind () = modify (Store.cons (callstack, Env_set.singleton env)) in
+    return @@ VFunClosure { param ; body = { body ; callstack }}
+  | EFreeze expr ->
+    let%bind env, callstack = ask in
+    let%bind () = modify (Store.cons (callstack, Env_set.singleton env)) in
+    return @@ VFrozen { body = expr ; callstack }
+  | ELet { var ; body ; cont } ->
+    let%bind v = analyze body in
+    local (Env.add var v) (analyze cont)
+  | EIgnore { ignored ; cont } ->
+    let%bind _ : Value.t = analyze ignored in
+    analyze cont
+  | EAppl { func ; arg ; callsight } -> begin
+    match%bind analyze func with
+    | VFunClosure { param ; body = { body ; callstack } } -> begin
+      let%bind v = analyze arg in
+      let%bind store = get in
+      match Store.find callstack store with
+      | Some env_set ->
+        let%bind env = Env_set.to_env env_set in
+        with_call callsight
+        @@ local (fun _ -> Env.add param v env) (analyze body)
+      | None -> failwith "unhandled callstack not found in store"
+    end
+    | VId -> analyze arg
+    | _ -> fail Err.type_mismatch
+  end
+  | EThaw expr -> begin
+    match%bind analyze expr with
+    | VFrozen { body ; callstack } -> begin
+      let%bind store = get in
+      match Store.find callstack store with
+      | Some env_set ->
+        let%bind env = Env_set.to_env env_set in
+        local (fun _ -> env) (analyze body)
+      | None -> failwith "unhandled callstack not found in store"
+    end
+    | _ -> fail Err.type_mismatch
+  end
   (* termination *)
   | EDiverge -> vanish
   | EAbort _ -> fail @@ Err.abort
@@ -100,3 +135,11 @@ let rec analyze (e : Embedded.With_callsights.t) : Value.t m =
   (* unhandled and currently aborting *)
   | ETable
   | ETblAppl _ -> failwith "unimplemented analysis on tables"
+
+let has_error (e : Embedded.With_callsights.t) : bool =
+  e
+  |> analyze
+  |> M.run_for_error
+  |> function
+    | Ok () -> false
+    | Error _ -> true

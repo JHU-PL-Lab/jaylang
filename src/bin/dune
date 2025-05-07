@@ -1,5 +1,13 @@
 
 (executable
+ (name analysis)
+ (modules analysis)
+ (libraries core lang analysis translate)
+ (promote
+  (until-clean)
+  (into "../..")))
+
+(executable
  (name interp)
  (modules interp)
  (libraries core lang translate)

@@ -9,6 +9,14 @@ module Callstack = struct
 
   include T
 
+  let empty : t = []
+
+  let k = 2
+
+  (* very inefficient for now. Also uses fixed k  *)
+  let k_cons : t -> Callsight.t -> t = fun stack callsight ->
+    List.take (callsight :: stack) k
+
   module Map = Map.Make (T)
 end
 
@@ -284,13 +292,19 @@ end
 and Env_set : sig
   type t
   val union : t -> t -> t
+  val singleton : Env.t -> t
+  val to_env : t -> Env.t M.m
 end = struct
   type t = Env.t list
 
   let union x y =
     List.fold x ~init:[] ~f:(fun acc env ->
-      List.filter y ~f:(fun env' -> not @@ phys_equal env' env) @ acc
+      env :: List.filter y ~f:(fun env' -> not @@ phys_equal env' env) @ acc
     )
+
+  let singleton env = [ env ]
+
+  let to_env = M.choose
 end
 
 and Store : sig
@@ -322,32 +336,35 @@ and M : sig
   val get : Store.t m
   val modify : (Store.t -> Store.t) -> unit m
   val local : (Env.t -> Env.t) -> 'a m -> 'a m
-  val ask : Env.t m
+  val with_call : Callsight.t -> 'a m -> 'a m
+  val ask_env : Env.t m
+  val ask_callstack : Callstack.t m
+  val ask : (Env.t * Callstack.t) m
   val vanish : 'a m
 end= struct
   (* reader needs to include the callstack too *)
-  type 'a m = Store.t -> Env.t -> (('a * Store.t) list, Err.t) Result.t
+  type 'a m = Store.t -> Env.t -> Callstack.t -> (('a * Store.t) list, Err.t) Result.t
 
   let run_for_error : 'a m -> (unit, Err.t) Result.t = fun x ->
-    match x Store.empty Env.empty with
+    match x Store.empty Env.empty Callstack.empty with
     | Ok _ -> Ok ()
     | Error e -> Error e
 
   let return : 'a -> 'a m = fun a ->
-    fun s _ -> Ok [ a, s ]
+    fun s _ _ -> Ok [ a, s ]
 
   let fail : Err.t -> 'a m = fun e ->
-    fun _ _ -> Error e
+    fun _ _ _ -> Error e
 
   let bind : 'a m -> ('a -> 'b m) -> 'b m = fun x f ->
-    fun state env ->
-      match x state env with
+    fun state env callstack ->
+      match x state env callstack with
       | Error e -> Error e
       | Ok lst -> begin
         let rec loop acc = function
         | [] -> Ok acc
         | (a_hd, s_hd) :: tl ->
-          match f a_hd s_hd env with
+          match f a_hd s_hd env callstack with
           | Error e -> Error e
           | Ok ls -> loop (ls @ acc) tl
         in
@@ -355,21 +372,31 @@ end= struct
       end
 
   let choose : 'a list -> 'a m = fun a_ls ->
-    fun s _ -> Ok (List.map a_ls ~f:(fun a -> a, s))
+    fun s _ _ -> Ok (List.map a_ls ~f:(fun a -> a, s))
 
   let get : Store.t m =
-    fun s _ -> Ok [ s, s ]
+    fun s _ _ -> Ok [ s, s ]
 
   let modify : (Store.t -> Store.t) -> unit m = fun f ->
-    fun s _ -> Ok [ (), f s ]
+    fun s _ _ -> Ok [ (), f s ]
 
   let local : (Env.t -> Env.t) -> 'a m -> 'a m = fun f x ->
     fun s e ->
       x s (f e)
 
-  let ask : Env.t m =
-    fun s e -> Ok [ e, s ]
+  let with_call : Callsight.t -> 'a m -> 'a m = fun callsight x ->
+    fun s e stack ->
+      x s e (Callstack.k_cons stack callsight)
+
+  let ask_env : Env.t m =
+    fun s e _ -> Ok [ e, s ]
+
+  let ask_callstack : Callstack.t m =
+    fun s _ c -> Ok [ c, s ]
+
+  let ask : (Env.t * Callstack.t) m =
+    fun s e c -> Ok [ (e, c), s ]
 
   let vanish : 'a m =
-    fun _ _ -> Ok []
+    fun _ _ _ -> Ok []
 end
