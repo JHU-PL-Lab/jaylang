@@ -11,7 +11,7 @@ module Callstack = struct
 
   let empty : t = []
 
-  let k = 0
+  let k = 1
 
   (* very inefficient for now. Also uses fixed k  *)
   let k_cons : t -> Callsight.t -> t = fun stack callsight ->
@@ -37,6 +37,8 @@ module rec Value : sig
     | VRecord of t RecordLabel.Map.t
     | VId
 
+  val to_string : t -> string
+
   val compare : t -> t -> int
 
   val any_int : t M.m
@@ -61,9 +63,23 @@ end = struct
   (* we're willing to do structural (and therefore intensional) comparison *)
   let compare = Poly.compare
 
+  let rec to_string = function
+    | VPosInt -> "(+)"
+    | VNegInt -> "(-)"
+    | VZero -> "0"
+    | VTrue -> "true"
+    | VFalse -> "false"
+    | VFunClosure { param ; _ } -> Format.sprintf "(fun %s -> <expr>)" (Ident.to_string param)
+    | VFrozen _ -> "Frozen <expr>"
+    | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
+    | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
+    | VId -> "(fun x -> x)"
+
   let any_int = M.choose [ VPosInt ; VNegInt ; VZero ]
   let any_bool = M.choose [ VFalse ; VTrue ]
-  let type_mismatch = M.fail Err.type_mismatch
+  let type_mismatch a op b =
+    let msg = Format.sprintf "Bad operation: %s %s %s" (to_string a) (Binop.to_string op) (to_string b) in
+    M.fail @@ Err.type_mismatch msg
 
   open M
 
@@ -78,7 +94,7 @@ end = struct
     | VZero, VNegInt -> return VNegInt
     | VPosInt, VNegInt
     | VNegInt, VPosInt -> any_int
-    | _ -> type_mismatch
+    | _ -> type_mismatch x BPlus y
 
   let minus (x : t) (y : t) : t m =
     match x, y with
@@ -91,7 +107,7 @@ end = struct
     | VZero, VPosInt -> return VNegInt
     | VPosInt, VPosInt
     | VNegInt, VNegInt -> any_int
-    | _ -> type_mismatch
+    | _ -> type_mismatch x BMinus y
 
   let times (x : t) (y : t) : t m =
     match x, y with
@@ -104,7 +120,7 @@ end = struct
     | VZero, VNegInt
     | VPosInt, VZero
     | VNegInt, VZero -> return VZero
-    | _ -> type_mismatch
+    | _ -> type_mismatch x BTimes y
 
   (* If abs x < abs y, then x / y = 0 *)
   let divide (x : t) (y : t) : t m =
@@ -115,7 +131,7 @@ end = struct
     | VNegInt, VNegInt -> choose [ VZero ; VPosInt ]
     | VZero, VPosInt
     | VZero, VNegInt -> return VZero
-    | _ -> type_mismatch (* includes divide by zero *)
+    | _ -> type_mismatch x BDivide y (* includes divide by zero *)
 
   (* Modulus follows the sign of x in `x mod y`. *)
   let modulus (x : t) (y : t) : t m =
@@ -126,7 +142,7 @@ end = struct
     | VNegInt, VNegInt -> choose [ VZero ; VNegInt ]
     | VZero, VPosInt
     | VZero, VNegInt -> return VZero
-    | _ -> type_mismatch (* includes modulus by zero *)
+    | _ -> type_mismatch x BModulus y (* includes modulus by zero *)
 
   (* Works on bools and ints *)
   let equal (x : t) (y : t) : t m =
@@ -144,13 +160,13 @@ end = struct
     | VTrue, VTrue
     | VFalse, VFalse
     | VZero, VZero -> return VTrue
-    | _ -> type_mismatch
+    | _ -> type_mismatch x BEqual y
 
   let not_ (x : t) : t m =
     match x with
     | VTrue -> return VFalse
     | VFalse -> return VTrue
-    | _ -> type_mismatch
+    | _ -> M.fail @@ Err.type_mismatch (Format.sprintf "Bad not: not (%s)" (to_string x))
 
   let not_equal (x : t) (y : t) : t m =
     let%bind b = equal x y in
@@ -167,7 +183,7 @@ end = struct
     | VNegInt, VPosInt
     | VNegInt, VZero
     | VZero, VPosInt -> return VTrue
-    | _ -> type_mismatch
+    | _ -> type_mismatch x BLessThan y
 
   let geq (x : t) (y : t) : t m =
     let%bind b = less_than x y in
@@ -184,7 +200,7 @@ end = struct
     | VNegInt, VPosInt
     | VZero, VZero
     | VZero, VPosInt -> return VFalse
-    | _ -> type_mismatch
+    | _ -> type_mismatch x BGreaterThan y
 
   let leq (x : t) (y : t) : t m =
     let%bind b = greater_than x y in
@@ -196,7 +212,7 @@ end = struct
     | VTrue, VFalse
     | VFalse, VTrue
     | VFalse, VFalse -> return VFalse
-    | _ -> type_mismatch
+    | _ -> type_mismatch x BAnd y
 
   let or_ (x : t) (y : t) : t m =
     match x, y with
@@ -204,7 +220,7 @@ end = struct
     | VTrue, VFalse
     | VFalse, VTrue
     | VTrue, VTrue -> return VTrue
-    | _ -> type_mismatch
+    | _ -> type_mismatch x BOr y
 
   let op (left : t) (binop : Lang.Ast.Binop.t) (right : t) : t m =
     let f =
@@ -228,29 +244,45 @@ end
 
 and Err : sig
   type t 
-  val type_mismatch : t
-  val abort : t
+  val to_string : t -> string
+  val type_mismatch : string -> t
+  val abort : string -> t
   val unbound_variable : Ident.t -> t
 end = struct
   type t =
-    | Type_mismatch 
+    | Type_mismatch of string
     | Unbound_variable of Ident.t
-    | Abort
+    | Abort of string
 
-  let type_mismatch : t = Type_mismatch
-  let abort : t = Abort
+  let to_string = function
+    | Type_mismatch msg -> Format.sprintf "Type mismatch:\n  %s\n" msg
+    | Abort msg -> Format.sprintf "Abort:\n  %s\n" msg
+    | Unbound_variable Ident s -> Format.sprintf "Unbound variable:\n  %s\n" s
+
+  let type_mismatch : string -> t = fun msg -> Type_mismatch msg
+  let abort : string -> t = fun msg -> Abort msg
   let unbound_variable : Ident.t -> t = fun id -> Unbound_variable id
 end
 
 and Env : sig 
   type t
   val empty : unit -> t (* abstracted just to have one safe recursive module *)
+  val subsumes : t -> t -> bool
   val compare : t -> t -> int
   val add : Ident.t -> Value.t -> t -> t
   val find : Ident.t -> t -> Value.t option
 end = struct
   type t = Value.t Ident.Map.t
   let empty () = Ident.Map.empty
+
+  (* true iff x subsumes y *)
+  let subsumes x y =
+    Map.for_alli y ~f:(fun ~key ~data ->
+      match Map.find x key with
+      | Some data' when Value.compare data data' = 0 -> true
+      | _ -> false
+    )
+
   let compare = Ident.Map.compare Value.compare
   let add id v env = Map.set env ~key:id ~data:v
   let find id env = Map.find env id
@@ -259,7 +291,7 @@ end
 and Env_set : sig
   type t
   val compare : t -> t -> int
-  val union : t -> t -> t
+  val add : Env.t -> t -> t
   val singleton : Env.t -> t
   val to_env : t -> Env.t M.m
 end = struct
@@ -267,10 +299,11 @@ end = struct
 
   let compare = List.compare Env.compare
 
-  let union x y =
-    List.fold x ~init:[] ~f:(fun acc env ->
-      env :: List.filter y ~f:(fun env' -> not @@ phys_equal env' env) @ acc
-    )
+  let add env t =
+    if List.exists t ~f:(fun e -> Env.subsumes e env) then
+      t
+    else
+      env :: List.filter t ~f:(fun e -> not @@ Env.subsumes env e)
 
   let singleton env = [ env ]
 
@@ -280,7 +313,7 @@ end
 and Store : sig
   type t 
   val compare : t -> t -> int
-  val cons : (Callstack.t * Env_set.t) -> t -> t
+  val add : Callstack.t -> Env.t -> t -> t
   val find : Callstack.t -> t -> Env_set.t option
   val empty : t
 end = struct
@@ -288,10 +321,10 @@ end = struct
 
   let compare = Callstack.Map.compare Env_set.compare
 
-  let cons (callstack, env_set) store =
+  let add callstack env store =
     Map.update store callstack ~f:(function
-      | Some env_set' -> Env_set.union env_set' env_set
-      | None -> env_set
+      | Some env_set -> Env_set.add env env_set
+      | None -> Env_set.singleton env
     )
 
   let find callstack store = Map.find store callstack
@@ -365,7 +398,7 @@ end = struct
 
   let with_call : Callsight.t -> 'a m -> 'a m = fun callsight x ->
     fun s r ->
-      x s { r with callstack= Callstack.k_cons r.callstack callsight }
+      x s { r with callstack = Callstack.k_cons r.callstack callsight }
 
   let ask_env : Env.t m =
     fun s r -> Ok [ r.env, s ]
@@ -392,7 +425,7 @@ end = struct
     | _ -> (* handle non-values *)
       fun s r ->
         match Cache.put r.cache r.callstack expr r.env s with
-        | `Existed_already -> Ok [] (* equivalent to behavior of `vanish` above *)
+        | `Existed_already -> Format.printf "Vanishing because found in cache\n"; Ok [] (* equivalent to behavior of `vanish` above *)
         | `Added_to new_cache -> x s { r with cache = new_cache }
 end
 

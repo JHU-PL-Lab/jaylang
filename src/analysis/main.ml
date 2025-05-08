@@ -5,6 +5,46 @@ open Grammar
 open M
 open Value
 
+module Error_msg = struct
+  let project_non_record label v =
+    Format.sprintf "Label %s not found in non-record `%s`" (RecordLabel.to_string label) (Value.to_string v)
+
+  let project_missing_label label record =
+    Format.sprintf "Label %s not found in record %s" (RecordLabel.to_string label) (Value.to_string record)
+
+  let thaw_non_frozen v =
+    Format.sprintf "Thaw non-frozen value `%s`" (Value.to_string v)
+
+  let pattern_not_found patterns v =
+    Format.sprintf "Value `%s` not in pattern list [ %s ]"
+      (Value.to_string v)
+      (String.concat ~sep:", " @@ List.map patterns ~f:(fun (p, _) -> Pattern.to_string p))
+
+  let bad_appl vfunc =
+    Format.sprintf "Apply to non-function %s" (Value.to_string vfunc)
+
+  let bad_binop vleft binop vright =
+    Format.sprintf "Bad binop %s %s %s"
+      (Value.to_string vleft)
+      (Binop.to_string binop)
+      (Value.to_string vright)
+
+  let bad_not v =
+    Format.sprintf "Bad unary operation `not %s`" (Value.to_string v)
+
+  let cond_non_bool v = 
+    Format.sprintf "Condition on non-bool `%s`" (Value.to_string v)
+
+  let case_non_int v = 
+    Format.sprintf "Case on non-int `%s`" (Value.to_string v)
+
+  let appl_non_table v =
+    Format.sprintf "Use non-table `%s` as a table" (Value.to_string v)
+end
+
+let type_mismatch s = 
+  M.fail @@ Err.type_mismatch s
+
 let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
   log e @@
   match e with
@@ -18,7 +58,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
     let%bind env = ask_env in
     match Env.find id env with
     | Some v -> return v
-    | None -> vanish (* fail @@ Err.unbound_variable id *)
+    | None -> fail @@ Err.unbound_variable id
   end
   | EId -> return VId
   (* inputs *)
@@ -47,7 +87,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
     )
     |> function
       | Some (expr, f) -> local f (analyze expr)
-      | None -> fail Err.type_mismatch
+      | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v
   end
   | ERecord record_body ->
     let%bind value_record_body =
@@ -60,12 +100,12 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
     return @@ VRecord value_record_body
   | EProject { record ; label } -> begin
     match%bind analyze record with
-    | VRecord record_body -> begin
+    | VRecord record_body as r -> begin
       match Map.find record_body label with
       | Some v -> return v
-      | None -> fail Err.type_mismatch
+      | None -> type_mismatch @@ Error_msg.project_missing_label label r
     end 
-    | _ -> fail Err.type_mismatch
+    | r ->  type_mismatch @@ Error_msg.project_non_record label r
   end
   | EVariant { label ; payload } ->
     let%bind v = analyze payload in
@@ -75,7 +115,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
     match%bind analyze cond with
     | VTrue -> analyze true_body
     | VFalse -> analyze false_body
-    | _ -> fail @@ Err.type_mismatch
+    | v -> type_mismatch @@ Error_msg.cond_non_bool v
   end
   | ECase { subject ; cases ; default } -> begin
     match%bind analyze subject with
@@ -83,16 +123,16 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
     | VPosInt -> (* relying on the assumption that cases are on positive ints *)
       let%bind (_, expr) = choose cases in
       analyze expr
-    | _ -> fail @@ Err.type_mismatch
+    | v -> type_mismatch @@ Error_msg.case_non_int v
   end
   (* closures and applications *)
   | EFunction { param ; body } ->
     let%bind env, callstack = ask in
-    let%bind () = modify (Store.cons (callstack, Env_set.singleton env)) in
+    let%bind () = modify (Store.add callstack env) in
     return @@ VFunClosure { param ; body = { body ; callstack }}
   | EFreeze expr ->
     let%bind env, callstack = ask in
-    let%bind () = modify (Store.cons (callstack, Env_set.singleton env)) in
+    let%bind () = modify (Store.add callstack env) in
     return @@ VFrozen { body = expr ; callstack }
   | ELet { var ; body ; cont } ->
     let%bind v = analyze body in
@@ -113,7 +153,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
       | None -> failwith "unhandled callstack not found in store"
     end
     | VId -> analyze arg
-    | _ -> fail Err.type_mismatch
+    | v -> type_mismatch @@ Error_msg.bad_appl v 
   end
   | EThaw expr -> begin
     match%bind analyze expr with
@@ -125,11 +165,11 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
         local (fun _ -> env) (analyze body)
       | None -> failwith "unhandled callstack not found in store"
     end
-    | _ -> fail Err.type_mismatch
+    | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
   end
   (* termination *)
   | EDiverge -> vanish
-  | EAbort _ -> fail @@ Err.abort
+  | EAbort msg -> fail @@ Err.abort msg
   (* unhandled and currently ignored *)
   | EDet expr
   | EEscapeDet expr -> analyze expr
@@ -137,10 +177,10 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
   | ETable
   | ETblAppl _ -> failwith "unimplemented analysis on tables"
 
-let has_error (e : Embedded.With_callsights.t) : bool =
+(* let has_error (e : Embedded.With_callsights.t) : [ `No_error | `Error] =
   e
   |> analyze
   |> M.run_for_error
   |> function
     | Ok () -> false
-    | Error _ -> true
+    | Error msg -> true *)

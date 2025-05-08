@@ -34,14 +34,14 @@ let () =
       | "no" | "n" -> false
       | _ -> Format.eprintf "Error: bad string given to wrap -w flag. Should be yes/no."; assert false
     in
-    if
+    (* if *)
       In_channel.read_all src_file
       |> Lang.Parse.parse_single_pgm_string
       |> Translate.Convert.bjy_to_emb ~do_wrap
       |> Lang.Ast_tools.Utils.pgm_to_module
       |> Lang.Ast.Embedded.With_callsights.alphatized_of_expr
-      |> Analysis.Main.has_error
-    then
-      Format.printf "ERROR: the analysis found an error\n"
-    else
-      Format.printf "Your program is error-free\n"
+      |> Analysis.Main.analyze
+      |> Analysis.Grammar.M.run_for_error
+      |> function
+        | Ok _value_set -> Format.printf "Your program is error-free\n"
+        | Error err -> Format.printf "ERROR: the analysis found an error.\n%s\n" (Analysis.Grammar.Err.to_string err)
