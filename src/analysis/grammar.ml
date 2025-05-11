@@ -13,7 +13,7 @@ module Callstack = struct
 
   let k = 1
 
-  (* very inefficient for now. Also uses fixed k  *)
+  (* inefficient for now. Also uses fixed k  *)
   let k_cons : t -> Callsight.t -> t = fun stack callsight ->
     List.take (callsight :: stack) k
 
@@ -42,6 +42,8 @@ module rec Value : sig
     | VRecord of t RecordLabel.Map.t
     | VId
 
+  module Set : Stdlib.Set.S with type elt = t
+
   val to_string : t -> string
 
   val compare : t -> t -> int
@@ -52,18 +54,24 @@ module rec Value : sig
   val op : t -> Lang.Ast.Binop.t -> t -> t M.m
   val not_ : t -> t M.m
 end = struct
-  type t =
-    | VPosInt
-    | VNegInt
-    | VZero
-    | VTrue
-    | VFalse
-    | VFunClosure of { param : Ident.t ; body : Closure.t }
-    | VFrozen of Closure.t
-    | VVariant of { label : VariantLabel.t ; payload : t }
-    | VRecord of t RecordLabel.Map.t
-    | VId [@@deriving compare]
-    (* We don't yet handle tables. That will be a failure case in the analysis *)
+  module T = struct
+    type t =
+      | VPosInt
+      | VNegInt
+      | VZero
+      | VTrue
+      | VFalse
+      | VFunClosure of { param : Ident.t ; body : Closure.t }
+      | VFrozen of Closure.t
+      | VVariant of { label : VariantLabel.t ; payload : t }
+      | VRecord of t RecordLabel.Map.t
+      | VId [@@deriving compare]
+      (* We don't yet handle tables. That will be a failure case in the analysis *)
+  end
+
+  include T
+
+  module Set = Stdlib.Set.Make (T)
 
   let rec to_string = function
     | VPosInt -> "(+)"
@@ -269,47 +277,33 @@ end
 and Env : sig 
   type t
   val empty : unit -> t (* abstracted just to have one safe recursive module *)
-  val subsumes : t -> t -> bool
+  (* val subsumes : t -> t -> bool *)
+  val merge : t -> t -> t
   val compare : t -> t -> int
   val add : Ident.t -> Value.t -> t -> t
-  val find : Ident.t -> t -> Value.t option
+  val find : Ident.t -> t -> Value.t M.m
 end = struct
-  type t = Value.t Ident.Map.t
+  type t = Value.Set.t Ident.Map.t
   let empty () = Ident.Map.empty
 
-  (* true iff x subsumes y *)
-  let subsumes x y =
-    Map.for_alli y ~f:(fun ~key ~data ->
-      match Map.find x key with
-      | Some data' when Value.compare data data' = 0 -> true
-      | _ -> false
+  let compare = Ident.Map.compare Value.Set.compare
+
+  let add id v env = 
+    Map.update env id ~f:(function
+      | Some set -> Value.Set.add v set
+      | None -> Value.Set.singleton v
     )
 
-  let compare = Ident.Map.compare Value.compare
-  let add id v env = Map.set env ~key:id ~data:v
-  let find id env = Map.find env id
-end
+  let merge x y =
+    Map.merge x y ~f:(fun ~key:_ -> function
+      | `Left set | `Right set -> Some set
+      | `Both (a, b) -> Some (Value.Set.union a b)
+    )
 
-and Env_set : sig
-  type t
-  val compare : t -> t -> int
-  val add : Env.t -> t -> t
-  val singleton : Env.t -> t
-  val to_env : t -> Env.t M.m
-end = struct
-  type t = Env.t list
-
-  let compare = List.compare Env.compare
-
-  let add env t =
-    if List.exists t ~f:(fun e -> Env.subsumes e env) then
-      t
-    else
-      env :: List.filter t ~f:(fun e -> not @@ Env.subsumes env e)
-
-  let singleton env = [ env ]
-
-  let to_env = M.choose
+  let find id env = 
+    match Map.find env id with
+    | Some set -> M.choose @@ Value.Set.to_list set
+    | None -> M.vanish
 end
 
 and Store : sig
@@ -317,29 +311,32 @@ and Store : sig
   val compare : t -> t -> int
   val subsumes : t -> t -> bool
   val add : Callstack.t -> Env.t -> t -> t
-  val find : Callstack.t -> t -> Env_set.t option
-  val empty : t
+  val find : Callstack.t -> t -> Env.t M.m
+  val empty : unit -> t (* abstracted only to have safe values in recursive modules *)
 end = struct
-  type t = Env_set.t Callstack.Map.t
+  type t = Env.t Callstack.Map.t
 
-  let compare = Callstack.Map.compare Env_set.compare
+  let compare = Callstack.Map.compare Env.compare
 
   let subsumes x y =
     Map.for_alli y ~f:(fun ~key ~data ->
       match Map.find x key with
-      | Some data' when Env_set.compare data data' = 0 -> true
+      | Some data' when Env.compare data data' = 0 -> true
       | _ -> false
     )
 
   let add callstack env store =
     Map.update store callstack ~f:(function
-      | Some env_set -> Env_set.add env env_set
-      | None -> Env_set.singleton env
+      | Some env' -> Env.merge env' env
+      | None -> env
     )
 
-  let find callstack store = Map.find store callstack
+  let find callstack store = 
+    match Map.find store callstack with
+    | Some env -> M.return env
+    | None -> failwith "Unhandled error: callstack does not map to any environment"
 
-  let empty = Callstack.Map.empty
+  let empty () = Callstack.Map.empty
 end
 
 and M : sig 
@@ -368,7 +365,7 @@ end = struct
   type 'a m = Store.t -> R.t -> (('a * Store.t) list, Err.t) Result.t
 
   let run_for_error : 'a m -> (unit, Err.t) Result.t = fun x ->
-    match x Store.empty (R.empty ()) with
+    match x (Store.empty ()) (R.empty ()) with
     | Ok _ -> Ok ()
     | Error e -> Error e
 
@@ -435,7 +432,7 @@ end = struct
     | _ -> (* handle non-values *)
       fun s r ->
         match Cache.put r.cache r.callstack expr r.env s with
-        | `Existed_already -> Format.printf "Vanishing because found in cache\n"; Ok [] (* equivalent to behavior of `vanish` above *)
+        | `Existed_already -> Ok [] (* equivalent to behavior of `vanish` above *)
         | `Added_to new_cache -> x s { r with cache = new_cache }
 end
 

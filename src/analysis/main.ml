@@ -56,9 +56,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
   | EBool false -> return VFalse
   | EVar id -> begin
     let%bind env = ask_env in
-    match Env.find id env with
-    | Some v -> return v
-    | None -> vanish (*fail @@ Err.unbound_variable id*)
+    Env.find id env
   end
   | EId -> return VId
   (* inputs *)
@@ -119,6 +117,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
   end
   | ECase { subject ; cases ; default } -> begin
     match%bind analyze subject with
+    | VNegInt -> vanish (* not ill-typed. Just diverge because there are no negative cases *)
     | VZero -> analyze default
     | VPosInt -> (* relying on the assumption that cases are on positive ints *)
       let%bind (_, expr) = choose cases in
@@ -145,12 +144,9 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
     | VFunClosure { param ; body = { body ; callstack } } -> begin
       let%bind v = analyze arg in
       let%bind store = get in
-      match Store.find callstack store with
-      | Some env_set ->
-        let%bind env = Env_set.to_env env_set in
-        with_call callsight
-        @@ local (fun _ -> Env.add param v env) (analyze body)
-      | None -> failwith "unhandled callstack not found in store"
+      let%bind env = Store.find callstack store in
+      with_call callsight
+      @@ local (fun _ -> Env.add param v env) (analyze body)
     end
     | VId -> analyze arg
     | v -> type_mismatch @@ Error_msg.bad_appl v 
@@ -159,12 +155,9 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
     match%bind analyze expr with
     | VFrozen { body ; callstack } -> begin
       let%bind store = get in
-      match Store.find callstack store with
-      | Some env_set ->
-        let%bind env = Env_set.to_env env_set in
+      let%bind env = Store.find callstack store in
         with_call callsight
         @@ local (fun _ -> env) (analyze body)
-      | None -> failwith "unhandled callstack not found in store"
     end
     | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
   end
