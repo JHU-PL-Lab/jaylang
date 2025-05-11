@@ -22,6 +22,11 @@ end
 
 module Closure = struct
   type t = { body : Embedded.With_callsights.t ; callstack : Callstack.t }
+
+  let compare a b =
+    match Callstack.compare a.callstack b.callstack with
+    | 0 -> Poly.compare a.body b.body (* we're willing to do structural comparison *)
+    | x -> x
 end
 
 module rec Value : sig 
@@ -57,11 +62,8 @@ end = struct
     | VFrozen of Closure.t
     | VVariant of { label : VariantLabel.t ; payload : t }
     | VRecord of t RecordLabel.Map.t
-    | VId
+    | VId [@@deriving compare]
     (* We don't yet handle tables. That will be a failure case in the analysis *)
-
-  (* we're willing to do structural (and therefore intensional) comparison *)
-  let compare = Poly.compare
 
   let rec to_string = function
     | VPosInt -> "(+)"
@@ -313,6 +315,7 @@ end
 and Store : sig
   type t 
   val compare : t -> t -> int
+  val subsumes : t -> t -> bool
   val add : Callstack.t -> Env.t -> t -> t
   val find : Callstack.t -> t -> Env_set.t option
   val empty : t
@@ -320,6 +323,13 @@ end = struct
   type t = Env_set.t Callstack.Map.t
 
   let compare = Callstack.Map.compare Env_set.compare
+
+  let subsumes x y =
+    Map.for_alli y ~f:(fun ~key ~data ->
+      match Map.find x key with
+      | Some data' when Env_set.compare data data' = 0 -> true
+      | _ -> false
+    )
 
   let add callstack env store =
     Map.update store callstack ~f:(function
@@ -374,7 +384,7 @@ end = struct
       | Error e -> Error e
       | Ok lst -> begin
         let rec loop acc = function
-        | [] -> Ok acc
+        | [] -> Ok (List.dedup_and_sort acc ~compare:(Tuple2.compare ~cmp1:Poly.compare ~cmp2:Store.compare))
         | (a_hd, s_hd) :: tl ->
           match f a_hd s_hd r with
           | Error e -> Error e

@@ -58,7 +58,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
     let%bind env = ask_env in
     match Env.find id env with
     | Some v -> return v
-    | None -> fail @@ Err.unbound_variable id
+    | None -> vanish (*fail @@ Err.unbound_variable id*)
   end
   | EId -> return VId
   (* inputs *)
@@ -105,7 +105,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
       | Some v -> return v
       | None -> type_mismatch @@ Error_msg.project_missing_label label r
     end 
-    | r ->  type_mismatch @@ Error_msg.project_non_record label r
+    | r -> type_mismatch @@ Error_msg.project_non_record label r
   end
   | EVariant { label ; payload } ->
     let%bind v = analyze payload in
@@ -140,7 +140,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
   | EIgnore { ignored ; cont } ->
     let%bind _ : Value.t = analyze ignored in
     analyze cont
-  | EAppl { func ; arg ; callsight } -> begin
+  | EAppl { appl = { func ; arg } ; callsight } -> begin
     match%bind analyze func with
     | VFunClosure { param ; body = { body ; callstack } } -> begin
       let%bind v = analyze arg in
@@ -155,14 +155,15 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
     | VId -> analyze arg
     | v -> type_mismatch @@ Error_msg.bad_appl v 
   end
-  | EThaw expr -> begin
+  | EThaw { appl = expr ; callsight } -> begin
     match%bind analyze expr with
     | VFrozen { body ; callstack } -> begin
       let%bind store = get in
       match Store.find callstack store with
       | Some env_set ->
         let%bind env = Env_set.to_env env_set in
-        local (fun _ -> env) (analyze body)
+        with_call callsight
+        @@ local (fun _ -> env) (analyze body)
       | None -> failwith "unhandled callstack not found in store"
     end
     | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
@@ -176,11 +177,3 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
   (* unhandled and currently aborting *)
   | ETable
   | ETblAppl _ -> failwith "unimplemented analysis on tables"
-
-(* let has_error (e : Embedded.With_callsights.t) : [ `No_error | `Error] =
-  e
-  |> analyze
-  |> M.run_for_error
-  |> function
-    | Ok () -> false
-    | Error msg -> true *)

@@ -171,7 +171,7 @@ module Callsight = struct
 end
 
 module Expr = struct
-  module Make (ApplRecord : T1) = struct
+  module Make (ApplCell : T1) = struct
     type _ t =
       (* all languages. 'a is unconstrained *)
       | EInt : int -> 'a t
@@ -180,7 +180,7 @@ module Expr = struct
       | EBinop : { left : 'a t ; binop : Binop.t ; right : 'a t } -> 'a t
       | EIf : { cond : 'a t ; true_body : 'a t ; false_body : 'a t } -> 'a t
       | ELet : { var : Ident.t ; body : 'a t ; cont : 'a t } -> 'a t
-      | EAppl : 'a t ApplRecord.t -> 'a t
+      | EAppl : 'a application ApplCell.t -> 'a t
       | EMatch : { subject : 'a t ; patterns : ('a Pattern.t * 'a t) list } -> 'a t
       | EProject : { record : 'a t ; label : RecordLabel.t } -> 'a t
       | ERecord : 'a t RecordLabel.Map.t -> 'a t
@@ -192,7 +192,7 @@ module Expr = struct
       | EPick_b : 'a embedded_only t
       | ECase : { subject : 'a t ; cases : (int * 'a t) list ; default : 'a t } -> 'a embedded_only t (* simply sugar for nested conditionals *)
       | EFreeze : 'a t -> 'a embedded_only t
-      | EThaw : 'a t -> 'a embedded_only t 
+      | EThaw : 'a t ApplCell.t -> 'a embedded_only t 
       | EId : 'a embedded_only t
       | EIgnore : { ignored : 'a t ; cont : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in cont` but is more efficient *)
       | ETable : 'a embedded_only t
@@ -245,6 +245,8 @@ module Expr = struct
       | TVar : 'a typed_var -> 'a bluejay_only param
       | TVarDep : 'a typed_var -> 'a bluejay_only param
 
+    and 'a application = { func : 'a t ; arg : 'a t }
+
     (* Bluejay and desugared have typed let-expressions *)
     and 'a let_typed = { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } constraint 'a = 'a bluejay_or_desugared
 
@@ -258,8 +260,7 @@ module Expr = struct
       | SFunRec : 'a funsig list -> 'a bluejay_only statement
   end
 
-  module Application = struct type 'a t = { func : 'a ; arg : 'a } end
-  module Made = Make (Application)
+  module Made = Make (Utils.Identity)
   include Made
 end
 
@@ -277,8 +278,8 @@ module Embedded = struct
 
   module With_callsights = struct
     module E = struct
-      module Application = struct type 'a t = { func : 'a ; arg : 'a ; callsight : Callsight.t } end
-      module T = Expr.Make (Application)
+      module ApplData = struct type 'a t = { appl : 'a ; callsight : Callsight.t } end
+      module T = Expr.Make (ApplData)
       type t = embedded T.t
     end
 
@@ -343,7 +344,7 @@ module Embedded = struct
         let id', env' = replace param env in
         EFunction { param = id' ; body = visit body env' }
       (* naming the callsight *)
-      | EAppl { func ; arg } -> EAppl { func = visit func env ; arg = visit arg env ; callsight = Callsight.next () }
+      | EAppl { func ; arg } -> EAppl { appl = { func = visit func env ; arg = visit arg env } ; callsight = Callsight.next () }
       (* propagation *)
       | EBinop { left ; binop ; right } -> EBinop { left = visit left env ; binop ; right = visit right env }
       | EIf { cond ; true_body ; false_body } -> EIf { cond = visit cond env ; true_body = visit true_body env ; false_body = visit false_body env }
@@ -369,12 +370,7 @@ module Embedded = struct
           List.map cases ~f:(fun (i, expr) -> i, visit expr env)
         }
       | EFreeze expr -> EFreeze (visit expr env)
-      | EThaw expr -> EThaw (visit expr env)
-        (* begin
-          match visit expr env with
-          | EFreeze expr' -> expr' (* partially evaluate *)
-          | expr' -> EThaw expr'
-        end *)
+      | EThaw expr -> EThaw { appl = (visit expr env) ; callsight = Callsight.next () }
       | EIgnore { ignored ; cont } -> EIgnore { ignored = visit ignored env ; cont = visit cont env }
       | ETblAppl { tbl ; gen ; arg } -> ETblAppl { tbl = visit tbl env ; gen = visit gen env ; arg = visit arg env }
       | EDet expr -> EDet (visit expr env)
