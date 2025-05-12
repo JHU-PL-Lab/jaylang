@@ -54,10 +54,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
   | EInt _ -> return VNegInt
   | EBool true -> return VTrue
   | EBool false -> return VFalse
-  | EVar id -> begin
-    let%bind env = ask_env in
-    Env.find id env
-  end
+  | EVar id -> bind ask_env (Env.find id)
   | EId -> return VId
   (* inputs *)
   | EPick_i -> any_int
@@ -68,9 +65,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
     let%bind v2 = analyze right in
     op v1 binop v2
   end
-  | ENot expr ->
-    let%bind v = analyze expr in
-    not_ v
+  | ENot expr -> bind (analyze expr) not_
   (* propagation *)
   | EMatch { subject ; patterns } -> begin
     let%bind v = analyze subject in
@@ -143,8 +138,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
     match%bind analyze func with
     | VFunClosure { param ; body = { body ; callstack } } -> begin
       let%bind v = analyze arg in
-      let%bind store = get in
-      let%bind env = Store.find callstack store in
+      let%bind env = find_env callstack in
       with_call callsight
       @@ local (fun _ -> Env.add param v env) (analyze body)
     end
@@ -154,10 +148,9 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
   | EThaw { appl = expr ; callsight } -> begin
     match%bind analyze expr with
     | VFrozen { body ; callstack } -> begin
-      let%bind store = get in
-      let%bind env = Store.find callstack store in
-        with_call callsight
-        @@ local (fun _ -> env) (analyze body)
+      let%bind env = find_env callstack in
+      with_call callsight
+      @@ local (fun _ -> env) (analyze body)
     end
     | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
   end

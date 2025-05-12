@@ -13,7 +13,7 @@ module Callstack = struct
 
   let k = 1
 
-  (* inefficient for now. Also uses fixed k  *)
+  (* inefficient for now and uses fixed k  *)
   let k_cons : t -> Callsight.t -> t = fun stack callsight ->
     List.take (callsight :: stack) k
 
@@ -25,7 +25,7 @@ module Closure = struct
 
   let compare a b =
     match Callstack.compare a.callstack b.callstack with
-    | 0 -> Poly.compare a.body b.body (* we're willing to do structural comparison *)
+    | 0 -> Poly.compare a.body b.body (* we're willing to do structural comparison on expressions *)
     | x -> x
 end
 
@@ -40,19 +40,25 @@ module rec Value : sig
     | VFrozen of Closure.t
     | VVariant of { label : VariantLabel.t ; payload : t }
     | VRecord of t RecordLabel.Map.t
-    | VId
+    | VId [@@deriving compare]
+  (** [t] are the abstract values. THis uses polymorphic comparison on closures. *)
 
   module Set : Stdlib.Set.S with type elt = t
+  (** [Set] describes sets of values (note the polymorphic comparison). *)
 
   val to_string : t -> string
 
-  val compare : t -> t -> int
-
   val any_int : t M.m
+  (** [any_int] is a nondeterministic abstract int. *)
+
   val any_bool : t M.m
+  (** [any_bool] is a nondeterministic abstract bool. *)
 
   val op : t -> Lang.Ast.Binop.t -> t -> t M.m
+  (** [op left binop right] is the nondeterministic result of [binop] on [left] and [right]. *)
+
   val not_ : t -> t M.m
+  (** [not_ v] is the negative of [v]. *)
 end = struct
   module T = struct
     type t =
@@ -254,10 +260,18 @@ end
 
 and Err : sig
   type t 
+  (** [t] are the errors the analysis can find. *)
+
   val to_string : t -> string
+
   val type_mismatch : string -> t
+  (** [type_mismatch msg] is an error for a type mismatch with the given [msg]. *)
+
   val abort : string -> t
+  (** [abort msg] is an error for an abort with the given [msg]. *)
+
   val unbound_variable : Ident.t -> t
+  (** [unbound_variable id] is an error for the unbound variable [id]. *)
 end = struct
   type t =
     | Type_mismatch of string
@@ -276,12 +290,24 @@ end
 
 and Env : sig 
   type t
-  val empty : unit -> t (* abstracted just to have one safe recursive module *)
-  (* val subsumes : t -> t -> bool *)
+  (** [t] are the environments: multimaps from identifiers to abstract values. *)
+
+  val empty : unit -> t
+  (** [empty ()] is the empty environment. It is suspended so that there are safe values
+      in the recursive module cycle. *)
+
   val merge : t -> t -> t
+  (** [merge a b] is the least multimap containing [a] and [b]. *)
+
   val compare : t -> t -> int
+  (** [compare a b] compares keys and values of [a] and [b], using polymorphic comparison
+      in to compare closures. *)
+
   val add : Ident.t -> Value.t -> t -> t
+  (** [add id v env] is the least map containing [t] and [{ id -> v }]. *)
+
   val find : Ident.t -> t -> Value.t M.m
+  (** [find id env] is the nondeterministic value mapped to by [id] in [env]. *)
 end = struct
   type t = Value.Set.t Ident.Map.t
   let empty () = Ident.Map.empty
@@ -303,27 +329,29 @@ end = struct
   let find id env = 
     match Map.find env id with
     | Some set -> M.choose @@ Value.Set.to_list set
-    | None -> M.vanish
+    | None -> M.fail (Err.unbound_variable id)
 end
 
 and Store : sig
   type t 
+  (** [t] are mappings from callstacks to environments. *)
+
   val compare : t -> t -> int
-  val subsumes : t -> t -> bool
+  (** [compare a b] compares the maps [a] and [b] using environment comparison. *)
+
   val add : Callstack.t -> Env.t -> t -> t
-  val find : Callstack.t -> t -> Env.t M.m
-  val empty : unit -> t (* abstracted only to have safe values in recursive modules *)
+  (** [add callstack env t] merges the environments [env] and [t(callstack)]. *)
+
+  val find : Callstack.t -> t -> Env.t
+  (** [find callstack env] is [env(callstack)], or an unhandled exception if not found. *)
+
+  val empty : unit -> t
+  (** [empty ()] is the empty store. It is suspended only to have a safe value
+      in the recursive module cycle. *)
 end = struct
   type t = Env.t Callstack.Map.t
 
   let compare = Callstack.Map.compare Env.compare
-
-  let subsumes x y =
-    Map.for_alli y ~f:(fun ~key ~data ->
-      match Map.find x key with
-      | Some data' when Env.compare data data' = 0 -> true
-      | _ -> false
-    )
 
   let add callstack env store =
     Map.update store callstack ~f:(function
@@ -333,28 +361,69 @@ end = struct
 
   let find callstack store = 
     match Map.find store callstack with
-    | Some env -> M.return env
+    | Some env -> env
     | None -> failwith "Unhandled error: callstack does not map to any environment"
 
   let empty () = Callstack.Map.empty
 end
 
 and M : sig 
+  (* M is a monad *)
   type 'a m
-  val run_for_error : 'a m -> (unit, Err.t) Result.t
+  (** ['a m] is a state, reader, nondeterministic, result monad. *)
+
   val return : 'a -> 'a m
-  val fail : 'a. Err.t -> 'a m
   val bind : 'a m -> ('a -> 'b m) -> 'b m
+
+  val run_for_error : 'a m -> (unit, Err.t) Result.t
+  (** [run_for_error x] is the result of [x] run on empty initial environment and state. *)
+
+  val fail : 'a. Err.t -> 'a m
+  (** [fail err] is the error with message [err]. *)
+
+  (*
+    NONDETERMINISM
+  *)
+
   val choose : 'a list -> 'a m
-  val get : Store.t m
-  val modify : (Store.t -> Store.t) -> unit m
-  val local : (Env.t -> Env.t) -> 'a m -> 'a m
-  val with_call : Callsight.t -> 'a m -> 'a m
-  val ask_env : Env.t m
-  val ask_callstack : Callstack.t m
-  val ask : (Env.t * Callstack.t) m
+  (** [choose ls] chooses an element from [ls]. *)
+
   val vanish : 'a m
+  (** [vanish] is nothing. It simulates divergence. *)
+
+  (*
+    STATE 
+  *)
+
+  val modify : (Store.t -> Store.t) -> unit m
+  (** [modify f] modifies the state with [f]. *)
+
+  val find_env : Callstack.t -> Env.t m
+  (** [bind_env callstack] is the environment associated with [callstack] in the state. *)
+
+  (*
+    ENVIRONMENT 
+  *)
+
+  val local : (Env.t -> Env.t) -> 'a m -> 'a m
+  (** [local f x] computes [x] with the local environment transformation [f]. *)
+
+  val with_call : Callsight.t -> 'a m -> 'a m
+  (** [with_call callsight x] computes [x] with the [callsight] locally added to the callstack. *)
+
+  val ask_env : Env.t m
+  (** [ask_env] is the environment. *)
+
+  val ask : (Env.t * Callstack.t) m
+  (** [ask] is the environment and callstack. *)
+
+  (*
+    CACHE 
+  *)
+
   val log : Embedded.With_callsights.t -> 'a m -> 'a m
+  (** [log expr x] logs the [expr] as seen in the environment and computes [x] if [expr] is new.
+      Otherwise, if [expr] had been seen in this strain before, then it vanishes. *)
 end = struct
   module R = struct
     (* the read environment *)
@@ -375,7 +444,7 @@ end = struct
   let fail : Err.t -> 'a m = fun e ->
     fun _ _ -> Error e
 
-  let bind : 'a m -> ('a -> 'b m) -> 'b m = fun x f ->
+  let[@inline always][@specialize] bind : 'a m -> ('a -> 'b m) -> 'b m = fun x f ->
     fun store r ->
       match x store r with
       | Error e -> Error e
@@ -396,6 +465,10 @@ end = struct
   let get : Store.t m =
     fun s _ -> Ok [ s, s ]
 
+  let find_env : Callstack.t -> Env.t m = fun callstack ->
+    let%bind store = get in
+    return @@ Store.find callstack store
+
   let modify : (Store.t -> Store.t) -> unit m = fun f ->
     fun s _ -> Ok [ (), f s ]
 
@@ -409,9 +482,6 @@ end = struct
 
   let ask_env : Env.t m =
     fun s r -> Ok [ r.env, s ]
-
-  let ask_callstack : Callstack.t m =
-    fun s r -> Ok [ r.callstack, s ]
 
   let ask : (Env.t * Callstack.t) m =
     fun s r -> Ok [ (r.env, r.callstack), s ]
@@ -428,7 +498,7 @@ end = struct
   *)
   let log : Embedded.With_callsights.t -> 'a m -> 'a m = fun expr x ->
     match expr with
-    | EInt _ | EBool _ | EVar _ | EPick_i | EPick_b -> x (* these are fine to re-evalaute *)
+    | EInt _ | EBool _ | EVar _ | EPick_i | EPick_b | EFunction _ | EFreeze _ -> x (* these are fine to re-evalaute *)
     | _ -> (* handle non-values *)
       fun s r ->
         match Cache.put r.cache r.callstack expr r.env s with
