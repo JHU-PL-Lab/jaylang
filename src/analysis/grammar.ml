@@ -368,7 +368,13 @@ end = struct
 end
 
 and M : sig 
-  (* M is a monad *)
+  (*
+    -----
+    BASIC
+    -----
+
+    M is a monad
+  *)
   type 'a m
   (** ['a m] is a state, reader, nondeterministic, result monad. *)
 
@@ -382,7 +388,9 @@ and M : sig
   (** [fail err] is the error with message [err]. *)
 
   (*
+    --------------
     NONDETERMINISM
+    --------------
   *)
 
   val choose : 'a list -> 'a m
@@ -392,7 +400,9 @@ and M : sig
   (** [vanish] is nothing. It simulates divergence. *)
 
   (*
+    -----
     STATE 
+    -----
   *)
 
   val modify : (Store.t -> Store.t) -> unit m
@@ -402,7 +412,9 @@ and M : sig
   (** [bind_env callstack] is the environment associated with [callstack] in the state. *)
 
   (*
+    -----------
     ENVIRONMENT 
+    -----------
   *)
 
   val local : (Env.t -> Env.t) -> 'a m -> 'a m
@@ -418,7 +430,9 @@ and M : sig
   (** [ask] is the environment and callstack. *)
 
   (*
+    -----
     CACHE 
+    -----
   *)
 
   val log : Embedded.With_callsights.t -> 'a m -> 'a m
@@ -491,14 +505,12 @@ end = struct
 
   (*
     Log this expression as seen, and vanish if it had already been seen before.
-    We don't log values, but it would cause no harm because the cache is like env.
-
-    So the cache should actually be a reader setup, and we log the expressions
-    locally.
+    We don't log values, but it would cause no (true) harm because the cache is like env.
+    It just would cause some harm in efficiency because we woule be logging unnecessarily.
   *)
   let log : Embedded.With_callsights.t -> 'a m -> 'a m = fun expr x ->
     match expr with
-    | EInt _ | EBool _ | EVar _ | EPick_i | EPick_b | EFunction _ | EFreeze _ -> x (* these are fine to re-evalaute *)
+    | EInt _ | EBool _ | EVar _ | EPick_i | EPick_b | EFunction _ | EFreeze _ -> x (* these are fine to re-evalaute because they are values *)
     | _ -> (* handle non-values *)
       fun s r ->
         match Cache.put r.cache r.callstack expr r.env s with
