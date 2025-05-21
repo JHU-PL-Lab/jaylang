@@ -22,6 +22,7 @@ open Constraints
 module type V = sig
   type 'a t
   val to_string : ('a -> string) -> 'a t -> string
+  val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
 end
 
 module type STORE = sig
@@ -31,11 +32,17 @@ module type STORE = sig
   val fetch : Ident.t -> 'a t -> 'a option
 end
 
+module type CELL = sig
+  type 'a t
+  val put : 'a -> 'a t
+  val get : 'a t -> 'a
+end
+
 (*
   V is the payload of int and bool. We do this so that we can
   inject Z3 expressions into the values of the concolic evaluator.
 *)
-module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
+module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
   module T = struct
     type _ t =
       (* all languages *)
@@ -93,6 +100,82 @@ module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
         | PDestructList { hd_id ; tl_id }, VList (v_hd :: v_tl) ->
           Some [ v_hd, hd_id ; VList v_tl, tl_id ]
         | _ -> None
+
+    let rec equal : type a. a t -> a t -> bool =
+      fun a b ->
+        match a, b with
+        | VInt i1, VInt i2 -> V.equal Int.equal i1 i2
+        | VBool b1, VBool b2 -> V.equal Bool.equal b1 b2
+        | VFunClosure r1, VFunClosure r2 ->
+          equal_closure [ r1.param, r2.param ] r1.body r2.body
+        | VVariant r1, VVariant r2 ->
+          VariantLabel.equal r1.label r2.label
+          && equal r1.payload r2.payload
+        | VRecord m1, VRecord m2 -> RecordLabel.Map.equal equal m1 m2
+        | VFrozen c1, VFrozen c2 -> equal_closure [] c1 c2
+        | VTable r1, VTable r2 ->
+          List.equal (Tuple2.equal ~eq1:equal ~eq2:equal) r1.alist r2.alist
+        | VList l1, VList l2 -> List.equal equal l1 l2
+        | VMultiArgFunClosure r1, VMultiArgFunClosure r2 -> begin
+          match Expr.Alist.cons_assocs r1.params r2.params Expr.Alist.empty with
+          | `Bindings bindings -> equal_closure bindings r1.body r2.body
+          | `Unequal_lengths _ -> false
+        end
+        | VTypeRecord m1, VTypeRecord m2 -> RecordLabel.Map.equal equal m1 m2
+        | VTypeModule l1, VTypeModule l2 -> begin
+          match
+            List.fold2 l1 l2 ~init:(true, []) ~f:(fun (acc_b, acc_l) (RecordLabel label1, c1) (RecordLabel label2, c2) ->
+              if acc_b then
+                equal_closure acc_l c1 c2
+                , Expr.Alist.cons_assoc label1 label2 acc_l
+              else
+                acc_b, acc_l
+            )
+          with
+          | Ok (b, _) -> b
+          | Unequal_lengths -> false
+        end
+        | VTypeFun r1, VTypeFun r2 ->
+          Bool.(=) r1.det r2.det
+          && equal r1.domain r2.domain
+          && equal r1.codomain r2.codomain
+        | VTypeDepFun r1, VTypeDepFun r2 ->
+          Bool.(=) r1.det r2.det
+          && equal r1.domain r2.domain
+          && equal_closure [ r1.binding, r2.binding ] r1.codomain r2.codomain
+        | VTypeRefinement r1, VTypeRefinement r2 ->
+          equal r1.tau r2.tau && equal r1.predicate r2.predicate
+        | VTypeMu r1, VTypeMu r2 -> equal_closure [ r1.var, r2.var ] r1.body r2.body
+        | VTypeVariant l1, VTypeVariant l2 ->
+          List.equal (Tuple2.equal ~eq1:VariantTypeLabel.equal ~eq2:equal) l1 l2
+        | VTypeSingle v1, VTypeSingle v2 -> equal v1 v2
+        | VTypeList v1, VTypeList v2 -> equal v1 v2
+        | VTypeIntersect l1, VTypeIntersect l2 ->
+          List.equal (Tuple3.equal ~eq1:VariantTypeLabel.equal ~eq2:equal ~eq3:equal) l1 l2
+        (* intensionally equal *)
+        | VUnboundVariable id1, VUnboundVariable id2 -> Ident.equal id1 id2
+        | VTypeMismatch, VTypeMismatch
+        | VAbort, VAbort
+        | VDiverge, VDiverge
+        | VId, VId 
+        | VType, VType
+        | VTypeInt, VTypeInt
+        | VTypeBool, VTypeBool
+        | VTypeTop, VTypeTop
+        | VTypeBottom, VTypeBottom -> true
+        | _ -> false (* these are structurally different and cannot be equal *)
+
+    and equal_closure : type a. Expr.Alist.t -> a closure -> a closure -> bool =
+      fun bindings a b ->
+        Expr.compare (fun id1 id2 ->
+          match Expr.Alist.compare_in_t id1 id2 bindings with
+          | `Found x -> x
+          | `Not_found -> begin
+            match Store.fetch id1 (Env_cell.get a.env), Store.fetch id2 (Env_cell.get a.env) with
+            | Some v1, Some v2 -> if equal v1 v2 then 0 else 1 (* doesn't need to be real comparison *)
+            | _, _ -> 1 (* not equal. Just claim 1 *)
+          end
+        ) a.expr b.expr = 0
   end
 
   module Env = struct
@@ -142,7 +225,7 @@ module Make (Store : STORE) (Env_cell : T1) (V : V) = struct
         (String.concat ~sep: "| " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(`%s of %s)" s (to_string tau)))
 end
 
-module Constrain (C : sig type constrain end) (Store : STORE) (Cell : T1) (V : V) = struct
+module Constrain (C : sig type constrain end) (Store : STORE) (Cell : CELL) (V : V) = struct
   module M = Make (Store) (Cell) (V)
 
   module T = struct
@@ -201,6 +284,12 @@ module Map_store = struct
     Map.find env id
 end
 
+module Lazy_cell = struct
+  include Lazy
+  let put a = lazy a
+  let get x = force x
+end
+
 (*
   Values in embedded language. There is no explicit recursion, so the closures
   do not use lazy environments.
@@ -212,10 +301,10 @@ module Embedded = Constrain (struct type constrain = Ast.Constraints.embedded en
   Values in the desugared language. Uses laziness to implement recursion.
   Usage is unknown, so use a Map as the environment to be general.
 *)
-module Desugared = Constrain (struct type constrain = Ast.Constraints.desugared end) (Map_store) (Lazy)
+module Desugared = Constrain (struct type constrain = Ast.Constraints.desugared end) (Map_store) (Lazy_cell)
 
 (*
   Values in Bluejay. Uses laziness to implement recursion.
   Usage is unknown, so use a Map as the environment to be general.
 *)
-module Bluejay = Constrain (struct type constrain = Ast.Constraints.bluejay end) (Map_store) (Lazy)
+module Bluejay = Constrain (struct type constrain = Ast.Constraints.bluejay end) (Map_store) (Lazy_cell)

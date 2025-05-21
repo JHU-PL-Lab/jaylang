@@ -14,15 +14,9 @@ open Ast
 open Expr
 open Ast_tools.Exceptions
 
-module V = Value.Make (Value.Map_store) (Lazy) (Utils.Identity)
+module V = Value.Make (Value.Map_store) (Value.Lazy_cell) (Utils.Identity)
 open V
 
-(* 
-  Notes:
-    * With CPS is definitely much faster on very long computations
-    * However, on somewhat small computations on the order of ms and tens of ms, non-CPS is faster by the same order
-      * With [@inline always], most of that performance gap goes away, so CPS is generally a fine choice
- *)
 module CPS_Error_M (Env : Interp_monad.ENV) = struct
   (* No state *)
   module State = Unit
@@ -38,13 +32,12 @@ module CPS_Error_M (Env : Interp_monad.ENV) = struct
       Unbound_variable id
   end
 
-  (* No state. Reader on Env. Err is error type. *)
   include Interp_monad.Make (State) (Env) (Err)
 
-  (* unit is needed to surmount the value restriction *)
   let abort (type a) (msg : string) : a m =
     fail @@ Err.Abort msg
 
+  (* unit is needed to surmount the value restriction *)
   let diverge (type a) (() : unit) : a m =
     fail Err.Diverge
 
@@ -77,11 +70,9 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
   let zero () = type_mismatch () in
   let rec eval (e : a Expr.t) : a V.t m =
     match e with
-    (* TODO: unhandled *)
-    | ETable
-    | ETblAppl _
-    | EDet _
-    | EEscapeDet _ -> failwith "unimplemented interpreter"
+    (* Determinism *)
+    | EDet e -> with_incr_depth @@ eval e
+    | EEscapeDet e -> with_escaped_det @@ eval e
     (* direct values *)
     | EInt i -> return (VInt i)
     | EBool b -> return (VBool b)
@@ -109,8 +100,12 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       VFrozen { expr ; env = lazy env }
     | EId -> return VId
     (* inputs *) (* Consider: use an input stream to allow user to provide inputs *)
-    | EPick_i -> return (VInt 0)
-    | EPick_b -> return (VBool false)
+    | EPick_i -> 
+      let%bind () = assert_nondeterminism in
+      return (VInt 0)
+    | EPick_b -> 
+      let%bind () = assert_nondeterminism in
+      return (VBool false)
     (* simple propogation *)
     | EVariant { label ; payload } ->
       let%bind payload = eval payload in
@@ -227,6 +222,18 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%bind e_b = eval e_not_body in
       let%orzero (VBool b) = e_b in
       return (VBool (not b))
+    | EIf { cond ; true_body ; false_body } ->
+      let%bind e_b = eval cond in
+      let%orzero (VBool b) = e_b in
+      if b
+      then eval true_body
+      else eval false_body
+    | EProject { record ; label } ->
+      let%bind r = eval record in
+      let%orzero (VRecord record_body) = r in (* Note: this means we can't project from a record type *)
+      let%orzero (Some v) = Map.find record_body label in
+      return v
+    (* failures *)
     | EAssert e_assert_body ->
       let%bind e_b = eval e_assert_body in
       let%orzero (VBool b) = e_b in
@@ -239,17 +246,6 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       if b
       then return (VRecord RecordLabel.Map.empty)
       else diverge ()
-    | EIf { cond ; true_body ; false_body } ->
-      let%bind e_b = eval cond in
-      let%orzero (VBool b) = e_b in
-      if b
-      then eval true_body
-      else eval false_body
-    | EProject { record ; label } ->
-      let%bind r = eval record in
-      let%orzero (VRecord record_body) = r in (* Note: this means we can't project from a record type *)
-      let%orzero (Some v) = Map.find record_body label in
-      return v
     (* casing *)
     | EMatch { subject ; patterns } -> 
       let%bind v = eval subject in
@@ -288,7 +284,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       in
       local_env (fun _ -> force rec_env) (eval cont)
     end
-    | ELetFun { func ; cont } ->
+    | ELetFun { func ; cont } -> begin
       let comps = Ast_tools.Funsig.to_components func in
       Ast_tools.Utils.abstract_over_ids comps.params comps.body
       |> function
@@ -297,6 +293,30 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
             Env.add comps.func_id (VFunClosure { param ; body = { expr = body ; env = lazy env } }) env
           ) (eval cont)
         | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
+    end
+    (* tables *)
+    | ETable -> return (VTable { alist = [] })
+    | ETblAppl { tbl ; gen ; arg } -> begin
+      match%bind eval tbl with
+      | VTable mut_r -> begin
+        let%bind v = eval arg in
+        let%bind output_opt = 
+          List.fold mut_r.alist ~init:(return None) ~f:(fun acc_m (input, output) ->
+            match%bind acc_m with
+            | None when V.equal input v -> return (Some output)
+            | _ -> acc_m (* already found an output or doesn't match input, so go unchanged *)
+            )
+        in
+        match output_opt with
+        | Some output -> return output
+        | None ->
+          let%bind new_output = with_escaped_det @@ eval gen in
+          mut_r.alist <- (v, new_output) :: mut_r.alist;
+          return new_output
+      end
+      | _ -> type_mismatch ()
+    end
+
 
     and eval_let (var : Ident.t) ~(body : a Expr.t) ~(cont : a Expr.t) : a V.t m =
       let%bind v = eval body in

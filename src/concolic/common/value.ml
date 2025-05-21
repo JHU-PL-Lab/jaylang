@@ -6,6 +6,10 @@ module Concolic_value = struct
   let to_string f (v, _) = f v
 
   let return_bool b = b, Expression.const_bool b
+
+  let equal eq (a, e_a) (b, e_b) =
+    eq a b
+    && Expression.equal e_a e_b
 end
 
 include Lang.Value.Embedded (Concolic_value)

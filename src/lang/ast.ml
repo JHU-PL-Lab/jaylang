@@ -162,23 +162,25 @@ module Pattern = struct
     | PEmptyList -> 3
     | PDestructList _ -> 4
 
-  let compare : type a. a t -> a t -> int =
+  let cmp : type a. a t -> a t -> [ `LT | `GT | `Eq of (Ident.t * Ident.t) list ] =
     fun a b ->
       match Int.compare (to_rank a) (to_rank b) with
       | 0 -> begin
         match a, b with
-        | PAny, PAny -> 0
-        | PVariable id1, PVariable id2 -> Ident.compare id1 id2
-        | PVariant r1, PVariant r2 ->
-          Tuple2.compare ~cmp1:VariantLabel.compare ~cmp2:Ident.compare
-            (r1.variant_label, r1.payload_id) (r2.variant_label, r2.payload_id)
-        | PEmptyList, PEmptyList -> 0
-        | PDestructList r1, PDestructList r2 ->
-          Tuple2.compare ~cmp1:Ident.compare ~cmp2:Ident.compare
-            (r1.hd_id, r1.tl_id) (r2.hd_id, r2.tl_id)
+        | PAny, PAny -> `Eq []
+        | PVariable id1, PVariable id2 -> `Eq [ id1, id2 ]
+        | PVariant r1, PVariant r2 -> begin
+          match VariantLabel.compare r1.variant_label r2.variant_label with
+          | 0 -> `Eq [ r1.payload_id, r2.payload_id ]
+          | x when x < 0 -> `LT
+          | _ -> `GT
+        end
+        | PEmptyList, PEmptyList -> `Eq []
+        | PDestructList r1, PDestructList r2 -> `Eq [ (r1.hd_id, r2.hd_id) ; (r1.tl_id, r2.tl_id) ]
         | _ -> raise @@ InvalidComparison "Impossible comparison of patterns"
       end
-      | x -> x
+      | x when x < 0 -> `LT
+      | _ -> `GT
 
   let to_string : type a. a t -> string = function
     | PAny -> "any"
@@ -285,6 +287,16 @@ module Expr = struct
       | SFun : 'a funsig -> 'a bluejay_only statement
       | SFunRec : 'a funsig list -> 'a bluejay_only statement
 
+    let func_id_of_funsig = function
+      | FUntyped { func_id ; _ }
+      | FTyped { func_id ; _ } -> func_id
+
+    let ids_of_statement : type a. a statement -> Ident.t list = function
+      | SUntyped { var ; _ } -> [ var ]
+      | STyped { typed_var = { var ; _ } ; _ } -> [ var ]
+      | SFun fs -> [ func_id_of_funsig fs ]
+      | SFunRec fss -> List.map fss ~f:func_id_of_funsig
+
     (* Completely arbitrary rank. PPX libs can't do this automatically on a GADT. *)
     let to_rank : type a. a t -> int = function
       | EInt _ -> 0            | EBool _ -> 1      | EVar _ -> 2               | EBinop _ -> 3
@@ -307,153 +319,260 @@ module Expr = struct
       | SFun _ -> 2
       | SFunRec _ -> 3
 
-    (* This is super tedious but needs to be done because no ppx can do it for GADTs *)
-    let rec compare : type a. a t -> a t -> int =
-      fun a b ->
-        match Int.compare (to_rank a) (to_rank b) with
-        | 0 -> begin
-          match a, b with
-          | EPick_i, EPick_i | EPick_b, EPick_b | EId, EId | ETable, ETable
-          | EDiverge, EDiverge | EType, EType | ETypeInt, ETypeInt | ETypeBool, ETypeBool
-          | ETypeTop, ETypeTop | ETypeBottom, ETypeBottom -> 0
-          | EInt i, EInt j -> Int.compare i j
-          | EBool b, EBool c -> Bool.compare b c
-          | EVar x, EVar y -> Ident.compare x y
-          | EBinop r1, EBinop r2 ->
-            Tuple3.compare ~cmp1:compare ~cmp2:Binop.compare ~cmp3:compare
-              (r1.left, r1.binop, r1.right)
-              (r2.left, r2.binop, r2.right)
-          | EIf r1, EIf r2 ->
-            compare3 (r1.cond, r1.true_body, r2.false_body) (r2.cond, r2.true_body, r2.false_body)
-          | ELet r1, ELet r2 ->
-            Tuple3.compare ~cmp1:Ident.compare ~cmp2:compare ~cmp3:compare
-              (r1.var, r1.body, r1.cont)
-              (r2.var, r2.body, r2.cont)
-          | EAppl c1, EAppl c2 -> ApplCell.compare compare_application c1 c2
-          | EMatch r1, EMatch r2 ->
-            Tuple2.compare ~cmp1:compare ~cmp2:(List.compare (Tuple2.compare ~cmp1:Pattern.compare ~cmp2:compare))
-              (r1.subject, r1.patterns) (r2.subject, r2.patterns)
-          | EProject r1, EProject r2 ->
-            Tuple2.compare ~cmp1:compare ~cmp2:RecordLabel.compare
-              (r1.record, r1.label) (r2.record, r2.label)
-          | ERecord m1, ERecord m2 -> RecordLabel.Map.compare compare m1 m2
-          | ENot e1, ENot e2 -> compare e1 e2
-          | EFunction r1, EFunction r2 ->
-            Tuple2.compare ~cmp1:Ident.compare ~cmp2:compare
-              (r1.param, r1.body) (r2.param, r2.body)
-          | EVariant r1, EVariant r2 ->
-            Tuple2.compare ~cmp1:VariantLabel.compare ~cmp2:compare
-              (r1.label, r1.payload) (r2.label, r2.payload)
-          | ECase r1, ECase r2 ->
-            Tuple3.compare ~cmp1:compare ~cmp2:(List.compare (Tuple2.compare ~cmp1:Int.compare ~cmp2:compare)) ~cmp3:compare
-              (r1.subject, r1.cases, r1.default) (r2.subject, r2.cases, r2.default)
-          | EFreeze e1, EFreeze e2 -> compare e1 e2
-          | EThaw a1, EThaw a2 -> ApplCell.compare compare a1 a2
-          | EIgnore r1, EIgnore r2 -> compare2 (r1.ignored, r1.cont) (r2.ignored, r2.cont)
-          | ETblAppl r1, ETblAppl r2 -> compare3 (r1.tbl, r1.gen, r1.arg) (r2.tbl, r2.gen, r2.arg)
-          | EDet e1, EDet e2 -> compare e1 e2
-          | EEscapeDet e1, EEscapeDet e2 -> compare e1 e2
-          | EAbort s1, EAbort s2 -> String.compare s1 s2
-          | ETypeRecord m1, ETypeRecord m2 -> RecordLabel.Map.compare compare m1 m2
-          | ETypeFun r1, ETypeFun r2 -> begin
-            match compare2 (r1.domain, r1.codomain) (r2.domain, r2.codomain) with
-            | 0 -> Poly.compare (r1.dep, r1.det) (r2.dep, r2.det)
-            | x -> x
+    module Alist = struct
+      (* association list of identifiers *)
+      type t = (Ident.t * Ident.t) list
+
+      let empty : t = []
+      
+      let cons_assoc id1 id2 t = (id1, id2) :: t
+
+      let concat t1 t2 = t1 @ t2
+
+      let rec compare_in_t id1 id2 t =
+        match t with
+        | [] -> `Not_found
+        | (d1, d2) :: tl ->
+          if Ident.equal id1 d1 then
+            `Found (Ident.compare id2 d2)
+          else if Ident.equal id2 d2 then
+            `Found (Ident.compare id1 d1)
+          else
+            compare_in_t id1 id2 tl
+
+      let cons_assocs ids1 ids2 t =
+        match Int.compare (List.length ids1) (List.length ids2) with
+        | 0 -> `Bindings (concat (List.zip_exn ids1 ids2) t)
+        | x -> `Unequal_lengths x
+    end
+
+    (**
+      Param [compare_vars] compares free variables.
+
+      Two expressions are intensionally compared.
+      It is expected that expressions are typically compared in a closure, so [compare_vars] likely
+      refers to some closure to check free variable equality.
+
+      Bound variables are compared by de Bruijn index.
+
+      Lots of boilerplate here, but I don't see a way around it.
+    *)
+    let compare (type a) (compare_vars : Ident.t -> Ident.t -> int) (x : a t) (y : a t) : int =
+      let bind x f = (* simple sugar to help us only continue when x is 0 and otherwise quit *)
+        if x = 0 then
+          f () (* NOTE! This is not actually monadic, but the sugar helps *)
+        else
+          x
+      in
+      let rec compare : type a. Alist.t -> a t -> a t -> int =
+        fun bindings a b ->
+          let cmp : type a. a t -> a t -> int = fun x y -> compare bindings x y in 
+          match Int.compare (to_rank a) (to_rank b) with
+          | 0 -> begin
+            match a, b with
+            | EPick_i, EPick_i | EPick_b, EPick_b | EId, EId | ETable, ETable
+            | EDiverge, EDiverge | EType, EType | ETypeInt, ETypeInt | ETypeBool, ETypeBool
+            | ETypeTop, ETypeTop | ETypeBottom, ETypeBottom -> 0
+            | EInt i, EInt j -> Int.compare i j
+            | EBool b, EBool c -> Bool.compare b c
+            | EVar x, EVar y -> begin
+              match Alist.compare_in_t x y bindings with
+              | `Found x -> x (* vars are bound, so was able to compare de Bruijn indices *)
+              | `Not_found -> compare_vars x y (* variables are free. Use provided comparison *)
+            end
+            | EBinop r1, EBinop r2 ->
+              Tuple3.compare ~cmp1:cmp ~cmp2:Binop.compare ~cmp3:cmp
+                (r1.left, r1.binop, r1.right)
+                (r2.left, r2.binop, r2.right)
+            | EIf r1, EIf r2 ->
+              compare3 bindings (r1.cond, r1.true_body, r1.false_body) (r2.cond, r2.true_body, r2.false_body)
+            | ELet r1, ELet r2 ->
+              let%bind () = cmp r1.body r2.body in
+              compare (Alist.cons_assoc r1.var r2.var bindings) r1.cont r2.cont
+            | EAppl c1, EAppl c2 -> ApplCell.compare (compare_application bindings) c1 c2
+            | EMatch r1, EMatch r2 -> begin
+              let%bind () = cmp r1.subject r2.subject in
+              Tuple2.get1 @@
+              compare_lists r1.patterns r2.patterns bindings ~f:(fun (p1, e1) (p2, e2) bindings ->
+                match Pattern.cmp p1 p2 with
+                | `LT -> `Done (-1)
+                | `GT -> `Done 1
+                | `Eq bindings' ->
+                  let r = compare (Alist.concat bindings' bindings) e1 e2 in
+                  if r = 0 then `Continue_and_overwrite_bindings bindings else `Done r
+              )
+            end
+            | EProject r1, EProject r2 ->
+              Tuple2.compare ~cmp1:cmp ~cmp2:RecordLabel.compare
+                (r1.record, r1.label) (r2.record, r2.label)
+            | ERecord m1, ERecord m2 -> RecordLabel.Map.compare cmp m1 m2
+            | ENot e1, ENot e2 -> cmp e1 e2
+            | EFunction r1, EFunction r2 -> compare (Alist.cons_assoc r1.param r2.param bindings) r1.body r2.body
+            | EVariant r1, EVariant r2 ->
+              Tuple2.compare ~cmp1:VariantLabel.compare ~cmp2:cmp
+                (r1.label, r1.payload) (r2.label, r2.payload)
+            | ECase r1, ECase r2 ->
+              Tuple3.compare ~cmp1:cmp ~cmp2:(List.compare (Tuple2.compare ~cmp1:Int.compare ~cmp2:cmp)) ~cmp3:cmp
+                (r1.subject, r1.cases, r1.default) (r2.subject, r2.cases, r2.default)
+            | EFreeze e1, EFreeze e2 -> cmp e1 e2
+            | EThaw a1, EThaw a2 -> ApplCell.compare cmp a1 a2
+            | EIgnore r1, EIgnore r2 -> compare2 bindings (r1.ignored, r1.cont) (r2.ignored, r2.cont)
+            | ETblAppl r1, ETblAppl r2 -> compare3 bindings (r1.tbl, r1.gen, r1.arg) (r2.tbl, r2.gen, r2.arg)
+            | EDet e1, EDet e2 -> cmp e1 e2
+            | EEscapeDet e1, EEscapeDet e2 -> cmp e1 e2
+            | EAbort s1, EAbort s2 -> String.compare s1 s2
+            | ETypeRecord m1, ETypeRecord m2 -> RecordLabel.Map.compare cmp m1 m2
+            | ETypeFun r1, ETypeFun r2 -> begin
+              let%bind () = cmp r1.domain r2.domain in
+              match r1.dep, r2.dep with
+              | `Binding id1, `Binding id2 ->
+                Tuple2.compare ~cmp1:(compare (Alist.cons_assoc id1 id2 bindings)) ~cmp2:Bool.compare
+                  (r1.codomain, r1.det) (r2.codomain, r2.det)
+              | `No, `No -> 
+                Tuple2.compare ~cmp1:cmp ~cmp2:Bool.compare (r1.codomain, r1.det) (r2.codomain, r2.det)
+              | `No, `Binding _ -> -1
+              | `Binding _, `No -> 1
+            end
+            | ETypeRefinement r1, ETypeRefinement r2 -> compare2 bindings (r1.tau, r1.predicate) (r2.tau, r2.predicate)
+            | ETypeMu r1, ETypeMu r2 -> compare (Alist.cons_assoc r1.var r2.var bindings) r1.body r2.body
+            | ETypeVariant l1, ETypeVariant l2 ->
+              List.compare (Tuple2.compare ~cmp1:VariantTypeLabel.compare ~cmp2:cmp) l1 l2
+            | ELetTyped r1, ELetTyped r2 -> begin
+              let%bind () = 
+                Tuple2.compare ~cmp1:Bool.compare ~cmp2:Bool.compare
+                  (r1.do_wrap, r2.do_check) (r2.do_wrap, r2.do_check)
+              in
+              let%bind () =
+                compare2 bindings (r1.typed_var.tau, r1.body) (r2.typed_var.tau, r2.body)
+              in
+              compare (Alist.cons_assoc r1.typed_var.var r2.typed_var.var bindings) r1.cont r2.cont
+            end
+            | ETypeSingle e1, ETypeSingle e2 -> cmp e1 e2
+            | ETypeList e1, ETypeList e2 -> cmp e1 e2
+            | ETypeIntersect l1, ETypeIntersect l2 ->
+              List.compare (Tuple3.compare ~cmp1:VariantTypeLabel.compare ~cmp2:cmp ~cmp3:cmp) l1 l2
+            | EList l1, EList l2 -> List.compare cmp l1 l2
+            | EListCons (hd1, tl1), EListCons (hd2, tl2) -> compare2 bindings (hd1, tl1) (hd2, tl2)
+            | EModule l1, EModule l2 -> 
+              Tuple2.get1 @@
+              compare_lists l1 l2 bindings ~f:(fun s1 s2 bindings ->
+                match compare_statement bindings s1 s2 with
+                | 0 -> begin
+                  match Alist.cons_assocs (ids_of_statement s1) (ids_of_statement s2) bindings with
+                  | `Bindings bindings -> `Continue_and_overwrite_bindings bindings
+                  | `Unequal_lengths x -> `Done x
+                end
+                | x -> `Done x
+              )
+            | EAssert e1, EAssert e2 -> cmp e1 e2
+            | EAssume e1, EAssume e2 -> cmp e1 e2
+            | EMultiArgFunction r1, EMultiArgFunction r2 -> begin
+              match Alist.cons_assocs r1.params r2.params bindings with
+              | `Bindings bindings -> compare bindings r1.body r2.body
+              | `Unequal_lengths x -> x
+            end
+            | ELetFun r1, ELetFun r2 ->
+              Tuple2.compare ~cmp1:(compare_funsig bindings) ~cmp2:(
+                compare (Alist.cons_assoc (func_id_of_funsig r1.func) (func_id_of_funsig r2.func) bindings)
+              ) (r1.func, r1.cont) (r2.func, r2.cont)
+            | ELetFunRec r1, ELetFunRec r2 -> begin
+              match Alist.cons_assocs (List.map r1.funcs ~f:func_id_of_funsig) (List.map r2.funcs ~f:func_id_of_funsig) bindings with
+              | `Bindings bindings ->
+                Tuple2.compare ~cmp1:(List.compare (compare_funsig bindings)) ~cmp2:(compare bindings)
+                  (r1.funcs, r1.cont) (r2.funcs, r2.cont)
+              | `Unequal_lengths x -> x
+            end
+            | _ -> raise @@ InvalidComparison "Impossible comparison of expressions"
           end
-          | ETypeRefinement r1, ETypeRefinement r2 -> compare2 (r1.tau, r1.predicate) (r2.tau, r2.predicate)
-          | ETypeMu r1, ETypeMu r2 ->
-            Tuple2.compare ~cmp1:Ident.compare ~cmp2:compare
-              (r1.var, r1.body) (r2.var, r2.body)
-          | ETypeVariant l1, ETypeVariant l2 ->
-            List.compare (Tuple2.compare ~cmp1:VariantTypeLabel.compare ~cmp2:compare) l1 l2
-          | ELetTyped r1, ELetTyped r2 -> begin
-            let res = 
-              Tuple3.compare ~cmp1:Ident.compare ~cmp2:Bool.compare ~cmp3:Bool.compare
-                (r1.typed_var.var, r1.do_wrap, r2.do_check) (r2.typed_var.var, r2.do_wrap, r2.do_check)
-            in
-            match res with
-            | 0 -> compare3 (r1.typed_var.tau, r1.body, r1.cont) (r2.typed_var.tau, r2.body, r2.cont)
-            | x -> x
-          end
-          | ETypeSingle e1, ETypeSingle e2 -> compare e1 e2
-          | ETypeList e1, ETypeList e2 -> compare e1 e2
-          | ETypeIntersect l1, ETypeIntersect l2 ->
-            List.compare (Tuple3.compare ~cmp1:VariantTypeLabel.compare ~cmp2:compare ~cmp3:compare) l1 l2
-          | EList l1, EList l2 -> List.compare compare l1 l2
-          | EListCons (hd1, tl1), EListCons (hd2, tl2) -> compare2 (hd1, tl1) (hd2, tl2)
-          | EModule l1, EModule l2 -> List.compare compare_statement l1 l2
-          | EAssert e1, EAssert e2 -> compare e1 e2
-          | EAssume e1, EAssume e2 -> compare e1 e2
-          | EMultiArgFunction r1, EMultiArgFunction r2 ->
-            Tuple2.compare ~cmp1:(List.compare Ident.compare) ~cmp2:compare
-              (r1.params, r1.body) (r2.params, r2.body)
-          | ELetFun r1, ELetFun r2 ->
-            Tuple2.compare ~cmp1:compare_funsig ~cmp2:compare
-              (r1.func, r1.cont) (r2.func, r2.cont)
-          | ELetFunRec r1, ELetFunRec r2 ->
-            Tuple2.compare ~cmp1:(List.compare compare_funsig) ~cmp2:compare
-              (r1.funcs, r1.cont) (r2.funcs, r2.cont)
-          | _ -> raise @@ InvalidComparison "Impossible comparison of expressions"
-        end
-        | x -> x
+          | x -> x
 
-    and compare3 : type a. (a t * a t * a t) -> (a t * a t * a t) -> int = 
-      fun t1 t2 ->
-        Tuple3.compare ~cmp1:compare ~cmp2:compare ~cmp3:compare t1 t2
+      and compare3 : type a. Alist.t -> (a t * a t * a t) -> (a t * a t * a t) -> int =
+        fun bindings t1 t2 ->
+          let cmp = compare bindings in
+          Tuple3.compare ~cmp1:cmp ~cmp2:cmp ~cmp3:cmp t1 t2
 
-    and compare2 : type a. (a t * a t) -> (a t * a t) -> int = 
-      fun t1 t2 ->
-        Tuple2.compare ~cmp1:compare ~cmp2:compare t1 t2
+      and compare2 : type a. Alist.t -> (a t * a t) -> (a t * a t) -> int =
+        fun bindings t1 t2 ->
+          let cmp = compare bindings in
+          Tuple2.compare ~cmp1:cmp ~cmp2:cmp t1 t2
 
-    and compare_application : type a. a application -> a application -> int =
-      fun a1 a2 ->
-        compare2 (a1.func, a1.arg) (a2.func, a2.arg)
+      and compare_application : type a. Alist.t -> a application -> a application -> int =
+        fun bindings a1 a2 ->
+          compare2 bindings (a1.func, a1.arg) (a2.func, a2.arg)
 
-    and compare_statement : type a. a statement -> a statement -> int =
-      fun s1 s2 ->
-        match Int.compare (statement_to_rank s1) (statement_to_rank s2) with
-        | 0 -> begin
+      and compare_statement : type a. Alist.t -> a statement -> a statement -> int =
+        fun bindings s1 s2 ->
+          let%bind () = Int.compare (statement_to_rank s1) (statement_to_rank s2) in
           match s1, s2 with
-          | SUntyped r1, SUntyped r2 ->
-            Tuple2.compare ~cmp1:Ident.compare ~cmp2:compare
-              (r1.var, r1.body) (r2.var, r2.body)
+          | SUntyped r1, SUntyped r2 -> compare (Alist.cons_assoc r1.var r2.var bindings) r1.body r2.body
           | STyped r1, STyped r2 -> begin
-            let res = 
-              Tuple3.compare ~cmp1:Ident.compare ~cmp2:Bool.compare ~cmp3:Bool.compare
-                (r1.typed_var.var, r1.do_wrap, r2.do_check) (r2.typed_var.var, r2.do_wrap, r2.do_check)
+            let%bind () =
+              Tuple2.compare ~cmp1:Bool.compare ~cmp2:Bool.compare
+                (r1.do_wrap, r2.do_check) (r2.do_wrap, r2.do_check)
             in
-            match res with
-            | 0 -> compare2 (r1.typed_var.tau, r1.body) (r2.typed_var.tau, r2.body)
-            | x -> x
+            compare2 bindings (r1.typed_var.tau, r1.body) (r2.typed_var.tau, r2.body)
           end
-          | SFun fs1, SFun fs2 -> compare_funsig fs1 fs2
-          | SFunRec l1, SFunRec l2 -> List.compare compare_funsig l1 l2
+          | SFun fs1, SFun fs2 -> compare_funsig bindings fs1 fs2
+          | SFunRec l1, SFunRec l2 -> begin
+            match Alist.cons_assocs (List.map l1 ~f:func_id_of_funsig) (List.map l2 ~f:func_id_of_funsig) bindings with
+            | `Bindings bindings -> List.compare (compare_funsig bindings) l1 l2
+            | `Unequal_lengths x -> x
+          end
           | _ -> raise @@ InvalidComparison "Impossible comparison of statements"
-        end
-        | x -> x
 
-    and compare_funsig : type a. a funsig -> a funsig -> int =
-      fun fs1 fs2 ->
-        match fs1, fs2 with
-        | FUntyped r1, FUntyped r2 ->
-          Tuple3.compare ~cmp1:Ident.compare ~cmp2:(List.compare Ident.compare) ~cmp3:compare
-            (r1.func_id, r1.params, r1.body) (r2.func_id, r2.params, r2.body)
-        | FTyped r1, FTyped r2 -> 
-          Tuple3.compare ~cmp1:(List.compare Ident.compare) ~cmp2:(List.compare compare_param) ~cmp3:compare2
-            (r1.func_id :: r1.type_vars, r1.params, (r1.ret_type, r1.body))
-            (r2.func_id :: r2.type_vars, r2.params, (r2.ret_type, r2.body))
-        | FUntyped _, FTyped _ -> -1
-        | FTyped _, FUntyped _ -> 1
+      and compare_funsig : type a. Alist.t -> a funsig -> a funsig -> int =
+        fun bindings fs1 fs2 ->
+          match fs1, fs2 with
+          | FUntyped r1, FUntyped r2 -> begin
+            (* assumes the function ids have already been associated if these are recursive *)
+            match Alist.cons_assocs r1.params r2.params bindings with
+            | `Bindings bindings -> compare bindings r1.body r2.body
+            | `Unequal_lengths x -> x
+          end
+          | FTyped r1, FTyped r2 -> begin
+            match Alist.cons_assocs r1.type_vars r2.type_vars bindings with
+            | `Bindings bindings -> begin
+              (* assumes the function ids have already been associated if these are recursive *)
+              (* here just compare parameters. Later will add params to bindings and compare bodies *)
+              let param_cmp, bindings_after_param_cmp = 
+                compare_lists r1.params r2.params bindings ~f:(fun p1 p2 bindings ->
+                  match p1, p2 with
+                  | TVar tv1, TVar tv2 -> begin
+                    match compare bindings tv1.tau tv2.tau with
+                    | 0 -> `Continue_and_overwrite_bindings bindings
+                    | x -> `Done x
+                  end
+                  | TVarDep tv1, TVarDep tv2 -> begin
+                    match compare bindings tv1.tau tv2.tau with
+                    | 0 -> `Continue_and_overwrite_bindings (Alist.cons_assoc tv1.var tv2.var bindings)
+                    | x -> `Done x
+                  end
+                  | TVar _, TVarDep _ -> `Done (-1)
+                  | TVarDep _, TVar _ -> `Done 1
+                )
+              in
+              let%bind () = param_cmp in
+              compare2 bindings_after_param_cmp (r1.ret_type, r1.body) (r2.ret_type, r2.body)
+            end
+            | `Unequal_lengths x -> x
+          end
+          | FUntyped _, FTyped _ -> -1
+          | FTyped _, FUntyped _ -> 1
 
-    and compare_param : type a. a param -> a param -> int =
-      fun p1 p2 ->
-        match p1, p2 with
-        | TVar tv1, TVar tv2
-        | TVarDep tv1, TVarDep tv2 ->
-          Tuple2.compare ~cmp1:Ident.compare ~cmp2:compare
-            (tv1.var, tv1.tau) (tv2.var, tv2.tau)
-        | TVar _, TVarDep _ -> -1
-        | TVarDep _, TVar _ -> 1
+      and compare_lists
+        : type a. a list -> a list -> Alist.t ->
+            f:(a -> a -> Alist.t -> [ `Done of int | `Continue_and_overwrite_bindings of Alist.t ]) -> int * Alist.t
+        = fun ls1 ls2 bindings ~f ->
+        match ls1, ls2 with
+        | [], [] -> 0, bindings
+        | _, [] -> 1, bindings
+        | [], _ -> -1, bindings
+        | a1 :: tl1, a2 :: tl2 ->
+          match f a1 a2 bindings with
+          | `Done x -> x, bindings
+          | `Continue_and_overwrite_bindings bindings -> compare_lists tl1 tl2 bindings ~f
+      in
+      compare Alist.empty x y
   end
 
   module Made = Make (Utils.Identity)
