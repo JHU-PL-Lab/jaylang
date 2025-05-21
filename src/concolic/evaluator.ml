@@ -12,27 +12,23 @@ module State_M = struct
       ; session : Eval_session.t }
   end
 
-  module Read_env = struct
-    type t =
-      { env : Env.t
-      ; det_depth : [ `Escaped | `Depth of int ] } 
-
-    let empty : t = { env = Env.empty ; det_depth = `Depth 0 }
-
-    let is_determinism_allowed ({ det_depth ; _ } : t) : bool =
-      match det_depth with
-      | `Escaped -> true
-      | `Depth i -> i = 0
-  end
-
-  include Utils.State_read_result.Make (State) (Read_env) (Status.Eval)
+  include Lang.Interp_monad.Make (State) (struct
+    type value = Value.t
+    include Env
+  end) (struct
+    include Status.Eval
+    let fail_on_nondeterminism_misuse (state : State.t) : t =
+      Eval_session.abort "Nondeterminism used when not allowed." state.session
+    let fail_on_fetch (id : Ident.t) (state : State.t) : t =
+      Eval_session.unbound_variable state.session id
+  end)
 
   let run (x : 'a m) (session : Eval_session.t) : Status.Eval.t =
     x.run
       ~reject:Fn.id
       ~accept:(fun _ s -> Eval_session.finish s.session)
       State.{ step = 0 ; max_step = Eval_session.get_max_step session ; session }
-      Read_env.empty
+      Read.empty
 
   let[@inline always][@specialise] modify_session (f : Eval_session.t -> Eval_session.t) : unit m =
     modify (fun s -> { s with session = f s.session })
@@ -59,24 +55,6 @@ module State_M = struct
         accept a { s with session }
     }
 
-  let[@inline always][@specialise] local_env (f : Env.t -> Env.t) (x : 'a m) : 'a m =
-    local (fun r -> { r with env = f r.env }) x
-
-  let with_incr_depth (x : 'a m) : 'a m =
-    local (fun r -> { r with det_depth =
-      match r.det_depth with
-      | `Escaped -> `Escaped
-      | `Depth i -> `Depth (i + 1)
-      }
-    ) x
-
-  let with_escaped_det (x : 'a m) : 'a m =
-    local (fun r -> { r with det_depth = `Escaped}) x
-
-  let read_env : Env.t m =
-    let%bind (_, { env ; _ }) = read in
-    return env
-
   let[@inline always] fail_map (f : Eval_session.t -> Status.Eval.t) : 'a m =
     let%bind ({ session ; _ }, _) = read in
     fail @@ f session
@@ -84,19 +62,6 @@ module State_M = struct
   let diverge : 'a m = fail_map Eval_session.diverge
   let abort msg: 'a m = fail_map @@ Eval_session.abort msg
   let type_mismatch msg : 'a m = fail_map @@ Eval_session.type_mismatch msg
-
-  let assert_nondeterminism : unit m =
-    let%bind (_, e) = read in
-    if Read_env.is_determinism_allowed e
-    then return ()
-    else fail_map @@ Eval_session.abort "Nondeterminism used when not allowed."
-
-
-  let[@inline always] fetch (id : Ident.t) : Value.t m =
-    let%bind env = read_env in
-    match Env.fetch id env with
-    | None -> fail_map @@ Fn.flip Eval_session.unbound_variable id
-    | Some v -> return v
 end
 
 module Error_msg = struct

@@ -23,18 +23,27 @@ open V
     * However, on somewhat small computations on the order of ms and tens of ms, non-CPS is faster by the same order
       * With [@inline always], most of that performance gap goes away, so CPS is generally a fine choice
  *)
-module CPS_Error_M (Env : T) = struct
+module CPS_Error_M (Env : Interp_monad.ENV) = struct
+  (* No state *)
+  module State = Unit
+
   module Err = struct
-    type t = Abort | Diverge | Type_mismatch | Unbound_variable of Ident.t
+    type t = Abort of string | Diverge | Type_mismatch | Unbound_variable of Ident.t
     (* we might consider adding an Assert_false and Assume_false construct *)
+
+    let fail_on_nondeterminism_misuse (() : State.t) : t =
+      Abort "Nondeterminism used when not allowed."
+
+    let fail_on_fetch (id : Ident.t) (() : State.t) : t =
+      Unbound_variable id
   end
 
-  (* No state. Reader on Env. Err is error type *)
-  include Utils.State_read_result.Make (Unit) (Env) (Err)
+  (* No state. Reader on Env. Err is error type. *)
+  include Interp_monad.Make (State) (Env) (Err)
 
   (* unit is needed to surmount the value restriction *)
-  let abort (type a) (() : unit) : a m =
-    fail Err.Abort
+  let abort (type a) (msg : string) : a m =
+    fail @@ Err.Abort msg
 
   let diverge (type a) (() : unit) : a m =
     fail Err.Diverge
@@ -52,17 +61,18 @@ module CPS_Error_M (Env : T) = struct
       return (b :: acc)
     )
 
-  let read_env : Env.t m =
-    let%bind (), env = read in
-    return env
-
   let using_env (f : Env.t -> 'a) : 'a m =
-    let%bind (), env = read in
+    let%bind env = read_env in
     return (f env)
 end
 
 let eval_exp (type a) (e : a Expr.t) : a V.t =
-  let module E = struct type t = a Env.t end in
+  let module E = struct
+    type value = a V.t
+    type t = a Env.t
+    let empty : t = Env.empty
+    let fetch = Env.fetch
+  end in
   let open CPS_Error_M (E) in
   let zero () = type_mismatch () in
   let rec eval (e : a Expr.t) : a V.t m =
@@ -86,7 +96,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ETypeTop -> return VTypeTop
     | ETypeBottom -> return VTypeBottom
     | EType -> return VType
-    | EAbort _ -> abort () (* ignore error message *)
+    | EAbort msg -> abort msg
     | EDiverge -> diverge ()
     | EFunction { param ; body } -> 
       using_env @@ fun env ->
@@ -154,22 +164,22 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | EThaw e ->
       let%bind v_frozen = eval e in
       let%orzero (VFrozen { expr = e_frozen ; env = lazy env }) = v_frozen in
-      local (fun _ -> env) (eval e_frozen)
+      local_env (fun _ -> env) (eval e_frozen)
     (* bindings *)
     | EAppl { func ; arg } -> begin
       let%bind vfunc = eval func in
       let%bind arg = eval arg in
       match vfunc with
       | VFunClosure { param ; body = { expr ; env = lazy env } } ->
-        local (fun _ -> Env.add param arg env) (eval expr)
+        local_env (fun _ -> Env.add param arg env) (eval expr)
       | VId -> return arg
       | VMultiArgFunClosure { params ; body = { expr ; env = lazy env }} -> begin
         match params with
         | [] -> type_mismatch ()
         | [ param ] ->
-          local (fun _ -> Env.add param arg env) (eval expr)
+          local_env (fun _ -> Env.add param arg env) (eval expr)
         | param :: params ->
-          local (fun _ -> Env.add param arg env) (eval (EMultiArgFunction { params ; body = expr }))
+          local_env (fun _ -> Env.add param arg env) (eval (EMultiArgFunction { params ; body = expr }))
         end
       | _ -> type_mismatch ()
     end
@@ -184,7 +194,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         Env.add var (VTypeMu { var ; body = { expr = body ; env = rec_env } }) env
       )
       in
-      local (fun _ -> force rec_env) (eval (EVar var))
+      local_env (fun _ -> force rec_env) (eval (EVar var))
     (* operations *)
     | EListCons (e_hd, e_tl) -> begin
       let%bind hd = eval e_hd in
@@ -222,7 +232,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%orzero (VBool b) = e_b in
       if b
       then return (VRecord RecordLabel.Map.empty)
-      else abort ()
+      else abort "Failed assertion"
     | EAssume e_assert_body ->
       let%bind e_b = eval e_assert_body in
       let%orzero (VBool b) = e_b in
@@ -252,7 +262,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
           | None -> None
         )
       in
-      local f (eval e)
+      local_env f (eval e)
     | ECase { subject ; cases ; default } -> begin
       let%bind v = eval subject in
       let%orzero VInt i = v in
@@ -276,21 +286,21 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         )
       )
       in
-      local (fun _ -> force rec_env) (eval cont)
+      local_env (fun _ -> force rec_env) (eval cont)
     end
     | ELetFun { func ; cont } ->
       let comps = Ast_tools.Funsig.to_components func in
       Ast_tools.Utils.abstract_over_ids comps.params comps.body
       |> function
         | EFunction { param ; body } ->
-          local (fun env ->
+          local_env (fun env ->
             Env.add comps.func_id (VFunClosure { param ; body = { expr = body ; env = lazy env } }) env
           ) (eval cont)
         | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
 
     and eval_let (var : Ident.t) ~(body : a Expr.t) ~(cont : a Expr.t) : a V.t m =
       let%bind v = eval body in
-      local (Env.add var v) (eval cont)
+      local_env (Env.add var v) (eval cont)
 
     and eval_record_body (record_body : a Expr.t RecordLabel.Map.t) : a V.t RecordLabel.Map.t m =
       Map.fold record_body ~init:(return RecordLabel.Map.empty) ~f:(fun ~key ~data:e acc_m ->
@@ -300,11 +310,11 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       )
   in
 
-  (run (eval e) () Env.empty)
+  (run (eval e) () Read.empty)
   |> function
     | Ok (r, ()) -> Format.printf "OK:\n  %s\n" (V.to_string r); r
     | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
-    | Error Abort -> Format.printf "FOUND ABORT\n"; VAbort
+    | Error Abort msg -> Format.printf "FOUND ABORT %s\n" msg; VAbort
     | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge
     | Error Unbound_variable Ident s -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
 

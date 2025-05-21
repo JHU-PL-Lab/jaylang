@@ -143,6 +143,8 @@ module Binop = struct
     | BOr -> "or"
 end
 
+exception InvalidComparison of string
+
 module Pattern = struct
   type _ t =
     (* all languages *)
@@ -152,6 +154,31 @@ module Pattern = struct
     (* only Bluejay *)
     | PEmptyList : 'a bluejay_only t
     | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_only t
+
+  let to_rank : type a. a t -> int = function
+    | PAny -> 0
+    | PVariable _ -> 1
+    | PVariant _ -> 2
+    | PEmptyList -> 3
+    | PDestructList _ -> 4
+
+  let compare : type a. a t -> a t -> int =
+    fun a b ->
+      match Int.compare (to_rank a) (to_rank b) with
+      | 0 -> begin
+        match a, b with
+        | PAny, PAny -> 0
+        | PVariable id1, PVariable id2 -> Ident.compare id1 id2
+        | PVariant r1, PVariant r2 ->
+          Tuple2.compare ~cmp1:VariantLabel.compare ~cmp2:Ident.compare
+            (r1.variant_label, r1.payload_id) (r2.variant_label, r2.payload_id)
+        | PEmptyList, PEmptyList -> 0
+        | PDestructList r1, PDestructList r2 ->
+          Tuple2.compare ~cmp1:Ident.compare ~cmp2:Ident.compare
+            (r1.hd_id, r1.tl_id) (r2.hd_id, r2.tl_id)
+        | _ -> raise @@ InvalidComparison "Impossible comparison of patterns"
+      end
+      | x -> x
 
   let to_string : type a. a t -> string = function
     | PAny -> "any"
@@ -211,7 +238,6 @@ module Expr = struct
       | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
       | ETypeModule : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
       | ETypeFun : { domain : 'a t ; codomain : 'a t ; dep : [ `No | `Binding of Ident.t ] ; det : bool } -> 'a bluejay_or_desugared t
-      (* | ETypeDepFun : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t *)
       | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
       | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
       | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
@@ -258,6 +284,176 @@ module Expr = struct
       (* bluejay only *)
       | SFun : 'a funsig -> 'a bluejay_only statement
       | SFunRec : 'a funsig list -> 'a bluejay_only statement
+
+    (* Completely arbitrary rank. PPX libs can't do this automatically on a GADT. *)
+    let to_rank : type a. a t -> int = function
+      | EInt _ -> 0            | EBool _ -> 1      | EVar _ -> 2               | EBinop _ -> 3
+      | EIf _ -> 4             | ELet _ -> 5       | EAppl _ -> 6              | EMatch _ -> 7
+      | EProject _ -> 8        | ERecord _ -> 9    | ENot _ -> 10              | EPick_i -> 11
+      | EFunction _ -> 12      | EVariant _ -> 13  | EPick_b -> 14             | ECase _ -> 15
+      | EFreeze _ -> 16        | EThaw _ -> 17     | EId -> 18                 | EIgnore _ -> 19
+      | ETable -> 20           | ETblAppl _ -> 21  | EDet _ -> 22              | EEscapeDet _ -> 23
+      | EAbort _ -> 24         | EDiverge -> 25    | EType -> 26               | ETypeInt -> 27
+      | ETypeBool -> 28        | ETypeTop -> 29    | ETypeBottom -> 30         | ETypeRecord _ -> 31
+      | ETypeModule _ -> 32    | ETypeFun _ -> 33  | ETypeRefinement _ -> 34   | ETypeMu _ -> 35
+      | ETypeVariant _ -> 36   | ELetTyped _ -> 37 | ETypeSingle _ -> 38       | ETypeList _ -> 39
+      | ETypeIntersect _ -> 40 | EList _ -> 41     | EListCons _ -> 42         | EModule _ -> 43 
+      | EAssert _ -> 44        | EAssume _ -> 45   | EMultiArgFunction _ -> 46 | ELetFun _ -> 47
+      | ELetFunRec _ -> 48
+
+    let statement_to_rank : type a. a statement -> int = function
+      | SUntyped _ -> 0
+      | STyped _ -> 1
+      | SFun _ -> 2
+      | SFunRec _ -> 3
+
+    (* This is super tedious but needs to be done because no ppx can do it for GADTs *)
+    let rec compare : type a. a t -> a t -> int =
+      fun a b ->
+        match Int.compare (to_rank a) (to_rank b) with
+        | 0 -> begin
+          match a, b with
+          | EPick_i, EPick_i | EPick_b, EPick_b | EId, EId | ETable, ETable
+          | EDiverge, EDiverge | EType, EType | ETypeInt, ETypeInt | ETypeBool, ETypeBool
+          | ETypeTop, ETypeTop | ETypeBottom, ETypeBottom -> 0
+          | EInt i, EInt j -> Int.compare i j
+          | EBool b, EBool c -> Bool.compare b c
+          | EVar x, EVar y -> Ident.compare x y
+          | EBinop r1, EBinop r2 ->
+            Tuple3.compare ~cmp1:compare ~cmp2:Binop.compare ~cmp3:compare
+              (r1.left, r1.binop, r1.right)
+              (r2.left, r2.binop, r2.right)
+          | EIf r1, EIf r2 ->
+            compare3 (r1.cond, r1.true_body, r2.false_body) (r2.cond, r2.true_body, r2.false_body)
+          | ELet r1, ELet r2 ->
+            Tuple3.compare ~cmp1:Ident.compare ~cmp2:compare ~cmp3:compare
+              (r1.var, r1.body, r1.cont)
+              (r2.var, r2.body, r2.cont)
+          | EAppl c1, EAppl c2 -> ApplCell.compare compare_application c1 c2
+          | EMatch r1, EMatch r2 ->
+            Tuple2.compare ~cmp1:compare ~cmp2:(List.compare (Tuple2.compare ~cmp1:Pattern.compare ~cmp2:compare))
+              (r1.subject, r1.patterns) (r2.subject, r2.patterns)
+          | EProject r1, EProject r2 ->
+            Tuple2.compare ~cmp1:compare ~cmp2:RecordLabel.compare
+              (r1.record, r1.label) (r2.record, r2.label)
+          | ERecord m1, ERecord m2 -> RecordLabel.Map.compare compare m1 m2
+          | ENot e1, ENot e2 -> compare e1 e2
+          | EFunction r1, EFunction r2 ->
+            Tuple2.compare ~cmp1:Ident.compare ~cmp2:compare
+              (r1.param, r1.body) (r2.param, r2.body)
+          | EVariant r1, EVariant r2 ->
+            Tuple2.compare ~cmp1:VariantLabel.compare ~cmp2:compare
+              (r1.label, r1.payload) (r2.label, r2.payload)
+          | ECase r1, ECase r2 ->
+            Tuple3.compare ~cmp1:compare ~cmp2:(List.compare (Tuple2.compare ~cmp1:Int.compare ~cmp2:compare)) ~cmp3:compare
+              (r1.subject, r1.cases, r1.default) (r2.subject, r2.cases, r2.default)
+          | EFreeze e1, EFreeze e2 -> compare e1 e2
+          | EThaw a1, EThaw a2 -> ApplCell.compare compare a1 a2
+          | EIgnore r1, EIgnore r2 -> compare2 (r1.ignored, r1.cont) (r2.ignored, r2.cont)
+          | ETblAppl r1, ETblAppl r2 -> compare3 (r1.tbl, r1.gen, r1.arg) (r2.tbl, r2.gen, r2.arg)
+          | EDet e1, EDet e2 -> compare e1 e2
+          | EEscapeDet e1, EEscapeDet e2 -> compare e1 e2
+          | EAbort s1, EAbort s2 -> String.compare s1 s2
+          | ETypeRecord m1, ETypeRecord m2 -> RecordLabel.Map.compare compare m1 m2
+          | ETypeFun r1, ETypeFun r2 -> begin
+            match compare2 (r1.domain, r1.codomain) (r2.domain, r2.codomain) with
+            | 0 -> Poly.compare (r1.dep, r1.det) (r2.dep, r2.det)
+            | x -> x
+          end
+          | ETypeRefinement r1, ETypeRefinement r2 -> compare2 (r1.tau, r1.predicate) (r2.tau, r2.predicate)
+          | ETypeMu r1, ETypeMu r2 ->
+            Tuple2.compare ~cmp1:Ident.compare ~cmp2:compare
+              (r1.var, r1.body) (r2.var, r2.body)
+          | ETypeVariant l1, ETypeVariant l2 ->
+            List.compare (Tuple2.compare ~cmp1:VariantTypeLabel.compare ~cmp2:compare) l1 l2
+          | ELetTyped r1, ELetTyped r2 -> begin
+            let res = 
+              Tuple3.compare ~cmp1:Ident.compare ~cmp2:Bool.compare ~cmp3:Bool.compare
+                (r1.typed_var.var, r1.do_wrap, r2.do_check) (r2.typed_var.var, r2.do_wrap, r2.do_check)
+            in
+            match res with
+            | 0 -> compare3 (r1.typed_var.tau, r1.body, r1.cont) (r2.typed_var.tau, r2.body, r2.cont)
+            | x -> x
+          end
+          | ETypeSingle e1, ETypeSingle e2 -> compare e1 e2
+          | ETypeList e1, ETypeList e2 -> compare e1 e2
+          | ETypeIntersect l1, ETypeIntersect l2 ->
+            List.compare (Tuple3.compare ~cmp1:VariantTypeLabel.compare ~cmp2:compare ~cmp3:compare) l1 l2
+          | EList l1, EList l2 -> List.compare compare l1 l2
+          | EListCons (hd1, tl1), EListCons (hd2, tl2) -> compare2 (hd1, tl1) (hd2, tl2)
+          | EModule l1, EModule l2 -> List.compare compare_statement l1 l2
+          | EAssert e1, EAssert e2 -> compare e1 e2
+          | EAssume e1, EAssume e2 -> compare e1 e2
+          | EMultiArgFunction r1, EMultiArgFunction r2 ->
+            Tuple2.compare ~cmp1:(List.compare Ident.compare) ~cmp2:compare
+              (r1.params, r1.body) (r2.params, r2.body)
+          | ELetFun r1, ELetFun r2 ->
+            Tuple2.compare ~cmp1:compare_funsig ~cmp2:compare
+              (r1.func, r1.cont) (r2.func, r2.cont)
+          | ELetFunRec r1, ELetFunRec r2 ->
+            Tuple2.compare ~cmp1:(List.compare compare_funsig) ~cmp2:compare
+              (r1.funcs, r1.cont) (r2.funcs, r2.cont)
+          | _ -> raise @@ InvalidComparison "Impossible comparison of expressions"
+        end
+        | x -> x
+
+    and compare3 : type a. (a t * a t * a t) -> (a t * a t * a t) -> int = 
+      fun t1 t2 ->
+        Tuple3.compare ~cmp1:compare ~cmp2:compare ~cmp3:compare t1 t2
+
+    and compare2 : type a. (a t * a t) -> (a t * a t) -> int = 
+      fun t1 t2 ->
+        Tuple2.compare ~cmp1:compare ~cmp2:compare t1 t2
+
+    and compare_application : type a. a application -> a application -> int =
+      fun a1 a2 ->
+        compare2 (a1.func, a1.arg) (a2.func, a2.arg)
+
+    and compare_statement : type a. a statement -> a statement -> int =
+      fun s1 s2 ->
+        match Int.compare (statement_to_rank s1) (statement_to_rank s2) with
+        | 0 -> begin
+          match s1, s2 with
+          | SUntyped r1, SUntyped r2 ->
+            Tuple2.compare ~cmp1:Ident.compare ~cmp2:compare
+              (r1.var, r1.body) (r2.var, r2.body)
+          | STyped r1, STyped r2 -> begin
+            let res = 
+              Tuple3.compare ~cmp1:Ident.compare ~cmp2:Bool.compare ~cmp3:Bool.compare
+                (r1.typed_var.var, r1.do_wrap, r2.do_check) (r2.typed_var.var, r2.do_wrap, r2.do_check)
+            in
+            match res with
+            | 0 -> compare2 (r1.typed_var.tau, r1.body) (r2.typed_var.tau, r2.body)
+            | x -> x
+          end
+          | SFun fs1, SFun fs2 -> compare_funsig fs1 fs2
+          | SFunRec l1, SFunRec l2 -> List.compare compare_funsig l1 l2
+          | _ -> raise @@ InvalidComparison "Impossible comparison of statements"
+        end
+        | x -> x
+
+    and compare_funsig : type a. a funsig -> a funsig -> int =
+      fun fs1 fs2 ->
+        match fs1, fs2 with
+        | FUntyped r1, FUntyped r2 ->
+          Tuple3.compare ~cmp1:Ident.compare ~cmp2:(List.compare Ident.compare) ~cmp3:compare
+            (r1.func_id, r1.params, r1.body) (r2.func_id, r2.params, r2.body)
+        | FTyped r1, FTyped r2 -> 
+          Tuple3.compare ~cmp1:(List.compare Ident.compare) ~cmp2:(List.compare compare_param) ~cmp3:compare2
+            (r1.func_id :: r1.type_vars, r1.params, (r1.ret_type, r1.body))
+            (r2.func_id :: r2.type_vars, r2.params, (r2.ret_type, r2.body))
+        | FUntyped _, FTyped _ -> -1
+        | FTyped _, FUntyped _ -> 1
+
+    and compare_param : type a. a param -> a param -> int =
+      fun p1 p2 ->
+        match p1, p2 with
+        | TVar tv1, TVar tv2
+        | TVarDep tv1, TVarDep tv2 ->
+          Tuple2.compare ~cmp1:Ident.compare ~cmp2:compare
+            (tv1.var, tv1.tau) (tv2.var, tv2.tau)
+        | TVar _, TVarDep _ -> -1
+        | TVarDep _, TVar _ -> 1
   end
 
   module Made = Make (Utils.Identity)
