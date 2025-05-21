@@ -105,7 +105,7 @@ let rec mem ls a eq =
       else mem tl a eq
   end
 
-let free_vars e =
+let free_vars e bound =
   let rec loop e bound_ids acc =
     match e with
     | `Var var_id ->
@@ -133,10 +133,10 @@ let free_vars e =
       acc2
     end
   in
-  loop e [] []
+  loop e bound []
 
-let is_closed e = 
-  match free_vars e with
+let is_closed e bound = 
+  match free_vars e bound with
   | [] -> true
   | _ -> false
   end
@@ -144,7 +144,7 @@ let is_closed e =
 let Value : T 0 = struct
   let t =
     `Int of int
-    | `Function of Triple.t Ident.t Type.t { Expr.t | is_closed }
+    | `Function of {: first : Ident.t ; second : Type.t ; third : { e : Expr.t | is_closed e [ first ] } :}
 end
 
 let Result = struct
@@ -271,8 +271,8 @@ let set_eq ls1 ls2 eq =
 
 (* after subst; the expression has the same free variables as e; minus id *)
 let subst (e <- Expr.t) (id <- Ident.t) (v : Value.t) : { new_expr : Expr.t |
-  let new_free_vars = free_vars new_expr in
-  let old_free_vars = free_vars e in
+  let new_free_vars = free_vars new_expr [] in
+  let old_free_vars = free_vars e [] in
   set_eq new_free_vars (list_remove old_free_vars id Ident.eq) Ident.eq
   } =
   let rec sub e =
