@@ -39,7 +39,7 @@ let () =
       |> Lang.Parse.parse_single_pgm_string
       |> Translate.Convert.bjy_to_emb ~do_wrap
       |> Lang.Ast_tools.Utils.pgm_to_module
-      |> Lang.Ast.Embedded.With_callsights.alphatized_of_expr
+      |> Lang.Ast.Embedded.With_callsites.alphatized_of_expr
       |> Analysis.Main.analyze
       |> Analysis.Grammar.M.run_for_error
       |> function

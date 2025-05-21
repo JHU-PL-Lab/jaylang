@@ -45,7 +45,7 @@ end
 let type_mismatch s = 
   M.fail @@ Err.type_mismatch s
 
-let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
+let[@landmark] rec analyze (e : Embedded.With_callsites.t) : Value.t m =
   log e @@
   match e with
   (* immediate *)
@@ -134,22 +134,22 @@ let[@landmark] rec analyze (e : Embedded.With_callsights.t) : Value.t m =
   | EIgnore { ignored ; cont } ->
     let%bind _ : Value.t = analyze ignored in
     analyze cont
-  | EAppl { appl = { func ; arg } ; callsight } -> begin
+  | EAppl { appl = { func ; arg } ; callsite } -> begin
     match%bind analyze func with
     | VFunClosure { param ; body = { body ; callstack } } -> begin
       let%bind v = analyze arg in
       let%bind env = find_env callstack in
-      with_call callsight
+      with_call callsite
       @@ local (fun _ -> Env.add param v env) (analyze body)
     end
     | VId -> analyze arg
     | v -> type_mismatch @@ Error_msg.bad_appl v 
   end
-  | EThaw { appl = expr ; callsight } -> begin
+  | EThaw { appl = expr ; callsite } -> begin
     match%bind analyze expr with
     | VFrozen { body ; callstack } -> begin
       let%bind env = find_env callstack in
-      with_call callsight
+      with_call callsite
       @@ local (fun _ -> env) (analyze body)
     end
     | v -> type_mismatch @@ Error_msg.thaw_non_frozen v

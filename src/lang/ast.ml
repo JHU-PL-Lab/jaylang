@@ -161,17 +161,17 @@ module Pattern = struct
     | PDestructList { hd_id = Ident hd ; tl_id = Ident tl } -> Format.sprintf "%s :: %s" hd tl
 end
 
-module Callsight = struct
-  type t = Callsight of int [@@unboxed] [@@deriving compare, equal, sexp]
+module Callsite = struct
+  type t = Callsite of int [@@unboxed] [@@deriving compare, equal, sexp]
 
   let next =
     let counter = Utils.Counter.create () in
     fun () ->
-      Callsight (Utils.Counter.next counter)
+      Callsite (Utils.Counter.next counter)
 end
 
 module Expr = struct
-  module Make (ApplCell : T1) = struct
+  module Make (ApplCell : Utils.Comparable.S1) = struct
     type _ t =
       (* all languages. 'a is unconstrained *)
       | EInt : int -> 'a t
@@ -276,9 +276,9 @@ module Embedded = struct
   type pattern = embedded Pattern.t
   type statement = embedded Expr.statement
 
-  module With_callsights = struct
+  module With_callsites = struct
     module E = struct
-      module ApplData = struct type 'a t = { appl : 'a ; callsight : Callsight.t } end
+      module ApplData = struct type 'a t = { appl : 'a ; callsite : Callsite.t }[@@deriving compare] end
       module T = Expr.Make (ApplData)
       type t = embedded T.t
     end
@@ -343,8 +343,8 @@ module Embedded = struct
       | EFunction { param ; body } ->
         let id', env' = replace param env in
         EFunction { param = id' ; body = visit body env' }
-      (* naming the callsight *)
-      | EAppl { func ; arg } -> EAppl { appl = { func = visit func env ; arg = visit arg env } ; callsight = Callsight.next () }
+      (* naming the call site *)
+      | EAppl { func ; arg } -> EAppl { appl = { func = visit func env ; arg = visit arg env } ; callsite = Callsite.next () }
       (* propagation *)
       | EBinop { left ; binop ; right } -> EBinop { left = visit left env ; binop ; right = visit right env }
       | EIf { cond ; true_body ; false_body } -> EIf { cond = visit cond env ; true_body = visit true_body env ; false_body = visit false_body env }
@@ -370,7 +370,7 @@ module Embedded = struct
           List.map cases ~f:(fun (i, expr) -> i, visit expr env)
         }
       | EFreeze expr -> EFreeze (visit expr env)
-      | EThaw expr -> EThaw { appl = (visit expr env) ; callsight = Callsight.next () }
+      | EThaw expr -> EThaw { appl = (visit expr env) ; callsite = Callsite.next () }
       | EIgnore { ignored ; cont } -> EIgnore { ignored = visit ignored env ; cont = visit cont env }
       | ETblAppl { tbl ; gen ; arg } -> ETblAppl { tbl = visit tbl env ; gen = visit gen env ; arg = visit arg env }
       | EDet expr -> EDet (visit expr env)
