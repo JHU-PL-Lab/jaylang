@@ -227,6 +227,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     | VTypeVariant ls ->
       Format.sprintf "(%s)"
         (String.concat ~sep: "| " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(`%s of %s)" s (to_string tau)))
+
 end
 
 module Constrain (C : sig type constrain end) (Store : STORE) (Cell : CELL) (V : V) = struct
@@ -312,3 +313,40 @@ module Desugared = Constrain (struct type constrain = Ast.Constraints.desugared 
   Usage is unknown, so use a Map as the environment to be general.
 *)
 module Bluejay = Constrain (struct type constrain = Ast.Constraints.bluejay end) (Map_store) (Lazy_cell)
+
+module Error_msg (Value : sig type t val to_string : t -> string end) = struct
+  let project_non_record label v =
+    Format.sprintf "Label %s not found in non-record `%s`" (RecordLabel.to_string label) (Value.to_string v)
+
+  let project_missing_label label record =
+    Format.sprintf "Label %s not found in record %s" (RecordLabel.to_string label) (Value.to_string record)
+
+  let thaw_non_frozen v =
+    Format.sprintf "Thaw non-frozen value `%s`" (Value.to_string v)
+
+  let pattern_not_found patterns v =
+    Format.sprintf "Value `%s` not in pattern list [ %s ]"
+      (Value.to_string v)
+      (String.concat ~sep:", " @@ List.map patterns ~f:(fun (p, _) -> Pattern.to_string p))
+
+  let bad_appl vfunc =
+    Format.sprintf "Apply to non-function %s" (Value.to_string vfunc)
+
+  let bad_binop vleft binop vright =
+    Format.sprintf "Bad binop %s %s %s"
+      (Value.to_string vleft)
+      (Binop.to_string binop)
+      (Value.to_string vright)
+
+  let bad_not v =
+    Format.sprintf "Bad unary operation `not %s`" (Value.to_string v)
+
+  let cond_non_bool v = 
+    Format.sprintf "Condition on non-bool `%s`" (Value.to_string v)
+
+  let case_non_int v = 
+    Format.sprintf "Case on non-int `%s`" (Value.to_string v)
+
+  let appl_non_table v =
+    Format.sprintf "Use non-table `%s` as a table" (Value.to_string v)
+end
