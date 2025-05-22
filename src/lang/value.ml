@@ -88,6 +88,10 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     *)
     and 'a closure = { expr : 'a Expr.t ; env : 'a env Env_cell.t }
 
+    let is_error : type a. a t -> bool = function
+      | VAbort | VUnboundVariable _ | VTypeMismatch -> true
+      | _ -> false
+
     let matches : type a. a t -> a Pattern.t -> (a t * Ident.t) list option =
       fun v pattern ->
         match pattern, v with

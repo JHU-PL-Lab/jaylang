@@ -18,17 +18,23 @@ module V = Value.Make (Value.Map_store) (Value.Lazy_cell) (Utils.Identity)
 open V
 
 module CPS_Error_M (Env : Interp_monad.ENV) = struct
-  (* No state *)
-  module State = Unit
+  (* State tracks step count *)
+  module State = Int 
+  let max_step = Int.(10 ** 6)
 
   module Err = struct
-    type t = Abort of string | Diverge | Type_mismatch | Unbound_variable of Ident.t
+    type t =
+      | Abort of string 
+      | Diverge 
+      | Type_mismatch
+      | Unbound_variable of Ident.t
+      | Reached_max_step
     (* we might consider adding an Assert_false and Assume_false construct *)
 
-    let fail_on_nondeterminism_misuse (() : State.t) : t =
+    let fail_on_nondeterminism_misuse (_ : State.t) : t =
       Abort "Nondeterminism used when not allowed."
 
-    let fail_on_fetch (id : Ident.t) (() : State.t) : t =
+    let fail_on_fetch (id : Ident.t) (_ : State.t) : t =
       Unbound_variable id
   end
 
@@ -57,6 +63,15 @@ module CPS_Error_M (Env : Interp_monad.ENV) = struct
   let using_env (f : Env.t -> 'a) : 'a m =
     let%bind env = read_env in
     return (f env)
+
+  let incr_step : unit m =
+    { run =
+      fun ~reject ~accept s _ ->
+        let step = s + 1 in
+        if step > max_step
+        then reject Reached_max_step
+        else accept () step
+    }
 end
 
 let eval_exp (type a) (e : a Expr.t) : a V.t =
@@ -69,6 +84,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
   let open CPS_Error_M (E) in
   let zero () = type_mismatch () in
   let rec eval (e : a Expr.t) : a V.t m =
+    let%bind () = incr_step in
     match e with
     (* Determinism *)
     | EDet e -> with_incr_depth @@ eval e
@@ -119,14 +135,16 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ETypeSingle tau ->
       let%bind vtau = eval tau in
       return (VTypeSingle vtau)
-    | ETypeFun { domain = _ ; codomain = _ ; dep = _ ; det = _ } -> failwith "unimplemented interp fun type"
-      (* let%bind domain = eval domain in
-      let%bind codomain = eval codomain in
-      return (VTypeFun { domain ; codomain ; det }) *)
-    (* | ETypeDepFun { binding ; domain ; codomain } ->
+    | ETypeFun { domain ; codomain ; dep ; det } -> begin
       let%bind domain = eval domain in
-      using_env @@ fun env ->
-      VTypeDepFun { binding ; domain ; codomain = { expr = codomain ; env = lazy env } } *)
+      match dep with
+      | `Binding binding ->
+        using_env @@ fun env ->
+        VTypeDepFun { binding ; domain ; codomain = { expr = codomain ; env = lazy env } ; det }
+      | `No ->
+        let%bind codomain = eval codomain in
+        return (VTypeFun { domain ; codomain ; det })
+    end
     | ETypeRefinement { tau ; predicate } ->
       let%bind tau = eval tau in
       let%bind predicate = eval predicate in
@@ -330,13 +348,14 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       )
   in
 
-  (run (eval e) () Read.empty)
+  (run (eval e) 0 Read.empty)
   |> function
-    | Ok (r, ()) -> Format.printf "OK:\n  %s\n" (V.to_string r); r
+    | Ok (r, _) -> Format.printf "OK:\n  %s\n" (V.to_string r); r
     | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
     | Error Abort msg -> Format.printf "FOUND ABORT %s\n" msg; VAbort
     | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge
     | Error Unbound_variable Ident s -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
+    | Error Reached_max_step -> Format.printf "REACHED MAX STEP\n"; VDiverge
 
 let eval_pgm (type a) (pgm : a Program.t) : a V.t =
   eval_exp

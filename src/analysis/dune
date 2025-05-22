@@ -5,14 +5,7 @@
  (public_name jay.analysis)
  (libraries
   core
-  ; lwt
-  ; lwt.unix
   lang
-  ; translate
-  ; preface
-  ; psq
-  ; utils
-  ; overlays
  )
  (synopsis "Program analysis on embedded-type programs")
  (inline_tests)
