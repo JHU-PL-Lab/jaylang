@@ -11,7 +11,7 @@ let rec gen (a <- type) : a =
   Above, without the splaying, doesn't terminate, so it is well-typed.
   With it, it is well-typed.
 
-  But also with it, we have made function to generate a member of any type.
+  But with it, we have made function to generate a member of any type.
 *)
 
 let _ : int = gen int

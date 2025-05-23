@@ -1,0 +1,77 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Parametric_types Recursive_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+
+let is_nonempty (lst : list int) : bool =
+  match lst with
+  | [] -> false
+  | _ -> true
+  end
+
+let ne_list a = { list a | is_nonempty }
+
+let min (a : int) (b : int) : int =
+  if a < b then a else b
+
+let min_elt (lst : ne_list int) : int =
+  match lst with
+  | hd :: tl ->
+    let rec loop acc ls =
+      match ls with
+      | [] -> acc
+      | hd :: tl -> loop (min hd acc) tl
+      end
+    in
+    loop hd tl
+  end
+
+let rec is_sorted (lst : list int) : bool =
+  match lst with
+  | [] -> true
+  | a :: tl ->
+    match tl with
+    | [] -> true
+    | b :: _ -> a <= b && is_sorted tl
+    end
+  end
+
+(* An error I made earlier is I forgot to ensure that l is sorted *)
+(* An error I didn't make, but I easily might have, is to not break off when l is empty *)
+let rec insert (x <- int) (l <- { list int | is_sorted }) 
+  : { ls : ne_list int | is_sorted ls && (not (is_nonempty l) || min x (min_elt l) == min_elt ls) }
+  =
+  match l with
+  | [] -> [ x ]
+  | h :: t ->
+    if x <= h
+    then x :: l
+    else h :: (insert x t)
+  end
+
+let rec foldl (type a init) (f : a -> init -> init) (b : init) (l : list a) : init =
+  match l with
+  | [] -> b
+  | x :: xs -> foldl a init f (f x b) xs
+  end
+
+(* Another error I made is I didn't say that init is a sorted list, which means that wrap checks would call it in a wap that fail `inserts`'s refinements *)
+let sort (xs <- list int)
+  : { l : list int | is_sorted l && if is_nonempty xs then is_nonempty l else not (is_nonempty l) }
+  = foldl int { list int | is_sorted } insert [] xs
+
+(*
+bstride@bstridexps:~/JHU/jaylang$ time ./ceval.exe ./test/bjy/post-oopsla-well-typed/insert_sorted.bjy -p
+FOUND_ABORT:
+  Failed predicate
+malloc(): smallbin double linked list corrupted
+
+real    0m0.076s
+user    0m0.082s
+sys     0m0.092s
+
+This was a strange error message...
+*)
