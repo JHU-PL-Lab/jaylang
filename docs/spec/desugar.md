@@ -273,7 +273,6 @@ Notes:
 * In the case that any type is ill-formed in the `assume`, it will error. The assumption is only on the boolean result and not on the well-formedness of the types.
 * There is no meaningful way for this to be interpreted until we get to the embedded language
 * We'd like to add intensional equality inside of these, but they can currently be encoded (in a slightly less efficient way) with determinitic functions. It's just a little tricky or extremely wordy to enforce that at parse time.
-* TODO: We need to escape determinism here to allow the generation because this is only for checking, and the gen'd values don't escape.
 
 ## And/or
 
