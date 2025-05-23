@@ -131,11 +131,11 @@ statement_list:
 
 statement:
   | LET l_ident COLON expr EQUALS expr
-      { STyped { typed_var = { var = $2 ; tau = $4 } ; body = $6 ; do_wrap = true ; do_check = true } : Bluejay.statement }
+      { STyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; do_wrap = true ; do_check = true } : Bluejay.statement }
   | LET l_ident EQUALS expr
-      { SUntyped { var = $2 ; body = $4 } : Bluejay.statement }
+      { SUntyped { var = $2 ; defn = $4 } : Bluejay.statement }
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr
-      { STyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 ; do_wrap = true ; do_check = true } : Bluejay.statement }
+      { STyped { typed_var = { var = $3 ; tau = $5 } ; defn = $8 ; do_wrap = true ; do_check = true } : Bluejay.statement }
   | letfun_rec
       { SFunRec $1 : Bluejay.statement }
   | letfun
@@ -159,18 +159,18 @@ expr:
       { EMultiArgFunction { params = $2 :: $3 ; body = $5 } : Bluejay.t }
   // Let
   | LET l_ident COLON expr EQUALS expr IN expr %prec prec_let
-      { ELetTyped { typed_var = { var = $2 ; tau = $4 } ; body = $6 ; cont = $8 ; do_wrap = true ; do_check = true } : Bluejay.t }
+      { ELetTyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; body = $8 ; do_wrap = true ; do_check = true } : Bluejay.t }
   | LET l_ident EQUALS expr IN expr %prec prec_let
-      { ELet { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
+      { ELet { var = $2 ; defn = $4 ; body = $6 } : Bluejay.t }
   | LET_BIND l_ident EQUALS expr IN expr %prec prec_let (* this is desugared in place, which is a little ugly... *)
       { EAppl { func = EAppl { func = EVar (Ident "bind") ; arg = $4 } ; arg = EFunction { param = $2 ; body = $6 }} : Bluejay.t } 
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
-      { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 ; cont = $10 ; do_wrap = true ; do_check = true } : Bluejay.t }
+      { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; defn = $8 ; body = $10 ; do_wrap = true ; do_check = true } : Bluejay.t }
   // Functions
   | letfun_rec IN expr %prec prec_fun
-      { ELetFunRec { funcs = $1 ; cont = $3 } : Bluejay.t }
+      { ELetFunRec { funcs = $1 ; body = $3 } : Bluejay.t }
   | letfun IN expr %prec prec_fun
-      { ELetFun { func = $1 ; cont = $3 } : Bluejay.t }
+      { ELetFun { func = $1 ; body = $3 } : Bluejay.t }
   // Match
   | MATCH expr WITH PIPE? match_expr_list END
       { EMatch { subject = $2 ; patterns = $5 } : Bluejay.t }
@@ -242,11 +242,11 @@ letfun_rec:
 /* let foo (type a b) (x : int) ... : t = ... */
 fun_sig:
   | ident param_list EQUALS expr
-      { FUntyped { func_id = $1 ; params = $2 ; body = $4 } : Bluejay.funsig }
+      { FUntyped { func_id = $1 ; params = $2 ; defn = $4 } : Bluejay.funsig }
   | ident param_list_with_type COLON expr EQUALS expr
-      { FTyped { type_vars = [] ; func_id = $1 ; params = $2 ; ret_type = $4 ; body = $6 } : Bluejay.funsig }
+      { FTyped { type_vars = [] ; func_id = $1 ; params = $2 ; ret_type = $4 ; defn = $6 } : Bluejay.funsig }
   | ident OPEN_PAREN TYPE param_list CLOSE_PAREN param_list_with_type COLON expr EQUALS expr 
-      { FTyped { type_vars = $4 ; func_id = $1 ; params = $6 ; ret_type = $8 ; body = $10 } : Bluejay.funsig }
+      { FTyped { type_vars = $4 ; func_id = $1 ; params = $6 ; ret_type = $8 ; defn = $10 } : Bluejay.funsig }
 
 /* **** Primary expressions **** */
 

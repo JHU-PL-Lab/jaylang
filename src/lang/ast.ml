@@ -208,7 +208,7 @@ module Expr = struct
       | EVar : Ident.t -> 'a t
       | EBinop : { left : 'a t ; binop : Binop.t ; right : 'a t } -> 'a t
       | EIf : { cond : 'a t ; true_body : 'a t ; false_body : 'a t } -> 'a t
-      | ELet : { var : Ident.t ; body : 'a t ; cont : 'a t } -> 'a t
+      | ELet : { var : Ident.t ; defn : 'a t ; body : 'a t } -> 'a t
       | EAppl : 'a application ApplCell.t -> 'a t
       | EMatch : { subject : 'a t ; patterns : ('a Pattern.t * 'a t) list } -> 'a t
       | EProject : { record : 'a t ; label : RecordLabel.t } -> 'a t
@@ -223,7 +223,7 @@ module Expr = struct
       | EFreeze : 'a t -> 'a embedded_only t
       | EThaw : 'a t ApplCell.t -> 'a embedded_only t 
       | EId : 'a embedded_only t
-      | EIgnore : { ignored : 'a t ; cont : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in cont` but is more efficient *)
+      | EIgnore : { ignored : 'a t ; body : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in body` but is more efficient *)
       | ETable : 'a embedded_only t
       | ETblAppl : { tbl : 'a t ; gen : 'a t ; arg : 'a t } -> 'a embedded_only t
       | EDet : 'a t -> 'a embedded_only t
@@ -243,7 +243,7 @@ module Expr = struct
       | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
       | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
       | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
-      | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
+      | ELetTyped : { typed_var : 'a typed_var ; defn : 'a t ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
       | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
       (* bluejay only *)
       | ETypeList : 'a t -> 'a bluejay_only t
@@ -254,16 +254,16 @@ module Expr = struct
       | EAssert : 'a t -> 'a bluejay_only t
       | EAssume : 'a t -> 'a bluejay_only t
       | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_only t
-      | ELetFun : { func : 'a funsig ; cont : 'a t } -> 'a bluejay_only t
-      | ELetFunRec : { funcs : 'a funsig list ; cont : 'a t } -> 'a bluejay_only t
+      | ELetFun : { func : 'a funsig ; body : 'a t } -> 'a bluejay_only t
+      | ELetFunRec : { funcs : 'a funsig list ; body : 'a t } -> 'a bluejay_only t
 
     (* the let-function signatures *)
     and _ funsig =
-      | FUntyped : { func_id : Ident.t ; params : Ident.t list ; body : 'a t } -> 'a funsig
+      | FUntyped : { func_id : Ident.t ; params : Ident.t list ; defn : 'a t } -> 'a funsig
       | FTyped : ('a, 'a param list) typed_fun -> 'a funsig
 
     (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
-    and ('a, 'p) typed_fun = { type_vars : Ident.t list ; func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
+    and ('a, 'p) typed_fun = { type_vars : Ident.t list ; func_id : Ident.t ; params : 'p ; ret_type : 'a t ; defn : 'a t }
 
     (* a variable with its type, where the type is an expression *)
     and 'a typed_var = { var : Ident.t ; tau : 'a t }
@@ -276,13 +276,13 @@ module Expr = struct
     and 'a application = { func : 'a t ; arg : 'a t }
 
     (* Bluejay and desugared have typed let-expressions *)
-    and 'a let_typed = { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } constraint 'a = 'a bluejay_or_desugared
+    and 'a let_typed = { typed_var : 'a typed_var ; defn : 'a t ; body : 'a t } constraint 'a = 'a bluejay_or_desugared
 
     and _ statement =
       (* all *)
-      | SUntyped : { var : Ident.t ; body : 'a t } -> 'a statement
+      | SUntyped : { var : Ident.t ; defn : 'a t } -> 'a statement
       (* bluejay or desugared *)
-      | STyped : { typed_var : 'a typed_var ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared statement
+      | STyped : { typed_var : 'a typed_var ; defn : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared statement
       (* bluejay only *)
       | SFun : 'a funsig -> 'a bluejay_only statement
       | SFunRec : 'a funsig list -> 'a bluejay_only statement
@@ -387,8 +387,8 @@ module Expr = struct
             | EIf r1, EIf r2 ->
               compare3 bindings (r1.cond, r1.true_body, r1.false_body) (r2.cond, r2.true_body, r2.false_body)
             | ELet r1, ELet r2 ->
-              let%bind () = cmp r1.body r2.body in
-              compare (Alist.cons_assoc r1.var r2.var bindings) r1.cont r2.cont
+              let%bind () = cmp r1.defn r2.defn in
+              compare (Alist.cons_assoc r1.var r2.var bindings) r1.body r2.body
             | EAppl c1, EAppl c2 -> ApplCell.compare (compare_application bindings) c1 c2
             | EMatch r1, EMatch r2 -> begin
               let%bind () = cmp r1.subject r2.subject in
@@ -416,7 +416,7 @@ module Expr = struct
                 (r1.subject, r1.cases, r1.default) (r2.subject, r2.cases, r2.default)
             | EFreeze e1, EFreeze e2 -> cmp e1 e2
             | EThaw a1, EThaw a2 -> ApplCell.compare cmp a1 a2
-            | EIgnore r1, EIgnore r2 -> compare2 bindings (r1.ignored, r1.cont) (r2.ignored, r2.cont)
+            | EIgnore r1, EIgnore r2 -> compare2 bindings (r1.ignored, r1.body) (r2.ignored, r2.body)
             | ETblAppl r1, ETblAppl r2 -> compare3 bindings (r1.tbl, r1.gen, r1.arg) (r2.tbl, r2.gen, r2.arg)
             | EDet e1, EDet e2 -> cmp e1 e2
             | EEscapeDet e1, EEscapeDet e2 -> cmp e1 e2
@@ -443,9 +443,9 @@ module Expr = struct
                   (r1.do_wrap, r2.do_check) (r2.do_wrap, r2.do_check)
               in
               let%bind () =
-                compare2 bindings (r1.typed_var.tau, r1.body) (r2.typed_var.tau, r2.body)
+                compare2 bindings (r1.typed_var.tau, r1.defn) (r2.typed_var.tau, r2.defn)
               in
-              compare (Alist.cons_assoc r1.typed_var.var r2.typed_var.var bindings) r1.cont r2.cont
+              compare (Alist.cons_assoc r1.typed_var.var r2.typed_var.var bindings) r1.body r2.body
             end
             | ETypeSingle e1, ETypeSingle e2 -> cmp e1 e2
             | ETypeList e1, ETypeList e2 -> cmp e1 e2
@@ -474,12 +474,12 @@ module Expr = struct
             | ELetFun r1, ELetFun r2 ->
               Tuple2.compare ~cmp1:(compare_funsig bindings) ~cmp2:(
                 compare (Alist.cons_assoc (func_id_of_funsig r1.func) (func_id_of_funsig r2.func) bindings)
-              ) (r1.func, r1.cont) (r2.func, r2.cont)
+              ) (r1.func, r1.body) (r2.func, r2.body)
             | ELetFunRec r1, ELetFunRec r2 -> begin
               match Alist.cons_assocs (List.map r1.funcs ~f:func_id_of_funsig) (List.map r2.funcs ~f:func_id_of_funsig) bindings with
               | `Bindings bindings ->
                 Tuple2.compare ~cmp1:(List.compare (compare_funsig bindings)) ~cmp2:(compare bindings)
-                  (r1.funcs, r1.cont) (r2.funcs, r2.cont)
+                  (r1.funcs, r1.body) (r2.funcs, r2.body)
               | `Unequal_lengths x -> x
             end
             | _ -> raise @@ InvalidComparison "Impossible comparison of expressions"
@@ -504,13 +504,13 @@ module Expr = struct
         fun bindings s1 s2 ->
           let%bind () = Int.compare (statement_to_rank s1) (statement_to_rank s2) in
           match s1, s2 with
-          | SUntyped r1, SUntyped r2 -> compare (Alist.cons_assoc r1.var r2.var bindings) r1.body r2.body
+          | SUntyped r1, SUntyped r2 -> compare (Alist.cons_assoc r1.var r2.var bindings) r1.defn r2.defn
           | STyped r1, STyped r2 -> begin
             let%bind () =
               Tuple2.compare ~cmp1:Bool.compare ~cmp2:Bool.compare
                 (r1.do_wrap, r2.do_check) (r2.do_wrap, r2.do_check)
             in
-            compare2 bindings (r1.typed_var.tau, r1.body) (r2.typed_var.tau, r2.body)
+            compare2 bindings (r1.typed_var.tau, r1.defn) (r2.typed_var.tau, r2.defn)
           end
           | SFun fs1, SFun fs2 -> compare_funsig bindings fs1 fs2
           | SFunRec l1, SFunRec l2 -> begin
@@ -526,7 +526,7 @@ module Expr = struct
           | FUntyped r1, FUntyped r2 -> begin
             (* assumes the function ids have already been associated if these are recursive *)
             match Alist.cons_assocs r1.params r2.params bindings with
-            | `Bindings bindings -> compare bindings r1.body r2.body
+            | `Bindings bindings -> compare bindings r1.defn r2.defn
             | `Unequal_lengths x -> x
           end
           | FTyped r1, FTyped r2 -> begin
@@ -552,7 +552,7 @@ module Expr = struct
                 )
               in
               let%bind () = param_cmp in
-              compare2 bindings_after_param_cmp (r1.ret_type, r1.body) (r2.ret_type, r2.body)
+              compare2 bindings_after_param_cmp (r1.ret_type, r1.defn) (r2.ret_type, r2.defn)
             end
             | `Unequal_lengths x -> x
           end
@@ -652,9 +652,9 @@ module Embedded = struct
         | None -> EVar (new_name ()) (* unbound variable. We promise to not fail but give a new name instead *)
       end
       (* binding a new name *)
-      | ELet { var ; body ; cont } ->
+      | ELet { var ; defn ; body } ->
         let id', env' = replace var env in
-        ELet { var = id' ; body = visit body env ; cont = visit cont env' }
+        ELet { var = id' ; defn = visit defn env ; body = visit body env' }
       | EFunction { param ; body } ->
         let id', env' = replace param env in
         EFunction { param = id' ; body = visit body env' }
@@ -686,7 +686,7 @@ module Embedded = struct
         }
       | EFreeze expr -> EFreeze (visit expr env)
       | EThaw expr -> EThaw { appl = (visit expr env) ; callsite = Callsite.next () }
-      | EIgnore { ignored ; cont } -> EIgnore { ignored = visit ignored env ; cont = visit cont env }
+      | EIgnore { ignored ; body } -> EIgnore { ignored = visit ignored env ; body = visit body env }
       | ETblAppl { tbl ; gen ; arg } -> ETblAppl { tbl = visit tbl env ; gen = visit gen env ; arg = visit arg env }
       | EDet expr -> EDet (visit expr env)
       | EEscapeDet expr -> EEscapeDet (visit expr env)

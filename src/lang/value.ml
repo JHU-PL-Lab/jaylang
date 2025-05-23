@@ -48,7 +48,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       (* all languages *)
       | VInt : int V.t -> 'a t
       | VBool : bool V.t -> 'a t
-      | VFunClosure : { param : Ident.t ; body : 'a closure } -> 'a t
+      | VFunClosure : { param : Ident.t ; closure : 'a closure } -> 'a t
       | VVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
       | VRecord : 'a t RecordLabel.Map.t -> 'a t
       | VTypeMismatch : 'a t
@@ -61,7 +61,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       | VTable : { mutable alist : ('a t * 'a t) list } -> 'a embedded_only t
       (* bluejay only *)
       | VList : 'a t list -> 'a bluejay_only t
-      | VMultiArgFunClosure : { params : Ident.t list ; body : 'a closure } -> 'a bluejay_only t
+      | VMultiArgFunClosure : { params : Ident.t list ; closure : 'a closure } -> 'a bluejay_only t
       (* types in desugared and embedded *)
       | VType : 'a bluejay_or_desugared t
       | VTypeInt : 'a bluejay_or_desugared t
@@ -73,7 +73,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       | VTypeFun : { domain : 'a t ; codomain : 'a t ; det : bool } -> 'a bluejay_or_desugared t
       | VTypeDepFun : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure ; det : bool } -> 'a bluejay_or_desugared t
       | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
-      | VTypeMu : { var : Ident.t ; body : 'a closure } -> 'a bluejay_or_desugared t
+      | VTypeMu : { var : Ident.t ; closure : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
       | VTypeSingle : 'a t -> 'a bluejay_or_desugared t
       (* types in bluejay only *)
@@ -86,7 +86,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       An expression to be evaluated in an environment. The environment is in a cell in case
       laziness is used to implement recursion.    
     *)
-    and 'a closure = { expr : 'a Expr.t ; env : 'a env Env_cell.t }
+    and 'a closure = { body : 'a Expr.t ; env : 'a env Env_cell.t }
 
     let is_error : type a. a t -> bool = function
       | VAbort | VUnboundVariable _ | VTypeMismatch -> true
@@ -111,7 +111,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
         | VInt i1, VInt i2 -> V.equal Int.equal i1 i2
         | VBool b1, VBool b2 -> V.equal Bool.equal b1 b2
         | VFunClosure r1, VFunClosure r2 ->
-          equal_closure [ r1.param, r2.param ] r1.body r2.body
+          equal_closure [ r1.param, r2.param ] r1.closure r2.closure
         | VVariant r1, VVariant r2 ->
           VariantLabel.equal r1.label r2.label
           && equal r1.payload r2.payload
@@ -122,7 +122,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
         | VList l1, VList l2 -> List.equal equal l1 l2
         | VMultiArgFunClosure r1, VMultiArgFunClosure r2 -> begin
           match Expr.Alist.cons_assocs r1.params r2.params Expr.Alist.empty with
-          | `Bindings bindings -> equal_closure bindings r1.body r2.body
+          | `Bindings bindings -> equal_closure bindings r1.closure r2.closure
           | `Unequal_lengths _ -> false
         end
         | VTypeRecord m1, VTypeRecord m2 -> RecordLabel.Map.equal equal m1 m2
@@ -149,7 +149,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
           && equal_closure [ r1.binding, r2.binding ] r1.codomain r2.codomain
         | VTypeRefinement r1, VTypeRefinement r2 ->
           equal r1.tau r2.tau && equal r1.predicate r2.predicate
-        | VTypeMu r1, VTypeMu r2 -> equal_closure [ r1.var, r2.var ] r1.body r2.body
+        | VTypeMu r1, VTypeMu r2 -> equal_closure [ r1.var, r2.var ] r1.closure r2.closure
         | VTypeVariant l1, VTypeVariant l2 ->
           List.equal (Tuple2.equal ~eq1:VariantTypeLabel.equal ~eq2:equal) l1 l2
         | VTypeSingle v1, VTypeSingle v2 -> equal v1 v2
@@ -179,7 +179,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
             | Some v1, Some v2 -> if equal v1 v2 then 0 else 1 (* doesn't need to be real comparison *)
             | _, _ -> 1 (* not equal. Just claim 1 *)
           end
-        ) a.expr b.expr = 0
+        ) a.body b.body = 0
   end
 
   module Env = struct

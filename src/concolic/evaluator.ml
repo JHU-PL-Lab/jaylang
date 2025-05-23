@@ -91,11 +91,11 @@ let eval_exp
     | EVar id -> fetch id
     | EFunction { param ; body } ->
       let%bind env = read_env in
-      return @@ VFunClosure { param ; body = { expr = body ; env } }
+      return @@ VFunClosure { param ; closure = { body ; env } }
     | EId -> return VId
     | EFreeze e_freeze_body -> 
       let%bind env = read_env in
-      return @@ VFrozen { expr = e_freeze_body ; env }
+      return @@ VFrozen { body = e_freeze_body ; env }
     | EVariant { label ; payload = e_payload } -> 
       let%bind payload = eval e_payload in
       return @@ VVariant { label ; payload }
@@ -110,7 +110,7 @@ let eval_exp
     end
     | EThaw e_frozen -> begin
       match%bind eval e_frozen with
-      | VFrozen { expr ; env } -> local_env (fun _ -> env) (eval expr)
+      | VFrozen { body ; env } -> local_env (fun _ -> env) (eval body)
       | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
     end
     | ERecord record_body ->
@@ -122,9 +122,9 @@ let eval_exp
         )
       in
       return @@ VRecord value_record_body
-    | EIgnore { ignored ; cont } ->
+    | EIgnore { ignored ; body } ->
       let%bind _ : Value.t = eval ignored in
-      eval cont
+      eval body
     | EMatch { subject ; patterns } -> begin (* Note: there cannot be symbolic branching on match *)
       let%bind v = eval subject in
       match
@@ -140,16 +140,16 @@ let eval_exp
       | Some (e, f) -> local_env f (eval e)
       | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v
     end
-    | ELet { var ; body ; cont } ->
-      let%bind v = eval body in
-      local_env (Env.add var v) (eval cont)
+    | ELet { var ; defn ; body } ->
+      let%bind v = eval defn in
+      local_env (Env.add var v) (eval body)
     | EAppl { func ; arg } -> begin
       let%bind vfunc = eval func in
       match vfunc with
       | VId -> eval arg
-      | VFunClosure { param ; body } ->
+      | VFunClosure { param ; closure } ->
         let%bind varg = eval arg in
-        local_env (fun _ -> Env.add param varg body.env) (eval body.expr)
+        local_env (fun _ -> Env.add param varg closure.env) (eval closure.body)
       | _ -> type_mismatch @@ Error_msg.bad_appl vfunc
     end
     (* Operations -- build new expressions *)

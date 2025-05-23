@@ -76,7 +76,7 @@ let rec equal (a : t) (b : t) : bool X.t =
   | VRecord r1, VRecord r2 -> eq_map_data equal r1 r2
   (* Intensional equality of expressions in closures *)
   | VFunClosure r1, VFunClosure r2 ->
-    equal_closure [ r1.param, r2.param ] r1.body r2.body
+    equal_closure [ r1.param, r2.param ] r1.closure r2.closure
   | VFrozen c1, VFrozen c2 -> 
     equal_closure [] c1 c2
   | VTable r1, VTable r2 -> 
@@ -152,9 +152,9 @@ and equal_closure bindings a b =
       let%bind eq_false_body = eq r1.false_body r2.false_body in
       return (eq_cond && eq_true_body && eq_false_body)
     | ELet r1, ELet r2 ->
-      let%bind eq_body = eq r1.body r2.body in
-      let%bind eq_cont = equal_expr ((r1.var, r2.var) :: bindings) r1.cont r2.cont in
-      return (eq_body && eq_cont)
+      let%bind eq_defn = eq r1.defn r2.defn in
+      let%bind eq_body = equal_expr ((r1.var, r2.var) :: bindings) r1.body r2.body in
+      return (eq_defn && eq_body)
     | EAppl r1, EAppl r2 ->
       let%bind eq_arg = eq r1.arg r2.arg in
       let%bind eq_func = eq r1.func r2.func in
@@ -221,7 +221,7 @@ and equal_closure bindings a b =
     (* Not equal *)
     | _ -> never_equal
   in
-  equal_expr bindings a.expr b.expr
+  equal_expr bindings a.body b.body
 
 let equal a b =
   match X.run @@ equal a b with

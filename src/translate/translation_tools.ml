@@ -26,7 +26,7 @@ end
 module Let_builder (L : sig
   type a
   type t 
-  val t_to_expr : t -> cont:a Expr.t -> a Expr.t
+  val t_to_expr : t -> body:a Expr.t -> a Expr.t
 end) = struct
   module T = struct
     (* 
@@ -49,9 +49,9 @@ end) = struct
     )
 
   let[@landmark] build (m : L.a Expr.t m) : L.a Expr.t =
-    let cont, resulting_bindings = run_identity m in
+    let body, resulting_bindings = run_identity m in
     (* we must fold right because of the ordering of Preface.List.Monoid.combine and how it is added to the tape *)
-    List.fold_right resulting_bindings ~init:cont ~f:(fun tape cont -> L.t_to_expr tape ~cont)
+    List.fold_right resulting_bindings ~init:body ~f:(fun tape body -> L.t_to_expr tape ~body)
 end
 
 open Ast_tools
@@ -142,7 +142,7 @@ module Desugared_functions = struct
                 let bodies =
                   List.map ids ~f:(fun f ->
                     abstract_over_ids [ x ] @@
-                      ELet { var = r ; body = appl_list (EVar self) e_ids ; cont =
+                      ELet { var = r ; defn = appl_list (EVar self) e_ids ; body =
                         apply (appl_list (EVar f) projections) (EVar x)
                       }
                   )

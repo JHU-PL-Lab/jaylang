@@ -110,23 +110,23 @@ module Utils = struct
     in
     List.filter ids ~f:(fun id -> not @@ Ident.equal id Reserved.catchall)
 
-  let stmt_to_expr (type a) (stmt : a statement) (cont : a Expr.t) : a Expr.t =
+  let stmt_to_expr (type a) (stmt : a statement) (body : a Expr.t) : a Expr.t =
     match stmt with
-    | SUntyped { var ; body } ->
-      ELet { var ; body ; cont = cont }
-    | STyped { typed_var ; body ; do_wrap ; do_check } ->
-      ELetTyped { typed_var ; body ; cont ; do_wrap ; do_check }
+    | SUntyped { var ; defn } ->
+      ELet { var ; defn ; body }
+    | STyped { typed_var ; defn ; do_wrap ; do_check } ->
+      ELetTyped { typed_var ; defn ; body ; do_wrap ; do_check }
     | SFun fsig ->
-      ELetFun { func = fsig ; cont }
+      ELetFun { func = fsig ; body }
     | SFunRec fsigs ->
-      ELetFunRec { funcs = fsigs ; cont }
+      ELetFunRec { funcs = fsigs ; body }
 
-  let rec pgm_to_expr_with_cont : type a. a Expr.t -> a statement list -> a Expr.t =
-    fun cont -> function
-    | [] -> cont
+  let rec pgm_to_expr_with_body : type a. a Expr.t -> a statement list -> a Expr.t =
+    fun body -> function
+    | [] -> body
     | hd :: tl ->
-      let cont = pgm_to_expr_with_cont cont tl in
-      stmt_to_expr hd cont
+      let body = pgm_to_expr_with_body body tl in
+      stmt_to_expr hd body
 
   let pgm_to_module : type a. a statement list -> a Expr.t =
     fun pgm ->
@@ -138,7 +138,7 @@ module Utils = struct
         )
       ) 
       in 
-      pgm_to_expr_with_cont res pgm
+      pgm_to_expr_with_body res pgm
 end
 
 module Function_components = struct
@@ -146,14 +146,14 @@ module Function_components = struct
     { func_id : Ident.t
     ; tau_opt : 'a Constraints.bluejay_or_desugared Expr.t option
     ; params  : Ident.t list
-    ; body    : 'a Constraints.bluejay_or_desugared Expr.t
+    ; defn    : 'a Constraints.bluejay_or_desugared Expr.t
     } 
 
   let map (x : 'a t) ~(f : 'a Expr.t -> 'b Expr.t) : 'b t =
     { func_id = x.func_id
     ; tau_opt = Option.map x.tau_opt ~f
     ; params  = x.params
-    ; body    = f x.body
+    ; defn    = f x.defn
     }
 end
 
@@ -173,10 +173,10 @@ module Funsig = struct
   *)
   let to_components (fsig : 'a t) : 'a Constraints.bluejay_or_desugared Function_components.t =
     match fsig with
-    | FUntyped { func_id ; params ; body } ->
-      { func_id ; tau_opt = None ; params ; body }
-    | FTyped { type_vars ; func_id ; params ; ret_type ; body } ->
-      { func_id ; body ; params = type_vars @ List.map params ~f:Param.to_id
+    | FUntyped { func_id ; params ; defn } ->
+      { func_id ; tau_opt = None ; params ; defn }
+    | FTyped { type_vars ; func_id ; params ; ret_type ; defn } ->
+      { func_id ; defn ; params = type_vars @ List.map params ~f:Param.to_id
       ; tau_opt = Some (
         (* Create dependent parameters out of the type variables *)
         let tvar_params : Bluejay.param list =

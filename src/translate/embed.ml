@@ -15,12 +15,12 @@ module LetMonad (Names : Fresh_names.S) = struct
       | Bind of Ident.t * Embedded.t
       | Ignore of Embedded.t
 
-    let t_to_expr tape ~cont =
+    let t_to_expr tape ~body =
       match tape with
-      | Bind (id, body) ->
-        ELet { var = id ; body ; cont }
+      | Bind (id, defn) ->
+        ELet { var = id ; defn ; body }
       | Ignore ignored ->
-        EIgnore { ignored ; cont }
+        EIgnore { ignored ; body }
   end
 
   include Let_builder (Binding)
@@ -111,11 +111,11 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | (EInt _ | EBool _ | EPick_i | EAbort _ | EDiverge | EType | ETypeInt | ETypeBool | ETypeTop | ETypeBottom) -> false
     | EVar id' -> Ident.equal id id'
     (* capturing variables *)
-    | ELet { var ; body ; _ } when Ident.equal var id -> loop body
+    | ELet { var ; defn ; _ } when Ident.equal var id -> loop defn
     | EFunction { param ; _ } when Ident.equal param id -> false
     | ETypeMu { var ; _  } when Ident.equal var id -> false
     | ETypeFun { domain ; dep = `Binding binding ; _ } when Ident.equal binding id -> loop domain
-    | ELetTyped { typed_var = { var ; tau } ; body ; _ } when Ident.equal var id -> loop tau || loop body
+    | ELetTyped { typed_var = { var ; tau } ; defn ; _ } when Ident.equal var id -> loop tau || loop defn
     (* simple unary cases *)
     | EFunction { body = e ; _ }
     | ENot e
@@ -124,7 +124,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | ETypeSingle e
     | EProject { record = e ; _ } -> loop e
     (* simple binary cases *)
-    | ELet { body = e1 ; cont = e2 ; _ }
+    | ELet { defn = e1 ; body = e2 ; _ }
     | EAppl { func = e1 ; arg = e2 }
     | EBinop { left = e1 ; right = e2 ; _ }
     | ETypeFun { domain = e1 ; codomain = e2 ; _ }
@@ -142,7 +142,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | ETypeVariant ls -> List.exists ls ~f:(fun (_, e) -> loop e)
     | EMatch { subject ; patterns } -> loop subject || List.exists patterns ~f:(fun (_, e) -> loop e)
     | EIf { cond ; true_body ; false_body } -> loop cond || loop true_body || loop false_body
-    | ELetTyped { typed_var = { tau ; _ } ; body ; cont ; _ } -> loop tau || loop body || loop cont
+    | ELetTyped { typed_var = { tau ; _ } ; defn ; body ; _ } -> loop tau || loop defn || loop body
   in
   loop expr
 
@@ -172,8 +172,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       EBinop { left = embed left ; binop ; right = embed right }
     | EIf { cond ; true_body ; false_body } ->
       EIf { cond = embed cond ; true_body = embed true_body ; false_body = embed false_body }
-    | ELet { var ; body ; cont } ->
-      ELet { var ; body = embed body ; cont = embed cont }
+    | ELet { var ; defn ; body } ->
+      ELet { var ; defn = embed defn ; body = embed body }
     | EAppl { func ; arg } ->
       EAppl { func = embed func ; arg = embed arg }
     | EProject { record ; label } ->
@@ -191,8 +191,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         List.map patterns ~f:(fun (pat, e) -> (embed_pattern pat, embed e))
       }
     (* Let *)
-    | ELetTyped { typed_var ; body ; cont ; do_wrap ; do_check } ->
-      stmt_to_expr (embed_statement (STyped { typed_var ; body ; do_wrap ; do_check })) (embed cont)
+    | ELetTyped { typed_var ; defn ; body ; do_wrap ; do_check } ->
+      stmt_to_expr (embed_statement (STyped { typed_var ; defn ; do_wrap ; do_check })) (embed body)
     (* types *)
     | ETypeInt ->
       make_embedded_type
@@ -454,7 +454,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         EThaw (apply Embedded_functions.y_freeze_thaw @@ 
           fresh_abstraction "self_mu" @@ fun self ->
             EFreeze (
-              let with_beta cont = ELet { var = beta ; body = EThaw (EVar self) ; cont } in
+              let with_beta body = ELet { var = beta ; defn = EThaw (EVar self) ; body } in
               make_embedded_type
                 { gen = lazy (with_beta (gen tau))
                 ; check = lazy (fresh_abstraction "e_mu_check" @@ fun e -> with_beta (check tau (EVar e)))
@@ -488,9 +488,9 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ; wrap = lazy EId
         }
 
-    and embed_let ?(do_wrap : bool = do_wrap) ~(do_check : bool) ~(tau : Desugared.t) (body : Desugared.t) : Embedded.t =
+    and embed_let_defn ?(do_wrap : bool = do_wrap) ~(do_check : bool) ~(tau : Desugared.t) (defn : Desugared.t) : Embedded.t =
       build @@
-        let%bind v = capture @@ embed body in
+        let%bind v = capture @@ embed defn in
         let%bind () = 
           if do_check
           then ignore @@ check tau (EVar v)
@@ -516,10 +516,10 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
 
     and embed_statement (stmt : Desugared.statement) : Embedded.statement =
       match stmt with
-      | SUntyped { var ; body } ->
-        SUntyped { var ; body = embed body }
-      | STyped { typed_var = { var = x ; tau } ; body ; do_wrap ; do_check } ->
-        SUntyped { var = x ; body = embed_let ~do_wrap ~do_check ~tau body }
+      | SUntyped { var ; defn } ->
+        SUntyped { var ; defn = embed defn }
+      | STyped { typed_var = { var = x ; tau } ; defn ; do_wrap ; do_check } ->
+        SUntyped { var = x ; defn = embed_let_defn ~do_wrap ~do_check ~tau defn }
     in
 
   let embed_single_program (pgm : Desugared.pgm) =

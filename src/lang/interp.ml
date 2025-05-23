@@ -107,13 +107,13 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | EDiverge -> diverge ()
     | EFunction { param ; body } -> 
       using_env @@ fun env ->
-      VFunClosure { param ; body = { expr = body ; env = lazy env } }
+      VFunClosure { param ; closure = { body ; env = lazy env } }
     | EMultiArgFunction { params ; body } -> 
       using_env @@ fun env ->
-      VMultiArgFunClosure { params ; body = { expr = body ; env = lazy env } }
-    | EFreeze expr ->
+      VMultiArgFunClosure { params ; closure = { body ; env = lazy env } }
+    | EFreeze body ->
       using_env @@ fun env ->
-      VFrozen { expr ; env = lazy env }
+      VFrozen { body ; env = lazy env }
     | EId -> return VId
     (* inputs *) (* Consider: use an input stream to allow user to provide inputs *)
     | EPick_i -> 
@@ -140,7 +140,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       match dep with
       | `Binding binding ->
         using_env @@ fun env ->
-        VTypeDepFun { binding ; domain ; codomain = { expr = codomain ; env = lazy env } ; det }
+        VTypeDepFun { binding ; domain ; codomain = { body = codomain ; env = lazy env } ; det }
       | `No ->
         let%bind codomain = eval codomain in
         return (VTypeFun { domain ; codomain ; det })
@@ -173,38 +173,38 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       return (VTypeRecord new_record)
     | ETypeModule e_ls ->
       using_env @@ fun env ->
-      VTypeModule (List.map e_ls ~f:(fun (label, tau) -> label, { expr = tau ; env = lazy env } ))
+      VTypeModule (List.map e_ls ~f:(fun (label, tau) -> label, { body = tau ; env = lazy env } ))
     | EThaw e ->
       let%bind v_frozen = eval e in
-      let%orzero (VFrozen { expr = e_frozen ; env = lazy env }) = v_frozen in
+      let%orzero (VFrozen { body = e_frozen ; env = lazy env }) = v_frozen in
       local_env (fun _ -> env) (eval e_frozen)
     (* bindings *)
     | EAppl { func ; arg } -> begin
       let%bind vfunc = eval func in
       let%bind arg = eval arg in
       match vfunc with
-      | VFunClosure { param ; body = { expr ; env = lazy env } } ->
-        local_env (fun _ -> Env.add param arg env) (eval expr)
+      | VFunClosure { param ; closure = { body ; env = lazy env } } ->
+        local_env (fun _ -> Env.add param arg env) (eval body)
       | VId -> return arg
-      | VMultiArgFunClosure { params ; body = { expr ; env = lazy env }} -> begin
+      | VMultiArgFunClosure { params ; closure = { body ; env = lazy env }} -> begin
         match params with
         | [] -> type_mismatch ()
         | [ param ] ->
-          local_env (fun _ -> Env.add param arg env) (eval expr)
+          local_env (fun _ -> Env.add param arg env) (eval body)
         | param :: params ->
-          local_env (fun _ -> Env.add param arg env) (eval (EMultiArgFunction { params ; body = expr }))
+          local_env (fun _ -> Env.add param arg env) (eval (EMultiArgFunction { params ; body }))
         end
       | _ -> type_mismatch ()
     end
-    | ELet { var ; body ; cont } -> eval_let var ~body ~cont
-    | ELetTyped { typed_var = { var ; _ } ; body ; cont ; _ } -> eval_let var ~body ~cont
-    | EIgnore { ignored ; cont } ->
+    | ELet { var ; defn ; body } -> eval_let var ~defn ~body
+    | ELetTyped { typed_var = { var ; _ } ; defn ; body ; _ } -> eval_let var ~defn ~body
+    | EIgnore { ignored ; body } ->
       let%bind _ = eval ignored in
-      eval cont
+      eval body
     | ETypeMu { var ; body } ->
       let%bind env = read_env in
       let rec rec_env = lazy (
-        Env.add var (VTypeMu { var ; body = { expr = body ; env = rec_env } }) env
+        Env.add var (VTypeMu { var ; closure = { body ; env = rec_env } }) env
       )
       in
       local_env (fun _ -> force rec_env) (eval (EVar var))
@@ -288,28 +288,28 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         | None -> eval default
     end
     (* let funs *)
-    | ELetFunRec { funcs ; cont } -> begin
+    | ELetFunRec { funcs ; body } -> begin
       let%bind env = read_env in
       let rec rec_env = lazy (
         List.fold funcs ~init:env ~f:(fun acc fsig ->
           let comps = Ast_tools.Funsig.to_components fsig in
-          match Ast_tools.Utils.abstract_over_ids comps.params comps.body with
+          match Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
           | EFunction { param ; body } -> 
-            Env.add comps.func_id (VFunClosure { param ; body = { expr = body ; env = rec_env } }) acc
+            Env.add comps.func_id (VFunClosure { param ; closure = { body ; env = rec_env } }) acc
           | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
         )
       )
       in
-      local_env (fun _ -> force rec_env) (eval cont)
+      local_env (fun _ -> force rec_env) (eval body)
     end
-    | ELetFun { func ; cont } -> begin
+    | ELetFun { func ; body = body' } -> begin
       let comps = Ast_tools.Funsig.to_components func in
-      Ast_tools.Utils.abstract_over_ids comps.params comps.body
+      Ast_tools.Utils.abstract_over_ids comps.params comps.defn
       |> function
         | EFunction { param ; body } ->
           local_env (fun env ->
-            Env.add comps.func_id (VFunClosure { param ; body = { expr = body ; env = lazy env } }) env
-          ) (eval cont)
+            Env.add comps.func_id (VFunClosure { param ; closure = { body ; env = lazy env } }) env
+          ) (eval body')
         | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
     end
     (* tables *)
@@ -336,9 +336,9 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     end
 
 
-    and eval_let (var : Ident.t) ~(body : a Expr.t) ~(cont : a Expr.t) : a V.t m =
-      let%bind v = eval body in
-      local_env (Env.add var v) (eval cont)
+    and eval_let (var : Ident.t) ~(defn : a Expr.t) ~(body : a Expr.t) : a V.t m =
+      let%bind v = eval defn in
+      local_env (Env.add var v) (eval body)
 
     and eval_record_body (record_body : a Expr.t RecordLabel.Map.t) : a V.t RecordLabel.Map.t m =
       Map.fold record_body ~init:(return RecordLabel.Map.empty) ~f:(fun ~key ~data:e acc_m ->

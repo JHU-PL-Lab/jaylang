@@ -93,12 +93,12 @@ let[@landmark] rec analyze (e : Embedded.With_callsites.t) : Value.t m =
     let%bind env, callstack = ask in
     let%bind () = modify (Store.add callstack env) in
     return @@ VFrozen { body = expr ; callstack }
-  | ELet { var ; body ; cont } ->
-    let%bind v = analyze body in
-    local (Env.add var v) (analyze cont)
-  | EIgnore { ignored ; cont } ->
+  | ELet { var ; defn ; body } ->
+    let%bind v = analyze defn in
+    local (Env.add var v) (analyze body)
+  | EIgnore { ignored ; body } ->
     let%bind _ : Value.t = analyze ignored in
-    analyze cont
+    analyze body
   | EAppl { appl = { func ; arg } ; callsite } -> begin
     match%bind analyze func with
     | VFunClosure { param ; body = { body ; callstack } } -> begin
