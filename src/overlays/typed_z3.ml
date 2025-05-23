@@ -117,19 +117,22 @@ module Make_datatype_builders (C : Context) = struct
   (*
     See the docs at `jaylang/docs/implementation/z3.md` for explanation of division and modulus.
   *)
+  (** [divides a b] is true iff [a] divides [b]. *)
   let divides a b =
-    eq_ints (box_int 0) (op_two_ints int_ (Arithmetic.Integer.mk_mod ctx) a b)
+    eq_ints (box_int 0) (op_two_ints int_ (Arithmetic.Integer.mk_mod ctx) b a)
+
   let divide x y = 
     let res = Arithmetic.mk_div ctx (extract x) (extract y) in
     int_ @@
       Boolean.mk_ite ctx
-        (extract (or_ (divides x y) (less_than_eq (box_int 0) x)))
+        (extract (or_ (divides y x) (less_than_eq (box_int 0) x)))
         res
         (Boolean.mk_ite ctx
           (extract (less_than_eq (box_int 0) y))
           (extract (plus (int_ res) (box_int 1)))
           (extract (minus (int_ res) (box_int 1)))
         )
+
   let modulus a b = minus a (times b (divide a b))
 
   let bool_expr_list_to_expr ls = 
