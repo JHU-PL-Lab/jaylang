@@ -1,0 +1,31 @@
+(***
+  (
+    (features (Parametric_types First_class_types Recursive_functions Higher_order_functions Usage_error))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+(*
+  We build a function that takes n types and makes a function type form them
+
+  It's relatively unhelpful because we might as well just write the function
+  type by hand when used this way, or just pass in a list of types to be made into
+  the function type.
+
+  But I'm sure there's some cool stuff we can do with this dynamically.
+*)
+
+let mk_fun_type n =
+  let rec loop n acc =
+    if n <= 1
+    then acc
+    else fun x -> loop (n - 1) (x -> acc)
+  in
+  fun x -> loop n x
+
+let f : mk_fun_type 3 int bool int =
+  fun i b ->
+    if b
+    then i
+    else 0 - i
