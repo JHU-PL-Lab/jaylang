@@ -1,0 +1,17 @@
+
+
+(* this is how we gen an `a` when splaying types *)
+let rec gen (a <- type) : a =
+  gen a
+
+(*
+  The recursive function is desugared to call a generated version of itself
+  instead of its actual self so that we get termination.
+
+  Above, without the splaying, doesn't terminate, so it is well-typed.
+  With it, it is well-typed.
+
+  But also with it, we have made function to generate a member of any type.
+*)
+
+let _ : int = gen int

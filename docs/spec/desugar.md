@@ -4,7 +4,7 @@
 We desugar into a subset of Bluejay so that we have fewer translation cases.
 
 Definitions:
-* "OCaml-array" brackets `[| . |]` is `mapsto` under desugaring.
+* Paren and bar brackets `(| . |)` is mapping to desugar Bluejay code.
 * A tilde `~` prefixes a reserved record label that the programmer cannot create.
 * A dollar sign `$` prefixes a fresh name.
 
@@ -27,16 +27,16 @@ Note that untyped functions are all the same, and we would use untyped let expre
 ### Non-rec functions
 
 ```ocaml
-[| let f (type a_1 ... a_n) (x_1 : tau_1) ... (x_m : tau_m) : tau =
+(| let f (type a_1 ... a_n) (x_1 : tau_1) ... (x_m : tau_m) : tau =
   e
   in
-  e' |] =
-let (f : [| (a_1 : type) -> ... -> (a_n : type) -> tau_1 -> ... -> tau_m -> tau |]) = 
+  e' |) =
+let (f : (| (a_1 : type) -> ... -> (a_n : type) -> tau_1 -> ... -> tau_m -> tau |)) = 
   fun a_1 -> ... -> fun a_n ->
     fun x_1 -> ... -> fun x_m ->
-      [| e |]
+      (| e |)
 in
-[| e' |] 
+(| e' |) 
 ```
 
 Notes:
@@ -47,20 +47,20 @@ Notes:
 ### Recursive functions
 
 ```ocaml
-[| let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
-  e1
+(| let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
+    e1
   and ...
   and fn (type an_1 ... an_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
     en
   in
-  e |] =
+  e |) =
 (* this record is never accessible to the user, so we don't need to create unusable labels *)
 let $r = Y_n
   (fun f1 -> ... -> fun fn ->
     let_no_check f1 : (a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1 =
       fun a1_1 -> ... -> fun a1_n1 ->
         fun x1_1 -> ... -> fun x1_m1 ->
-          [| e1 |]
+          (| e1 |)
     in
     f1)
   ...
@@ -68,7 +68,7 @@ let $r = Y_n
     let_no_check fn : (an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun =
       fun an_1 -> ... -> fun an_nn ->
         fun xn_1 -> ... -> fun xn_mn ->
-          [| en |]
+          (| en |)
     in
     fn)
 
@@ -103,13 +103,49 @@ Y = fun f ->
 ```
 
 Notes:
-* The same as non-rec functions...
+* The same notes as non-rec functions...
+
+### Type splayed recursive functions
+
+```ocaml
+(| let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
+    e1
+  and ...
+  and fn (type an_1 ... an_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
+    en
+  in
+  e |) =
+(* first generate all the functions, which is recursive in case they refer to each other in their types *)
+let $r = Y_n
+  (fun f1 -> ... -> fun fn ->
+    (* simply a generated member of f1's type *)
+    ((a1_1 : type) -> ... -> (a1_n1 : type) -> (| tau1_1 |) -> ... -> (| tau1_m1 |) -> (| tau1 |)).~gen
+  )
+  ...
+  (fun f1 -> ... -> fun fn ->
+    ((an_1 : type) -> ... -> (an_nn : type) -> (| taun_1 |) -> ... -> (| taun_mn |) -> (| taun |)).~gen
+  )
+
+(* now expose the names so that the types can use them *)
+let f1 = $r.f1
+...
+let fn = $r.fn
+(* then actually check and wrap the real implementations, which can call the generated functions above *)
+let f1 : (a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1 = (| e1 |)
+...
+let fn : (an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun = (| en |)
+```
+
+Notes:
+* Notice that we're looking ahead a bit and calling the `~gen` label here. This is a crossing of boundaries, but it is smooth, so I'm fine with it.
+* Each function that does not have types on it is desugared in the normal way.
+* We don't escape any determinism blocks, so this is incomplete in the presence of deterministic functions.
 
 ### Multi-arg functions
 
 ```ocaml
-[| fun x1 ... xn -> e |] =
-  fun x1 -> ... -> fun xn -> [| e |]
+(| fun x1 ... xn -> e |) =
+  fun x1 -> ... -> fun xn -> (| e |)
 ```
 
 ## List
@@ -121,19 +157,19 @@ let filter_list x =
   | `~Cons _ -> x
   end
 
-[| list tau |] =
+(| list tau |) =
   Mu $t.
   | `~Nil of unit (* This is a unique variant name that the user cannot create, and unit is a dummy payload *)
-  | `~Cons of { ~hd : [| tau |] ; ~tl : $t } (* so is this *)
+  | `~Cons of { ~hd : (| tau |) ; ~tl : $t } (* so is this *)
 
-[| x :: xs |] =
-  `~Cons { ~hd = [| x |] ; ~tl = filter_list [| xs |] }
+(| x :: xs |) =
+  `~Cons { ~hd = (| x |) ; ~tl = filter_list (| xs |) }
 
-[| [] |] =
+(| [] |) =
   `~Nil {} 
 
-[| [ x1 ; ... ; xn ] |] =
-  [| x1 :: ... :: xn :: [] |]
+(| [ x1 ; ... ; xn ] |) =
+  (| x1 :: ... :: xn :: [] |)
 ```
 
 Notes:
@@ -142,41 +178,41 @@ Notes:
 ## Dependent record / module
 
 ```ocaml
-[| struct let l_1 : tau_1 = e_1 ... let l_n : tau_n = e_n end |] =
-  [| let l_1 = e_1 in
+(| struct let l_1 : tau_1 = e_1 ... let l_n : tau_n = e_n end |) =
+  (| let l_1 = e_1 in
     ...
     let l_n = e_n in 
-    { l_1 = l_1 ; ... ; l_n = l_n } |]
+    { l_1 = l_1 ; ... ; l_n = l_n } |)
 ```
 
 ## Pattern matching
 
 ```ocaml
-[| match e with
+(| match e with
   | p_1 -> e_1
   | ...
   | p_n -> e_n
   | l_ident -> e_l_ident
-  end |] =
-match [| e |] with
-| [| p_1 -pat-> e_1 |] 
+  end |) =
+match (| e |) with
+| (| p_1 -pat-> e_1 |) 
 | ...
-| [| p_n -pat-> e_n |]
+| (| p_n -pat-> e_n |)
 | `~Untouched _ -> abort "Matched untouchable value"
-| l_ident -> [| e_l_ident |]
+| l_ident -> (| e_l_ident |)
 end
 
-(* patterns. See List for these cases, too. They are copied here *)
-[| p -pat-> e |] =
-  p -pat-> [| e |]
-
 (* Empty list pattern *)
-[| [] -pat-> e |] =
-  `~Nil -pat-> [| e |]
+(| [] -pat-> e |) =
+  `~Nil -pat-> (| e |)
 
 (* Cons pattern *)
-[| hd :: tl -pat-> e |] =
-  `~Cons $r -pat-> let hd = $r.~hd in let tl = $r.~tl in [| e |]
+(| hd :: tl -pat-> e |) =
+  `~Cons $r -pat-> let hd = $r.~hd in let tl = $r.~tl in (| e |)
+
+(| p -pat-> e |) =
+  p -pat-> (| e |)
+
 ```
 
 Notes:
@@ -187,72 +223,100 @@ Notes:
 ## Intersection types
 
 ```ocaml
-[| ((`V_0 of tau_0) -> tau_0') & ... & ((`V_n of tau_n) -> tau_n') |] =
-  [| ($x : `V_0 of tau_0 | ... | `V_n of tau_n) ->
+(| ((`V_0 of tau_0) -> tau_0') & ... & ((`V_n of tau_n) -> tau_n') |) =
+  (| ($x : `V_0 of tau_0 | ... | `V_n of tau_n) ->
         match $x with
         | `V_0 _ -> tau_0'
         | ...
-        | `V_n _ -> tau_n' |]
+        | `V_n _ -> tau_n' |)
 ```
 
 ## Assert/assume
 
+### Without forall/exists
+
 ```ocaml
-[| assert e |] =
-  if [| e |]
+(| assert e |) =
+  if (| e |)
   then {}
   else abort "Failed assertion"
 
-[| assume e |]
-  if [| e |]
+(| assume e |)
+  if (| e |)
   then {}
   else diverge
 ```
+
+### With forall/exists
+
+```ocaml
+(| assert (forall (type a_1 ... a_n) (x_1 : tau_1) ... (x_n : tau_m). e) |) =
+  let _ : (a_1 : type) -> ... -> (a_n : type) -> (| tau_1 |) -> ... -> (| tau_m |) -> (| unit |) =
+    fun a_1 ... a_n ->
+      fun x_1 ... x_m ->
+        (| assert e |)
+  in
+  {}
+
+(| assume (exists (type a_1 ... a_n) (x_1 : tau_1) ... (x_n : tau_m). e) |) =
+  let _ : (a_1 : type) -> ... -> (a_n : type) -> (| tau_1 |) -> ... -> (| tau_m |) -> (| unit |) =
+    fun a_1 ... a_n ->
+      fun x_1 ... x_m ->
+        (| assume e |)
+  in
+  {}
+```
+
+Notes:
+* Also supports dependent parameters.
+* `n` may be zero, and `m` is positive.
+* In the case that any type is ill-formed in the `assume`, it will error. The assumption is only on the boolean result and not on the well-formedness of the types.
+* There is no meaningful way for this to be interpreted until we get to the embedded language
+* We'd like to add intensional equality inside of these, but they can currently be encoded (in a slightly less efficient way) with determinitic functions. It's just a little tricky or extremely wordy to enforce that at parse time.
+* TODO: We need to escape determinism here to allow the generation because this is only for checking, and the gen'd values don't escape.
 
 ## And/or
 
 We need to desugar and/or to short-circuit, and this is required so that we can try to solve for the case of the left expression that causes us to evaluate the right expression. This way, in interpretation of the target language, we don't have to think about how the short-circuiting of the boolean operations affects branches.
 
 ```ocaml
-[| e && e' |] =
-  if [| e |]
-  then [| e' |]
+(| e && e' |) =
+  if (| e |)
+  then (| e' |)
   else false
 
-[| e || e' |] = 
-  if [| e |]
+(| e || e' |) = 
+  if (| e |)
   then true
-  else [| e' |]
+  else (| e' |)
 ``` 
-
-I am still unsure if we want to do this. The alternative (which is the old solution) is to not short-circuit at all. Adding the short-circuit introduces branches (but it may help us identify solves to skip that are pinned). I will for now NOT do this desugar here, and instead I will leave and/or as binops in the target language which we might later remove with this. Note, though, that we often add this branch ourselves if we want to short-circuit (which is often) because we want to skip all of the branches in `e'`. I am likely to benchmark how this affects performance.
 
 ## Division/modulo
 
 Division and modulus can go wrong if right expression is `0`. We instrument during the desugar process to add this as a branch in the program.
 
 ```ocaml
-[| e / e' |] =
-  let $v = [| e' |] in (* only evaluate once *)
+(| e / e' |) =
+  let $v = (| e' |) in (* only evaluate once *)
   if $v == 0
   then abort "Divide by 0"
-  else [| e |] / $v
+  else (| e |) / $v
 
-[| e % e' |] =
-  let $v = [| e' |] in (* only evaluate once *)
+(| e % e' |) =
+  let $v = (| e' |) in (* only evaluate once *)
   if $v == 0
   then abort "Modulo by 0"
-  else [| e |] % $v
+  else (| e |) % $v
 ```
 
 ## Arrow
 
 ```ocaml
-[| tau1 -> tau2 |] =
-  [| tau1 |] -> [| tau2 |]
+(| tau1 -> tau2 |) =
+  (| tau1 |) -> (| tau2 |)
 
-[| (x : tau1) -> tau2 |] =
-  (x : [| tau1 |]) -> [| tau2 |]
+(| (x : tau1) -> tau2 |) =
+  (x : (| tau1 |)) -> (| tau2 |)
 ```
 
 ## Parse-time
@@ -264,8 +328,8 @@ This is certainly a slight hack, but the scope is small enough that it's fine fo
 ### Monadic syntax
 
 ```ocaml
-[| let%bind x = e in e' |] =
-  [| bind e (fun x -> e') |]
+(| let%bind x = e in e' |) =
+  (| bind e (fun x -> e') |)
 ```
 
 Notes:
@@ -274,8 +338,8 @@ Notes:
 ### Pipelining
 
 ```ocaml
-[| e |> e' |] =
-  [|  e' e |]
+(| e |> e' |) =
+  (|  e' e |)
 ```
 
 Notes:
@@ -285,8 +349,8 @@ Notes:
 
 ```ocaml
 (* as a line in a module type *)
-[| val t = tau |] =
-  [| val t : singlet (tau) |]
+(| val t = tau |) =
+  (| val t : singlet (tau) |)
 ```
 
 Notes:

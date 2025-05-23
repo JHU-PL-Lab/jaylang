@@ -4,7 +4,7 @@
 We take the desugared target and embed it into a low-level language. We use the term "embed" because we most of the logic done in this step is taking types and embedding them as expressions in the target code.
 
 Definitions:
-* Double square brackets `[[ . ]]` is `mapsto` under embedding the desugared code.
+* Double square brackets `[[ . ]]` is a mapping to embed the desugared code.
 * A tilde `~` prefixes a reserved label that the programmer cannot create.
 * A dollar sign `$` prefixes a fresh name.
 
