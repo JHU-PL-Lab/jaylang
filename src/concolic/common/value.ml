@@ -61,6 +61,7 @@ end
 
 let rec equal (a : t) (b : t) : bool X.t =
   let open X in
+  if phys_equal a b then return true else
   match a, b with
   (* Equality of concolic expressions*)
   | VInt (i1, e1), VInt (i2, e2) -> 
@@ -115,6 +116,7 @@ let rec equal (a : t) (b : t) : bool X.t =
 *)
 and equal_closure bindings a b =
   let open X in
+  if phys_equal a b then return true else
   let rec equal_expr bindings x y =
     let eq = equal_expr bindings in
     match x, y with
