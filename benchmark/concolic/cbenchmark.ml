@@ -65,7 +65,11 @@ module Report_row (* : Latex_table.ROW *) = struct
         |> Lang.Parse.parse_single_pgm_string
       in
       let test_result =
-        Concolic.Driver.test_bjy source ~global_timeout_sec:90.0 ~do_wrap:true ~in_parallel:false (* parallel computation off by default *)
+        Concolic.Driver.test_bjy source
+          ~global_timeout_sec:90.0 
+          ~do_wrap:true 
+          ~do_type_splay:true
+          ~in_parallel:false (* parallel computation off by default *)
       in
       let t1 = Caml_unix.gettimeofday () in
       let interp1 = Utils.Safe_cell.get Concolic.Evaluator.global_runtime in

@@ -178,6 +178,9 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%bind v_frozen = eval e in
       let%orzero (VFrozen { body = e_frozen ; env = lazy env }) = v_frozen in
       local_env (fun _ -> env) (eval e_frozen)
+    | EGen e ->
+      let%bind _ : a V.t = eval e in
+      return VAbort
     (* bindings *)
     | EAppl { func ; arg } -> begin
       let%bind vfunc = eval func in

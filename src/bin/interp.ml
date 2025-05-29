@@ -12,20 +12,22 @@ open Lang
 
 let usage_msg =
   {|
-  interp <file> -m <mode> [-w yes/no]
+  interp <file> -m <mode> [-w yes/no] [-s]
   |}
   (* would like to add [<input_i>] optional inputs *)
 
 let source_file = ref "" 
 let mode = ref ""
 let wrap = ref "yes"
+let type_splay = ref false
 
 let read_anon_arg src_file_raw =
   source_file := src_file_raw
 
 let speclist = 
   [ ("-m", Arg.Set_string mode, "Mode: bluejay, desugared, or embedded.")
-  ; ("-w", Arg.Set_string wrap, "Wrap flag: yes or no. Default is yes.")]
+  ; ("-w", Arg.Set_string wrap, "Wrap flag: yes or no. Default is yes.")
+  ; ("-s", Arg.Set type_splay, "Splay types on recursive functions.") ]
 
 let () = 
   Arg.parse speclist read_anon_arg usage_msg;
@@ -38,7 +40,13 @@ let () =
     in
     match !mode with
     | "bluejay" -> let _ = Interp.eval_pgm pgm in ()
-    | "desugared" -> let _ = Interp.eval_pgm @@ Translate.Convert.bjy_to_des pgm in ()
+    | "desugared" -> 
+      let _ = 
+        (* Type splayed desugared functions are uninterpretable because there is no notion of
+           generation before the type embedding happens. *)
+        Interp.eval_pgm @@ Translate.Convert.bjy_to_des pgm ~do_type_splay:false
+      in 
+      ()
     | "embedded" ->
       let do_wrap =
         match String.lowercase !wrap with
@@ -46,7 +54,7 @@ let () =
         | "no" | "n" -> false
         | _ -> Format.eprintf "Error: bad string given to wrap -w flag. Should be yes/no."; assert false
       in
-      let _ = Interp.eval_pgm @@ Translate.Convert.bjy_to_emb pgm ~do_wrap in
+      let _ = Interp.eval_pgm @@ Translate.Convert.bjy_to_emb pgm ~do_wrap ~do_type_splay:!type_splay in
       ()
     | _ -> Format.eprintf "Error: mode should be one of bluejay, desugared, embedded."; assert false
   end
