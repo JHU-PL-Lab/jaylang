@@ -9,11 +9,12 @@ open Core
 
 let usage_msg =
   {|
-  analysis <file> [-w yes/no]
+  analysis <file> [-w yes/no] [-s]
   |}
 
 let source_file = ref "" 
 let wrap = ref "yes"
+let type_splay = ref false
 
 let read_anon_arg src_file_raw =
   source_file := src_file_raw
@@ -21,6 +22,7 @@ let read_anon_arg src_file_raw =
 let speclist = 
   (* optional args for evaluation. The record fields get set by arguments *)
   [ ("-w", Arg.Set_string wrap, "Wrap flag: yes or no. Default is yes.")
+  ; ("-s", Arg.Set type_splay, "Splay types on recursive functions")
   ]
 
 let () = 
@@ -37,7 +39,7 @@ let () =
     (* if *)
       In_channel.read_all src_file
       |> Lang.Parse.parse_single_pgm_string
-      |> Translate.Convert.bjy_to_emb ~do_wrap
+      |> Translate.Convert.bjy_to_emb ~do_wrap ~do_type_splay:!type_splay
       |> Lang.Ast_tools.Utils.pgm_to_module
       |> Lang.Ast.Embedded.With_callsites.alphatized_of_expr
       |> Analysis.Main.analyze

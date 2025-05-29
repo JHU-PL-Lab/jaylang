@@ -231,6 +231,8 @@ module Expr = struct
       (* these exist in the desugared and embedded languages *)
       | EAbort : string -> 'a desugared_or_embedded t (* string is error message *)
       | EDiverge : 'a desugared_or_embedded t
+      (* only the desugared language *)
+      | EGen : 'a t -> 'a desugared_only t (* Cannot be interpreted. Is only an intermediate step in translation *)
       (* these exist in the bluejay and desugared languages *)
       | EType : 'a bluejay_or_desugared t
       | ETypeInt : 'a bluejay_or_desugared t
@@ -311,7 +313,7 @@ module Expr = struct
       | ETypeVariant _ -> 36   | ELetTyped _ -> 37 | ETypeSingle _ -> 38       | ETypeList _ -> 39
       | ETypeIntersect _ -> 40 | EList _ -> 41     | EListCons _ -> 42         | EModule _ -> 43 
       | EAssert _ -> 44        | EAssume _ -> 45   | EMultiArgFunction _ -> 46 | ELetFun _ -> 47
-      | ELetFunRec _ -> 48
+      | ELetFunRec _ -> 48     | EGen _  -> 49
 
     let statement_to_rank : type a. a statement -> int = function
       | SUntyped _ -> 0
@@ -428,6 +430,7 @@ module Expr = struct
           | EDet e1, EDet e2 -> cmp e1 e2
           | EEscapeDet e1, EEscapeDet e2 -> cmp e1 e2
           | EAbort s1, EAbort s2 -> String.compare s1 s2
+          | EGen e1, EGen e2 -> cmp e1 e2
           | ETypeRecord m1, ETypeRecord m2 -> RecordLabel.Map.compare cmp m1 m2
           | ETypeFun r1, ETypeFun r2 -> begin
             let- () = cmp r1.domain r2.domain in

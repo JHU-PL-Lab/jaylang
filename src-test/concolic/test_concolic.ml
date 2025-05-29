@@ -17,7 +17,11 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
   Alcotest.test_case testname speed_level
   @@ fun () ->
     testname
-    |> Driver.test ~global_timeout_sec:30.0 ~do_wrap:true ~in_parallel:false (* parallel computation off by default *)
+    |> Driver.test 
+        ~global_timeout_sec:30.0 
+        ~do_wrap:true 
+        ~do_type_splay:false
+        ~in_parallel:false (* parallel computation off by default *)
     |> Status.is_error_found
     |> Bool.(=) is_error_expected
     |> Alcotest.check Alcotest.bool "bjy concolic" true

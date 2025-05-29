@@ -2,7 +2,7 @@
 open Core
 open Options.Arrow.Infix (* expose infix operators *)
 
-type 'a test = ('a, do_wrap:bool -> Status.Terminal.t) Options.Arrow.t
+type 'a test = ('a, do_wrap:bool -> do_type_splay:bool -> Status.Terminal.t) Options.Arrow.t
 
 (*
   ----------------------
@@ -72,11 +72,11 @@ end
 
 let test_bjy : Lang.Ast.Bluejay.pgm test =
   Options.Arrow.make
-  @@ fun r -> fun bjy -> fun ~do_wrap ->
+  @@ fun r -> fun bjy -> fun ~do_wrap ~do_type_splay ->
     let programs =
       if r.in_parallel
-      then Translate.Convert.bjy_to_many_emb bjy ~do_wrap
-      else Preface.Nonempty_list.Last (Translate.Convert.bjy_to_emb bjy ~do_wrap)
+      then Translate.Convert.bjy_to_many_emb bjy ~do_wrap ~do_type_splay
+      else Preface.Nonempty_list.Last (Translate.Convert.bjy_to_emb bjy ~do_wrap ~do_type_splay)
     in
     let module C = Compute (struct let r = r end) in
     let module P = Overlays.Computation_pool.Process (C) in

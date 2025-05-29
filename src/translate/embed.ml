@@ -122,7 +122,8 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | EVariant { payload = e ; _ }
     | ETypeMu { body = e ; _ }
     | ETypeSingle e
-    | EProject { record = e ; _ } -> loop e
+    | EProject { record = e ; _ }
+    | EGen e -> loop e
     (* simple binary cases *)
     | ELet { defn = e1 ; body = e2 ; _ }
     | EAppl { func = e1 ; arg = e2 }
@@ -190,6 +191,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       EMatch { subject = embed subject ; patterns =
         List.map patterns ~f:(fun (pat, e) -> (embed_pattern pat, embed e))
       }
+    | EGen e -> gen e
     (* Let *)
     | ELetTyped { typed_var ; defn ; body ; do_wrap ; do_check } ->
       stmt_to_expr (embed_statement (STyped { typed_var ; defn ; do_wrap ; do_check })) (embed body)

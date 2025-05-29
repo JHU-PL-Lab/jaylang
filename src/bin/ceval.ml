@@ -10,12 +10,13 @@ open Concolic
 
 let usage_msg =
   {|
-  ceval <file> [-t <total timeout>] [-m <max_step>] [-d <max_tree_depth>] [-n <n_depth_increments>] [-r] [-w yes/no] [-p]
+  ceval <file> [-t <total timeout>] [-m <max_step>] [-d <max_tree_depth>] [-n <n_depth_increments>] [-r] [-w yes/no] [-p] [-s]
   |}
 
 let source_file = ref "" 
 let optional_args = Options.Refs.create_default ()
 let wrap = ref "yes"
+let type_splay = ref false
 
 let read_anon_arg src_file_raw =
   source_file := src_file_raw
@@ -29,6 +30,7 @@ let speclist =
   ; ("-n", Arg.Set_int   optional_args.n_depth_increments, "Num depth increments")
   ; ("-p", Arg.Set       optional_args.in_parallel       , "Run checks in parallel")
   ; ("-w", Arg.Set_string wrap, "Wrap flag: yes or no. Default is yes.")
+  ; ("-s", Arg.Set type_splay, "Splay types on recursive functions")
   ]
 
 let () = 
@@ -48,5 +50,6 @@ let () =
         (Options.Refs.without_refs optional_args)
         src_file
         ~do_wrap
+        ~do_type_splay:!type_splay
     in
     ()
