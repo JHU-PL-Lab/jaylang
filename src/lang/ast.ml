@@ -366,6 +366,7 @@ module Expr = struct
       in
       let rec compare : type a. Alist.t -> a t -> a t -> int =
         fun bindings a b ->
+          if phys_equal a b then 0 else
           let- () = Int.compare (to_rank a) (to_rank b) in
           let cmp : type a. a t -> a t -> int = fun x y -> compare bindings x y in 
           match a, b with
@@ -492,11 +493,13 @@ module Expr = struct
 
       and compare_application : type a. Alist.t -> a application -> a application -> int =
         fun bindings a1 a2 ->
+          if phys_equal a1 a2 then 0 else
           let- () = compare bindings a1.func a2.func in
           compare bindings a1.arg a2.arg
 
       and compare_statement : type a. Alist.t -> a statement -> a statement -> int =
         fun bindings s1 s2 ->
+          if phys_equal s1 s2 then 0 else
           let- () = Int.compare (statement_to_rank s1) (statement_to_rank s2) in
           match s1, s2 with
           | SUntyped r1, SUntyped r2 -> compare (Alist.cons_assoc r1.var r2.var bindings) r1.defn r2.defn
@@ -515,6 +518,7 @@ module Expr = struct
 
       and compare_funsig : type a. Alist.t -> a funsig -> a funsig -> int =
         fun bindings fs1 fs2 ->
+          if phys_equal fs1 fs2 then 0 else
           match fs1, fs2 with
           | FUntyped r1, FUntyped r2 -> begin
             (* assumes the function ids have already been associated if these are recursive *)
@@ -556,14 +560,14 @@ module Expr = struct
         : type a. a list -> a list -> Alist.t ->
             f:(a -> a -> Alist.t -> [ `Done of int | `Continue_and_overwrite_bindings of Alist.t ]) -> int * Alist.t
         = fun ls1 ls2 bindings ~f ->
-        match ls1, ls2 with
-        | [], [] -> 0, bindings
-        | _, [] -> 1, bindings
-        | [], _ -> -1, bindings
-        | a1 :: tl1, a2 :: tl2 ->
-          match f a1 a2 bindings with
-          | `Done x -> x, bindings
-          | `Continue_and_overwrite_bindings bindings -> compare_lists tl1 tl2 bindings ~f
+          match ls1, ls2 with
+          | [], [] -> 0, bindings
+          | _, [] -> 1, bindings
+          | [], _ -> -1, bindings
+          | a1 :: tl1, a2 :: tl2 ->
+            match f a1 a2 bindings with
+            | `Done x -> x, bindings
+            | `Continue_and_overwrite_bindings bindings -> compare_lists tl1 tl2 bindings ~f
       in
       compare Alist.empty x y
   end

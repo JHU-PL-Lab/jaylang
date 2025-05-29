@@ -107,6 +107,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
 
     let rec equal : type a. a t -> a t -> bool =
       fun a b ->
+        if phys_equal a b then true else
         match a, b with
         | VInt i1, VInt i2 -> V.equal Int.equal i1 i2
         | VBool b1, VBool b2 -> V.equal Bool.equal b1 b2
@@ -171,6 +172,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
 
     and equal_closure : type a. Expr.Alist.t -> a closure -> a closure -> bool =
       fun bindings a b ->
+        if phys_equal a b then true else
         Expr.compare (fun id1 id2 ->
           match Expr.Alist.compare_in_t id1 id2 bindings with
           | `Found x -> x
