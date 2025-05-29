@@ -1,0 +1,8 @@
+
+let prime_candidate = { i : int | i > 1 }
+
+let is_prime (n : prime_candidate) : bool =
+  let rec aux (p : prime_candidate) : bool =
+    (p * p > n) || ((n % p) <> 0 && aux (p + 2))
+  in
+  n == 2 || ((n % 2) <> 0 && aux 3)

@@ -1,7 +1,7 @@
 (***
   (
     (features (Dependent_types Variants)) ; intersection type is dependent type
-    (speed Slow)
+    (speed Fast)
     (typing Well_typed)
   )
 *)

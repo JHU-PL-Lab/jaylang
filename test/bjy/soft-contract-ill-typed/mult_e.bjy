@@ -7,7 +7,7 @@
   )
 *)
 
-let rec mult x y =
+let rec mult (x : int) (y : int) : int =
   if x <= 0 || y <= 0
   then 0
   else x + mult x (y - 1)
