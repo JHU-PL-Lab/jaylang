@@ -82,7 +82,7 @@ module Make_common_builders (C : Context) = struct
 
   let constrained_vars model = 
     List.map ~f:(fun decl -> FuncDecl.get_name decl |> Symbol.get_int)
-    @@ Model.get_decls model
+    @@ Model.get_const_decls model
 end
 
 module Make_datatype_builders (C : Context) = struct
@@ -178,8 +178,8 @@ module Make_solver (C : Context) = struct
     let res = Z3.Solver.check solver [ bool_expr_list_to_expr bool_formulas ] in
     match res with
     | Z3.Solver.SATISFIABLE ->
-      let model = Z3.Solver.get_model solver in
-      Solve_status.Sat (Option.value_exn model)
+      let model = Option.value_exn @@ Z3.Solver.get_model solver in
+      Solve_status.Sat model
     | UNKNOWN -> Unknown
     | UNSATISFIABLE -> Unsat
 end
