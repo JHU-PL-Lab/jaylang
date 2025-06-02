@@ -67,7 +67,7 @@ let t n =
 (*
   Now use the cool type
 *)
-let main (n <- int) (f : t n) : (int -> int) =
+let main (dependent n : int) (f : t n) : (int -> int) =
   let rec loop i = 
     if i <= 0
     then f

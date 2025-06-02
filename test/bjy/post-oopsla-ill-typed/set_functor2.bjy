@@ -8,7 +8,7 @@
 *)
 
 (* This error is solved by letting tf be in `type --> type`, a deterministic function. *)
-let F (tf <- type -> type) (a <- type) : sig
+let F (dep tf : type -> type) (dep a : type) : sig
   val empty : unit -> tf a (* ERROR: all of these `tf a` are different *)
   val add   : a -> tf a -> tf a
 end -> sig

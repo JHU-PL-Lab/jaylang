@@ -13,5 +13,5 @@ let t =
   ; s : a (* this should have the type of a, which is unaffected by `r.a` *)
   :}
 
-let f (x <- t) : x.a =
+let f (dependent x : t) : x.a =
   x.s

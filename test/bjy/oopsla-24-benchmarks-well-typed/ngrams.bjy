@@ -97,7 +97,7 @@ let bag_map_of_list tup_list =
       in
       loop tup_list
 
-let make_dist (type a_) (n <- pos_int) (l : list a_) (compare : a_ -> a_ -> int) : distribution n a_ =
+let make_dist (type a_) (dependent n : pos_int) (l : list a_) (compare : a_ -> a_ -> int) : distribution n a_ =
   let ngrams = make_ngrams n l in
   let tup_of_ng ng =
     { fst = take (n - 1) ng ; snd = last_exn ng }

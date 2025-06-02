@@ -11,7 +11,7 @@ let S = sig
   val f : (a : type) -> a -> t a
 end
 
-let F (X <- S) : sig 
+let F (dep X : S) : sig 
   val g : (a : type) -> a -> X.t a
 end = struct
   let g = X.f

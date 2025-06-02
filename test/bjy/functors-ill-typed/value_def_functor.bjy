@@ -29,7 +29,7 @@ let STORE = sig
   val fetch : (a : type) -> Ident.t -> t a -> `Some of a | `None of unit
 end
 
-let Make (Store <- STORE) (Env_cell : T 1) (V : T 1) : sig
+let Make (dependent Store : STORE) (Env_cell : T 1) (V : T 1) : sig
   val T : sig
     val t : type
   end

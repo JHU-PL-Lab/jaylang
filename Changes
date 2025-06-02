@@ -15,7 +15,7 @@ Usability
 Language
 
 * It is a parse error to have patterns after a catchall pattern.
-* Dependent parameters have `<-`, and no more `letd`.
+* Dependent parameters have `dependent` or `dep` (strictly shorthand) keyword preceding them, and no more `letd`.
 * Deterministic functions.
 * `val t1 = t2` sugar for `val t1 : singlet t2`.
 * `type`, `top`, `bottom`, `singlet`.

@@ -26,7 +26,7 @@ let set s = fun _ -> { state = s ; body = {} }
 let read = fun s -> { state = s ; body = s }
 
 (* ERROR: the `>` in the refinement should be `>=` *)
-let set_max (x <- int) : t { i : int | i > x } =
+let set_max (dependent x : int) : t { i : int | i > x } =
   bind int int read (fun max ->
     if max >= x    
     then return int max

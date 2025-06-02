@@ -7,7 +7,7 @@
   )
 *)
 
-let F (tf <- type -> type) (a <- type) : let t = tf a in sig
+let F (dependent tf : type -> type) (dep a : type) : let t = tf a in sig
   val empty : unit -> t
   val add   : a -> t -> t
 end -> sig

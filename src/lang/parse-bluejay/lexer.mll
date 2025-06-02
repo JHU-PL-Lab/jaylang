@@ -45,7 +45,6 @@ rule token = parse
 | "&"                  { AMPERSAND }
 | "&&"                 { DOUBLE_AMPERSAND }
 | "and"                { AND }
-(* | "or"                 { OR } *)
 | "not"                { NOT }
 | "int"                { INT_KEYWORD }
 | "bool"               { BOOL_KEYWORD }
@@ -65,7 +64,6 @@ rule token = parse
 | "in"                 { IN }
 | "->"                 { ARROW }
 | "-->"                { LONG_ARROW }
-| "<-"                 { BACK_ARROW }
 | "false"              { BOOL false }
 | "true"               { BOOL true }
 | "input"              { INPUT }
@@ -79,6 +77,8 @@ rule token = parse
 | "sig"                { SIG }
 | "struct"             { STRUCT }
 | "val"                { VAL }
+| "dependent"          { DEPENDENT }
+| "dep"                { DEP }
 | "of"                 { OF }
 | "+"                  { PLUS }
 | "-"                  { MINUS }

@@ -31,7 +31,7 @@ let two_type_param = `TSucc (`TSucc (`TZero {}))
 let two_type = t two_type_param
 let two : two_type = `Succ (`Succ (`Zero {}))
 
-let rec to_int (a <- ty) (x : t a) : int =
+let rec to_int (dep a : ty) (x : t a) : int =
   match x with
   | `Zero _ -> 0
   | `Succ y ->
@@ -51,13 +51,13 @@ let rec of_int (i : { i : int | i >= 0 }) : top =
     `Succ (of_int (i - 1))
 
 (* return type as value from result, and also have a predicate to check that it's the inverse of to_int *)
-let rec of_int (i <- { i : int | i >= 0 }) : { r : {: a : ty ; v : t a :} | to_int r.a r.v == i } =
+let rec of_int (dep i : { i : int | i >= 0 }) : { r : {: a : ty ; v : t a :} | to_int r.a r.v == i } =
   if i == 0 then 
     { a = `TZero {} ; v = `Zero {} }
   else
     let r = of_int (i - 1) in
     { a = `TSucc r.a ; v = `Succ r.v }
 
-let div (a <- ty) (b <- ty) (x : t a) (y : t (`TSucc b)) : {: a : ty ; v : t a :} =
+let div (dep a : ty) (dep b : ty) (x : t a) (y : t (`TSucc b)) : {: a : ty ; v : t a :} =
   of_int (to_int a x / to_int (`TSucc b) y)
 

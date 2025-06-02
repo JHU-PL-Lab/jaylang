@@ -23,7 +23,7 @@ let MONAD = sig
   val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b
 end
 
-let Derive_map (M <- MONAD) : sig
+let Derive_map (dep M : MONAD) : sig
   val map : (a : type) -> (b : type) -> M.m a -> (a -> b) -> M.m b
 end = struct
   let map a b x f = 

@@ -16,5 +16,5 @@ let f x y =
   then x
   else y
 
-let main (x <- int) (y : int) (z : int) : { c : int | c == f x c } =
+let main (dependent x : int) (y : int) (z : int) : { c : int | c == f x c } =
   max f x y z (* ERROR: should be `max f y x z` *)

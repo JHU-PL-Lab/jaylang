@@ -41,7 +41,7 @@ let rec is_sorted (lst : list int) : bool =
 
 (* An error I made earlier is I forgot to ensure that l is sorted *)
 (* An error I didn't make, but I easily might have, is to not break off when l is empty *)
-let rec insert (x <- int) (l <- { list int | is_sorted }) 
+let rec insert (dep x : int) (dep l : { list int | is_sorted }) 
   : { ls : ne_list int | is_sorted ls && (not (is_nonempty l) || min x (min_elt l) == min_elt ls) }
   =
   match l with
@@ -59,7 +59,7 @@ let rec foldl (type a init) (f : a -> init -> init) (b : init) (l : list a) : in
   end
 
 (* Another error I made is I didn't say that init is a sorted list, which means that wrap checks would call it in a wap that fail `inserts`'s refinements *)
-let sort (xs <- list int)
+let sort (dependent xs : list int)
   : { l : list int | is_sorted l && if is_nonempty xs then is_nonempty l else not (is_nonempty l) }
   = foldl int { list int | is_sorted } insert [] xs
 

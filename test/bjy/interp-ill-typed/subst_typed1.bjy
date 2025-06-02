@@ -270,7 +270,7 @@ let set_eq ls1 ls2 eq =
   && is_subset ls2 ls1
 
 (* after subst; the expression has the same free variables as e; minus id *)
-let subst (e <- Expr.t) (id <- Ident.t) (v : Value.t) : { new_expr : Expr.t |
+let subst (dep e : Expr.t) (dep id : Ident.t) (v : Value.t) : { new_expr : Expr.t |
   let new_free_vars = free_vars new_expr [] in
   let old_free_vars = free_vars e [] in
   set_eq new_free_vars (list_remove old_free_vars id Ident.eq) Ident.eq

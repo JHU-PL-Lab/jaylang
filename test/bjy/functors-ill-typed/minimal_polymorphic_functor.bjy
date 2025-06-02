@@ -12,7 +12,7 @@ let S = sig
   val f : (a : type) -> a -> t a
 end
 
-let F (X <- S) : sig 
+let F (dependent X : S) : sig 
   val g : (a : type) -> a -> X.t a (* This `X.t a` is not the same result as `t a` because `t` is nondeterministic *)
 end = struct
   let g = X.f

@@ -23,7 +23,6 @@
 %token EQUALS
 %token ARROW
 %token LONG_ARROW
-%token BACK_ARROW
 %token DOT
 %token COLON
 %token DOUBLE_COLON
@@ -42,7 +41,6 @@
 %token THEN
 %token ELSE
 %token AND
-// %token OR
 %token NOT
 %token INT_KEYWORD
 %token BOOL_KEYWORD
@@ -61,6 +59,8 @@
 %token SIG
 %token STRUCT
 %token VAL
+%token DEPENDENT
+%token DEP
 %token OF
 %token PLUS
 %token MINUS
@@ -357,8 +357,9 @@ param_list_with_type:
 param_with_type:
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN
       { TVar { var = $2 ; tau = $4 } : Bluejay.param }
-  | OPEN_PAREN l_ident BACK_ARROW expr CLOSE_PAREN
-      { TVarDep { var = $2 ; tau = $4 } : Bluejay.param }
+  | OPEN_PAREN DEP l_ident COLON expr CLOSE_PAREN
+  | OPEN_PAREN DEPENDENT l_ident COLON expr CLOSE_PAREN
+      { TVarDep { var = $3 ; tau = $5 } : Bluejay.param }
 ;
 
 param_list:

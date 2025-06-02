@@ -58,7 +58,7 @@ let rec t (a : ty) : type =
     | `TBool _ -> {: a : ty ; left : t a ; right : t a :}
     end
 
-let rec any_to_int (a <- ty) (x : t a) : int =
+let rec any_to_int (dep a : ty) (x : t a) : int =
   match x with
   | `Const _ -> 0
   | `Var v -> v.id

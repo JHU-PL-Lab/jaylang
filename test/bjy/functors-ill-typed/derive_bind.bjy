@@ -49,7 +49,7 @@ let Id_example : BASIC = struct
   let return = fun a x -> `Id x
 end
 
-let Derive_bind (M <- BASIC) : sig
+let Derive_bind (dependent M : BASIC) : sig
   val bind : (a : type) -> (b : type) -> M.m a -> (a -> M.m a) -> M.m a (* ERROR: this doesn't map to `M.m b`, but the implementation does *)
 end = struct
   let bind = fun a b x f -> M.join b (M.map a (M.m b) x f) (* This "more general" implementation doesn't fly in Bluejay because of the explicit passing of types *)

@@ -9,5 +9,5 @@
 let rec f (x : int) : { int | fun i -> (f i) == i } =
   x
 
-let rec g (x <- int) : { int | fun i -> (g x) == i } =
+let rec g (dependent x : int) : { int | fun i -> (g x) == i } =
   x + 1

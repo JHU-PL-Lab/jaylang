@@ -58,7 +58,7 @@ let rec t (tp : tparam) : type =
   )
   end
 
-let rec any_to_int (a <- tparam) (x : t a) : int =
+let rec any_to_int (dep a : tparam) (x : t a) : int =
   match x with
   | `Const _ -> 0 (* would have to case on a to determine the type of the constant value, or encode it in Const.t *)
   | `Var v -> v.id

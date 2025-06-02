@@ -22,7 +22,7 @@ let ret_type x =
     end
   }
 
-let rec mk_list (x <- int) (n : int) : ret_type x = 
+let rec mk_list (dependent x : int) (n : int) : ret_type x = 
   if n < 0
   then []
   else n :: mk_list x (n - 1) (*ERROR : the `n :: ...` should be `x :: ...` *)

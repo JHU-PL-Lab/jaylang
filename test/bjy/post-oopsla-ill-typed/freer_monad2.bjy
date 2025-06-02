@@ -58,7 +58,7 @@ let run
   in
   loop
 
-let rec bind (a <- type) (b <- type) (f <- ty1) (tfa : t f a) (h : a -> t f b) : t f b =
+let rec bind (type a b) (dep f : ty1) (tfa : t f a) (h : a -> t f b) : t f b =
   match tfa with
   | `Return a -> h a
   | `Bind r -> `Bind (r_with_cont r (fun x -> bind a r.b f (r.cont x) h)) (* ERROR: r.b should just be b. Easy mistake to make. I made it *)

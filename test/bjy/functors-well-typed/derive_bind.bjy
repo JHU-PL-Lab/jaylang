@@ -48,7 +48,7 @@ let Id_example : BASIC = struct
   let return = fun a x -> `Id x
 end
 
-let Derive_bind (M <- BASIC) : sig
+let Derive_bind (dep M : BASIC) : sig
   val m : (a : type) -> singlet (M.m a)
   val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b
 end = struct

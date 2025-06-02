@@ -13,6 +13,6 @@ let rec sum x acc =
   | hd :: tl -> sum tl (acc + hd)
   end
 
-let f (x <- list int) : { int | fun a -> (a == (sum x 0))} =
+let f (dependent x : list int) : { int | fun a -> (a == (sum x 0))} =
   sum x 1 (* ERROR: acc begins as 1 here when should be 0 *)
     

@@ -32,7 +32,7 @@ let ngram : int -> t 1 = fun n a -> { list a | fun ls -> (len ls == n) && n >= 0
 
 let distribution : int -> t 1 = fun n a -> map (ngram (n - 1) a) (bag a)
 
-let rec take (type a_) (n <- { int | fun i -> i >= 0}) : list a_ -> { list a_ | fun ls -> len ls <= n } =
+let rec take (type a_) (dependent n : { int | fun i -> i >= 0}) : list a_ -> { list a_ | fun ls -> len ls <= n } =
   fun l ->
     if n == 0 then [] else
     match l with
@@ -43,7 +43,7 @@ let rec take (type a_) (n <- { int | fun i -> i >= 0}) : list a_ -> { list a_ | 
       else hd :: take a_ (n - 1) tl
     end
 
-let make_ngrams (type a_) (n <- pos_int) : list a_ -> list (ngram n a_) =
+let make_ngrams (type a_) (dependent n : pos_int) : list a_ -> list (ngram n a_) =
   fun ls ->
     let rec loop l m =
       match l with
@@ -99,7 +99,7 @@ let bag_map_of_list (type a_ b_) (tup_list : list (tuple a_ b_)) : (a_ -> a_ -> 
       in
       loop tup_list
 
-let make_dist (type a_) (n <- pos_int) (l : list a_) (compare : a_ -> a_ -> int) : distribution n a_ =
+let make_dist (type a_) (dependent n : pos_int) (l : list a_) (compare : a_ -> a_ -> int) : distribution n a_ =
   let ngrams = make_ngrams a_ n l in
   let tup_of_ng ng =
     { fst = last_exn a_ ng ; snd = take a_ (n - 1) ng } (* ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below *)

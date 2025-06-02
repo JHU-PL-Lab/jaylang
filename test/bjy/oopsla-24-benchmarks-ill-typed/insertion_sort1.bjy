@@ -47,5 +47,5 @@ let ret_type xs =
       else not (is_nonempty l)
   }
 
-let sort (xs <- list int) : ret_type xs =
+let sort (dependent xs : list int) : ret_type xs =
   foldl insert [] xs

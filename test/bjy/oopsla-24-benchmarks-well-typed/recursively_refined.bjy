@@ -26,7 +26,7 @@ let has_parent x =
   | _ -> false
   end
 
-let rec get_abs_coord (r <- t)
+let rec get_abs_coord (dependent r : t)
   : 
   { abs_coord : coord |
     match r.parent with
