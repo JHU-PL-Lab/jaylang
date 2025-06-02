@@ -187,4 +187,25 @@ module Embedded_functions = struct
         ; arg  = body
         }
     }
+
+  (*
+    Generic Y-combinator for one function.
+
+      fun f ->
+        (fun s -> fun x -> f (s s) x)
+        (fun s -> fun x -> f (s s) x)
+  *)
+  let y_1 = 
+    let open Ident in
+    let open Expr in
+    let open Ast_tools.Utils in
+    let f = Ident "~f_y1" in
+    let s = Ident "~s_y1" in
+    let x = Ident "~x_y1" in
+    let body =
+      abstract_over_ids [ s ; x ] @@
+        appl_list (EVar f) ([ apply (EVar s) (EVar s) ; EVar x ])
+    in
+    abstract_over_ids [ f ] @@
+      apply body body
 end 

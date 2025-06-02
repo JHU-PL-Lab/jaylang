@@ -144,6 +144,8 @@ Notes:
 
 ### Recursive types
 
+#### Standard
+
 ```ocaml
 [[Mu B. tau]] =
   thaw @@
@@ -165,6 +167,41 @@ Y =
 
 Notes:
 * This Y-combinator is special-made with freezing and thawing because this is its only use case.
+
+#### With type-splaying
+
+```ocaml
+[[Mu B. tau]] =
+  Y (fun $self -> fun $depth ->
+    { ~gen = freeze @@
+      if $depth == 0
+      then let B = 0 in `Stub [[tau]].~gen (* need to make some B so that [[tau]] is closed *)
+      else let B = $self ($depth - 1) in thaw [[tau]].~gen (* still have some depth allowed, so continue normally *)
+    ; ~check = fun $e ->
+      match $e with
+      | `Stub $gen ->
+        let B = 0 in (* needed to allow intensional equality to work--must simulate the generator at depth 0 *)
+        if $gen === [[tau]].~gen (* intensional equality *)
+        then {}
+        else abort "Recursive type stub has different nonce than expected"
+      | _ -> (* run the normal checker *)
+        let B = $self ($depth - 1) in [[tau]].~check $e 
+    ; ~wrap = fun $e ->
+      let B = $self ($depth - 1) in [[tau]].~wrap $e
+    }
+  ) 4 (* allowed depth is four *)
+
+Y = 
+  fun f ->
+    (fun x -> fun i -> f (x x) i)
+    (fun x -> fun i -> f (x x) i)
+```
+
+Notes:
+* If the user is type-splaying their recursive functions, then they'll also expect that recursive types can be cut short
+* This translation is only valid if the original Bluejay program contains no `input`. It is unsound in that case.
+  * Therefore, before we run this translation, we first scan the source code for any `input` and fail as a "parse error" in the case one exists.
+* Notice that this match comes after the desugaring phase, so it is allowed to catch literally anything, including untouchable values
 
 ### Variant declarations
 

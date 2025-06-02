@@ -86,6 +86,7 @@ rule token = parse
 | "/"                  { SLASH }
 | "%"                  { PERCENT }
 | "=="                 { EQUAL_EQUAL }
+| "==="                { EQUAL_EQUAL_EQUAL }
 | "<>"                 { NOT_EQUAL }
 | "<"                  { LESS }
 | "<="                 { LESS_EQUAL }

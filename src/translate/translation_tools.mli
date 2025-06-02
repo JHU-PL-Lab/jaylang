@@ -98,4 +98,6 @@ module Embedded_functions : sig
       passing an argument. This is because we know the use case is for mu types.
   *)
   val y_freeze_thaw : Lang.Ast.Embedded.t
+
+  val y_1 : Lang.Ast.Embedded.t
 end

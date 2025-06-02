@@ -184,6 +184,10 @@ let eval_exp
       | VBool (b, e_b) -> return @@ VBool (not b, Expression.not_ e_b) 
       | v -> type_mismatch @@ Error_msg.bad_not v
     end
+    | EIntensionalEqual { left ; right } ->
+      let%bind vleft = eval left in
+      let%bind vright = eval right in
+      return @@ VBool (Value.equal vleft vright)
     (* Branching *)
     | EIf { cond ; true_body ; false_body } -> begin
       match%bind eval cond with

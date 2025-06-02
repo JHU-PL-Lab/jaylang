@@ -49,6 +49,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
   let module Names = (val names) in
   let open LetMonad in
 
+  if do_type_splay then assert (Bluejay.is_deterministic_pgm pgm);
+
   let rec desugar (expr : Bluejay.t) : Desugared.t =
     match expr with
     (* Base cases *)
@@ -82,6 +84,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       EFunction { param ; body = desugar body }
     | EVariant { label ; payload } ->
       EVariant { label ; payload = desugar payload }
+    | EIntensionalEqual { left ; right } ->
+      EIntensionalEqual { left = desugar left ; right = desugar right }
     | ERecord m ->
       ERecord (Map.map m ~f:desugar)
     | ETypeFun { domain ; codomain ; det ; dep } ->

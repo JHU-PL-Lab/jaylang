@@ -20,7 +20,7 @@ let min (a : int) (b : int) : int =
 let min_elt (lst : ne_list int) : int =
   match lst with
   | hd :: tl ->
-    let rec loop acc ls =
+    let rec loop (acc : int) (ls : list int) : int =
       match ls with
       | [] -> acc
       | hd :: tl -> loop (min hd acc) tl

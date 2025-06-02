@@ -128,6 +128,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | ELet { defn = e1 ; body = e2 ; _ }
     | EAppl { func = e1 ; arg = e2 }
     | EBinop { left = e1 ; right = e2 ; _ }
+    | EIntensionalEqual { left = e1 ; right = e2 }
     | ETypeFun { domain = e1 ; codomain = e2 ; _ }
     | ETypeRefinement { tau = e1 ; predicate = e2 } -> loop e1 || loop e2
     (* special cases *)
@@ -147,7 +148,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   in
   loop expr
 
-let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) : Embedded.pgm =
+let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm =
   let module E = Embedded_type (struct let do_wrap = do_wrap end) in
   let module Names = (val names) in
   let open LetMonad (Names) in
@@ -185,6 +186,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       EFunction { param ; body = embed body }
     | EVariant { label ; payload } ->
       EVariant { label ; payload = embed payload }
+    | EIntensionalEqual { left ; right } ->
+      EIntensionalEqual { left = embed left ; right = embed right }
     | ERecord m ->
       ERecord (Map.map m ~f:embed)
     | EMatch { subject ; patterns } ->
@@ -453,17 +456,52 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     | ETypeMu { var = beta ; body = tau } ->
       Stack.push cur_mu_vars beta;
       let res =
-        EThaw (apply Embedded_functions.y_freeze_thaw @@ 
-          fresh_abstraction "self_mu" @@ fun self ->
-            EFreeze (
-              let with_beta body = ELet { var = beta ; defn = EThaw (EVar self) ; body } in
-              make_embedded_type
-                { gen = lazy (with_beta (gen tau))
-                ; check = lazy (fresh_abstraction "e_mu_check" @@ fun e -> with_beta (check tau (EVar e)))
-                ; wrap = lazy (fresh_abstraction "e_mu_wrap" @@ fun e -> with_beta (wrap tau (EVar e)))
-                }
-              )
-        )
+        if not do_type_splay
+        then (* standard translation, allowing arbitrary depth in recursive types *)
+          EThaw (apply Embedded_functions.y_freeze_thaw @@ 
+            fresh_abstraction "self_mu" @@ fun self ->
+              EFreeze (
+                let with_beta body = ELet { var = beta ; defn = EThaw (EVar self) ; body } in
+                make_embedded_type
+                  { gen = lazy (with_beta (gen tau))
+                  ; check = lazy (fresh_abstraction "e_mu_check" @@ fun e -> with_beta (check tau (EVar e)))
+                  ; wrap = lazy (fresh_abstraction "e_mu_wrap" @@ fun e -> with_beta (wrap tau (EVar e)))
+                  }
+                )
+          )
+        else (* limit recursive depth of generated members in this type *)
+          let body =
+            let gen_name = Names.fresh_id ~suffix:"gen" () in
+            fresh_abstraction "self_mu" @@ fun self ->
+              fresh_abstraction "depth_mu" @@ fun depth ->
+                let with_beta body = ELet { var = beta ; defn = apply (EVar self) (EBinop { left = EVar depth ; binop = BMinus ; right = EInt 1 }) ; body } in
+                let gen_proj = proj (embed tau) Reserved.gen in
+                make_embedded_type
+                  { gen = lazy (
+                    EIf
+                      { cond = EBinop { left = EVar depth ; binop = BEqual ; right = EInt 0 }
+                      ; true_body = ELet { var = beta ; defn = EInt 0 ; body = EVariant { label = Reserved.stub ; payload = gen_proj } }
+                      ; false_body = with_beta (gen tau)
+                      }
+                  )
+                  ; check = lazy (fresh_abstraction "e_mu_check" @@ fun e -> 
+                    EMatch { subject = EVar e ; patterns =
+                      [ PVariant { variant_label = Reserved.stub ; payload_id = gen_name },
+                        ELet { var = beta ; defn = EInt 0 ; body =
+                          EIf
+                            { cond = EIntensionalEqual { left = EVar gen_name ; right = gen_proj }
+                            ; true_body = unit_value
+                            ; false_body = EAbort "Recursive type stub has different nonce than expected"
+                            }
+                        }
+                      ; PAny, with_beta (check tau (EVar e)) ]
+                    }
+                  )
+                  ; wrap = lazy (fresh_abstraction "e_mu_wrap" @@ fun e -> with_beta (wrap tau (EVar e)))
+                  }
+          in
+          (* initial depth is hardcoded to be 2 *)
+          appl_list Embedded_functions.y_1 [ body ; (EInt 2) ]
       in
       let _ = Stack.pop_exn cur_mu_vars in
       res
@@ -571,6 +609,6 @@ let split_checks (stmt_ls : Desugared.statement list) : Desugared.pgm Preface.No
   | None -> Preface.Nonempty_list.Last stmt_ls
   | Some pgm_ls -> pgm_ls
 
-let embed_fragmented (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) : Embedded.pgm Preface.Nonempty_list.t =
-  Preface.Nonempty_list.map (fun pgm -> embed_pgm names pgm ~do_wrap)
+let embed_fragmented (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm Preface.Nonempty_list.t =
+  Preface.Nonempty_list.map (fun pgm -> embed_pgm names pgm ~do_wrap ~do_type_splay)
   @@ split_checks pgm

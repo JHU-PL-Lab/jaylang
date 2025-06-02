@@ -239,6 +239,10 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       | BOr, VBool b1, VBool b2                 -> return (VBool (b1 || b2))
       | _ -> type_mismatch ()
     end
+    | EIntensionalEqual { left ; right } ->
+      let%bind vleft = eval left in
+      let%bind vright = eval right in
+      return @@ VBool (V.equal vleft vright)
     | ENot e_not_body ->
       let%bind e_b = eval e_not_body in
       let%orzero (VBool b) = e_b in

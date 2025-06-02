@@ -39,6 +39,7 @@ module Reserved = struct
   let top : VariantLabel.t = VariantLabel (Ident "~Top")
   let bottom : VariantLabel.t = VariantLabel (Ident "~Bottom")
   let predicate_failed : VariantLabel.t = VariantLabel (Ident "~Predicate_failed")
+  let stub : VariantLabel.t = VariantLabel (Ident "~Stub")
 
   (* Variant type constructors *)
   let cons_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Cons") 

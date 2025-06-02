@@ -31,6 +31,7 @@ let[@landmark] rec analyze (e : Embedded.With_callsites.t) : Value.t m =
     op v1 binop v2
   end
   | ENot expr -> bind (analyze expr) not_
+  | EIntensionalEqual _ -> failwith "unimplemented"
   (* propagation *)
   | EMatch { subject ; patterns } -> begin
     let%bind v = analyze subject in

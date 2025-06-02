@@ -217,6 +217,7 @@ module Expr = struct
       | EPick_i : 'a t (* is parsed as "input", but we can immediately make it pick_i *)
       | EFunction : { param : Ident.t ; body : 'a t } -> 'a t (* note bluejay also has multi-arg function, which generalizes this *)
       | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
+      | EIntensionalEqual : { left : 'a t ; right : 'a t } -> 'a t
       (* embedded only, so constrain 'a to only be `Embedded *)
       | EPick_b : 'a embedded_only t
       | ECase : { subject : 'a t ; cases : (int * 'a t) list ; default : 'a t } -> 'a embedded_only t (* simply sugar for nested conditionals *)
@@ -313,7 +314,7 @@ module Expr = struct
       | ETypeVariant _ -> 36   | ELetTyped _ -> 37 | ETypeSingle _ -> 38       | ETypeList _ -> 39
       | ETypeIntersect _ -> 40 | EList _ -> 41     | EListCons _ -> 42         | EModule _ -> 43 
       | EAssert _ -> 44        | EAssume _ -> 45   | EMultiArgFunction _ -> 46 | ELetFun _ -> 47
-      | ELetFunRec _ -> 48     | EGen _  -> 49
+      | ELetFunRec _ -> 48     | EGen _  -> 49     | EIntensionalEqual _ -> 50
 
     let statement_to_rank : type a. a statement -> int = function
       | SUntyped _ -> 0
@@ -415,6 +416,9 @@ module Expr = struct
           | EVariant r1, EVariant r2 ->
             let- () = VariantLabel.compare r1.label r2.label in
             cmp r1.payload r2.payload
+          | EIntensionalEqual r1, EIntensionalEqual r2 ->
+            let- () = cmp r1.left r2.left in
+            cmp r1.right r2.right
           | ECase r1, ECase r2 ->
             let- () = cmp r1.subject r2.subject in
             let- () = List.compare (Tuple2.compare ~cmp1:Int.compare ~cmp2:cmp) r1.cases r2.cases in
@@ -680,6 +684,7 @@ module Embedded = struct
       | ERecord r -> ERecord (Map.map r ~f:(fun body -> visit body env))
       | ENot expr -> ENot (visit expr env)
       | EVariant { label ; payload } -> EVariant { label ; payload = visit payload env }
+      | EIntensionalEqual { left ; right } -> EIntensionalEqual { left = visit left env ; right = visit right env }
       | ECase { subject ; cases ; default } ->
         ECase { subject = visit subject env ; default = visit default env ; cases =
           List.map cases ~f:(fun (i, expr) -> i, visit expr env)
@@ -712,6 +717,74 @@ module Bluejay = struct
   type typed_var = bluejay Expr.typed_var
   type param = bluejay Expr.param
   type statement = bluejay Expr.statement
+
+  let rec is_deterministic_pgm (pgm : pgm) : bool =
+    match pgm with
+    | [] -> true
+    | stmt :: tl ->
+      is_deterministic_pgm tl &&
+      match stmt with
+      | SUntyped { defn ; _ } -> is_det_e defn
+      | STyped { typed_var = { tau ; _ } ; defn ; _ } -> is_det_e tau && is_det_e defn
+      | SFun fsig -> is_det_fsig fsig
+      | SFunRec fsigs -> List.for_all fsigs ~f:is_det_fsig
+
+  and is_det_fsig (fsig : funsig) : bool =
+    match fsig with
+    | FUntyped { defn ; _ } -> is_det_e defn
+    | FTyped { params ; ret_type ; defn ; _ } ->
+      is_det_e ret_type
+      && is_det_e defn
+      && List.for_all params ~f:(function TVar { tau ; _ } | TVarDep { tau ; _ } -> is_det_e tau)
+
+  and is_det_e (expr : t) : bool =
+    match expr with
+    (* pick_i is the only nondeterminism in bluejay. We're just looking for this *)
+    | EPick_i -> false
+    (* leaves *)
+    | EInt _ | EBool _ | EVar _ | EType | ETypeInt
+    | ETypeBool | ETypeTop | ETypeBottom -> true
+    (* one subexpression *)
+    | EProject { record = e ; label = _ }
+    | ENot e
+    | EFunction { param = _ ; body = e }
+    | EVariant { label = _ ; payload = e }
+    | ETypeMu { var = _ ; body = e }
+    | ETypeSingle e
+    | ETypeList e
+    | EAssert e
+    | EAssume e
+    | EMultiArgFunction { params = _ ; body = e } -> is_det_e e
+    (* two subexpressions *)
+    | EBinop { left = e1 ; binop = _ ; right = e2 }
+    | ELet { var = _ ; defn = e1 ; body = e2 }
+    | EAppl { func = e1 ; arg = e2 }
+    | EIntensionalEqual { left = e1 ; right = e2 }
+    | ETypeFun { domain = e1 ; codomain = e2 ; dep = _ ; det = _ }
+    | ETypeRefinement { tau = e1 ; predicate = e2 }
+    | EListCons (e1, e2)
+    -> is_det_e e1 && is_det_e e2
+    (* three subexpressions *)
+    | EIf { cond = e1 ; true_body = e2 ; false_body = e3 }
+    | ELetTyped { typed_var = { var = _ ; tau = e1 } ; defn = e2 ; body = e3 ; do_wrap = _ ; do_check = _ } ->
+      is_det_e e1
+      && is_det_e e2
+      && is_det_e e3
+    (* custom *)
+    | ELetFun { func ; body } -> is_det_fsig func && is_det_e body
+    | ELetFunRec { funcs ; body } ->
+      is_det_e body
+      && List.for_all funcs ~f:is_det_fsig
+    | EMatch { subject ; patterns } ->
+      is_det_e subject
+      && List.for_all patterns ~f:(fun (_pattern, e) -> is_det_e e)
+    | ERecord m 
+    | ETypeRecord m -> Map.for_all m ~f:is_det_e
+    | ETypeModule ls -> List.for_all ls ~f:(fun (_label, e) -> is_det_e e)
+    | ETypeVariant ls -> List.for_all ls ~f:(fun (_label, e) -> is_det_e e)
+    | ETypeIntersect ls -> List.for_all ls ~f:(fun (_label, e1, e2) -> is_det_e e1 && is_det_e e2)
+    | EList ls -> List.for_all ls ~f:is_det_e
+    | EModule stmt_ls -> is_deterministic_pgm stmt_ls
 end
 
 module Parsing_tools = struct
