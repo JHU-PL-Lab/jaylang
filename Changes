@@ -39,6 +39,7 @@ Language
 
 Performance
 
+* Check physical equality of values before checking intensional value equality
 * Solver is never loaded.
 * Remove unnecessary case in singleton variant generation, so path tree is smaller.
 * Logical product of all expressions when solving, and check one expression only.
