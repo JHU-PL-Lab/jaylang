@@ -6,7 +6,6 @@
     {"include": "#comments"},
     {"include": "#numbers"},
     {"include": "#keywords"},
-    {"include": "#variants"},
     {"include": "#operators"},
     {"include": "#identifiers"},
     {"include": "#brackets"}
@@ -63,15 +62,6 @@
       ]
     },
     
-    "variants": {
-      "patterns": [
-        {
-          "name": "constant.other.variant.bluejay",
-          "match": "`[a-zA-Z_][a-zA-Z0-9_']*\\b"
-        }
-      ]
-    },
-    
     "operators": {
       "patterns": [
         {
@@ -112,20 +102,37 @@
         }
       ]
     },
-    
+
     "identifiers": {
       "patterns": [
         {
-          "name": "entity.name.type.module.bluejay",
-          "match": "\\b[A-Z][a-zA-Z0-9_']*\\b"
+          "comment": "wildcard underscore",
+          "name": "constant.language.bluejay",
+          "match": "\\b_\\b"
         },
         {
+          "comment": "capital identifier for constructor, exception, or module",
+          "name": "constant.language.capital-identifier.bluejay",
+          "match": "\\b[[:upper:]][[:word:]']*('|\\b)"
+        },
+        {
+          "comment": "lowercase identifier",
           "name": "variable.other.bluejay",
-          "match": "\\b[a-z_][a-zA-Z0-9_']*\\b"
+          "match": "\\b[[:lower:]_][[:word:]']*('|\\b)"
+        },
+        {
+          "comment": "polymorphic variant tag",
+          "name": "constant.language.polymorphic-variant.bluejay",
+          "match": "\\`[[:alpha:]][[:word:]']*\\b"
+        },
+        {
+          "comment": "empty list (can be used as a constructor)",
+          "name": "constant.language.list.bluejay",
+          "match": "\\[\\]"
         }
       ]
     },
-    
+
     "brackets": {
       "patterns": [
         {
