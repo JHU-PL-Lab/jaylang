@@ -1,0 +1,166 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Bluejay",
+  "scopeName": "source.bluejay",
+  "patterns": [
+    {"include": "#comments"},
+    {"include": "#numbers"},
+    {"include": "#keywords"},
+    {"include": "#variants"},
+    {"include": "#operators"},
+    {"include": "#identifiers"},
+    {"include": "#brackets"}
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.bluejay",
+          "begin": "\\(\\*",
+          "end": "\\*\\)",
+          "patterns": [
+            {"include": "#comments"}
+          ]
+        }
+      ]
+    },
+    
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.integer.bluejay",
+          "match": "\\b[0-9]+\\b"
+        }
+      ]
+    },
+    
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.other.bluejay",
+          "match": "\\b(if|then|else|match|with|end|let|rec|in|fun|type|val|sig|struct|of|dep|dependent|and)\\b"
+        },
+        {
+          "name": "keyword.operator.bluejay",
+          "match": "\\b(not)\\b"
+        },
+        {
+          "name": "constant.language.boolean.bluejay",
+          "match": "\\b(true|false)\\b"
+        },
+        {
+          "name": "support.type.builtin.bluejay",
+          "match": "\\b(int|bool|unit|top|bottom|singlet|list|type)\\b"
+        },
+        {
+          "name": "support.function.builtin.bluejay",
+          "match": "\\b(input|assert|assume)\\b"
+        },
+        {
+          "name": "support.type.special.bluejay",
+          "match": "\\bMu\\b"
+        }
+      ]
+    },
+    
+    "variants": {
+      "patterns": [
+        {
+          "name": "constant.other.variant.bluejay",
+          "match": "`[a-zA-Z_][a-zA-Z0-9_']*\\b"
+        }
+      ]
+    },
+    
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arithmetic.bluejay",
+          "match": "[+\\-*/%]"
+        },
+        {
+          "name": "keyword.operator.comparison.bluejay",
+          "match": "(===?|<>|<=?|>=?)"
+        },
+        {
+          "name": "keyword.operator.logical.bluejay",
+          "match": "(\\|\\||&&)"
+        },
+        {
+          "name": "keyword.operator.pipe.bluejay",
+          "match": "\\|>"
+        },
+        {
+          "name": "keyword.operator.cons.bluejay",
+          "match": "::"
+        },
+        {
+          "name": "keyword.operator.type.bluejay",
+          "match": "(\\||&|->|-->)"
+        },
+        {
+          "name": "keyword.operator.assignment.bluejay",
+          "match": "="
+        },
+        {
+          "name": "keyword.operator.type-annotation.bluejay",
+          "match": ":"
+        },
+        {
+          "name": "keyword.operator.access.bluejay",
+          "match": "\\."
+        }
+      ]
+    },
+    
+    "identifiers": {
+      "patterns": [
+        {
+          "name": "entity.name.type.module.bluejay",
+          "match": "\\b[A-Z][a-zA-Z0-9_']*\\b"
+        },
+        {
+          "name": "variable.other.bluejay",
+          "match": "\\b[a-z_][a-zA-Z0-9_']*\\b"
+        }
+      ]
+    },
+    
+    "brackets": {
+      "patterns": [
+        {
+          "name": "punctuation.section.braces.begin.bluejay",
+          "match": "\\{"
+        },
+        {
+          "name": "punctuation.section.braces.end.bluejay",
+          "match": "\\}"
+        },
+        {
+          "name": "punctuation.section.brackets.begin.bluejay",
+          "match": "\\["
+        },
+        {
+          "name": "punctuation.section.brackets.end.bluejay",
+          "match": "\\]"
+        },
+        {
+          "name": "punctuation.section.parens.begin.bluejay",
+          "match": "\\("
+        },
+        {
+          "name": "punctuation.section.parens.end.bluejay",
+          "match": "\\)"
+        },
+        {
+          "name": "punctuation.section.record.begin.bluejay",
+          "match": "\\{:"
+        },
+        {
+          "name": "punctuation.section.record.end.bluejay",
+          "match": ":\\}"
+        }
+      ]
+    }
+  }
+}

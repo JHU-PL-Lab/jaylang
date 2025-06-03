@@ -1,0 +1,34 @@
+{
+  "name": "bluejay-language",
+  "displayName": "Bluejay Language",
+  "description": "Syntax highlighting for Bluejay programming language",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "bluejay",
+        "aliases": [
+          "Bluejay",
+          "bluejay"
+        ],
+        "extensions": [
+          ".bjy"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "bluejay",
+        "scopeName": "source.bluejay",
+        "path": "./syntaxes/bluejay.tmLanguage.json"
+      }
+    ]
+  }
+}
