@@ -497,8 +497,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                   ; wrap = lazy (fresh_abstraction "e_mu_wrap" @@ fun e -> with_beta (wrap tau (EVar e)))
                   }
           in
-          (* initial depth is hardcoded to be 2 *)
-          appl_list Embedded_functions.y_1 [ body ; (EInt 2) ]
+          (* initial depth is hardcoded to be 3 *)
+          appl_list Embedded_functions.y_1 [ body ; (EInt 3) ]
       in
       let _ = Stack.pop_exn cur_mu_vars in
       res

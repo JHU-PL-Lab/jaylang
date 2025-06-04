@@ -1,0 +1,24 @@
+
+(* refinements about being ordered won't work because they are recursive *)
+
+(* Bool result is totally independent of input, so can't be used in refinements unless incomplete *)
+(* No error here though *)
+let rec is_ordered (ls : list int) : bool =
+  match ls with
+  | [] -> true
+  | a :: tl ->
+    match tl with
+    | [] -> true
+    | b :: _ -> a <= b && is_ordered tl
+    end
+  end
+
+(* Error arises from type splaying the is_ordered function above *)
+let rec insert (ls : list int | is_ordered ls) (i : int) : { list int | is_ordered } =
+  match ls with
+  | [] -> [ i ]
+  | j :: tl -> 
+    if i < j
+    then i :: ls
+    else j :: insert tl i
+  end

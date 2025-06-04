@@ -1,0 +1,10 @@
+
+let rec rev (type a) (acc : list a) (ls : list a) : list a =
+  match ls with
+  | [] -> acc
+  | hd :: tl -> rev a (hd :: acc) tl
+  end
+
+(* I don't understand why this causes a stub error while the other does not on its own *)
+let reverse (type a) (ls : list a) : list a =
+  rev a [] ls

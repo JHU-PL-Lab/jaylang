@@ -1,0 +1,57 @@
+
+
+let non_neg = { i : int | i >= 0 }
+
+let rec split_list (type a) (ls : list a) (n : non_neg) : { first_n : list a ; remaining : list a } =
+  if n == 0
+  then { first_n = [] ; remaining = ls }
+  else
+    match ls with
+    | [] -> { first_n = [] ; remaining = [] }
+    | hd :: tl ->
+      let r = split_list a tl (n - 1) in
+      { first_n = hd :: r.first_n ; remaining = r.remaining }
+    end
+
+(*
+  Again, we cannot verify that this correctly sorts if we are type splaying.
+
+  I'm not sure why this is incomplete. I think it is related to the reverse one.
+  It's like something is not getting type splayed, and then we accidentally do
+  the recursion.
+*)
+let merge_sort (type a) (ls : list a) (cmp : a -> a -> int) : list a =
+  let rec list_length (ls : list a) : non_neg =
+    match ls with
+    | [] -> 0
+    | _ :: tl -> 1 + list_length tl
+    end
+  in
+  let rec merge (p : list a) (q : list a) : list a =
+    match p with
+    | [] -> q
+    | a :: p_tl ->
+      match q with
+      | [] -> p
+      | b :: q_tl ->
+        if cmp a b < 0
+        then a :: merge p_tl q
+        else b :: merge p q_tl
+      end
+    end
+  in
+  let rec merge_sort (ls : list a) : list a =
+    match ls with
+    | [] -> []
+    | hd :: tl ->
+      match tl with 
+      | [] -> [ hd ]
+      | _ ->
+        let r = split_list a ls (list_length ls / 2) in
+        let sorted_left = merge_sort r.first_n in
+        let sorted_right = merge_sort r.remaining in
+        merge sorted_left sorted_right
+      end
+    end
+  in
+  merge_sort ls

@@ -1,0 +1,64 @@
+
+(*
+  Here we just have many generic recursive functions that
+  we're able to prove well-typed.
+  Use the parallelism and type splaying flags.
+
+  We even can have refinements on a lot of them.
+*)
+
+let rec summate (n : int | n >= 0) : int =
+  if n == 0 
+  then 0 
+  else n + summate (n - 1)
+
+let rec gcd (dependent a : int | a > 0) (dependent b : int | b > 0) : { x : int | x > 0 && x <= a && x <= b } =
+  let rem = a % b in
+  if rem == 0
+  then b
+  else gcd b rem
+
+let lcm (dependent n : int | n > 0) (dependent m : int | m > 0) : { x : int | x >= n && x >= m } =
+  n * m / gcd n m
+
+let non_neg = { i : int | i >= 0 }
+
+let pos_int = { i : int | i > 0 }
+
+let rec range (dep a : non_neg) (b : non_neg | b >= a) : list int =
+  if a == b
+  then []
+  else a :: range (a + 1) b
+
+(* not sure why we have the stub error here. see incomplete_rec_fun2.bjy *)
+(* let reverse (type a) (ls : list a) : list a =
+  let rec rev (acc : list a) (ls : list a) : list a =
+    match ls with
+    | [] -> acc
+    | hd :: tl -> rev (hd :: acc) tl
+    end
+  in
+  rev [] ls *)
+
+(* Any refinements for orderedness will not work because they are recursive,
+   so here we just use OCaml-like types. *)
+let rec is_ordered (type a) (ls : list a) (cmp : a -> a -> int) : bool =
+  match ls with
+  | [] -> true
+  | x :: tl ->
+    match tl with
+    | [] -> true
+    | y :: _ -> cmp x y < 1 && is_ordered a tl cmp
+    end
+  end
+
+let rec split_list (type a) (ls : list a) (n : non_neg) : { first_n : list a ; remaining : list a } =
+  if n == 0
+  then { first_n = [] ; remaining = ls }
+  else
+    match ls with
+    | [] -> { first_n = [] ; remaining = [] }
+    | hd :: tl ->
+      let r = split_list a tl (n - 1) in
+      { first_n = hd :: r.first_n ; remaining = r.remaining }
+    end
