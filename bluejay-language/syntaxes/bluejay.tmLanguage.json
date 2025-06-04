@@ -103,87 +103,89 @@
       ]
     },
 
-    "identifiers": {
-      "patterns": [
-        {
-          "comment": "wildcard underscore",
-          "name": "constant.language.bluejay",
-          "match": "\\b_\\b"
-        },
-        {
-          "name": "entity.name.function.bluejay",
-          "match": "(?<=\\bval\\s+)([a-z_][[:word:]']*)",
-          "captures": {
-            "1": {"name": "entity.name.function.bluejay"}
-          }
-        },
-        {
-          "comment": "function name after let (not followed by : or =)",
-          "name": "entity.name.function.bluejay", 
-          "match": "(?<=\\blet\\s+(?:rec\\s+)?)([a-z_][[:word:]']*)(?=\\s+[a-z_A-Z(])",
-          "captures": {
-            "1": {"name": "entity.name.function.bluejay"}
-          }
-        },
-        {
-          "comment": "type parameters in parentheses",
-          "name": "meta.type-parameters.bluejay",
-          "match": "\\((type)\\s+([a-z_][[:word:]']*(?:\\s+[a-z_][[:word:]']*)*)\\)",
-          "captures": {
-            "1": {"name": "keyword.other.bluejay"},
-            "2": {"name": "variable.parameter.bluejay"}
-          }
-        },
-        {
-          "comment": "function name after let with typed parameters",
-          "name": "entity.name.function.bluejay",
-          "match": "(?<=\\blet\\s+(?:rec\\s+)?)([a-z_][[:word:]']*)(?=\\s*\\([^)]*:\\s*[^)]*\\)|\\s*:\\s*)",
-          "captures": {
-            "1": {"name": "entity.name.function.bluejay"}
-          }
-        },
-        {
-          "comment": "fun parameters",
-          "name": "variable.parameter.bluejay",
-          "match": "(?<=\\bfun\\s+)([a-z_][[:word:]']*(?:\\s+[a-z_][[:word:]']*)*)(?=\\s*->)",
-          "captures": {
-            "1": {"name": "variable.parameter.bluejay"}
-          }
-        },
-        {
-          "comment": "function call with arguments",
-          "name": "meta.function-call.bluejay",
-          "match": "(?<!\\blet\\s+(?:rec\\s+)?)(?<!\\bfun\\s+)\\b([a-z_][[:word:]']*)\\s+(?!\\b(?:if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and)\\b)((?:[a-z_A-Z][[:word:]']*|\\([^)]*\\)|[0-9]+)(?:\\s+(?!\\b(?:if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and)\\b)(?:[a-z_A-Z][[:word:]']*|\\([^)]*\\)|[0-9]+))*)",
-          "captures": {
-            "1": {"name": "entity.name.function.bluejay"},
-            "2": {"name": "variable.other.bluejay"}
-          }
-        },
-
-
-
-        {
-          "comment": "capital identifier for constructor, exception, or module",
-          "name": "entity.name.type.module.bluejay",
-          "match": "\\b[[:upper:]][[:word:]']*('|\\b)"
-        },
-        {
-          "comment": "lowercase identifier",
-          "name": "variable.other.bluejay",
-          "match": "\\b[[:lower:]_][[:word:]']*('|\\b)"
-        },
-        {
-          "comment": "polymorphic variant tag",
-          "name": "constant.language.polymorphic-variant.bluejay",
-          "match": "\\`[[:alpha:]][[:word:]']*\\b"
-        },
-        {
-          "comment": "empty list (can be used as a constructor)",
-          "name": "constant.language.list.bluejay",
-          "match": "\\[\\]"
-        }
-      ]
+"identifiers": {
+  "patterns": [
+    {
+      "comment": "wildcard underscore",
+      "name": "constant.language.bluejay",
+      "match": "\\b_\\b"
     },
+    {
+      "comment": "function name after val declaration",
+      "name": "entity.name.function.bluejay",
+      "match": "(?<=\\bval\\s+)([a-z_][[:word:]']*)",
+      "captures": {
+        "1": {"name": "entity.name.function.bluejay"}
+      }
+    },
+    {
+      "comment": "function name in let bindings (followed by parameters)",
+      "name": "entity.name.function.bluejay", 
+      "match": "(?<=\\blet\\s+(?:rec\\s+)?)([a-z_][[:word:]']*)(?=\\s+(?:\\(type\\s+[^)]+\\)|[a-z_A-Z(]|\\([^)]*:[^)]*\\)))",
+      "captures": {
+        "1": {"name": "entity.name.function.bluejay"}
+      }
+    },
+    {
+      "comment": "type parameters in parentheses",
+      "name": "meta.type-parameters.bluejay",
+      "match": "\\((type)\\s+([a-z_][[:word:]']*(?:\\s+[a-z_][[:word:]']*)*)\\)",
+      "captures": {
+        "1": {"name": "keyword.other.bluejay"},
+        "2": {"name": "variable.parameter.bluejay"}
+      }
+    },
+    {
+      "comment": "function after dot (record/module projection used as function)",
+      "name": "entity.name.function.bluejay",
+      "match": "(?<=\\.)([a-z_][[:word:]']*)(?=\\s+(?!\\b(?:if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and)\\b)(?:[a-z_A-Z][[:word:]']*|\\([^)]*\\)|[0-9]+|\\b(?:int|bool|unit|top|bottom|singlet|list|type)\\b))",
+      "captures": {
+        "1": {"name": "entity.name.function.bluejay"}
+      }
+    },
+    {
+      "comment": "fun parameters - all identifiers after fun until ->",
+      "name": "variable.parameter.bluejay", 
+      "match": "(?<=\\bfun\\s+)([a-z_][[:word:]']*(?:\\s+[a-z_][[:word:]']*)*)(?=\\s*->)",
+      "captures": {
+        "1": {"name": "variable.parameter.bluejay"}
+      }
+    },
+    {
+      "comment": "function call - identifier NOT preceded by another identifier (to avoid matching arguments as functions)",
+      "name": "entity.name.function.bluejay",
+      "match": "(?<!\\b[a-z_A-Z][[:word:]']*\\s)(?<!\\blet\\s+(?:rec\\s+)?)(?<!\\bval\\s+)(?<!\\.)\\b([a-z_][[:word:]']*)(?=\\s+(?!\\b(?:if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and|->)\\b)(?:[a-z_A-Z][[:word:]']*|\\([^)]*\\)|[0-9]+|\\b(?:int|bool|unit|top|bottom|singlet|list|type)\\b))",
+      "captures": {
+        "1": {"name": "entity.name.function.bluejay"}
+      }
+    },
+    {
+      "comment": "capital identifier for constructor, exception, or module",
+      "name": "entity.name.type.module.bluejay",
+      "match": "\\b[[:upper:]][[:word:]']*('|\\b)"
+    },
+    {
+      "comment": "builtin types used as values (including in function arguments)",
+      "name": "support.type.builtin.bluejay",
+      "match": "\\b(int|bool|unit|top|bottom|singlet|list|type)\\b"
+    },
+    {
+      "comment": "lowercase identifier (default case)",
+      "name": "variable.other.bluejay",
+      "match": "\\b[[:lower:]_][[:word:]']*('|\\b)"
+    },
+    {
+      "comment": "polymorphic variant tag",
+      "name": "constant.language.polymorphic-variant.bluejay",
+      "match": "\\`[[:alpha:]][[:word:]']*\\b"
+    },
+    {
+      "comment": "empty list (can be used as a constructor)",
+      "name": "constant.language.list.bluejay",
+      "match": "\\[\\]"
+    }
+  ]
+},
 
     "brackets": {
       "patterns": [
