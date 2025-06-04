@@ -72,7 +72,6 @@
 %token GREATER
 %token GREATER_EQUAL
 %token EQUAL_EQUAL
-%token EQUAL_EQUAL_EQUAL
 %token NOT_EQUAL
 %token PIPELINE
 
@@ -90,7 +89,7 @@
 %right DOUBLE_AMPERSAND       /* && for boolean and */
 %right NOT                    /* Not */
 /* == <> < <= > >= */
-%left EQUAL_EQUAL NOT_EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL EQUAL_EQUAL_EQUAL
+%left EQUAL_EQUAL NOT_EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
 %right DOUBLE_COLON           /* :: */
 %left PLUS MINUS              /* + - */
 %left ASTERISK SLASH PERCENT  /* * / % */
@@ -329,8 +328,6 @@ op_expr:
       { EListCons ($1, $3) : Bluejay.t }
   | expr EQUAL_EQUAL expr
       { EBinop { left = $1 ; binop = BEqual ; right = $3 } : Bluejay.t }
-  | expr EQUAL_EQUAL_EQUAL expr
-      { EIntensionalEqual { left = $1 ; right = $3 } : Bluejay.t }
   | expr NOT_EQUAL expr
       { EBinop { left = $1 ; binop = BNeq ; right = $3 } : Bluejay.t }
   | expr GREATER expr

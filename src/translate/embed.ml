@@ -128,7 +128,6 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | ELet { defn = e1 ; body = e2 ; _ }
     | EAppl { func = e1 ; arg = e2 }
     | EBinop { left = e1 ; right = e2 ; _ }
-    | EIntensionalEqual { left = e1 ; right = e2 }
     | ETypeFun { domain = e1 ; codomain = e2 ; _ }
     | ETypeRefinement { tau = e1 ; predicate = e2 } -> loop e1 || loop e2
     (* special cases *)
@@ -186,8 +185,6 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       EFunction { param ; body = embed body }
     | EVariant { label ; payload } ->
       EVariant { label ; payload = embed payload }
-    | EIntensionalEqual { left ; right } ->
-      EIntensionalEqual { left = embed left ; right = embed right }
     | ERecord m ->
       ERecord (Map.map m ~f:embed)
     | EMatch { subject ; patterns } ->

@@ -217,7 +217,6 @@ module Expr = struct
       | EPick_i : 'a t (* is parsed as "input", but we can immediately make it pick_i *)
       | EFunction : { param : Ident.t ; body : 'a t } -> 'a t (* note bluejay also has multi-arg function, which generalizes this *)
       | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
-      | EIntensionalEqual : { left : 'a t ; right : 'a t } -> 'a t
       (* embedded only, so constrain 'a to only be `Embedded *)
       | EPick_b : 'a embedded_only t
       | ECase : { subject : 'a t ; cases : (int * 'a t) list ; default : 'a t } -> 'a embedded_only t (* simply sugar for nested conditionals *)
@@ -229,6 +228,7 @@ module Expr = struct
       | ETblAppl : { tbl : 'a t ; gen : 'a t ; arg : 'a t } -> 'a embedded_only t
       | EDet : 'a t -> 'a embedded_only t
       | EEscapeDet : 'a t -> 'a embedded_only t
+      | EIntensionalEqual : { left : 'a t ; right : 'a t } -> 'a embedded_only t
       (* these exist in the desugared and embedded languages *)
       | EAbort : string -> 'a desugared_or_embedded t (* string is error message *)
       | EDiverge : 'a desugared_or_embedded t
@@ -759,7 +759,6 @@ module Bluejay = struct
     | EBinop { left = e1 ; binop = _ ; right = e2 }
     | ELet { var = _ ; defn = e1 ; body = e2 }
     | EAppl { func = e1 ; arg = e2 }
-    | EIntensionalEqual { left = e1 ; right = e2 }
     | ETypeFun { domain = e1 ; codomain = e2 ; dep = _ ; det = _ }
     | ETypeRefinement { tau = e1 ; predicate = e2 }
     | EListCons (e1, e2)

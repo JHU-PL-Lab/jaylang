@@ -84,8 +84,6 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       EFunction { param ; body = desugar body }
     | EVariant { label ; payload } ->
       EVariant { label ; payload = desugar payload }
-    | EIntensionalEqual { left ; right } ->
-      EIntensionalEqual { left = desugar left ; right = desugar right }
     | ERecord m ->
       ERecord (Map.map m ~f:desugar)
     | ETypeFun { domain ; codomain ; det ; dep } ->
