@@ -1,7 +1,14 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types First_class_types))
+    (speed Fast) ; only if we use type splaying
+    (typing Well_typed)
+  )
+*)
 
 
 (* this is how we gen an `a` when splaying types *)
-let rec gen (a <- type) : a =
+let rec gen (dependent a : type) : a =
   gen a
 
 (*

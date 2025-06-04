@@ -1,3 +1,10 @@
+(***
+  (
+    (features (Recursive_functions))
+    (speed Fast) ; fast only with type splaying
+    (typing Well_typed)
+  )
+*)
 
 let rec fib (n : int) : int =
   if n == 0 then

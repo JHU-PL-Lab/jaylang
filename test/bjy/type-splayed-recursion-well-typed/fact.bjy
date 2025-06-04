@@ -1,3 +1,10 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (speed Fast) ; fast only if we use type splaying
+    (typing Well_typed)
+  )
+*)
 
 (*
   Type splaying is not helpful here because the refinement has a recursive call,
