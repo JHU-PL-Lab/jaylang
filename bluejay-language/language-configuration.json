@@ -15,7 +15,8 @@
     ["{:", ":}"],
     ["struct", "end"],
     ["sig", "end"],
-    ["with", "end"]
+    ["with", "end"],
+    ["(*", "*)"]
   ],
   "surroundingPairs": [
     ["{", "}"],
