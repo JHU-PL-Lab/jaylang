@@ -68,7 +68,7 @@
         {
           "comment": "infix operators - comparison", 
           "name": "entity.name.function.bluejay",
-          "match": "(===?|<>|<=?|>=?)"
+          "match": "(<>|<=?|>=?)"
         },
         {
           "comment": "infix operators - logical and pipe",

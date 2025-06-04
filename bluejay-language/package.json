@@ -20,7 +20,11 @@
         "extensions": [
           ".bjy"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/bluejay-icon.png",
+          "dark": "./icons/bluejay-icon.png"
+        }
       }
     ],
     "grammars": [
