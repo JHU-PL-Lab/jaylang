@@ -152,9 +152,17 @@
       }
     },
     {
+      "comment": "function call immediately after keywords (only when followed by arguments, not other keywords)",
+      "name": "entity.name.function.bluejay",
+      "match": "(?<=\\b(?:if|then|else|in|end|of|and)\\s+)([a-z_][[:word:]']*)(?=\\s+(?!\\b(?:if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and|->)\\b)(?:[a-z_A-Z][[:word:]']*|\\([^)]*\\)|[0-9]+|\\b(?:int|bool|unit|top|bottom|singlet|list|type)\\b))",
+      "captures": {
+        "1": {"name": "entity.name.function.bluejay"}
+      }
+    },
+    {
       "comment": "function call - identifier NOT preceded by another identifier (to avoid matching arguments as functions)",
       "name": "entity.name.function.bluejay",
-      "match": "(?<!\\b[a-z_A-Z][[:word:]']*\\s)(?<!\\blet\\s+(?:rec\\s+)?)(?<!\\bval\\s+)(?<!\\.)\\b([a-z_][[:word:]']*)(?=\\s+(?!\\b(?:if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and|->)\\b)(?:[a-z_A-Z][[:word:]']*|\\([^)]*\\)|[0-9]+|\\b(?:int|bool|unit|top|bottom|singlet|list|type)\\b))",
+      "match": "(?<!\\b[a-z_A-Z][[:word:]']*\\s)(?<!\\)\\s*)(?<!\\b[a-z_A-Z][[:word:]']*\\.)(?<!\\blet\\s+(?:rec\\s+)?)(?<!\\bval\\s+)\\b([a-z_][[:word:]']*)(?=\\s+(?!\\b(?:if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and|->)\\b)(?:[a-z_A-Z][[:word:]']*|\\([^)]*\\)|[0-9]+|\\b(?:int|bool|unit|top|bottom|singlet|list|type)\\b))",
       "captures": {
         "1": {"name": "entity.name.function.bluejay"}
       }
