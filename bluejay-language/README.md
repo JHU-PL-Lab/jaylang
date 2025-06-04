@@ -13,7 +13,7 @@ as a VS Code extension.
 1. Navigate to the `bluejay-language` directory (the one this README is in).
 2. Run `npm install -g @vscode/vsce`. You may need to `--force` or use `sudo`.
 3. Then do `vsce package --allow-missing-repository`. Answer `y`/`yes` to questions about missing licenses.
-4. Run `code --install-extension bluejay-language-0.0.1.vsix`, or whatever version we're currently on (not just `0.0.1` every time).
+4. Run `code --install-extension bluejay-language-0.0.2.vsix`, or whatever version we're currently on (not just `0.0.1` every time).
 
 To make changes and reinstall, only run the last two commands. Note you either need to
 uninstall the previous version, or increment the version number.
@@ -33,7 +33,7 @@ code --uninstall-extension undefined_publisher.bluejay-language
 ## Disclaimers
 
 The icon is under the license found at [this](https://uxwing.com/license/) link.
-It has been recolored but otherwise is not changed.
+It has been recolored and mirrored, but it otherwise is not changed.
 
 The icon has been set as a fallback to whatever icon theme you're using. As long
 as your theme does not define an icon for `.bjy` files, the provided icon is used.
