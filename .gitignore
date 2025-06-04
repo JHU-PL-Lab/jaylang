@@ -66,3 +66,6 @@ vendor
 /paper/main.log
 /paper/main.fls
 /paper/main.synctex.gz
+
+# Language extension files
+*.vsix
