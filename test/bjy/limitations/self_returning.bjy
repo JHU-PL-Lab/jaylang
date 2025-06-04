@@ -2,7 +2,7 @@
   (
     (features (Mu_types Records Higher_order_functions OOP_style Return_error))
     (reasons (Return_error))
-    (speed Slow)
+    (speed Slow) ; note this actually gets solved by type splaying, but since type splaying is in general incomplete, this isn't helpful
     (typing Ill_typed)
   )
 *)

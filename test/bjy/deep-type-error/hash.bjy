@@ -22,7 +22,7 @@ let rec hash x =
 let x = 123456
 let y = hash x
 
-let f (x : { i : int | i >= 0 } ) : int = 
+let f (x : int | x >= 0) : int = 
   if hash x == y
   then assert false (* ERROR: this is obviously reachable, but it's very difficult when x is large *)
   else 0

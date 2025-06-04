@@ -9,9 +9,7 @@
 
 let isPos n = n > 0
 
-let aIsPos re = isPos re.a
-
 let isNeg n = n < 0
 
-let access_record (r : { { a : int; b : bool } | aIsPos }) : { int | isNeg } =
+let access_record (r : { a : int; b : bool } | isPos r.a) : { int | isNeg } =
   r.a

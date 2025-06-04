@@ -22,7 +22,7 @@ let map : t 2 = fun a b -> a -> b
 (* Parametric bag *)
 let bag : t 1 = fun a -> list a
 
-let rec len (type a) (ls : list a) : { i : int | i >= 0} = 
+let rec len (type a) (ls : list a) : { i : int | i >= 0 } = 
   match ls with
   | [] -> 0
   | hd :: tl -> 1 + len a tl
@@ -32,7 +32,7 @@ let ngram : int -> t 1 = fun n a -> { list a | fun ls -> (len a ls == n) && n >=
 
 let distribution : int -> t 1 = fun n a -> map (ngram (n - 1) a) (bag a)
 
-let rec take (type a_) (dependent n : { int | fun i -> i >= 0}) : list a_ -> { list a_ | fun ls -> len a_ ls <= n } =
+let rec take (type a_) (dependent n : int | n >= 0) : list a_ -> { list a_ | fun ls -> len a_ ls <= n } =
   fun l ->
     if n == 0 then [] else
     match l with
@@ -76,7 +76,7 @@ let rec compare_list (type a_) (compare : a_ -> a_ -> int) (l1 : list a_) (l2 : 
 
 let tuple a b = { fst : a ; snd : b }
 
-let rec last_exn (type a_) (ls : { list a_ | fun l -> len a_ l > 0 }) : a_ = 
+let rec last_exn (type a_) (ls : list a_ | len a_ ls > 0) : a_ = 
   match ls with
   | hd :: tl ->
     match tl with

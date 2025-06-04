@@ -10,7 +10,7 @@
 let f x g =
   g (x + 1)
 
-let h (dependent z : int) (y : { y : int | z > y }) : unit = (* ERROR: should be `z < y` instead of other way around *)
+let h (dependent z : int) (y : int | z > y) : unit = (* ERROR: should be `z < y` instead of other way around *)
   {}
 
 let main (n : int) : unit =

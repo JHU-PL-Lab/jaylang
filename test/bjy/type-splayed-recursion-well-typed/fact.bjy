@@ -25,7 +25,7 @@
 (*
   This works well though. No problems here.
 *)
-let rec fact (n : { i : int | i >= 0 }) : { x : int | x >= 0 } =
+let rec fact (n : int | n >= 0) : { x : int | x >= 0 } =
   if n == 0 then
     0
   else if n == 1 then

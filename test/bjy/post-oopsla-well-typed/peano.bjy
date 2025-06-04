@@ -44,14 +44,14 @@ let rec to_int (dep a : ty) (x : t a) : int =
 let _ : { i : int | i == 2 } = to_int two_type_param two
 
 (* of_int with untyped return *)
-let rec of_int (i : { i : int | i >= 0 }) : top =
+let rec of_int (i : int | i >= 0) : top =
   if i == 0 then 
     `Zero {}
   else
     `Succ (of_int (i - 1))
 
 (* return type as value from result, and also have a predicate to check that it's the inverse of to_int *)
-let rec of_int (dep i : { i : int | i >= 0 }) : { r : {: a : ty ; v : t a :} | to_int r.a r.v == i } =
+let rec of_int (dep i : int | i >= 0) : { r : {: a : ty ; v : t a :} | to_int r.a r.v == i } =
   if i == 0 then 
     { a = `TZero {} ; v = `Zero {} }
   else

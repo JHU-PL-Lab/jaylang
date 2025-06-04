@@ -13,7 +13,7 @@ let b x =
   fun y ->
     x 1
 
-let a (x : int -> unit) (y : int -> unit) (q : { i : int | i == 0 }) : unit =
+let a (x : int -> unit) (y : int -> unit) (q : int | q == 0) : unit =
   let _ = x 0 in
   y 0
 

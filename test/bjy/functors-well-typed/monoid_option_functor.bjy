@@ -14,7 +14,7 @@ end
 
 let F : (X : MONOID) -> sig
   val t = `Some of X.t | `None of unit
-  val i : { i : int | i == 0}
+  val i : { i : int | i == 0 }
   val neutral : t
   val combine : t -> t -> t
 end = fun X -> struct

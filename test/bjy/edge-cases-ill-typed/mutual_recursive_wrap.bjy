@@ -7,8 +7,8 @@
   )
 *)
 
-let rec f (x : { x : int | x < 0 }) : int =
+let rec f (x : int | x < 0) : int =
   g x
 
-and g (x : { x : int | x > 0 }) : int =
+and g (x : int | x > 0) : int =
   x

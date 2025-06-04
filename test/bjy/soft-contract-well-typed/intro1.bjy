@@ -9,7 +9,7 @@
 let f x g =
   g (x + 1)
 
-let h (y : { c : int | c > 1 }) : unit =
+let h (y : int | y > 1) : unit =
   {}
 
 let main (n : int) : unit =

@@ -357,9 +357,14 @@ param_list_with_type:
 param_with_type:
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN
       { TVar { var = $2 ; tau = $4 } : Bluejay.param }
+  | OPEN_PAREN l_ident COLON expr PIPE expr CLOSE_PAREN
+      { TVar { var = $2 ; tau = ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } } : Bluejay.param }
   | OPEN_PAREN DEP l_ident COLON expr CLOSE_PAREN
   | OPEN_PAREN DEPENDENT l_ident COLON expr CLOSE_PAREN
       { TVarDep { var = $3 ; tau = $5 } : Bluejay.param }
+  | OPEN_PAREN DEP l_ident COLON expr PIPE expr CLOSE_PAREN
+  | OPEN_PAREN DEPENDENT l_ident COLON expr PIPE expr CLOSE_PAREN
+      { TVarDep { var = $3 ; tau = ETypeRefinement { tau = $5 ; predicate = EFunction { param = $3 ; body = $7 } } } : Bluejay.param }
 ;
 
 param_list:
