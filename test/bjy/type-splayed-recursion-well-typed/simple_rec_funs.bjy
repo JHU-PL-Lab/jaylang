@@ -1,3 +1,11 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Dependent_types Records Recursive_functions))
+    (speed Slow) ; we exhaust in < 1 second if parallel and type splaying, but that's a little slow
+    (typing Well_typed)
+    (flags "-s -p")
+  )
+*)
 
 (*
   Here we just have many generic recursive functions that

@@ -3,6 +3,7 @@
     (features (Refinement_types Recursive_functions))
     (speed Fast) ; fast only if we use type splaying
     (typing Well_typed)
+    (flags "-s")
   )
 *)
 

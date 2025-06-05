@@ -4,6 +4,7 @@ Since OOPSLA release
 
 Usability
 
+* Command line flags are allowed in test metadata.
 * Syntax highlighter and file icon for VS Code in `bluejay-language/`.
 * Solver timeout is reported by concolic evaluator.
 * Parallelism is available to check type statements in parallel instead of in series.
@@ -55,6 +56,7 @@ Performance
 
 Implementation
 
+* Use `Cmdliner` for command line arguments.
 * Type splaying is allowed, and we stub recursive types to get incompleteness but decidability.
 * Assertions for `wrap` in translation to ensure it is optional.
 * Match logic is in value.

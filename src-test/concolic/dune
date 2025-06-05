@@ -4,6 +4,7 @@
  (modules test_concolic)
  (libraries
   utils
+  cmdliner
   alcotest
   alcotest-lwt
   metadata

@@ -1,8 +1,9 @@
 (***
   (
     (features (Mu_types Variants Records))
-    (speed Slow)
-    (typing well_typed)
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s")
   )
 *)
 

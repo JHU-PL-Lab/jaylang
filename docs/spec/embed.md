@@ -198,7 +198,7 @@ Notes:
         let B = $self ($depth - 1) in [[tau]].~wrap $e
       end
     }
-  ) 2 (* allowed depth is two by default *)
+  ) 3 (* allowed depth is three by default *)
 
 Y = 
   fun f ->

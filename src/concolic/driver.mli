@@ -24,3 +24,6 @@ val test : Core.Filename.t test
 (** [test filename do_wrap] is the result of concolic evaluation on the Bluejay
     program parsed from [filename], or timeout if the timeout limit was
     exceeded. The result is printed to stdout. *)
+
+val ceval : Status.Terminal.t Cmdliner.Cmd.t
+(** [ceval] can be run with [Cmdliner] to run [test] on the command line arguments. *)

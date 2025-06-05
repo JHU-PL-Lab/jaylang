@@ -3,7 +3,8 @@
     (features (Polymorphic_types Refinement_types Recursive_functions Other))
     (reasons (Refinement_types Recursive_functions Other))
     (speed Fast)
-    (typing Ill_typed)
+    (typing Ill_typed) ; because of type splaying incompleteness
+    (flags "-s")
   )
 *)
 

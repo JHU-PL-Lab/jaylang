@@ -1,8 +1,9 @@
 (***
   (
     (features (Records Higher_order_functions Subtyping))
-    (speed Slow)
+    (speed Fast) ; b/c type splaying
     (typing Well_typed)
+    (flags "-s")
   )
 *)
 (* functions on records *)

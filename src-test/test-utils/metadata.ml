@@ -13,6 +13,7 @@
         (reasons (<test reason list>))
         (speed <Fast or Slow>)
         (typing <Well_typed or Ill_typed>)
+        (flags "<some string containing the argv flags to ceval>")
       )
     *)
 
@@ -36,11 +37,26 @@ module Typing = struct
   type t = Well_typed | Ill_typed [@@deriving sexp]
 end
 
+module Flags = struct
+  type t = string array
+
+  (* We dont want to write flags as an array. Just a string is fine *)
+  let sexp_of_t flags =
+    String.sexp_of_t (String.concat ~sep:" " (Array.to_list flags))
+
+  let t_of_sexp sexp =
+    let str = String.t_of_sexp sexp in
+    let parts = String.split str ~on:' ' |> List.filter ~f:(fun s -> not (String.is_empty s)) in
+    Array.of_list parts
+end
+
+
 type t =
   { features : Ttag.V2.t list  [@default []]
   ; reasons  : Ttag.V2.t list  [@default []]
   ; speed    : Test_speed.t [@default Slow]
   ; typing   : Typing.t     [@default Well_typed]
+  ; flags    : Flags.t [@default [||]]
   } [@@deriving sexp]
 
 let tags_of_t (r : t) : [ `Sorted_list of [ `Feature of Ttag.V2.t | `Reason of Ttag.V2.t | `Absent ] list ] =

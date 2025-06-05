@@ -1,7 +1,7 @@
 (***
   (
     (features (Refinement_types Dependent_types Higher_order_functions Variants Records Subtyping))
-    (speed Slow)
+    (speed Fast)
     (typing Well_typed)
   )
 *)

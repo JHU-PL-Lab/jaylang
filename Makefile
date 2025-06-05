@@ -43,7 +43,6 @@ test-fast:
 # run the slow concolic tests (all programs, where well-typed run a long time)
 test-all:
 	dune exec -- src-test/concolic/test_concolic.exe
-	dune exec -- src-test/interp/test_interp.exe
 
 # run the interpreter on all test files
 test-interp:
