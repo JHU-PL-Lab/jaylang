@@ -68,7 +68,7 @@ module Report_row (* : Latex_table.ROW *) = struct
         Concolic.Driver.test_bjy source
           ~global_timeout_sec:90.0 
           ~do_wrap:true 
-          ~do_type_splay:true
+          ~do_type_splay:false
           ~in_parallel:false (* parallel computation off by default *)
       in
       let t1 = Caml_unix.gettimeofday () in
