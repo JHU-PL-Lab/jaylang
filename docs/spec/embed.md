@@ -352,13 +352,14 @@ Notes:
 The singleton of a type is just the singleton set containing that type.
 
 ```ocaml
-[[singlet tau]] =
-  { ~gen = freeze @@ [[tau]]
-  ; ~check = fun $t ->
-      let _ =  [[tau]].~check (thaw $t.~gen) in
-      $t.~check (thaw [[tau]].~gen)
-  ; ~wrap = fun $t -> $t
-  }
+[[singlet]] =
+  fun $tau ->
+    { ~gen = freeze @@ $tau
+    ; ~check = fun $t ->
+        let _ =  $tau.~check (thaw $t.~gen) in
+        $t.~check (thaw $tau.~gen)
+    ; ~wrap = fun $t -> $t
+    }
 ```
 
 Note:

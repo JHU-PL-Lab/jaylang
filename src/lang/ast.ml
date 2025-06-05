@@ -247,9 +247,9 @@ module Expr = struct
       | ETypeMu : { var : Ident.t ; params : Ident.t list ; body : 'a t } -> 'a bluejay_or_desugared t
       | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
       | ELetTyped : { typed_var : 'a typed_var ; defn : 'a t ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
-      | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
+      | ETypeSingle : 'a bluejay_or_desugared t
       (* bluejay only *)
-      | ETypeList : 'a t -> 'a bluejay_only t
+      | ETypeList : 'a bluejay_only t
       | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
       | EList : 'a t list -> 'a bluejay_only t
       | EListCons : 'a t * 'a t -> 'a bluejay_only t
@@ -311,7 +311,7 @@ module Expr = struct
       | EAbort _ -> 24         | EDiverge -> 25    | EType -> 26               | ETypeInt -> 27
       | ETypeBool -> 28        | ETypeTop -> 29    | ETypeBottom -> 30         | ETypeRecord _ -> 31
       | ETypeModule _ -> 32    | ETypeFun _ -> 33  | ETypeRefinement _ -> 34   | ETypeMu _ -> 35
-      | ETypeVariant _ -> 36   | ELetTyped _ -> 37 | ETypeSingle _ -> 38       | ETypeList _ -> 39
+      | ETypeVariant _ -> 36   | ELetTyped _ -> 37 | ETypeSingle -> 38         | ETypeList -> 39
       | ETypeIntersect _ -> 40 | EList _ -> 41     | EListCons _ -> 42         | EModule _ -> 43 
       | EAssert _ -> 44        | EAssume _ -> 45   | EMultiArgFunction _ -> 46 | ELetFun _ -> 47
       | ELetFunRec _ -> 48     | EGen _  -> 49     | EIntensionalEqual _ -> 50
@@ -375,7 +375,8 @@ module Expr = struct
           match a, b with
           | EPick_i, EPick_i | EPick_b, EPick_b | EId, EId | ETable, ETable
           | EDiverge, EDiverge | EType, EType | ETypeInt, ETypeInt | ETypeBool, ETypeBool
-          | ETypeTop, ETypeTop | ETypeBottom, ETypeBottom -> 0
+          | ETypeTop, ETypeTop | ETypeBottom, ETypeBottom | ETypeList, ETypeList
+          | ETypeSingle, ETypeSingle -> 0
           | EInt i, EInt j -> Int.compare i j
           | EBool b, EBool c -> Bool.compare b c
           | EVar x, EVar y -> begin
@@ -464,8 +465,6 @@ module Expr = struct
             let- () = cmp r1.defn r2.defn in
             compare (Alist.cons_assoc r1.typed_var.var r2.typed_var.var bindings) r1.body r2.body
           end
-          | ETypeSingle e1, ETypeSingle e2 -> cmp e1 e2
-          | ETypeList e1, ETypeList e2 -> cmp e1 e2
           | ETypeIntersect l1, ETypeIntersect l2 ->
             List.compare (Tuple3.compare ~cmp1:VariantTypeLabel.compare ~cmp2:cmp ~cmp3:cmp) l1 l2
           | EList l1, EList l2 -> List.compare cmp l1 l2
@@ -747,15 +746,14 @@ module Bluejay = struct
     | EPick_i -> false
     (* leaves *)
     | EInt _ | EBool _ | EVar _ | EType | ETypeInt
-    | ETypeBool | ETypeTop | ETypeBottom -> true
+    | ETypeBool | ETypeTop | ETypeBottom
+    | ETypeSingle | ETypeList -> true
     (* one subexpression *)
     | EProject { record = e ; label = _ }
     | ENot e
     | EFunction { param = _ ; body = e }
     | EVariant { label = _ ; payload = e }
     | ETypeMu { var = _ ; params = _ ; body = e }
-    | ETypeSingle e
-    | ETypeList e
     | EAssert e
     | EAssume e
     | EMultiArgFunction { params = _ ; body = e } -> is_det_e e

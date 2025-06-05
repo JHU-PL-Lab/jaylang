@@ -129,12 +129,8 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | EList e_list ->
       let%bind ls = list_map eval e_list in
       return (VList ls)
-    | ETypeList tau ->
-      let%bind vtau = eval tau in
-      return (VTypeList vtau)
-    | ETypeSingle tau ->
-      let%bind vtau = eval tau in
-      return (VTypeSingle vtau)
+    | ETypeList -> return VTypeListFun
+    | ETypeSingle -> return VTypeSingleFun
     | ETypeFun { domain ; codomain ; dep ; det } -> begin
       let%bind domain = eval domain in
       match dep with
@@ -197,6 +193,8 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         | param :: params ->
           local_env (fun _ -> Env.add param arg env) (eval (EMultiArgFunction { params ; body }))
         end
+      | VTypeSingleFun -> return (VTypeSingle arg)
+      | VTypeListFun -> return (VTypeList arg)
       | _ -> type_mismatch ()
     end
     | ELet { var ; defn ; body } -> eval_let var ~defn ~body

@@ -75,8 +75,10 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
       | VTypeMu : { var : Ident.t ; params : Ident.t list ; closure : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
+      | VTypeSingleFun : 'a bluejay_or_desugared t
       | VTypeSingle : 'a t -> 'a bluejay_or_desugared t
       (* types in bluejay only *)
+      | VTypeListFun : 'a bluejay_only t
       | VTypeList : 'a t -> 'a bluejay_only t
       | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
 
@@ -171,7 +173,9 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
         | VTypeInt, VTypeInt
         | VTypeBool, VTypeBool
         | VTypeTop, VTypeTop
-        | VTypeBottom, VTypeBottom -> true
+        | VTypeBottom, VTypeBottom
+        | VTypeSingleFun, VTypeSingleFun
+        | VTypeListFun, VTypeListFun -> true
         | _ -> false (* these are structurally different and cannot be equal *)
 
     and equal_closure : type a. Expr.Alist.t -> a closure -> a closure -> bool =
@@ -224,7 +228,9 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     | VTypeFun { domain ; codomain ; det } -> Format.sprintf "(%s %s %s)" (to_string domain) (if det then "-->" else "->") (to_string codomain)
     | VTypeDepFun { binding = Ident s ; domain ; det ; _ } -> Format.sprintf "((%s : %s) %s <expr>)" s (if det then "-->" else "->") (to_string domain)
     | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (to_string tau) (to_string predicate)
+    | VTypeSingleFun -> Format.sprintf "singlet"
     | VTypeSingle v -> Format.sprintf "(singlet (%s))" (to_string v)
+    | VTypeListFun -> Format.sprintf "list"
     | VTypeList v -> Format.sprintf "(list (%s))" (to_string v)
     | VTypeIntersect ls ->
       Format.sprintf "(%s)"

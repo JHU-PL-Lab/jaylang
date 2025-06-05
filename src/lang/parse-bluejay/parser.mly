@@ -253,9 +253,6 @@ fun_sig:
 /* (fun x -> x) y */
 appl_expr:
   | appl_expr primary_expr { EAppl { func = $1 ; arg = $2 } : Bluejay.t }
-  /* Give `singlet` and `list` keywords the same precedence as function application */
-  | SINGLET_KEYWORD primary_expr { ETypeSingle $2 : Bluejay.t }
-  | LIST primary_expr { ETypeList $2 : Bluejay.t } 
   | primary_expr { $1 : Bluejay.t }
 ;
 
@@ -284,6 +281,10 @@ primary_expr:
       { ETypeTop : Bluejay.t }
   | BOTTOM_KEYWORD
       { ETypeBottom : Bluejay.t }
+  | LIST
+      { ETypeList : Bluejay.t }
+  | SINGLET_KEYWORD
+      { ETypeSingle : Bluejay.t }
   (* braces/parens *)
   | OPEN_BRACE record_body CLOSE_BRACE
       { ERecord $2 : Bluejay.t }
@@ -376,7 +377,7 @@ param_list:
 /* val t = tau (* pure simple sugar for val t : singlet tau *) */
 val_item:
   | VAL record_type_item { $2 }
-  | VAL record_label EQUALS expr { $2, (ETypeSingle $4) : RecordLabel.t * Bluejay.t }
+  | VAL record_label EQUALS expr { $2, EAppl { func = ETypeSingle ; arg = $4 } : RecordLabel.t * Bluejay.t }
 
 %inline record_label:
   | ident { RecordLabel.RecordLabel $1 }

@@ -108,7 +108,8 @@ end
 let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   let rec loop (e : Desugared.t) : bool =
     match e with
-    | (EInt _ | EBool _ | EPick_i | EAbort _ | EDiverge | EType | ETypeInt | ETypeBool | ETypeTop | ETypeBottom) -> false
+    | (EInt _ | EBool _ | EPick_i | EAbort _ | EDiverge
+      | EType | ETypeInt | ETypeBool | ETypeTop | ETypeBottom | ETypeSingle) -> false
     | EVar id' -> Ident.equal id id'
     (* capturing variables *)
     | ELet { var ; defn ; _ } when Ident.equal var id -> loop defn
@@ -121,7 +122,6 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     | ENot e
     | EVariant { payload = e ; _ }
     | ETypeMu { body = e ; _ }
-    | ETypeSingle e
     | EProject { record = e ; _ }
     | EGen e -> loop e
     (* simple binary cases *)
@@ -516,16 +516,18 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         ; check = lazy (fresh_abstraction "e_top_check" @@ fun _ -> EAbort "Nothing is in bottom")
         ; wrap = lazy EId
         }
-    | ETypeSingle tau ->
-      make_embedded_type
-        { gen = lazy (embed tau)
-        ; check = lazy (fresh_abstraction "t_singlet_check" @@ fun t -> 
-          build @@
-            let%bind _ = ignore @@ check tau (gen (EVar t)) in
-            return (check (EVar t) (gen tau))
-        )
-        ; wrap = lazy EId
-        }
+    | ETypeSingle ->
+      let tau = Names.fresh_id ~suffix:"tau_single" () in
+      abstract_over_ids [tau] @@
+        make_embedded_type
+          { gen = lazy (EVar tau)
+          ; check = lazy (fresh_abstraction "t_singlet_check" @@ fun t -> 
+            build @@
+              let%bind _ = ignore @@ check (EVar tau) (gen (EVar t)) in
+              return (check (EVar t) (gen (EVar tau)))
+          )
+          ; wrap = lazy EId
+          }
 
     and embed_let_defn ?(do_wrap : bool = do_wrap) ~(do_check : bool) ~(tau : Desugared.t) (defn : Desugared.t) : Embedded.t =
       build @@

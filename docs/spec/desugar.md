@@ -157,10 +157,10 @@ let filter_list x =
   | `~Cons _ -> x
   end
 
-(| list tau |) =
-  Mu $t.
+(| list |) =
+  fun $tau -> mu $t.
   | `~Nil of unit (* This is a unique variant name that the user cannot create, and unit is a dummy payload *)
-  | `~Cons of { ~hd : (| tau |) ; ~tl : $t } (* so is this *)
+  | `~Cons of { ~hd : $tau ; ~tl : $t } (* so is this *)
 
 (| x :: xs |) =
   `~Cons { ~hd = (| x |) ; ~tl = filter_list (| xs |) }
