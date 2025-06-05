@@ -33,7 +33,7 @@
   Currently, the error in this program is not deep, so it is found quickly.
 *)
 
-let t = Mu t. list t
+let t = mu t. list t
 
 let f (x : t) : int = 
   match x with

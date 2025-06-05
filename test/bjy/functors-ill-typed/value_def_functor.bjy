@@ -42,7 +42,7 @@ let Make (dependent Store : STORE) (Env_cell : T 1) (V : T 1) : sig
   end
 end = struct
   let T = struct
-    let t = Mu t.
+    let t = mu t.
       let env = Store.t t in
       let closure = { expr : unit ; env : Env_cell.t env } in
       | `VInt of V.t int

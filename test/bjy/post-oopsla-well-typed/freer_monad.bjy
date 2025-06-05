@@ -23,7 +23,7 @@ let ty n =
 
 let ty1 = ty 1
 
-let t : ty1 --> type --> type = Mu t f a.
+let t : ty1 --> type --> type = mu t f a.
   | `Return of a
   | `Bind of {: b : type ; intermediate : f b ; cont : b -> t f a :}
 
@@ -58,7 +58,7 @@ let rec map (type a b) (dep f : ty1) (tfa : t f a) (h : a -> b) : t f b =
   end
 
 (*
-  Must remember that r.b is different from b. I made a mistake when writing this by confusing them.
+  must remember that r.b is different from b. I made a mistake when writing this by confusing them.
 *)
 let rec bind (type a b) (dep f : ty1) (tfa : t f a) (h : a -> t f b) : t f b =
   match tfa with

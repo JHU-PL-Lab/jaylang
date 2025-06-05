@@ -1,7 +1,7 @@
 
 (* This seems much faster than with records as the leaf payload *)
 
-let t = Mu t.
+let t = mu t.
   | `A of { x : t ; y : t }
   | `B of int
 

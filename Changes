@@ -29,7 +29,7 @@ Language
 * Refinement types use normal curly braces.
 * Record types use normal curly braces.
 * `unit`.
-* `List` renamed to `list`.
+* `List` renamed to `list`, and `Mu` renamed to `mu`.
 * `let%bind x = e1 in e2` is sugar for `bind e1 (fun x -> e2)`.
 * Bluejay has `|>` for pipelining.
 * `_` allowed as lvalue.

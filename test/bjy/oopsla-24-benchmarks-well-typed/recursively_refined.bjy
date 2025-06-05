@@ -10,7 +10,7 @@ let coord : type =
   { x : int
   ; y : int }
 
-let t : type = Mu t.
+let t : type = mu t.
   { parent : `Some of t | `None of unit
   ; relative_coord : coord }
 

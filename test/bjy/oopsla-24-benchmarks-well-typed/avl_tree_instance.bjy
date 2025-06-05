@@ -7,7 +7,7 @@
 *)
 (* This is an avl tree program; where insert on balanced tree returns a balanced tree. *)
 
-let t : type = Mu t. 
+let t : type = mu t. 
   | `Leaf of int
   | `Node of { left : t ; right : t ; item : int }
 

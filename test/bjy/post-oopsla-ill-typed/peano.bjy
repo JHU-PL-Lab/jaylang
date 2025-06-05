@@ -8,12 +8,12 @@
 *)
     
 (* These are the possible forms of the type parameter for t *)
-let ty = Mu t.
+let ty = mu t.
   | `TOne of unit
   | `TSucc of t
 
 (* a "GADT" *)
-let t : ty -> type = Mu t a.
+let t : ty -> type = mu t a.
   | `One of
     match a with
     | `TOne _ -> unit

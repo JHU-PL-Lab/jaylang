@@ -72,7 +72,7 @@ rule token = parse
 | "assert"             { ASSERT }
 | "assume"             { ASSUME }
 | "type"               { TYPE }
-| "Mu"                 { MU }
+| "mu"                 { MU }
 | "list"               { LIST }
 | "sig"                { SIG }
 | "struct"             { STRUCT }

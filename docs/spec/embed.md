@@ -147,7 +147,7 @@ Notes:
 #### Standard
 
 ```ocaml
-[[Mu B x1 ... xn. tau]] =
+[[mu B x1 ... xn. tau]] =
   thaw @@
   Y (fun $self -> freeze @@ fun x1 -> ... -> fun xn ->
     { ~gen = freeze @@
@@ -171,7 +171,7 @@ Notes:
 #### With type-splaying
 
 ```ocaml
-[[Mu B x1 ... xn. tau]] =
+[[mu B x1 ... xn. tau]] =
   Y (fun $self -> fun $depth -> fun x1 -> ... fun xn ->
     { ~gen = freeze @@
       if $depth == 0
@@ -239,7 +239,7 @@ Notes:
 ```
 
 Notes:
-* `i0,...,im, j0,...,jl` are a permutation of `0,...,n`, and `tau_i0,...,tau_im` contain in their AST the identifier of some in-scope Mu type variable while `tau_j0,...,tau_jl` do not.
+* `i0,...,im, j0,...,jl` are a permutation of `0,...,n`, and `tau_i0,...,tau_im` contain in their AST the identifier of some in-scope mu type variable while `tau_j0,...,tau_jl` do not.
 * No `case` in the generation is needed when there is only one variant constructor. In such a scenario, the entire `gen` is replaced the `default` case.
 
 ### Record types

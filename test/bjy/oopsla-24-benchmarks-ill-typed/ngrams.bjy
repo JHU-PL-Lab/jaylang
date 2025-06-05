@@ -7,7 +7,7 @@
   )
 *)
 
-let t = Mu t n.
+let t = mu t n.
   if n <= 0
   then type
   else type -> t (n - 1)

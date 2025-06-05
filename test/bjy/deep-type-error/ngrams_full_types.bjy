@@ -9,7 +9,7 @@
 
 (* In this test, we have full types on the helper functions, which makes the error quite deep but not that hard to find. It is still fast. *)
 
-let t = Mu t n.
+let t = mu t n.
   if n <= 0
   then type
   else type -> t (n - 1)
