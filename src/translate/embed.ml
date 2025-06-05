@@ -490,17 +490,29 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                             EIf
                               { cond = EIntensionalEqual { left = EVar gen_name ; right = gen_proj }
                               ; true_body = unit_value
-                              ; false_body = EAbort "Recursive type stub has different nonce than expected"
+                              ; false_body = EAbort "Recursive type stub has different nonce than expected when checking"
                               }
                           }
                         ; PAny, with_beta (check tau (EVar e)) ]
                       }
                     )
-                    ; wrap = lazy (fresh_abstraction "e_mu_wrap" @@ fun e -> with_beta (wrap tau (EVar e)))
+                    ; wrap = lazy (fresh_abstraction "e_mu_wrap" @@ fun e -> 
+                      EMatch { subject = EVar e ; patterns =
+                        [ PVariant { variant_label = Reserved.stub ; payload_id = gen_name },
+                          ELet { var = beta ; defn = EInt 0 ; body =
+                            EIf
+                              { cond = EIntensionalEqual { left = EVar gen_name ; right = gen_proj }
+                              ; true_body = EVar e
+                              ; false_body = EAbort "Recursive type stub has different nonce than expected when wrapping"
+                              }
+                          }
+                        ; PAny, with_beta (wrap tau (EVar e)) ]
+                      }
+                    )
                     }
           in
-          (* initial depth is hardcoded to be 3 *)
-          appl_list Embedded_functions.y_1 [ body ; (EInt 3) ]
+          (* initial depth is hardcoded to be 2 *)
+          appl_list Embedded_functions.y_1 [ body ; (EInt 2) ]
       in
       let _ = Stack.pop_exn cur_mu_vars in
       res

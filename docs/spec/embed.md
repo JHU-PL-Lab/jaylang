@@ -183,13 +183,22 @@ Notes:
         let B = 0 in (* needed to allow intensional equality to work--must simulate the generator at depth 0 *)
         if $gen === [[tau]].~gen (* intensional equality *)
         then {}
-        else abort "Recursive type stub has different nonce than expected"
+        else abort "Recursive type stub has different nonce than expected when checking"
       | _ -> (* run the normal checker *)
         let B = $self ($depth - 1) in [[tau]].~check $e 
+      end
     ; ~wrap = fun $e ->
-      let B = $self ($depth - 1) in [[tau]].~wrap $e
+      match $e with
+      | `Stub $gen ->
+        let B = 0 in (* needed to allow intensional equality to work--must simulate the generator at depth 0 *)
+        if $gen === [[tau]].~gen (* intensional equality *)
+        then $e (* nothing to do *)
+        else abort "Recursive type stub has different nonce than expected when wrapping"
+      | _ -> (* use the normal wrapper *)
+        let B = $self ($depth - 1) in [[tau]].~wrap $e
+      end
     }
-  ) 3 (* allowed depth is three by default *)
+  ) 2 (* allowed depth is two by default *)
 
 Y = 
   fun f ->
