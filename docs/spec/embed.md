@@ -147,9 +147,9 @@ Notes:
 #### Standard
 
 ```ocaml
-[[Mu B. tau]] =
+[[Mu B x1 ... xn. tau]] =
   thaw @@
-  Y (fun $self -> freeze
+  Y (fun $self -> freeze @@ fun x1 -> ... -> fun xn ->
     { ~gen = freeze @@
       let B = thaw $self in thaw [[tau]].~gen
     ; ~check = fun $e ->
@@ -171,8 +171,8 @@ Notes:
 #### With type-splaying
 
 ```ocaml
-[[Mu B. tau]] =
-  Y (fun $self -> fun $depth ->
+[[Mu B x1 ... xn. tau]] =
+  Y (fun $self -> fun $depth -> fun x1 -> ... fun xn ->
     { ~gen = freeze @@
       if $depth == 0
       then let B = 0 in `Stub [[tau]].~gen (* need to make some B so that [[tau]] is closed *)
@@ -189,7 +189,7 @@ Notes:
     ; ~wrap = fun $e ->
       let B = $self ($depth - 1) in [[tau]].~wrap $e
     }
-  ) 4 (* allowed depth is four *)
+  ) 3 (* allowed depth is three by default *)
 
 Y = 
   fun f ->

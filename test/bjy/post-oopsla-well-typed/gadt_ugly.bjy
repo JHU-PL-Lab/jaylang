@@ -38,7 +38,7 @@ end
   Any case that is OCaml's `'a t` is unified with the constrained cases
   by manually pasting them under such cases.
 *)
-let rec t (tp : tparam) : type =
+let t : tparam -> type = Mu t tp.
   match tp with
   | `Int _ -> (
     | `Const of Const.t tp

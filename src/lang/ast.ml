@@ -244,7 +244,7 @@ module Expr = struct
       | ETypeModule : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
       | ETypeFun : { domain : 'a t ; codomain : 'a t ; dep : [ `No | `Binding of Ident.t ] ; det : bool } -> 'a bluejay_or_desugared t
       | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
-      | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
+      | ETypeMu : { var : Ident.t ; params : Ident.t list ; body : 'a t } -> 'a bluejay_or_desugared t
       | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
       | ELetTyped : { typed_var : 'a typed_var ; defn : 'a t ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
       | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
@@ -450,7 +450,11 @@ module Expr = struct
           | ETypeRefinement r1, ETypeRefinement r2 -> 
             let- () = cmp r1.tau r2.tau in
             cmp r1.predicate r2.predicate
-          | ETypeMu r1, ETypeMu r2 -> compare (Alist.cons_assoc r1.var r2.var bindings) r1.body r2.body
+          | ETypeMu r1, ETypeMu r2 -> begin
+            match Alist.cons_assocs (r1.var :: r1.params) (r2.var :: r2.params) bindings with
+            | `Bindings bindings -> compare bindings r1.body r2.body
+            | `Unequal_lengths x -> x
+          end
           | ETypeVariant l1, ETypeVariant l2 ->
             List.compare (Tuple2.compare ~cmp1:VariantTypeLabel.compare ~cmp2:cmp) l1 l2
           | ELetTyped r1, ELetTyped r2 -> begin
@@ -749,7 +753,7 @@ module Bluejay = struct
     | ENot e
     | EFunction { param = _ ; body = e }
     | EVariant { label = _ ; payload = e }
-    | ETypeMu { var = _ ; body = e }
+    | ETypeMu { var = _ ; params = _ ; body = e }
     | ETypeSingle e
     | ETypeList e
     | EAssert e

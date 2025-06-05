@@ -13,7 +13,7 @@ let ty = Mu t.
   | `TSucc of t
 
 (* a "GADT" *)
-let rec t (a : ty) : type =
+let t : ty -> type = Mu t a.
   | `One of
     match a with
     | `TOne _ -> unit

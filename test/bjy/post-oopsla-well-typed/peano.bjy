@@ -14,7 +14,7 @@ let ty = Mu t.
   | `TSucc of t
 
 (* a "GADT" *)
-let rec t (a : ty) : type =
+let t : ty -> type = Mu t a.
   | `Zero of
     match a with
     | `TZero _ -> unit

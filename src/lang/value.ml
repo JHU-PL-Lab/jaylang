@@ -73,7 +73,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       | VTypeFun : { domain : 'a t ; codomain : 'a t ; det : bool } -> 'a bluejay_or_desugared t
       | VTypeDepFun : { binding : Ident.t ; domain : 'a t ; codomain : 'a closure ; det : bool } -> 'a bluejay_or_desugared t
       | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
-      | VTypeMu : { var : Ident.t ; closure : 'a closure } -> 'a bluejay_or_desugared t
+      | VTypeMu : { var : Ident.t ; params : Ident.t list ; closure : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
       | VTypeSingle : 'a t -> 'a bluejay_or_desugared t
       (* types in bluejay only *)
@@ -150,7 +150,11 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
           && equal_closure [ r1.binding, r2.binding ] r1.codomain r2.codomain
         | VTypeRefinement r1, VTypeRefinement r2 ->
           equal r1.tau r2.tau && equal r1.predicate r2.predicate
-        | VTypeMu r1, VTypeMu r2 -> equal_closure [ r1.var, r2.var ] r1.closure r2.closure
+        | VTypeMu r1, VTypeMu r2 -> begin
+          match Expr.Alist.cons_assocs (r1.var :: r1.params) (r2.var :: r2.params) Expr.Alist.empty with
+          | `Bindings bindings -> equal_closure bindings r1.closure r2.closure
+          | `Unequal_lengths _ -> false
+        end
         | VTypeVariant l1, VTypeVariant l2 ->
           List.equal (Tuple2.equal ~eq1:VariantTypeLabel.equal ~eq2:equal) l1 l2
         | VTypeSingle v1, VTypeSingle v2 -> equal v1 v2
@@ -225,7 +229,9 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     | VTypeIntersect ls ->
       Format.sprintf "(%s)"
         (String.concat ~sep:" && " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((``%s (%s)) -> %s)" s (to_string tau1) (to_string tau2)))
-    | VTypeMu { var = Ident s ; _ } -> Format.sprintf "(Mu %s. <expr>)" s
+    | VTypeMu { var = Ident s ; params ;  _ } -> 
+      Format.sprintf "(Mu %s. <expr>)"
+        (s ^ String.concat ~sep:" " @@ List.map params ~f:Ident.to_string)
     | VTypeVariant ls ->
       Format.sprintf "(%s)"
         (String.concat ~sep: "| " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(`%s of %s)" s (to_string tau)))

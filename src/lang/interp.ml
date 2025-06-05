@@ -204,13 +204,13 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | EIgnore { ignored ; body } ->
       let%bind _ = eval ignored in
       eval body
-    | ETypeMu { var ; body } ->
+    | ETypeMu { var ; params ; body } ->
       let%bind env = read_env in
       let rec rec_env = lazy (
-        Env.add var (VTypeMu { var ; closure = { body ; env = rec_env } }) env
+        Env.add var (VTypeMu { var ; params ; closure = { body ; env = rec_env } }) env
       )
       in
-      local_env (fun _ -> force rec_env) (eval (EVar var))
+      local_env (fun _ -> force rec_env) (eval (Ast_tools.Utils.abstract_over_ids params (EVar var)))
     (* operations *)
     | EListCons (e_hd, e_tl) -> begin
       let%bind hd = eval e_hd in

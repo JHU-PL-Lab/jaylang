@@ -177,8 +177,8 @@ expr:
 ;
 
 type_expr:
-  | MU l_ident DOT expr %prec prec_mu
-      { ETypeMu { var = $2 ; body = $4 } : Bluejay.t}
+  | MU l_ident list(l_ident) DOT expr %prec prec_mu
+      { ETypeMu { var = $2 ; params = $3 ; body = $5 } : Bluejay.t}
   | expr ARROW expr
       { ETypeFun { domain = $1 ; codomain = $3 ; dep = `No ; det = false } : Bluejay.t }
   | expr LONG_ARROW expr

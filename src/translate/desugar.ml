@@ -94,8 +94,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       ETypeModule (List.map m ~f:(fun (label, e) -> label, desugar e))
     | ETypeRefinement { tau ; predicate } ->
       ETypeRefinement { tau = desugar tau ; predicate = desugar predicate }
-    | ETypeMu { var ; body } ->
-      ETypeMu { var ; body = desugar body }
+    | ETypeMu { var ; params ; body } ->
+      ETypeMu { var ; params ; body = desugar body }
     | ETypeVariant ls_e ->
       ETypeVariant (List.map ls_e ~f:(fun (label, e) -> label, desugar e))
     | ELetTyped { typed_var = { var ; tau } ; defn ; body ; do_wrap ; do_check } ->
@@ -152,7 +152,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       }
     | ETypeList e_tau ->
       let t = Names.fresh_id ~suffix:"list_t" () in
-      ETypeMu { var = t ; body =
+      ETypeMu { var = t ; params = [] ; body =
         ETypeVariant
           [ (Reserved.nil_type, unit_type)
           ; (Reserved.cons_type,
