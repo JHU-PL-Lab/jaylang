@@ -2,6 +2,13 @@
 open Lang
 open Ast
 
+let cmd_arg_term =
+  let open Cmdliner.Term.Syntax in
+  let open Cmdliner.Arg in
+  let+ do_wrap = value & opt (enum ["yes", true ; "no", false]) true & info ["w"] ~doc:"Wrap flag: yes or no. Default is yes."
+  and+ do_type_splay = value & flag & info ["s"] ~doc:"Splay types on recursive functions" in
+  (`Do_wrap do_wrap, `Do_type_splay do_type_splay)
+
 let[@landmark] bjy_to_emb (bjy : Bluejay.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm =
   let module Names = Translation_tools.Fresh_names.Make () in
   bjy

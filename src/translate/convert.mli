@@ -5,6 +5,8 @@
   or type-embedded programs.
 *)
 
+val cmd_arg_term : ([ `Do_wrap of bool ] * [ `Do_type_splay of bool ]) Cmdliner.Term.t
+
 val bjy_to_des : Lang.Ast.Bluejay.pgm -> do_type_splay:bool -> Lang.Ast.Desugared.pgm
 (** [bjy_to_des bjy] is a desugared program that is identical to [bjy]. *)
 

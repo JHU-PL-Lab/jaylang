@@ -15,34 +15,24 @@ include T
 
 let default : t = T.t_of_sexp @@ Sexp.of_string "()"
 
+let cmd_arg_term =
+  let open Cmdliner.Term.Syntax in
+  let open Cmdliner.Arg in
+  let+ global_timeout_sec = value & opt float default.global_timeout_sec & info ["t"] ~doc:"Global timeout seconds"
+  and+ global_max_step = value & opt int default.global_max_step & info ["m"] ~doc:"Global max step"
+  and+ max_tree_depth = value & opt int default.max_tree_depth & info ["d"] ~doc:"Max tree depth"
+  and+ random = value & flag & info ["r"] ~doc:"Random"
+  and+ n_depth_increments = value & opt int default.n_depth_increments & info ["n"] ~doc:"Num depth increments"
+  and+ in_parallel = value & flag & info ["p"] ~doc:"Run checks in parallel" in
+  { global_timeout_sec
+  ; global_max_step
+  ; max_tree_depth
+  ; random
+  ; n_depth_increments
+  ; in_parallel }
+
 module type V = sig
   val r : t 
-end
-
-module Refs = struct
-  type t =
-    { global_timeout_sec : float ref
-    ; global_max_step    : int ref
-    ; max_tree_depth     : int ref
-    ; random             : bool ref
-    ; n_depth_increments : int ref
-    ; in_parallel        : bool ref }
-
-  let create_default () : t =
-    { global_timeout_sec = ref default.global_timeout_sec
-    ; global_max_step    = ref default.global_max_step
-    ; max_tree_depth     = ref default.max_tree_depth
-    ; random             = ref default.random
-    ; n_depth_increments = ref default.n_depth_increments
-    ; in_parallel        = ref default.in_parallel }
-
-  let without_refs (x : t) : T.t =
-    { global_timeout_sec = !(x.global_timeout_sec)
-    ; global_max_step    = !(x.global_max_step)
-    ; max_tree_depth     = !(x.max_tree_depth)
-    ; random             = !(x.random)
-    ; n_depth_increments = !(x.n_depth_increments)
-    ; in_parallel        = !(x.in_parallel) }
 end
 
 (* `Arrow` for optional arguments on functions *)

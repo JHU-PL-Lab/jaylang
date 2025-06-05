@@ -18,7 +18,7 @@
 (executable
  (name ceval)
  (modules ceval)
- (libraries core lang concolic translate)
+ (libraries core cmdliner lang concolic translate)
  (promote
   (until-clean)
   (into "../..")))
