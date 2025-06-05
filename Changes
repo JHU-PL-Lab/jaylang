@@ -15,6 +15,7 @@ Usability
 
 Language
 
+* Parametrized recursive types with `Mu t a b c. tau`, where `t` is a type function with parameters `a`, `b`, and `c`.
 * Sugar for refined function parameters, e.g. `let f (x : int | x == 0) ...`.
 * Dependent parameters have `dependent` or `dep` (strictly shorthand) keyword preceding them, and no more `letd`.
 * Deterministic functions.
