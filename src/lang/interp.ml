@@ -181,6 +181,9 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | EGen e ->
       let%bind _ : a V.t = eval e in
       return VAbort
+    | EUntouchable e ->
+      let%bind v = eval e in
+      return (VUntouchable v)
     (* bindings *)
     | EAppl { func ; arg } -> begin
       let%bind vfunc = eval func in

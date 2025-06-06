@@ -74,6 +74,7 @@ let rec equal (a : t) (b : t) : bool X.t =
   | VVariant r1, VVariant r2 ->
     let%bind () = assert_bool @@ Lang.Ast.VariantLabel.equal r1.label r2.label in
     equal r1.payload r2.payload
+  | VUntouchable v1, VUntouchable v2 -> equal v1 v2
   | VRecord r1, VRecord r2 -> eq_map_data equal r1 r2
   (* Intensional equality of expressions in closures *)
   | VFunClosure r1, VFunClosure r2 ->
@@ -173,6 +174,7 @@ and equal_closure bindings a b =
             if Lang.Ast.VariantLabel.equal v1.variant_label v2.variant_label
             then equal_expr ((v1.payload_id, v2.payload_id) :: bindings) e1 e2
             else never_equal
+          | PUntouchable id1, PUntouchable id2 -> equal_expr ((id1, id2) :: bindings) e1 e2
           | _ -> never_equal
         ) r1.patterns r2.patterns
       in
@@ -212,7 +214,8 @@ and equal_closure bindings a b =
     | EThaw e1, EThaw e2
     | EDet e1, EDet e2
     | EEscapeDet e1, EEscapeDet e2
-    | ENot e1, ENot e2 -> eq e1 e2
+    | ENot e1, ENot e2
+    | EUntouchable e1, EUntouchable e2 -> eq e1 e2
     (* Intensional equality *)
     | ETable, ETable
     | EPick_i, EPick_i

@@ -120,19 +120,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
     (* Patterns *)
     | EMatch { subject ; patterns } ->
       EMatch { subject = desugar subject ; patterns = 
-        match patterns with
-        | [] -> raise @@ Ast_tools.Exceptions.InvariantFailure "Impossible empty pattern list"
-        | [ p, e ] -> [ desugar_pattern p e ]
-        | _ -> 
-          List.bind patterns ~f:(fun (p, e) ->
-            match p with
-            | PAny | PVariable _ ->
-              (PVariant
-                { variant_label = Reserved.untouched
-                ; payload_id = Reserved.catchall }
-              , EAbort "Matched untouchable value") :: [ desugar_pattern p e ]
-            | _ -> [ desugar_pattern p e ]
-          )
+        List.map patterns ~f:(Tuple2.uncurry desugar_pattern)
       }
     (* Lists *)
     | EList [] ->

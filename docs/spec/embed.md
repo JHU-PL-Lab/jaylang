@@ -294,10 +294,10 @@ Because of the desugaring, we only have types and dependent types instead of pol
 [[ type ]] =
   { ~gen = freeze @@
     let i = pick_i in
-    { ~gen = freeze @@ `~Untouched { ~i = i ; ~nonce = pick_i }
+    { ~gen = freeze @@ Untouchable { ~i = i ; ~nonce = pick_i }
     ; ~check = fun $e ->
       match $e with
-      | `~Untouched v ->
+      | Untouchable v ->
         if v.~i == i
         then {}
         else abort "Non-equal untouchable values"

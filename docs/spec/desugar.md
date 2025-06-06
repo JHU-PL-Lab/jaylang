@@ -188,20 +188,6 @@ Notes:
 ## Pattern matching
 
 ```ocaml
-(| match e with
-  | p_1 -> e_1
-  | ...
-  | p_n -> e_n
-  | l_ident -> e_l_ident
-  end |) =
-match (| e |) with
-| (| p_1 -pat-> e_1 |) 
-| ...
-| (| p_n -pat-> e_n |)
-| `~Untouched _ -> abort "Matched untouchable value"
-| l_ident -> (| e_l_ident |)
-end
-
 (* Empty list pattern *)
 (| [] -pat-> e |) =
   `~Nil -pat-> (| e |)
@@ -212,12 +198,11 @@ end
 
 (| p -pat-> e |) =
   p -pat-> (| e |)
-
 ```
 
 Notes:
 * This involves desugaring list patterns, which is why we capture the whole `pat -> expr` instead of pattern and expression separately.
-* We assume that Untouched is a unique variant name the user cannot create.
+* The semantics of untouchable values is that they only match untouchable patterns and are not capture by `any` or variables, so there is no need to guard those patterns.
 * It is a parse error to have any patterns following a catchall pattern (any/_ or an identifier)
 
 ## Intersection types

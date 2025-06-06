@@ -151,6 +151,8 @@ module Pattern = struct
     | PAny : 'a t
     | PVariable : Ident.t -> 'a t
     | PVariant : { variant_label : VariantLabel.t ; payload_id : Ident.t } -> 'a t
+    (* only Embedded *)
+    | PUntouchable : Ident.t -> 'a embedded_only t
     (* only Bluejay *)
     | PEmptyList : 'a bluejay_only t
     | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_only t
@@ -159,8 +161,9 @@ module Pattern = struct
     | PAny -> 0
     | PVariable _ -> 1
     | PVariant _ -> 2
-    | PEmptyList -> 3
-    | PDestructList _ -> 4
+    | PUntouchable _ -> 3
+    | PEmptyList -> 4
+    | PDestructList _ -> 5
 
   let cmp : type a. a t -> a t -> [ `LT | `GT | `Eq of (Ident.t * Ident.t) list ] =
     fun a b ->
@@ -175,6 +178,7 @@ module Pattern = struct
           | x when x < 0 -> `LT
           | _ -> `GT
         end
+        | PUntouchable id1, PUntouchable id2 -> `Eq [ id1, id2 ]
         | PEmptyList, PEmptyList -> `Eq []
         | PDestructList r1, PDestructList r2 -> `Eq [ (r1.hd_id, r2.hd_id) ; (r1.tl_id, r2.tl_id) ]
         | _ -> raise @@ InvalidComparison "Impossible comparison of patterns"
@@ -184,8 +188,9 @@ module Pattern = struct
 
   let to_string : type a. a t -> string = function
     | PAny -> "any"
-    | PVariable Ident s -> Format.sprintf "var %s" s
-    | PVariant { variant_label  = VariantLabel Ident s ; _ } -> Format.sprintf "variant `%s" s
+    | PVariable Ident s -> Format.sprintf "%s" s
+    | PVariant { variant_label  = VariantLabel Ident s ; _ } -> Format.sprintf "`%s" s
+    | PUntouchable Ident s -> Format.sprintf "Untouchable %s" s
     | PEmptyList -> "[]"
     | PDestructList { hd_id = Ident hd ; tl_id = Ident tl } -> Format.sprintf "%s :: %s" hd tl
 end
@@ -229,6 +234,7 @@ module Expr = struct
       | EDet : 'a t -> 'a embedded_only t
       | EEscapeDet : 'a t -> 'a embedded_only t
       | EIntensionalEqual : { left : 'a t ; right : 'a t } -> 'a embedded_only t
+      | EUntouchable : 'a t -> 'a embedded_only t
       (* these exist in the desugared and embedded languages *)
       | EAbort : string -> 'a desugared_or_embedded t (* string is error message *)
       | EDiverge : 'a desugared_or_embedded t
@@ -314,7 +320,7 @@ module Expr = struct
       | ETypeVariant _ -> 36   | ELetTyped _ -> 37 | ETypeSingle _ -> 38       | ETypeList _ -> 39
       | ETypeIntersect _ -> 40 | EList _ -> 41     | EListCons _ -> 42         | EModule _ -> 43 
       | EAssert _ -> 44        | EAssume _ -> 45   | EMultiArgFunction _ -> 46 | ELetFun _ -> 47
-      | ELetFunRec _ -> 48     | EGen _  -> 49     | EIntensionalEqual _ -> 50
+      | ELetFunRec _ -> 48     | EGen _  -> 49     | EIntensionalEqual _ -> 50 | EUntouchable _ -> 51
 
     let statement_to_rank : type a. a statement -> int = function
       | SUntyped _ -> 0
@@ -434,6 +440,7 @@ module Expr = struct
             cmp r1.arg r2.arg
           | EDet e1, EDet e2 -> cmp e1 e2
           | EEscapeDet e1, EEscapeDet e2 -> cmp e1 e2
+          | EUntouchable e1, EUntouchable e2 -> cmp e1 e2
           | EAbort s1, EAbort s2 -> String.compare s1 s2
           | EGen e1, EGen e2 -> cmp e1 e2
           | ETypeRecord m1, ETypeRecord m2 -> RecordLabel.Map.compare cmp m1 m2
@@ -617,15 +624,7 @@ module Embedded = struct
     Ignores unbound variables. They get a new name, too.
 
     I had a little bit of fun with monad transformers and state/reader to write
-    this, but it was too impractical given that OCaml has effects.
-
-    The following assumption is not sound, we think.
-    Assumption: can partially evaluate `thaw (freeze e)` to `e` because the program
-      analysis is effectively deterministic. In fact, we can just remove thaw and freeze.
-      However, we need to be careful with the fixed point combinator because full removal
-      in all spots would cause that to diverge. But does that matter in program analysis?
-      Probably not.
-      For now, just peval, but see about removing fully.
+    this, but it was too impractical given that OCaml has effects to make this easy.
   *)
   let alphatized_of_expr (e : t) : E.t =
     (* order does not matter when alphatizing because we don't care about names, so mindless mutation is okay *)
@@ -682,6 +681,9 @@ module Embedded = struct
             | PVariant { variant_label ; payload_id } ->
               let id', env' = replace payload_id env in
               PVariant { variant_label ; payload_id = id' }, visit expr env'
+            | PUntouchable id ->
+              let id', env' = replace id env in
+              PUntouchable id', visit expr env'
           )
         }
       | EProject { record ; label } -> EProject { record = visit record env ; label }
@@ -699,6 +701,7 @@ module Embedded = struct
       | ETblAppl { tbl ; gen ; arg } -> ETblAppl { tbl = visit tbl env ; gen = visit gen env ; arg = visit arg env }
       | EDet expr -> EDet (visit expr env)
       | EEscapeDet expr -> EEscapeDet (visit expr env)
+      | EUntouchable expr -> EUntouchable (visit expr env)
     in
     visit e Ident.Map.empty
 
