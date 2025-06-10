@@ -1,8 +1,9 @@
 (***
   (
     (features (Refinement_types Mu_types Variants Records Recursive_functions))
-    (speed Slow)
+    (speed Slow) ; still takes over a second with type splaying because lots of trees are still possible
     (typing Well_typed)
+    (flags "-s")
   )
 *)
 

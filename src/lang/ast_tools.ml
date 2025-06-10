@@ -42,6 +42,7 @@ module Reserved = struct
   (* Variant type constructors *)
   let cons_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Cons") 
   let nil_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Nil") 
+  let stub_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Stub_for_mu")
 
   (* Idents *)
   let catchall : Ident.t = Ident "_"

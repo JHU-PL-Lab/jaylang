@@ -17,7 +17,6 @@ let Option = struct
     end
 end
 
-
 let ENUMERABLE = sig
   val t : type
   val compare : t -> t -> int

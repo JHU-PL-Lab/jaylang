@@ -1,7 +1,7 @@
 (***
   (
     (features (Polymorphic_types Refinement_types Dependent_types Records Recursive_functions))
-    (speed Slow) ; we exhaust in < 1 second if parallel and type splaying, but that's a little slow
+    (speed Slow) ; quite slow now that we go an extra level when type splaying. Like 25 seconds to prove well typed.
     (typing Well_typed)
     (flags "-s -p")
   )

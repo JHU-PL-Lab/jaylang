@@ -175,25 +175,19 @@ Notes:
   Y (fun $self -> fun $depth -> fun x1 -> ... fun xn ->
     { ~gen = freeze @@
       if $depth == 0
-      then let B = 0 in `Stub [[tau]].~gen (* need to make some B so that [[tau]] is closed *)
+      then let B = [[`~Stubbed_mu of unit]] in `~Stub [[tau]] (* Replaced B with some type the user cannot make *)
       else let B = $self ($depth - 1) in thaw [[tau]].~gen (* still have some depth allowed, so continue normally *)
     ; ~check = fun $e ->
       match $e with
-      | `Stub $gen ->
-        let B = 0 in (* needed to allow intensional equality to work--must simulate the generator at depth 0 *)
-        if $gen === [[tau]].~gen (* intensional equality *)
-        then {}
-        else abort "Recursive type stub has different nonce than expected when checking"
+      | `Stub $t ->
+        let B = [[`~Stubbed_mu of unit]] in
+        [[tau]].~check (thaw $t.~gen)
       | _ -> (* run the normal checker *)
         let B = $self ($depth - 1) in [[tau]].~check $e 
       end
     ; ~wrap = fun $e ->
       match $e with
-      | `Stub $gen ->
-        let B = 0 in (* needed to allow intensional equality to work--must simulate the generator at depth 0 *)
-        if $gen === [[tau]].~gen (* intensional equality *)
-        then $e (* nothing to do *)
-        else abort "Recursive type stub has different nonce than expected when wrapping"
+      | `Stub _ -> $e (* we can assume that $e checks out against $tau, so no wrapping to do *)
       | _ -> (* use the normal wrapper *)
         let B = $self ($depth - 1) in [[tau]].~wrap $e
       end
@@ -211,6 +205,7 @@ Notes:
 * This translation is only valid if the original Bluejay program contains no `input`. It is unsound in that case.
   * Therefore, before we run this translation, we first scan the source code for any `input` and fail as a "parse error" in the case one exists.
 * Notice that this match comes after the desugaring phase, so it is allowed to catch literally anything, including untouchable values
+* Currently, while `unit` is broken, this would be unsound, so we use `int` in its place. But as a TODO, this should be back to `unit` when that is fixed.
 
 ### Variant declarations
 
