@@ -122,12 +122,12 @@ benchmarking. Instead, use `make test-fast` to see the results or run the file i
 with `ceval.exe`. Results are deterministic by default (modulo small variations in timeout)
 and are therefore replicable.
 
-## Code
+## Coding in Bluejay
 
 Write Bluejay code in `.bjy ` files. It's recommended to use the syntax highlighter found
 in `bluejay-language/`. See the instructions there for how to install the highlighter as
 a VS Code extension.
 
-The grammar is not well documented currently. Details can be extracted from the parser,
-lexer, and AST, or (preferably) the programmer can refer to the many example programs
-in `test/bjy`.
+The features and syntax of Bluejay are informally but thoroughly documented in `docs/language/bluejay`.
+It is recommended to look there to learn the language, and then refer to the many example programs
+in the test suite.
