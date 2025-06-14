@@ -19,23 +19,22 @@ type _ t =
   | Timeout : 'a terminal t
 
   (* result from a single run *)
-  | Finished : { pruned : bool ; reached_max_step : bool ; stem : Stem.t } -> 'a eval t
+  | Finished : { pruned : bool } -> 'a eval t
 
-  (* status while evaluation is ongoing *)
-  | Diverge : 'a in_progress t
-  | In_progress : 'a in_progress t
+  (* status in between concolic runs *)
+  | In_progress : { pruned : bool ; has_unknown : bool } -> 'a in_progress t
 
 let is_terminal (type a) (x : a t) : bool =
   match x with
   | Found_abort _ | Type_mismatch _ | Timeout | Unbound_variable _ 
   | Exhausted_full_tree | Exhausted_pruned_tree | Unknown -> true
-  | Finished _ | Diverge | In_progress -> false
+  | Finished _ | In_progress _ -> false
 
 let is_error_found (type a) (x : a t) : bool =
   match x with
   | Found_abort _ | Type_mismatch _ | Unbound_variable _ -> true
   | Timeout | Exhausted_full_tree | Exhausted_pruned_tree | Unknown
-  | Finished _ | Diverge | In_progress -> false
+  | Finished _ | In_progress _ -> false
 
 let to_string (type a) (x : a t) : string =
   match x with
@@ -47,8 +46,7 @@ let to_string (type a) (x : a t) : string =
   | Unknown                  -> "Unknown due to solver timeout"
   | Timeout                  -> "Timeout"
   | Finished _               -> "Finished interpretation"
-  | Diverge                  -> "Diverge"
-  | In_progress              -> "In progress"
+  | In_progress _            -> "In progress"
 
 let to_loud_string (type a) (x : a t) : string =
   let make_loud s =

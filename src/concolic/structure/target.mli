@@ -41,10 +41,14 @@
 
 type t
 
-val empty : t
+val make : int -> Path.t -> t
+
+val step : t -> int
+
+(* val empty : t *)
 (** [empty] is the meaningless target. It targets nothing. *)
 
-val cons : 'a Claim.t -> t -> t
+(* val cons : 'a Claim.t -> t -> t *)
 (** [cons claim t] is a new target where the [claim] is pushed on top
     of [t] as another constraint. *)
 

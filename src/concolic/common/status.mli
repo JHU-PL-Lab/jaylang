@@ -36,11 +36,10 @@ type _ t =
   | Timeout : 'a terminal t
 
   (* result from a single run *)
-  | Finished : { pruned : bool ; reached_max_step : bool ; stem : Stem.t } -> 'a eval t
+  | Finished : { pruned : bool } -> 'a eval t
 
-  (* status while evaluation is ongoing *)
-  | Diverge : 'a in_progress t
-  | In_progress : 'a in_progress t
+  (* status in between concolic runs *)
+  | In_progress : { pruned : bool ; has_unknown : bool } -> 'a in_progress t
 
 val is_terminal : 'a t -> bool
 (** [is_terminal status] is true if and only if the [status] indicates the end

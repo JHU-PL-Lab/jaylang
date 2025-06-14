@@ -17,7 +17,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
     ; has_pruned         = false
     ; has_solver_unknown = false }
 
-  let accum_eval (x : t) (ev : Status.Eval.t) : t =
+  let accum_eval (x : t) (ev : Status.Eval.t) (targets : Target.t list) : t =
     ev
     |> begin function
       | (Status.Found_abort _ | Type_mismatch _ | Unbound_variable _) as res -> x.target_queue, x.has_pruned, res
@@ -55,7 +55,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
       | `Unknown -> get_sat_target { new_x with has_solver_unknown = true }
       | `Unsat -> get_sat_target new_x
 
-  let[@landmark] next (x : t) : [ `Done of Status.Terminal.t | `Next of (t * Eval_session.t) ] P.t =
+  let[@landmark] next (x : t) : [ `Done of Status.Terminal.t | `Next of (t * Semantics.Consts.t) ] P.t =
     let open P in
     let done_ () =
       return

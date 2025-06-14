@@ -109,14 +109,4 @@ module Arrow = struct
           make @@ fun r -> fun (a, c) ->
             (appl ab r a), c
     end)
-
-  let uncurry
-    : 'a 'b 'c. ('a, 'b -> 'c) t -> ('a * 'b, 'c) t
-    = fun abc ->
-      fst abc >>^ (fun (bc, b) -> bc b)
-
-  let thaw
-    : 'a 'b. (unit, 'a -> 'b) t -> ('a, 'b) t
-    = fun x ->
-      uncurry x <<^ (fun y -> (), y)
 end

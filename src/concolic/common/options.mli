@@ -64,7 +64,4 @@ module Arrow : sig
 
   val make : (T.t -> 'b -> 'c) -> ('b, 'c) t
   (** [make f] accepts optional arguments and applies them in the default record to [f]. *)
-
-  val thaw : (unit, 'a -> 'b) t -> ('a, 'b) t
-  (** [thaw x] is [uncurry x <<^ (fun y -> (), y)] *)
 end

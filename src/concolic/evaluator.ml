@@ -4,66 +4,6 @@ open Lang.Ast
 open Expr
 open Value
 
-module State_M = struct
-  module State = struct
-    type t =
-      { step : int 
-      ; max_step : int 
-      ; session : Eval_session.t }
-  end
-
-  include Lang.Interp_monad.Make (State) (struct
-    type value = Value.t
-    include Env
-  end) (struct
-    include Status.Eval
-    let fail_on_nondeterminism_misuse (state : State.t) : t =
-      Eval_session.abort "Nondeterminism used when not allowed." state.session
-    let fail_on_fetch (id : Ident.t) (state : State.t) : t =
-      Eval_session.unbound_variable state.session id
-  end)
-
-  let run (x : 'a m) (session : Eval_session.t) : Status.Eval.t =
-    x.run
-      ~reject:Fn.id
-      ~accept:(fun _ s -> Eval_session.finish s.session)
-      State.{ step = 0 ; max_step = Eval_session.get_max_step session ; session }
-      Read.empty
-
-  let[@inline always][@specialise] modify_session (f : Eval_session.t -> Eval_session.t) : unit m =
-    modify (fun s -> { s with session = f s.session })
-
-  (*
-    As a general observation, it is more efficient to be hands-on and write this
-    using the structure of State_read_result instead of using `read`, `return`, etc.
-    I suppose this is due to better inlining. I consider the tradeoff in favor
-    of more efficiency to be worth the less general code.
-  *)
-  let incr_step : int m =
-    { run =
-      fun ~reject ~accept s _ ->
-        let step = s.step + 1 in
-        if step > s.max_step
-        then reject @@ Eval_session.reach_max_step s.session
-        else accept step { s with step }
-    }
-
-  let[@inline always][@specialise] modify_and_return (f : Eval_session.t -> Eval_session.t * 'a) : 'a m =
-    { run =
-      fun ~reject:_ ~accept s _ ->
-        let session, a = f s.session in
-        accept a { s with session }
-    }
-
-  let[@inline always] fail_map (f : Eval_session.t -> Status.Eval.t) : 'a m =
-    let%bind ({ session ; _ }, _) = read in
-    fail @@ f session
-
-  let diverge : 'a m = fail_map Eval_session.diverge
-  let abort msg: 'a m = fail_map @@ Eval_session.abort msg
-  let type_mismatch msg : 'a m = fail_map @@ Eval_session.type_mismatch msg
-end
-
 module Error_msg = Lang.Value.Error_msg (Value)
 
 (*
@@ -71,11 +11,11 @@ module Error_msg = Lang.Value.Error_msg (Value)
   Can I then optimize it to not have to pass it around most of the time?
 *)
 let eval_exp 
-  (session : Eval_session.t)
-  (expr : Embedded.t) 
-  : Status.Eval.t
+  (module S : Semantics.S)
+  (expr : Embedded.t Semantics.M.m) 
+  : Status.Eval.t * Target.t list
   =
-  let open State_M in
+  let open S in
 
   let rec eval (expr : Embedded.t) : Value.t m =
     let open Value.M in (* puts the value constructors in scope *)
@@ -193,7 +133,7 @@ let eval_exp
       match%bind eval cond with
       | VBool (b, e) ->
         let body = if b then true_body else false_body in
-        let%bind () = modify_session @@ Eval_session.hit_branch (Direction.of_bool b) e in
+        let%bind () = hit_branch (Direction.of_bool b) e in
         eval body
       | v -> type_mismatch @@ Error_msg.cond_non_bool v
     end
@@ -205,10 +145,10 @@ let eval_exp
         match body_opt with
         | Some body -> (* found a matching case *)
           let other_cases = List.filter int_cases ~f:((<>) i) in
-          let%bind () = modify_session @@ Eval_session.hit_case (Direction.of_int i) e ~other_cases in
+          let%bind () = hit_case (Direction.of_int i) e ~other_cases in
           eval body
         | None -> (* no matching case, so take default case *)
-          let%bind () = modify_session @@ Eval_session.hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases in
+          let%bind () = hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases in
           eval default
       end
       | v -> type_mismatch @@ Error_msg.case_non_int v
@@ -216,10 +156,10 @@ let eval_exp
     (* Inputs *)
     | EPick_i ->
       let%bind () = assert_nondeterminism in
-      modify_and_return @@ Eval_session.get_input (Stepkey.I step)
+      get_input (Stepkey.I step)
     | EPick_b ->
       let%bind () = assert_nondeterminism in
-      modify_and_return @@ Eval_session.get_input (Stepkey.B step)
+      get_input (Stepkey.B step)
     (* Tables -- includes some branching *)
     | ETable -> return (VTable { alist = [] })
     | ETblAppl { tbl ; gen ; arg } -> begin
@@ -231,7 +171,7 @@ let eval_exp
             match%bind acc_m with
             | None -> 
               let (b, e) = Value.equal input v in
-              let%bind () = modify_session @@ Eval_session.hit_branch (Direction.of_bool b) e in
+              let%bind () = hit_branch (Direction.of_bool b) e in
               if b
               then return (Some output)
               else return None
@@ -252,7 +192,7 @@ let eval_exp
     | EDiverge -> diverge
   in
 
-  run (eval expr) session
+  run (bind expr eval)
 
 (*
   -------------------
@@ -270,13 +210,43 @@ let global_runtime = Utils.Safe_cell.create 0.0
 let global_solvetime = Utils.Safe_cell.create 0.0
 
 module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
-  module Intra = Intra_session.Make (S) (P) (O)
+  module Sess = Session.Make (S) (P) (O)
+  module TQ = Target_queue.All
 
-  let rec loop (e : Embedded.t) (main_session : Intra.t) (session : Eval_session.t) : Status.Terminal.t P.t =
+  let empty_tq = Options.Arrow.appl TQ.of_options O.r ()
+
+  let rec step : Embedded.t -> Status.Eval.t -> Status.In_progress.t -> TQ.t -> Status.Terminal.t P.t =
+    fun e s s' tq ->
+      let open P in
+      let* () = pause () in
+      match s with
+      | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s' -> return s'
+      | Finished { pruned ; reached_max_step } ->
+        match TQ.peek tq with
+        | Some target -> begin
+          match S.solve (Target.to_expressions target) with
+          | `Sat feeder -> failwith "handle sat"
+          | `Unknown -> failwith "handle unknown"
+          | `Unsat -> step e s 
+        end
+        | None ->
+
+  let eval : Embedded.t -> Status.Terminal.t P.t =
+    fun e ->
+      let module I = Semantics.Initialize (struct
+        let c =
+          Semantics.Consts.{ target_step = -1
+          ; options = O.r
+          ; input_feeder = Input_feeder.zero }  
+      end) in
+      let status, targets = eval_exp (module I) (I.return e) in
+      step e status (TQ.push_list empty_tq targets)
+
+  (* let rec loop (e : Embedded.t Semantics.M.m) (session : Sess.t) : Status.Terminal.t P.t =
     let open P in
     let* () = pause () in
     let t0 = Caml_unix.gettimeofday () in
-    let res = eval_exp session e in
+    let res, targets = eval_exp e in
     let t1 = Caml_unix.gettimeofday () in
     let _ = Utils.Safe_cell.map ((+.) (t1 -. t0)) global_runtime in
     Intra.next
@@ -297,7 +267,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
       if not O.r.random then C_random.reset ();
       let session = Options.Arrow.appl Eval_session.with_options O.r Eval_session.empty in
       P.with_timeout O.r.global_timeout_sec
-      @@ fun () -> loop e Intra.empty session
+      @@ fun () -> loop e Intra.empty session *)
 end
 
 module F = Make (Solve.Default) (Pause.Lwt)
