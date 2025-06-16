@@ -41,7 +41,11 @@ end) (Tape : Preface.Specs.MONOID) = struct
     { run =
       fun ~reject ~accept s r ->
         x.run s r ~reject ~accept:(fun x t1 s ->
-          (f x).run ~reject ~accept:(fun y t2 s ->
+          Format.printf "Binding where t1 tape is %d long\n" (List.length (Obj.magic t1));
+          (f x).run ~reject:(fun err t2 ->
+            reject err (Tape.combine t1 t2)
+          ) ~accept:(fun y t2 s ->
+            Format.printf "Binding where t2 tape is %d long\n" (List.length (Obj.magic t2));
             accept y (Tape.combine t1 t2) s
           ) s r
         )
@@ -154,8 +158,7 @@ module State = struct
     List.rev rev_inputs
 end
 
-(* TODO: might want to short-circuit append on empty list *)
-module Log = Preface.List.Monoid (Target)
+module Log = Utils.List_monoid.Make (Target)
 
 module Read = struct
   include Status.Eval
@@ -217,7 +220,8 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
   let push_branch_and_tell (type a) (dir : a Direction.t) (e : a Expression.t) 
       (tape : a Claim.t -> Path.t -> step:int -> Tape.t) : unit m =
     let%bind s, _ = read in
-    if s.step < target_step || Path.length s.path >= max_depth
+    Format.printf "Hitting branch, and curent step is %d and path length is %d\n" s.step (Path.length s.path);
+    if s.step <= target_step || Path.length s.path >= max_depth
     then return ()
     else
       let claim = Claim.Equality (e, dir) in
@@ -226,6 +230,7 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
 
   let hit_branch (dir : bool Direction.t) (e : bool Expression.t) : unit m =
     push_branch_and_tell dir e (fun claim path ~step ->
+      Format.printf "Telling target branch\n";
       [ Target.make
         step 
         (Path.cons (Claim.to_expression (Claim.flip claim)) path)
@@ -259,6 +264,9 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
   let run (x : 'a m) : Status.Eval.t * Tape.t =
     match run x State.empty Read.empty with
     | Ok (_, s), t ->
+      Format.printf "Finished with log length %d\n" (List.length t);
       Status.Finished { pruned = Path.length s.path > max_depth || s.step > max_step }, t
-    | Error s, t -> s, t
+    | Error s, t ->
+      Format.printf "Errored with log length %d\n" (List.length t);
+       s, t
 end

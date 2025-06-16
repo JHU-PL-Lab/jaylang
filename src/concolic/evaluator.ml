@@ -2,7 +2,6 @@
 open Core
 open Lang.Ast
 open Expr
-open Value
 
 module Error_msg = Lang.Value.Error_msg (Value)
 
@@ -210,26 +209,40 @@ let global_runtime = Utils.Safe_cell.create 0.0
 let global_solvetime = Utils.Safe_cell.create 0.0
 
 module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
-  module Sess = Session.Make (S) (P) (O)
   module TQ = Target_queue.All
 
   let empty_tq = Options.Arrow.appl TQ.of_options O.r ()
 
-  let rec step : Embedded.t -> Status.Eval.t -> Status.In_progress.t -> TQ.t -> Status.Terminal.t P.t =
-    fun e s s' tq ->
+  let rec step : Embedded.t -> has_pruned:bool -> has_unknown:bool -> TQ.t -> Status.Terminal.t P.t =
+    fun e ~has_pruned ~has_unknown tq ->
       let open P in
       let* () = pause () in
-      match s with
-      | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s' -> return s'
-      | Finished { pruned ; reached_max_step } ->
-        match TQ.peek tq with
-        | Some target -> begin
-          match S.solve (Target.to_expressions target) with
-          | `Sat feeder -> failwith "handle sat"
-          | `Unknown -> failwith "handle unknown"
-          | `Unsat -> step e s 
-        end
-        | None ->
+      match TQ.peek tq with
+      | Some target -> begin
+        let tq = TQ.remove tq target in
+        match S.solve (Target.to_expressions target) with
+        | `Sat feeder -> begin
+            let module I = Semantics.Initialize (struct
+              let c = Semantics.Consts.{ target_step = Target.step target ; options = O.r ; input_feeder = feeder }
+            end)
+            in
+            let status, targets = eval_exp (module I) (I.return e) in
+            match status with
+            | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
+            | Finished { pruned } ->
+              let has_pruned = has_pruned || pruned in
+              step e ~has_pruned ~has_unknown (TQ.push_list tq targets)
+          end
+        | `Unknown -> step e ~has_pruned ~has_unknown:true tq
+        | `Unsat -> step e ~has_pruned ~has_unknown tq
+      end
+      | None ->
+        if has_unknown then
+          return Status.Unknown
+        else if has_pruned then
+          return Status.Exhausted_pruned_tree
+        else
+          return Status.Exhausted_full_tree
 
   let eval : Embedded.t -> Status.Terminal.t P.t =
     fun e ->
@@ -240,7 +253,10 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
           ; input_feeder = Input_feeder.zero }  
       end) in
       let status, targets = eval_exp (module I) (I.return e) in
-      step e status (TQ.push_list empty_tq targets)
+      match status with
+      | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
+      | Finished { pruned } ->
+        step e ~has_pruned:pruned ~has_unknown:false (TQ.push_list empty_tq targets)
 
   (* let rec loop (e : Embedded.t Semantics.M.m) (session : Sess.t) : Status.Terminal.t P.t =
     let open P in

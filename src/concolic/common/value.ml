@@ -27,7 +27,7 @@ module X = struct
     This is because I'm tired of calling (&&) on the result, and a simple `and_bool` that
     modifies the state would be good.
   *)
-  include Preface.Make.Writer.Over_monad (Preface.Option.Monad) (Preface.List.Monoid (struct type t = bool Expression.t end))
+  include Preface.Make.Writer.Over_monad (Preface.Option.Monad) (Utils.List_monoid.Make (struct type t = bool Expression.t end))
   let bind x f = bind f x
 
   let never_equal : 'a t = None
