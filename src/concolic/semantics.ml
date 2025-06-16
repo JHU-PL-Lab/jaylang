@@ -35,9 +35,9 @@ end) (Tape : Preface.Specs.MONOID) = struct
   *)
   type 'a m = {
     run : 'r. reject:(Err.t -> Tape.t -> 'r) -> accept:('a -> Tape.t -> State.t -> 'r) -> State.t -> Read.t -> 'r
-  } 
+  }
 
-  let[@inline always][@specialise] bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
+  let[@inline always][@specialise][@landmark] bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
     { run =
       fun ~reject ~accept s r ->
         x.run s r ~reject ~accept:(fun x t1 s ->
@@ -166,13 +166,22 @@ module Read = struct
     Status.Unbound_variable (State.inputs s, id)
 end
 
-module M = Make (State) (Value.Env) (Read) (Log)
+module M = struct
+  include Make (State) (Value.Env) (Read) (Log)
+
+  let abort (msg : string) : 'a m =
+    let%bind s, _ = read in
+    fail (Status.Found_abort (State.inputs s, msg))
+
+  let type_mismatch (msg : string) : 'a m =
+    let%bind s, _ = read in
+    fail (Status.Type_mismatch (State.inputs s, msg))
+
+end
 
 module type S = sig
   type 'a m = 'a M.m
   val diverge : 'a m
-  val abort : string -> 'a m
-  val type_mismatch : string -> 'a m
   val incr_step : int m
   val hit_branch : bool Direction.t -> bool Expression.t -> unit m
   val hit_case : int Direction.t -> int Expression.t -> other_cases:int list -> unit m
@@ -190,19 +199,9 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
 
   open M
 
-  let finish_safely : 'a m =
+  let diverge : 'a m =
     let%bind s, _ = read in
     fail @@ Status.Finished { pruned = Path.length s.path > max_depth || s.step > max_step }
-
-  let diverge = finish_safely
-
-  let abort (msg : string) : 'a m =
-    let%bind s, _ = read in
-    fail (Status.Found_abort (State.inputs s, msg))
-
-  let type_mismatch (msg : string) : 'a m =
-    let%bind s, _ = read in
-    fail (Status.Type_mismatch (State.inputs s, msg))
 
   (* this is hardcoded to the structure of the monad for efficiency *)
   let incr_step : int m =

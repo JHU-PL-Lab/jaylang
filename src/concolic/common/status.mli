@@ -16,7 +16,6 @@
 
   Dependencies:
     Input -- in order to convey how to hit an abort of type mismatch
-    Stem -- part of the result from interpretation
 *)
 
 (* The following types are just constraints to use in the GADT. *)
