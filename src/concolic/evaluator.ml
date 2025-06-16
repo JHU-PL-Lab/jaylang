@@ -257,33 +257,6 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
       | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
       | Finished { pruned } ->
         step e ~has_pruned:pruned ~has_unknown:false (TQ.push_list empty_tq targets)
-
-  (* let rec loop (e : Embedded.t Semantics.M.m) (session : Sess.t) : Status.Terminal.t P.t =
-    let open P in
-    let* () = pause () in
-    let t0 = Caml_unix.gettimeofday () in
-    let res, targets = eval_exp e in
-    let t1 = Caml_unix.gettimeofday () in
-    let _ = Utils.Safe_cell.map ((+.) (t1 -. t0)) global_runtime in
-    Intra.next
-    @@ Intra.accum_eval main_session res
-    >>= begin function
-      | `Done status ->
-        let t2 = Caml_unix.gettimeofday () in
-        let _ = Utils.Safe_cell.map ((+.) (t2 -. t1)) global_solvetime in
-        return status
-      | `Next (session, symb_session) ->
-        let t2 = Caml_unix.gettimeofday () in
-        let _ = Utils.Safe_cell.map ((+.) (t2 -. t1)) global_solvetime in
-        loop e session symb_session
-      end
-
-  let eval : Embedded.t -> Status.Terminal.t P.t =
-    fun e ->
-      if not O.r.random then C_random.reset ();
-      let session = Options.Arrow.appl Eval_session.with_options O.r Eval_session.empty in
-      P.with_timeout O.r.global_timeout_sec
-      @@ fun () -> loop e Intra.empty session *)
 end
 
 module F = Make (Solve.Default) (Pause.Lwt)

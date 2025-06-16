@@ -217,8 +217,8 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
 
   let push_branch_and_tell (type a) (dir : a Direction.t) (e : a Expression.t) 
       (tape : a Claim.t -> Path.t -> step:int -> Tape.t) : unit m =
+    if Expression.is_const e then return () else
     let%bind s, _ = read in
-    Format.printf "Hitting branch, and curent step is %d and path length is %d\n" s.step (Path.length s.path);
     let claim = Claim.Equality (e, dir) in
     let%bind () = modify (fun s' -> { s' with path = Path.cons (Claim.to_expression claim) s'.path }) in
     if s.step <= target_step || Path.length s.path >= max_depth
@@ -227,7 +227,6 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
 
   let hit_branch (dir : bool Direction.t) (e : bool Expression.t) : unit m =
     push_branch_and_tell dir e (fun claim path ~step ->
-      Format.printf "Telling target branch\n";
       [ Target.make
         step 
         (Path.cons (Claim.to_expression (Claim.flip claim)) path)
@@ -261,9 +260,6 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
   let run (x : 'a m) : Status.Eval.t * Tape.t =
     match run x State.empty Read.empty with
     | Ok (_, s), t ->
-      Format.printf "Finished with log length %d\n" (List.length t);
       Status.Finished { pruned = Path.length s.path > max_depth || s.step > max_step }, t
-    | Error s, t ->
-      Format.printf "Errored with log length %d\n" (List.length t);
-       s, t
+    | Error s, t -> s, t
 end
