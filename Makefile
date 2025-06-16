@@ -51,4 +51,4 @@ test-interp:
 # benchmark
 
 cbenchmark:
-	dune exec --profile=release $(BENCH_C)/cbenchmark.exe
+	dune exec --profile=release $(BENCH_C)/cbenchmark.exe -- $(ARGS)

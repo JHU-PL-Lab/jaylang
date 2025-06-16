@@ -260,7 +260,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
       P.with_timeout O.r.global_timeout_sec @@ fun () ->
       let module I = Semantics.Initialize (struct
         let c =
-          Semantics.Consts.{ target_step = -1
+          Semantics.Consts.{ target_step = 0
           ; options = O.r
           ; input_feeder = Input_feeder.zero }  
       end) in
