@@ -228,6 +228,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
         let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
         match solve_result with
         | `Sat feeder -> begin
+            let* () = pause () in
             let module I = Semantics.Initialize (struct
               let c = Semantics.Consts.{ target_step = Target.step target ; options = O.r ; input_feeder = feeder }
             end)
@@ -241,8 +242,8 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
               let has_pruned = has_pruned || pruned in
               step e ~has_pruned ~has_unknown (TQ.push_list tq targets)
           end
-        | `Unknown -> step e ~has_pruned ~has_unknown:true tq
-        | `Unsat -> step e ~has_pruned ~has_unknown tq
+        | `Unknown -> let* () = pause () in step e ~has_pruned ~has_unknown:true tq
+        | `Unsat -> let* () = pause () in step e ~has_pruned ~has_unknown tq
       end
       | None ->
         let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_solvetime in
