@@ -246,6 +246,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
 
   let eval : Embedded.t -> Status.Terminal.t P.t =
     fun e ->
+      if not O.r.random then C_random.reset ();
       let module I = Semantics.Initialize (struct
         let c =
           Semantics.Consts.{ target_step = -1
