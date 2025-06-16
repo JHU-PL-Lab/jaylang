@@ -6,8 +6,9 @@ open Expr
 module Error_msg = Lang.Value.Error_msg (Value)
 
 (*
-  The only time we really update the session is on max step or hitting a branch.
-  Can I then optimize it to not have to pass it around most of the time?
+  It's likely a good idea to use real OCaml state and effects to get
+  performance, but for this pass, we use a monad to encode the concolic
+  semantics. It just helps with correctness that way.
 *)
 let eval_exp 
   (module S : Semantics.S)
@@ -15,6 +16,7 @@ let eval_exp
   : Status.Eval.t * Target.t list
   =
   let open S in
+  let open Semantics.M in
 
   let rec eval (expr : Embedded.t) : Value.t m =
     let open Value.M in (* puts the value constructors in scope *)
@@ -191,14 +193,14 @@ let eval_exp
     | EDiverge -> diverge
   in
 
-  run (bind expr eval)
+  S.run (bind expr eval)
 
 (*
   -------------------
   BEGIN CONCOLIC EVAL   
   -------------------
 
-  This sections starts up and runs the concolic evaluator (see the eval_exp above)
+  This section starts up and runs the concolic evaluator (see the eval_exp above)
   repeatedly to hit all the branches.
 
   This eval spans multiple interpretations, hitting a provably different
@@ -217,16 +219,22 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
     fun e ~has_pruned ~has_unknown tq ->
       let open P in
       let* () = pause () in
+      let t0 = Caml_unix.gettimeofday () in
       match TQ.peek tq with
       | Some target -> begin
         let tq = TQ.remove tq target in
-        match S.solve (Target.to_expressions target) with
+        let solve_result = S.solve (Target.to_expressions target) in
+        let t1 = Caml_unix.gettimeofday () in
+        let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
+        match solve_result with
         | `Sat feeder -> begin
             let module I = Semantics.Initialize (struct
               let c = Semantics.Consts.{ target_step = Target.step target ; options = O.r ; input_feeder = feeder }
             end)
             in
-            let status, targets = eval_exp (module I) (I.return e) in
+            let status, targets = eval_exp (module I) (Semantics.M.return e) in
+            let t2 = Caml_unix.gettimeofday () in
+            let _ : float = Utils.Safe_cell.map (fun t -> t +. (t2 -. t1)) global_runtime in
             match status with
             | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
             | Finished { pruned } ->
@@ -237,6 +245,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
         | `Unsat -> step e ~has_pruned ~has_unknown tq
       end
       | None ->
+        let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_solvetime in
         if has_unknown then
           return Status.Unknown
         else if has_pruned then
@@ -253,7 +262,9 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
           ; options = O.r
           ; input_feeder = Input_feeder.zero }  
       end) in
-      let status, targets = eval_exp (module I) (I.return e) in
+      let t0 = Caml_unix.gettimeofday () in
+      let status, targets = eval_exp (module I) (Semantics.M.return e) in
+      let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_runtime in
       match status with
       | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
       | Finished { pruned } ->

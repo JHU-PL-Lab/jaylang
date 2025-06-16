@@ -169,8 +169,7 @@ end
 module M = Make (State) (Value.Env) (Read) (Log)
 
 module type S = sig
-  include module type of M
-
+  type 'a m = 'a M.m
   val diverge : 'a m
   val abort : string -> 'a m
   val type_mismatch : string -> 'a m
@@ -178,7 +177,7 @@ module type S = sig
   val hit_branch : bool Direction.t -> bool Expression.t -> unit m
   val hit_case : int Direction.t -> int Expression.t -> other_cases:int list -> unit m
   val get_input : 'a Stepkey.t -> Value.t m
-  val run : 'a m -> Status.Eval.t * Tape.t
+  val run : 'a m -> Status.Eval.t * M.Tape.t
 end
 
 module Initialize (C : sig val c : Consts.t end) : S = struct
@@ -187,7 +186,9 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
   let input_feeder = C.c.input_feeder
   let target_step = C.c.target_step
 
-  include M
+  type 'a m = 'a M.m
+
+  open M
 
   let finish_safely : 'a m =
     let%bind s, _ = read in

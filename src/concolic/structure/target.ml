@@ -8,11 +8,6 @@ type t =
   ; step : int
   ; path : Path.t }
 
-(* let empty : t =
-  { path_n = 0
-  ; uniq_id = Utils.Counter.next uid
-  ; step = 0 *)
-
 let make (step : int) (path : Path.t) : t =
   { path_n = Path.length path
   ; uniq_id = Utils.Counter.next uid
@@ -21,11 +16,6 @@ let make (step : int) (path : Path.t) : t =
 
 let step ({ step ; _ } : t) : int =
   step
-
-(* let cons (claim : 'a Claim.t) (target : t) : t =
-  { path_n = target.path_n + 1
-  ; uniq_id = Utils.Counter.next uid
-  ; exprs = Claim.to_expression claim :: target.exprs } *)
 
 let to_expressions ({ path ; _ } : t) : bool Expression.t list =
   Path.to_exprs path

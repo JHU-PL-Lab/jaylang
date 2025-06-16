@@ -5,8 +5,6 @@ type 'a terminal = 'a constraint 'a = [ `Terminal ]
 
 type 'a eval = 'a constraint 'a = [ `Eval ]
 
-type 'a in_progress = 'a constraint 'a = [ `In_progress ]
-
 type _ t =
   | Found_abort : Input.t list * string -> 'a t
   | Type_mismatch : Input.t list * string -> 'a t
@@ -21,20 +19,17 @@ type _ t =
   (* result from a single run *)
   | Finished : { pruned : bool } -> 'a eval t
 
-  (* status in between concolic runs *)
-  | In_progress : { pruned : bool ; has_unknown : bool } -> 'a in_progress t
-
 let is_terminal (type a) (x : a t) : bool =
   match x with
   | Found_abort _ | Type_mismatch _ | Timeout | Unbound_variable _ 
   | Exhausted_full_tree | Exhausted_pruned_tree | Unknown -> true
-  | Finished _ | In_progress _ -> false
+  | Finished _ -> false
 
 let is_error_found (type a) (x : a t) : bool =
   match x with
   | Found_abort _ | Type_mismatch _ | Unbound_variable _ -> true
   | Timeout | Exhausted_full_tree | Exhausted_pruned_tree | Unknown
-  | Finished _ | In_progress _ -> false
+  | Finished _ -> false
 
 let to_string (type a) (x : a t) : string =
   match x with
@@ -46,7 +41,6 @@ let to_string (type a) (x : a t) : string =
   | Unknown                  -> "Unknown due to solver timeout"
   | Timeout                  -> "Timeout"
   | Finished _               -> "Finished interpretation"
-  | In_progress _            -> "In progress"
 
 let to_loud_string (type a) (x : a t) : string =
   let make_loud s =
@@ -63,10 +57,6 @@ let to_loud_string (type a) (x : a t) : string =
   | [ s ] -> make_loud s
   | before_colon :: after_colon :: [] -> make_loud before_colon ^ ":" ^ after_colon
   | _ -> failwith "this doesn't make sense"
-
-module In_progress = struct
-  type nonrec t = [ `In_progress ] t
-end
 
 module Eval = struct
   type nonrec t = [ `Eval ] t
