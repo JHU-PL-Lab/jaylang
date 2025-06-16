@@ -41,11 +41,9 @@ end) (Tape : Preface.Specs.MONOID) = struct
     { run =
       fun ~reject ~accept s r ->
         x.run s r ~reject ~accept:(fun x t1 s ->
-          Format.printf "Binding where t1 tape is %d long\n" (List.length (Obj.magic t1));
           (f x).run ~reject:(fun err t2 ->
             reject err (Tape.combine t1 t2)
           ) ~accept:(fun y t2 s ->
-            Format.printf "Binding where t2 tape is %d long\n" (List.length (Obj.magic t2));
             accept y (Tape.combine t1 t2) s
           ) s r
         )
@@ -221,12 +219,11 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
       (tape : a Claim.t -> Path.t -> step:int -> Tape.t) : unit m =
     let%bind s, _ = read in
     Format.printf "Hitting branch, and curent step is %d and path length is %d\n" s.step (Path.length s.path);
+    let claim = Claim.Equality (e, dir) in
+    let%bind () = modify (fun s' -> { s' with path = Path.cons (Claim.to_expression claim) s'.path }) in
     if s.step <= target_step || Path.length s.path >= max_depth
     then return ()
-    else
-      let claim = Claim.Equality (e, dir) in
-      let%bind () = modify (fun s' -> { s' with path = Path.cons (Claim.to_expression claim) s'.path }) in
-      tell (tape claim s.path ~step:s.step)
+    else tell (tape claim s.path ~step:s.step)
 
   let hit_branch (dir : bool Direction.t) (e : bool Expression.t) : unit m =
     push_branch_and_tell dir e (fun claim path ~step ->
