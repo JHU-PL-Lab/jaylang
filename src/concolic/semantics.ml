@@ -229,7 +229,7 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
   let hit_branch (dir : bool Direction.t) (e : bool Expression.t) : unit m =
     push_branch_and_tell dir e (fun claim path ~step ->
       [ Target.make
-        step 
+        ~step 
         (Path.cons (Claim.to_expression (Claim.flip claim)) path)
       ]
     )
@@ -243,7 +243,7 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
       in
       List.map other_dirs ~f:(fun d -> 
         Target.make
-          step
+          ~step
           (Path.cons (Claim.to_expression (Claim.Equality (e, d))) path)
       )
     )

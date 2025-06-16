@@ -8,7 +8,7 @@ type t =
   ; step : int
   ; path : Path.t }
 
-let make (step : int) (path : Path.t) : t =
+let make ~(step : int) (path : Path.t) : t =
   { path_n = Path.length path
   ; uniq_id = Utils.Counter.next uid
   ; step 
