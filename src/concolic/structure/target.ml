@@ -5,17 +5,12 @@ let uid = Utils.Counter.create ()
 type t =
   { path_n : int
   ; uniq_id : int
-  ; step : int
   ; path : Path.t }
 
-let make ~(step : int) (path : Path.t) : t =
+let make (path : Path.t) : t =
   { path_n = Path.length path
   ; uniq_id = Utils.Counter.next uid
-  ; step 
   ; path }
-
-let step ({ step ; _ } : t) : int =
-  step
 
 let to_expressions ({ path ; _ } : t) : bool Expression.t list =
   Path.to_exprs path

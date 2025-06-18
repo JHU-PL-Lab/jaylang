@@ -33,13 +33,9 @@
 
 type t
 
-val make : step:int -> Path.t -> t
-(** [make step path] is a target that will be encountered after [~step] many
-    interpretation steps, and it conforms to the given [path] constraints.
+val make : Path.t -> t
+(** [make path] is a target that conforms to the given [path] constraints.
     It has a fresh, unique identifier that is used for comparison. *)
-
-val step : t -> int
-(** [step target] is the step passed into the target at creation. *)
 
 val compare : t -> t -> int
 (** [compare a b] uses the unique identifiers in [a] and [b] to compare,

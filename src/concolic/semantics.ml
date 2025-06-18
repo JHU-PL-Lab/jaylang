@@ -121,7 +121,7 @@ end
 
 module Consts = struct
   type t =
-    { target_step : int
+    { target : Target.t
     ; options : Options.t
     ; input_feeder : Input_feeder.t }
 end
@@ -183,7 +183,7 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
   let max_step = C.c.options.global_max_step
   let max_depth = C.c.options.max_tree_depth
   let input_feeder = C.c.input_feeder
-  let target_step = C.c.target_step
+  let target = C.c.target
 
   type 'a m = 'a M.m
 
@@ -206,25 +206,26 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
     }
 
   let push_branch_and_tell (type a) (dir : a Direction.t) (e : a Expression.t) 
-      (tape : a Claim.t -> Path.t -> step:int -> Target.t list) : unit m =
+      (make_tape : a Claim.t -> Path.t -> Target.t list) : unit m =
     if Expression.is_const e then return () else
     let%bind s, _ = read in
+    let n = Path.length s.path in
+    if n >= max_depth then return () else
     let claim = Claim.Equality (e, dir) in
     let%bind () = modify (fun s' -> { s' with path = Path.cons (Claim.to_expression claim) s'.path }) in
-    if s.step <= target_step || Path.length s.path >= max_depth
+    if n < Target.path_n target
     then return ()
-    else tell (tape claim s.path ~step:s.step)
+    else tell (make_tape claim s.path)
 
   let hit_branch (dir : bool Direction.t) (e : bool Expression.t) : unit m =
-    push_branch_and_tell dir e (fun claim path ~step ->
+    push_branch_and_tell dir e (fun claim path ->
       [ Target.make
-        ~step 
         (Path.cons (Claim.to_expression (Claim.flip claim)) path)
       ]
     )
 
   let hit_case (dir : int Direction.t) (e : int Expression.t) ~(other_cases : int list) : unit m =
-    push_branch_and_tell dir e (fun _ path ~step ->
+    push_branch_and_tell dir e (fun _ path ->
       let other_dirs =
         match dir with
         | Case_default { not_in } -> List.map not_in ~f:Direction.of_int
@@ -232,7 +233,6 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
       in
       List.map other_dirs ~f:(fun d -> 
         Target.make
-          ~step
           (Path.cons (Claim.to_expression (Claim.Equality (e, d))) path)
       )
     )
