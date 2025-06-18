@@ -1,0 +1,16 @@
+(include_subdirs unqualified)
+
+(library
+ (name deferred)
+ (public_name jay.deferred)
+ (libraries
+  core
+  lang
+  utils
+ )
+ (synopsis "Deferred evaluator on embedded-type programs")
+ (inline_tests)
+ (preprocess
+  (pps
+   landmarks-ppx
+   --auto)))
