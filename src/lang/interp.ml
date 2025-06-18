@@ -104,7 +104,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ETypeBottom -> return VTypeBottom
     | EType -> return VType
     | EAbort msg -> abort msg
-    | EDiverge -> diverge ()
+    | EDiverge () -> diverge ()
     | EFunction { param ; body } -> 
       using_env @@ fun env ->
       VFunClosure { param ; closure = { body ; env = lazy env } }
@@ -116,10 +116,10 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       VFrozen { body ; env = lazy env }
     | EId -> return VId
     (* inputs *) (* Consider: use an input stream to allow user to provide inputs *)
-    | EPick_i -> 
+    | EPick_i () -> 
       let%bind () = assert_nondeterminism in
       return (VInt 0)
-    | EPick_b -> 
+    | EPick_b () -> 
       let%bind () = assert_nondeterminism in
       return (VBool false)
     (* simple propogation *)

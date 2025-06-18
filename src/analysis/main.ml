@@ -10,7 +10,7 @@ let type_mismatch s =
 
 module Error_msg = Lang.Value.Error_msg (Value)
 
-let[@landmark] rec analyze (e : Embedded.With_callsites.t) : Value.t m =
+let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
   log e @@
   match e with
   (* immediate *)
@@ -22,8 +22,8 @@ let[@landmark] rec analyze (e : Embedded.With_callsites.t) : Value.t m =
   | EVar id -> bind ask_env (Env.find id)
   | EId -> return VId
   (* inputs *)
-  | EPick_i -> any_int
-  | EPick_b -> any_bool
+  | EPick_i _ -> any_int
+  | EPick_b _ -> any_bool
   (* operations *)
   | EBinop { left ; binop ; right } -> begin
     let%bind v1 = analyze left in
@@ -100,29 +100,29 @@ let[@landmark] rec analyze (e : Embedded.With_callsites.t) : Value.t m =
   | EIgnore { ignored ; body } ->
     let%bind _ : Value.t = analyze ignored in
     analyze body
-  | EAppl { appl = { func ; arg } ; callsite } -> begin
+  | EAppl { data = { func ; arg } ; point } -> begin
     match%bind analyze func with
     | VFunClosure { param ; body = { body ; callstack } } -> begin
       let%bind v = analyze arg in
       let%bind env = find_env callstack in
-      with_call callsite
+      with_call point
       @@ local (fun _ -> Env.add param v env) (analyze body)
     end
     | VId -> analyze arg
     | v -> type_mismatch @@ Error_msg.bad_appl v 
   end
-  | EThaw { appl = expr ; callsite } -> begin
+  | EThaw { data = expr ; point } -> begin
     match%bind analyze expr with
     | VFrozen { body ; callstack } -> begin
       let%bind env = find_env callstack in
-      with_call callsite
+      with_call point
       @@ local (fun _ -> env) (analyze body)
     end
     | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
   end
   (* termination *)
-  | EDiverge -> vanish
-  | EAbort msg -> fail @@ Err.abort msg
+  | EDiverge _ -> vanish
+  | EAbort { data = msg ; point = _ } -> fail @@ Err.abort msg
   (* unhandled and currently ignored *)
   | EDet expr
   | EEscapeDet expr -> analyze expr

@@ -271,7 +271,7 @@ primary_expr:
       { $1 : Bluejay.t }
   (* keywords *)
   | INPUT
-      { EPick_i : Bluejay.t }
+      { EPick_i () : Bluejay.t }
   | TYPE
       { EType : Bluejay.t }
   | INT_KEYWORD

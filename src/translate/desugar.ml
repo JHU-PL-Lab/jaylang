@@ -54,7 +54,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
   let rec desugar (expr : Bluejay.t) : Desugared.t =
     match expr with
     (* Base cases *)
-    | (EInt _ | EBool _ | EVar _ | EPick_i | ETypeInt | ETypeBool | EType | ETypeTop | ETypeBottom) as e -> e
+    | (EInt _ | EBool _ | EVar _ | EPick_i () | ETypeInt | ETypeBool | EType | ETypeTop | ETypeBottom) as e -> e
     (* Simple propogation *)
     | EBinop { left ; binop ; right } -> begin
       match binop with
@@ -113,7 +113,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       EIf
         { cond = desugar assume_expr
         ; true_body = unit_value
-        ; false_body = EDiverge
+        ; false_body = EDiverge ()
         }
     (* Dependent records / modules *)
     | EModule stmts -> desugar (pgm_to_module stmts)

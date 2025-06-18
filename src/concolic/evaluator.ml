@@ -155,10 +155,10 @@ let eval_exp
       | v -> type_mismatch @@ Error_msg.case_non_int v
     end
     (* Inputs *)
-    | EPick_i ->
+    | EPick_i () ->
       let%bind () = assert_nondeterminism in
       get_input (Stepkey.I step)
-    | EPick_b ->
+    | EPick_b () ->
       let%bind () = assert_nondeterminism in
       get_input (Stepkey.B step)
     (* Tables -- includes some branching *)
@@ -190,7 +190,7 @@ let eval_exp
     end
     (* Failure cases *)
     | EAbort msg -> abort msg
-    | EDiverge -> diverge
+    | EDiverge () -> diverge
   in
 
   S.run (bind expr eval)
