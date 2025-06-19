@@ -175,13 +175,13 @@ Notes:
   Y (fun $self -> fun $depth -> fun x1 -> ... fun xn ->
     { ~gen = freeze @@
       if $depth == 0
-      then let B = [[`~Stubbed_mu of unit]] in `~Stub [[tau]] (* Replaced B with some type the user cannot make *)
+      then let B = [[`~Stubbed_mu of unit]] in `~Stub (thaw [[tau]].~gen) (* Replaced B with some type the user cannot make *)
       else let B = $self ($depth - 1) in thaw [[tau]].~gen (* still have some depth allowed, so continue normally *)
     ; ~check = fun $e ->
       match $e with
-      | `Stub $t ->
+      | `~Stub $gend ->
         let B = [[`~Stubbed_mu of unit]] in
-        [[tau]].~check (thaw $t.~gen)
+        [[tau]].~check $gend
       | _ -> (* run the normal checker *)
         let B = $self ($depth - 1) in [[tau]].~check $e 
       end
