@@ -35,7 +35,6 @@ module Reserved = struct
   (* Variant constructors *)
   let cons : VariantLabel.t = VariantLabel (Ident "~Cons") 
   let nil : VariantLabel.t = VariantLabel (Ident "~Nil") 
-  let untouched : VariantLabel.t = VariantLabel (Ident "~Untouched")
   let top : VariantLabel.t = VariantLabel (Ident "~Top")
   let stub : VariantLabel.t = VariantLabel (Ident "~Stub")
 

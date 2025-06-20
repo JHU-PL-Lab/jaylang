@@ -39,6 +39,7 @@ module rec Value : sig
     | VFunClosure of { param : Ident.t ; body : Closure.t }
     | VFrozen of Closure.t
     | VVariant of { label : VariantLabel.t ; payload : t }
+    | VUntouchable of t
     | VRecord of t RecordLabel.Map.t
     | VId [@@deriving compare]
   (** [t] are the abstract values. This uses polymorphic comparison on closures. *)
@@ -70,6 +71,7 @@ end = struct
       | VFunClosure of { param : Ident.t ; body : Closure.t }
       | VFrozen of Closure.t
       | VVariant of { label : VariantLabel.t ; payload : t }
+      | VUntouchable of t
       | VRecord of t RecordLabel.Map.t
       | VId [@@deriving compare]
       (* We don't yet handle tables. That will be a failure case in the analysis *)
@@ -88,6 +90,7 @@ end = struct
     | VFunClosure { param ; _ } -> Format.sprintf "(fun %s -> <expr>)" (Ident.to_string param)
     | VFrozen _ -> "Frozen <expr>"
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
+    | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
     | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
     | VId -> "(fun x -> x)"
 

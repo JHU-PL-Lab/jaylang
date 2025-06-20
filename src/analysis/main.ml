@@ -37,6 +37,8 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
     let%bind v = analyze subject in
     List.find_map patterns ~f:(fun (pat, expr) ->
       match pat, v with
+      | PUntouchable id, VUntouchable v -> Some (expr, Env.add id v)
+      | _, VUntouchable _ -> None
       | PAny, _ -> Some (expr, fun env -> env)
       | PVariable id, _ -> Some (expr, Env.add id v)
       | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
@@ -69,6 +71,9 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
   | EVariant { label ; payload } ->
     let%bind v = analyze payload in
     return @@ VVariant { label ; payload = v }
+  | EUntouchable e ->
+    let%bind v = analyze e in
+    return @@ VUntouchable v
   (* branching *)
   | EIf { cond ; true_body ; false_body } -> begin
     match%bind analyze cond with

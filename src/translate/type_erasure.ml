@@ -27,9 +27,11 @@ let erase (pgm : Bluejay.pgm) : Type_erased.pgm =
     | ETypeSingle _ 
     | ETypeList _ 
     | ETypeIntersect _ -> Ast_tools.Utils.unit_value
-    | ETypeMu { params = [] ; body ; _ } -> erase body
-    | ETypeMu { params ; body ; _ } -> (* has some parameters so is a function *)
-      EMultiArgFunction { params ; body = erase body }
+    (* recursive type propagation *)
+    | ETypeMu { var ; params = [] ; body } -> (* is not a function, but may have a function body, so need to propagate *)
+      ELet { var ; defn = Ast_tools.Utils.unit_value ; body = erase body }
+    | ETypeMu { var ; params ; body } -> (* has some parameters so is a function, and we can use let rec *)
+      ELetFunRec { funcs = [ FUntyped { func_id = var ; params ; defn = erase body } ] ; body = EVar var }
     (* remove types *)
     | ELetTyped { typed_var = { var ; _ } ; defn ; body ; _ } -> 
       ELet { var ; defn = erase defn ; body = erase body }
@@ -38,7 +40,8 @@ let erase (pgm : Bluejay.pgm) : Type_erased.pgm =
     | ELetFunRec { funcs ; body } -> 
       ELetFunRec { funcs = List.map funcs ~f:erase_from_funsig ; body = erase body }
     (* propagate *)
-    | EBinop { left ; binop ; right } -> EBinop { left = erase left ; binop ; right = erase right }
+    | EBinop { left ; binop ; right } -> 
+      EBinop { left = erase left ; binop ; right = erase right }
     | EIf { cond ; true_body ; false_body } ->
       EIf { cond = erase cond ; true_body = erase true_body ; false_body = erase false_body }
     | ELet { var ; defn ; body } ->

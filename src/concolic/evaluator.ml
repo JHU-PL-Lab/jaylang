@@ -40,6 +40,9 @@ let eval_exp
     | EVariant { label ; payload = e_payload } -> 
       let%bind payload = eval e_payload in
       return @@ VVariant { label ; payload }
+    | EUntouchable e ->
+      let%bind v = eval e in
+      return @@ VUntouchable v
     | EProject { record = e_record ; label } -> begin
       match%bind eval e_record with
       | VRecord record_body as v -> begin

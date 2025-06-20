@@ -331,17 +331,16 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
             let%bind i = capture (EPick_i ()) in
             return @@
             E.make ~ask_for:`All
-              { gen = lazy (EVariant { label = Reserved.untouched ; payload = 
+              { gen = lazy (EUntouchable (
                 ERecord (RecordLabel.Map.of_alist_exn
                   [ (Reserved.i, EVar i) ; (Reserved.nonce, (EPick_i ())) ]
                 )
-              }
-              )
+              ))
               ; check = lazy (
                 fresh_abstraction "e_alpha_check" @@ fun e ->
                   EMatch { subject = EVar e ; patterns =
                     let v = Names.fresh_id ~suffix:"v" () in
-                    [ (PVariant { variant_label = Reserved.untouched ; payload_id = v }
+                    [ (PUntouchable v
                       , EIf
                           { cond = EBinop { left = EVar i ; binop = BEqual ; right = proj (EVar v) Reserved.i }
                           ; true_body = unit_value

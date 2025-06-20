@@ -59,6 +59,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       | VId : 'a embedded_only t
       | VFrozen : 'a closure -> 'a embedded_only t
       | VTable : { mutable alist : ('a t * 'a t) list } -> 'a embedded_only t
+      | VUntouchable : 'a t -> 'a embedded_only t
       (* bluejay or type erased *)
       | VList : 'a t list -> 'a bluejay_or_type_erased t
       | VMultiArgFunClosure : { params : Ident.t list ; closure : 'a closure } -> 'a bluejay_or_type_erased t
@@ -95,6 +96,8 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     let matches : type a. a t -> a Pattern.t -> (a t * Ident.t) list option =
       fun v pattern ->
         match pattern, v with
+        | PUntouchable id, VUntouchable v -> Some [ v, id ]
+        | _, VUntouchable _ -> None (* untouchable cannot match any *)
         | PAny, _ -> Some []
         | PVariable id, _ -> Some [ v, id ]
         | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
@@ -120,6 +123,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
         | VFrozen c1, VFrozen c2 -> equal_closure [] c1 c2
         | VTable r1, VTable r2 ->
           List.equal (Tuple2.equal ~eq1:equal ~eq2:equal) r1.alist r2.alist
+        | VUntouchable v1, VUntouchable v2 -> equal v1 v2
         | VList l1, VList l2 -> List.equal equal l1 l2
         | VMultiArgFunClosure r1, VMultiArgFunClosure r2 -> begin
           match Expr.Alist.cons_assocs r1.params r2.params Expr.Alist.empty with
@@ -212,6 +216,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     | VTable { alist } -> 
       Format.sprintf "Table (%s)\n"
         (String.concat ~sep:" ; " @@ List.map ~f:(fun (k, v) -> Format.sprintf "(%s, %s)" (to_string k) (to_string v)) alist)
+    | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
     | VList ls -> Format.sprintf "[ %s ]" (String.concat ~sep:" ; " @@ List.map ~f:to_string ls)
     | VMultiArgFunClosure { params ; _ } -> Format.sprintf "(fun %s -> <expr>)" (String.concat ~sep:" ; " @@ List.map ~f:(fun (Ident s) -> s) params)
     | VType -> "type"
