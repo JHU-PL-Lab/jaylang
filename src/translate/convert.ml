@@ -24,3 +24,6 @@ let[@landmark] bjy_to_many_emb (bjy : Bluejay.pgm) ~(do_wrap : bool) ~(do_type_s
 let[@landmark] bjy_to_des (bjy : Bluejay.pgm) ~(do_type_splay : bool) : Desugared.pgm =
   let module Names = Translation_tools.Fresh_names.Make () in
   Desugar.desugar_pgm (module Names) bjy ~do_type_splay
+
+let bjy_to_erased (bjy : Bluejay.pgm) : Type_erased.pgm =
+  Type_erasure.erase bjy

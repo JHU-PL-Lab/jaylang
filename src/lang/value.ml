@@ -59,9 +59,9 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       | VId : 'a embedded_only t
       | VFrozen : 'a closure -> 'a embedded_only t
       | VTable : { mutable alist : ('a t * 'a t) list } -> 'a embedded_only t
-      (* bluejay only *)
-      | VList : 'a t list -> 'a bluejay_only t
-      | VMultiArgFunClosure : { params : Ident.t list ; closure : 'a closure } -> 'a bluejay_only t
+      (* bluejay or type erased *)
+      | VList : 'a t list -> 'a bluejay_or_type_erased t
+      | VMultiArgFunClosure : { params : Ident.t list ; closure : 'a closure } -> 'a bluejay_or_type_erased t
       (* types in desugared and embedded *)
       | VType : 'a bluejay_or_desugared t
       | VTypeInt : 'a bluejay_or_desugared t

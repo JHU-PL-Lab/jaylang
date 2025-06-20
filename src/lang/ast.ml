@@ -33,6 +33,7 @@ module Constraints = struct
   type bluejay = [ `Bluejay ]
   type desugared = [ `Desugared ]
   type embedded = [ `Embedded ]
+  type type_erased = [ `Type_erased ]
 
   (*
     Constrains 'a to be exactly `Bluejay.
@@ -48,6 +49,9 @@ module Constraints = struct
   *)
   type 'a bluejay_or_desugared = 'a constraint 'a = [< `Bluejay | `Desugared ]
   type 'a desugared_or_embedded = 'a constraint 'a = [< `Desugared | `Embedded ]
+
+  type 'a bluejay_or_type_erased = 'a constraint 'a = [< `Bluejay | `Type_erased ]
+  type 'a bluejay_or_desugared_or_type_erased = 'a constraint 'a = [< `Bluejay | `Type_erased | `Desugared ]
 
   (*
     Constrains 'a to be exactly `Desugared .
@@ -152,8 +156,8 @@ module Pattern = struct
     | PVariable : Ident.t -> 'a t
     | PVariant : { variant_label : VariantLabel.t ; payload_id : Ident.t } -> 'a t
     (* only Bluejay *)
-    | PEmptyList : 'a bluejay_only t
-    | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_only t
+    | PEmptyList : 'a bluejay_or_type_erased t
+    | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_or_type_erased t
 
   let to_rank : type a. a t -> int = function
     | PAny -> 0
@@ -258,22 +262,23 @@ module Expr = struct
       | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
       | ELetTyped : { typed_var : 'a typed_var ; defn : 'a t ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
       | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
+      (* bluejay or type erased *)
+      | EList : 'a t list -> 'a bluejay_or_type_erased t
+      | EListCons : 'a t * 'a t -> 'a bluejay_or_type_erased t
+      | EModule : 'a statement list -> 'a bluejay_or_type_erased t
+      | EAssert : 'a t -> 'a bluejay_or_type_erased t
+      | EAssume : 'a t -> 'a bluejay_or_type_erased t
+      | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_or_type_erased t
+      | ELetFun : { func : 'a funsig ; body : 'a t } -> 'a bluejay_or_type_erased t
+      | ELetFunRec : { funcs : 'a funsig list ; body : 'a t } -> 'a bluejay_or_type_erased t
       (* bluejay only *)
       | ETypeList : 'a t -> 'a bluejay_only t
       | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
-      | EList : 'a t list -> 'a bluejay_only t
-      | EListCons : 'a t * 'a t -> 'a bluejay_only t
-      | EModule : 'a statement list -> 'a bluejay_only t
-      | EAssert : 'a t -> 'a bluejay_only t
-      | EAssume : 'a t -> 'a bluejay_only t
-      | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_only t
-      | ELetFun : { func : 'a funsig ; body : 'a t } -> 'a bluejay_only t
-      | ELetFunRec : { funcs : 'a funsig list ; body : 'a t } -> 'a bluejay_only t
 
     (* the let-function signatures *)
     and _ funsig =
-      | FUntyped : { func_id : Ident.t ; params : Ident.t list ; defn : 'a t } -> 'a funsig
-      | FTyped : ('a, 'a param list) typed_fun -> 'a funsig
+      | FUntyped : { func_id : Ident.t ; params : Ident.t list ; defn : 'a t } -> 'a bluejay_or_type_erased funsig
+      | FTyped : ('a, 'a param list) typed_fun -> 'a bluejay_only funsig
 
     (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
     and ('a, 'p) typed_fun = { type_vars : Ident.t list ; func_id : Ident.t ; params : 'p ; ret_type : 'a t ; defn : 'a t }
@@ -298,10 +303,10 @@ module Expr = struct
       (* bluejay or desugared *)
       | STyped : { typed_var : 'a typed_var ; defn : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared statement
       (* bluejay only *)
-      | SFun : 'a funsig -> 'a bluejay_only statement
-      | SFunRec : 'a funsig list -> 'a bluejay_only statement
+      | SFun : 'a funsig -> 'a bluejay_or_type_erased statement
+      | SFunRec : 'a funsig list -> 'a bluejay_or_type_erased statement
 
-    let func_id_of_funsig = function
+    let func_id_of_funsig : type a. a funsig -> Ident.t = function
       | FUntyped { func_id ; _ }
       | FTyped { func_id ; _ } -> func_id
 
@@ -753,6 +758,14 @@ module Desugared = struct
   type pgm = desugared Program.t
   type pattern = desugared Pattern.t
   type statement = desugared Expr.statement
+end
+
+module Type_erased = struct
+  type t = type_erased Expr.t
+  type pgm = type_erased Program.t
+  type pattern = type_erased Pattern.t
+  type funsig = type_erased Expr.funsig
+  type statement = type_erased Expr.statement
 end
 
 module Bluejay = struct
