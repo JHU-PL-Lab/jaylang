@@ -46,6 +46,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
   module T = struct
     type _ t =
       (* all languages *)
+      | VUnit : 'a t
       | VInt : int V.t -> 'a t
       | VBool : bool V.t -> 'a t
       | VFunClosure : { param : Ident.t ; closure : 'a closure } -> 'a t
@@ -69,6 +70,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       | VTypeBool : 'a bluejay_or_desugared t
       | VTypeTop : 'a bluejay_or_desugared t
       | VTypeBottom : 'a bluejay_or_desugared t
+      | VTypeUnit : 'a bluejay_or_desugared t
       | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
       | VTypeModule : (RecordLabel.t * 'a closure) list -> 'a bluejay_or_desugared t
       | VTypeFun : { domain : 'a t ; codomain : 'a t ; det : bool } -> 'a bluejay_or_desugared t
@@ -98,7 +100,17 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
         match pattern, v with
         | PUntouchable id, VUntouchable v -> Some [ v, id ]
         | _, VUntouchable _ -> None (* untouchable cannot match any *)
-        | PAny, _ -> Some []
+        | PAny, _
+        | PInt, VInt _ 
+        | PBool, VBool _
+        | PUnit, VUnit
+        | PRecord, VRecord _ (* Currently, types match this *)
+        | PFun, VFunClosure _ -> Some []
+        | PModule, _ -> failwith "unimplemented module pattern"
+        | PType, VRecord m ->
+          if List.for_all Ast_tools.Reserved.[ gen ; check ; wrap ] ~f:(Map.mem m)
+          then Some []
+          else None
         | PVariable id, _ -> Some [ v, id ]
         | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
             when VariantLabel.equal variant_label label ->
@@ -175,7 +187,9 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
         | VTypeInt, VTypeInt
         | VTypeBool, VTypeBool
         | VTypeTop, VTypeTop
-        | VTypeBottom, VTypeBottom -> true
+        | VTypeBottom, VTypeBottom
+        | VUnit, VUnit
+        | VTypeUnit, VTypeUnit -> true
         | _ -> false (* these are structurally different and cannot be equal *)
 
     and equal_closure : type a. Expr.Alist.t -> a closure -> a closure -> bool =
@@ -202,6 +216,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
   include T
 
   let rec to_string : type a. a t -> string = function
+    | VUnit -> "()"
     | VInt i -> V.to_string Int.to_string i
     | VBool b -> V.to_string Bool.to_string b
     | VFunClosure { param = Ident s ; _ } -> Format.sprintf "(fun %s -> <expr>)" s
@@ -224,6 +239,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     | VTypeBool -> "bool"
     | VTypeTop -> "top"
     | VTypeBottom -> "bottom"
+    | VTypeUnit -> "unit"
     | VTypeRecord record_body -> RecordLabel.record_body_to_string ~sep:":" record_body to_string
     | VTypeModule ls -> Format.sprintf "{: %s :}" (String.concat ~sep:" ; " @@ List.map ls ~f:(fun (label, _) -> Format.sprintf "%s : <expr>" (RecordLabel.to_string label)))
     | VTypeFun { domain ; codomain ; det } -> Format.sprintf "(%s %s %s)" (to_string domain) (if det then "-->" else "->") (to_string codomain)

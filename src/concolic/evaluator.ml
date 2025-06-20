@@ -29,6 +29,7 @@ let eval_exp
     | EInt i -> return @@ VInt (i, Expression.const_int i)
     | EBool b -> return @@ VBool (b, Expression.const_bool b)
     (* Simple -- no different than interpreter *)
+    | EUnit -> return VUnit
     | EVar id -> fetch id
     | EFunction { param ; body } ->
       let%bind env = read_env in

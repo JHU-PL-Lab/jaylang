@@ -108,7 +108,8 @@ end
 let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   let rec loop (e : Desugared.t) : bool =
     match e with
-    | (EInt _ | EBool _ | EPick_i () | EAbort _ | EDiverge () | EType | ETypeInt | ETypeBool | ETypeTop | ETypeBottom) -> false
+    | (EInt _ | EBool _ | EPick_i () | EAbort _ | EDiverge () | EType
+    | ETypeInt | ETypeBool | ETypeTop | ETypeBottom | EUnit | ETypeUnit) -> false
     | EVar id' -> Ident.equal id id'
     (* capturing variables *)
     | ELet { var ; defn ; _ } when Ident.equal var id -> loop defn
@@ -167,7 +168,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
 
     match expr with
     (* base cases *)
-    | (EInt _ | EBool _ | EVar _ | EPick_i () | EAbort _ | EDiverge ()) as e -> e
+    | (EInt _ | EBool _ | EVar _ | EPick_i () | EAbort _ | EDiverge () | EUnit) as e -> e
     (* Simple propogation *)
     | EBinop { left ; binop ; right } ->
       EBinop { left = embed left ; binop ; right = embed right }
@@ -196,6 +197,15 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     | ELetTyped { typed_var ; defn ; body ; do_wrap ; do_check } ->
       stmt_to_expr (embed_statement (STyped { typed_var ; defn ; do_wrap ; do_check })) (embed body)
     (* types *)
+    | ETypeUnit ->
+      make_embedded_type
+        { gen = lazy EUnit
+        ; check = lazy (
+          fresh_abstraction "e_unit_check" @@ fun e ->
+            EMatch { subject = EVar e ; patterns = [ PUnit, EUnit ] }
+        )
+        ; wrap = lazy EId 
+        }
     | ETypeInt ->
       make_embedded_type
         { gen = lazy (EPick_i ())
@@ -203,7 +213,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           fresh_abstraction "e_int_check" @@ fun e ->
             build @@
               let%bind () = ignore (EBinop { left = EVar e ; binop = BPlus ; right = EInt 0 }) in
-              return unit_value
+              return EUnit
         )
         ; wrap = lazy EId
         }
@@ -214,7 +224,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           fresh_abstraction "e_bool_check" @@ fun e ->
             build @@
               let%bind () = ignore (ENot (EVar e)) in
-              return unit_value
+              return EUnit
         )
         ; wrap = lazy EId
         }
@@ -276,7 +286,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                   ignore (check tau (proj (EVar e) label))
                 )
               in
-              return unit_value
+              return EUnit
         )
         ; wrap = lazy (
           fresh_abstraction "e_rec_wrap"  @@ fun e ->
@@ -309,7 +319,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                   assign label_id @@ proj (EVar e) l
                 )
               in
-              return unit_value
+              return EUnit
         )
         ; wrap = lazy (
           fresh_abstraction "e_dep_rec_wrap" @@ fun e ->
@@ -343,7 +353,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                     [ (PUntouchable v
                       , EIf
                           { cond = EBinop { left = EVar i ; binop = BEqual ; right = proj (EVar v) Reserved.i }
-                          ; true_body = unit_value
+                          ; true_body = EUnit
                           ; false_body = EAbort "Non-equal untouchable values"
                           })
                     ]
@@ -359,7 +369,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               let%bind () = ignore @@ proj e Reserved.gen in
               let%bind () = ignore @@ proj e Reserved.check in
               let%bind () = if do_wrap then ignore @@ proj e Reserved.wrap else return () in
-              return unit_value
+              return EUnit
         ) 
         ; wrap = lazy EId
         }
@@ -380,7 +390,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               let%bind () = ignore @@ check tau (EVar e) in
               return @@ EIf
                 { cond = apply (embed e_p) (EVar e)
-                ; true_body = unit_value
+                ; true_body = EUnit
                 ; false_body = EAbort "Failed predicate"
                 }
         )
@@ -510,7 +520,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     | ETypeTop ->
       make_embedded_type
         { gen = lazy (EVariant { label = Reserved.top ; payload = ERecord (RecordLabel.Map.singleton Reserved.nonce (EPick_i ())) })  
-        ; check = lazy (fresh_abstraction "e_top_check" @@ fun _ -> unit_value)
+        ; check = lazy (fresh_abstraction "e_top_check" @@ fun _ -> EUnit)
         ; wrap = lazy EId
         }
     | ETypeBottom ->

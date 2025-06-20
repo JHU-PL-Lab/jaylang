@@ -12,7 +12,7 @@ let erase (pgm : Bluejay.pgm) : Type_erased.pgm =
   let rec erase (e : Bluejay.t) : Type_erased.t =
     match e with
     (* base cases *)
-    | (EInt _ | EBool _ | EVar _ | EPick_i _) as e -> e
+    | (EInt _ | EBool _ | EVar _ | EPick_i _ | EUnit) as e -> e
     (* destroy types *)
     | EType
     | ETypeInt
@@ -26,10 +26,11 @@ let erase (pgm : Bluejay.pgm) : Type_erased.pgm =
     | ETypeVariant _
     | ETypeSingle _ 
     | ETypeList _ 
-    | ETypeIntersect _ -> Ast_tools.Utils.unit_value
+    | ETypeIntersect _
+    | ETypeUnit -> EUnit (* send all types to unit value *)
     (* recursive type propagation *)
     | ETypeMu { var ; params = [] ; body } -> (* is not a function, but may have a function body, so need to propagate *)
-      ELet { var ; defn = Ast_tools.Utils.unit_value ; body = erase body }
+      ELet { var ; defn = EUnit ; body = erase body }
     | ETypeMu { var ; params ; body } -> (* has some parameters so is a function, and we can use let rec *)
       ELetFunRec { funcs = [ FUntyped { func_id = var ; params ; defn = erase body } ] ; body = EVar var }
     (* remove types *)

@@ -175,7 +175,7 @@ let run x = (x State.initial).value
 
 let modify f =
   fun s ->
-    { new_state = f s ; value = {} }
+    { new_state = f s ; value = () }
 
 let deref ref_id =
   let%bind s = read in

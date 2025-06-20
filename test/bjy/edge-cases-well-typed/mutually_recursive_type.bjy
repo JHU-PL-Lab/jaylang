@@ -11,7 +11,7 @@
   We want to be able to type this.
 *)
 
-let rec f (x : int) : t {} =
+let rec f (x : int) : t () =
   x
 
 and t _ = int

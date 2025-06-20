@@ -54,7 +54,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
   let rec desugar (expr : Bluejay.t) : Desugared.t =
     match expr with
     (* Base cases *)
-    | (EInt _ | EBool _ | EVar _ | EPick_i () | ETypeInt | ETypeBool | EType | ETypeTop | ETypeBottom) as e -> e
+    | (EInt _ | EBool _ | EVar _ | EPick_i () | ETypeInt | ETypeBool
+    | EType | ETypeTop | ETypeBottom | ETypeUnit | EUnit) as e -> e
     (* Simple propogation *)
     | EBinop { left ; binop ; right } -> begin
       match binop with
@@ -106,13 +107,13 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
     | EAssert assert_expr ->
       EIf
         { cond = desugar assert_expr
-        ; true_body = unit_value
+        ; true_body = EUnit
         ; false_body = EAbort "Failed assertion"
         }
     | EAssume assume_expr ->
       EIf
         { cond = desugar assume_expr
-        ; true_body = unit_value
+        ; true_body = EUnit
         ; false_body = EDiverge ()
         }
     (* Dependent records / modules *)
@@ -124,7 +125,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       }
     (* Lists *)
     | EList [] ->
-      EVariant { label = Reserved.nil ; payload = unit_value }
+      EVariant { label = Reserved.nil ; payload = EUnit }
     | EList ls_e ->
       desugar
       @@ List.fold_right ls_e ~init:(EList []) ~f:(fun e acc ->
@@ -142,7 +143,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       let t = Names.fresh_id ~suffix:"list_t" () in
       ETypeMu { var = t ; params = [] ; body =
         ETypeVariant
-          [ (Reserved.nil_type, unit_type)
+          [ (Reserved.nil_type, ETypeUnit)
           ; (Reserved.cons_type,
             ETypeRecord (Parsing_tools.record_of_list
               [ (Reserved.hd, desugar e_tau)

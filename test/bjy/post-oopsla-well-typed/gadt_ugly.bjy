@@ -18,8 +18,8 @@ let tparam =
   | `Int of unit
   | `Bool of unit
 
-let b = `Bool {}
-let i = `Int {}
+let b = `Bool ()
+let i = `Int ()
 
 let Const = struct
   let t a =

@@ -20,7 +20,7 @@ let bind (type a b) (x : t a) (f : a -> t b) : t b =
 let return (type a) (a : a) : t a =
   fun s -> { state = s ; body = a }
 
-let set s = fun _ -> { state = s ; body = {} }
+let set s = fun _ -> { state = s ; body = () }
 
 let read = fun s -> { state = s ; body = s }
 

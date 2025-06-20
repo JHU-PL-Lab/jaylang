@@ -31,6 +31,7 @@ end
 
 module rec Value : sig 
   type t =
+    | VUnit
     | VPosInt
     | VNegInt
     | VZero
@@ -63,6 +64,7 @@ module rec Value : sig
 end = struct
   module T = struct
     type t =
+      | VUnit
       | VPosInt
       | VNegInt
       | VZero
@@ -82,6 +84,7 @@ end = struct
   module Set = Stdlib.Set.Make (T)
 
   let rec to_string = function
+    | VUnit -> "()"
     | VPosInt -> "(+)"
     | VNegInt -> "(-)"
     | VZero -> "0"

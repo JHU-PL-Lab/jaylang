@@ -90,6 +90,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | EDet e -> with_incr_depth @@ eval e
     | EEscapeDet e -> with_escaped_det @@ eval e
     (* direct values *)
+    | EUnit -> return VUnit
     | EInt i -> return (VInt i)
     | EBool b -> return (VBool b)
     | EVar id -> begin
@@ -102,6 +103,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ETypeBool -> return VTypeBool
     | ETypeTop -> return VTypeTop
     | ETypeBottom -> return VTypeBottom
+    | ETypeUnit -> return VTypeUnit
     | EType -> return VType
     | EAbort msg -> abort msg
     | EDiverge () -> diverge ()

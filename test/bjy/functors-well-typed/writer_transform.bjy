@@ -62,7 +62,7 @@ end = fun Monad Tape -> struct
     map a (with_tape a) a_m (fun a -> { a = a ; tape = Tape.neutral })
 
   let tell tape = 
-    Monad.return (with_tape unit) { a = {} ; tape = tape }
+    Monad.return (with_tape unit) { a = () ; tape = tape }
 
   let listen a a_t =
     map (with_tape a) (with_tape (with_tape a)) a_t (fun r ->

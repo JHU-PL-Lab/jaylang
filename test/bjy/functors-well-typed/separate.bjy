@@ -15,8 +15,8 @@ let tp =
   | `TInt of unit
   | `TBool of unit
 
-let t_int = `TInt {}
-let t_bool = `TBool {}
+let t_int = `TInt ()
+let t_bool = `TBool ()
 
 let is_t_int a =
   match a with

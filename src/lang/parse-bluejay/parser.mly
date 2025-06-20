@@ -279,12 +279,14 @@ primary_expr:
   | BOOL_KEYWORD
       { ETypeBool : Bluejay.t }
   | UNIT_KEYWORD
-      { ETypeRecord empty_record : Bluejay.t }
+      { ETypeUnit : Bluejay.t }
   | TOP_KEYWORD
       { ETypeTop : Bluejay.t }
   | BOTTOM_KEYWORD
       { ETypeBottom : Bluejay.t }
   (* braces/parens *)
+  | OPEN_PAREN CLOSE_PAREN
+      { EUnit : Bluejay.t }
   | OPEN_BRACE record_body CLOSE_BRACE
       { ERecord $2 : Bluejay.t }
   | OPEN_BRACE CLOSE_BRACE

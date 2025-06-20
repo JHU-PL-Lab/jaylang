@@ -14,6 +14,7 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
   log e @@
   match e with
   (* immediate *)
+  | EUnit -> return VUnit
   | EInt 0 -> return VZero
   | EInt i when i > 0 -> return VPosInt
   | EInt _ -> return VNegInt
@@ -39,7 +40,17 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
       match pat, v with
       | PUntouchable id, VUntouchable v -> Some (expr, Env.add id v)
       | _, VUntouchable _ -> None
-      | PAny, _ -> Some (expr, fun env -> env)
+      | PAny, _
+      | PInt, (VPosInt | VNegInt | VZero)
+      | PBool, (VTrue | VFalse)
+      | PUnit, VUnit
+      | PRecord, VRecord _
+      | PFun, VFunClosure _ -> Some (expr, fun env -> env)
+      | PType, VRecord m ->
+        if List.for_all Lang.Ast_tools.Reserved.[ gen ; check ; wrap ] ~f:(Map.mem m)
+        then Some (expr, fun env -> env)
+        else None
+      | PModule, _ -> failwith "unimplemented module pattern"
       | PVariable id, _ -> Some (expr, Env.add id v)
       | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
         when Lang.Ast.VariantLabel.equal variant_label label ->

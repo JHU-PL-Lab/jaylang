@@ -41,8 +41,8 @@ let interp_ty : ty -> type = fun a ->
   | `TBool _ -> bool
   end
 
-let tint = `TInt {}
-let tbool = `TBool {}
+let tint = `TInt ()
+let tbool = `TBool ()
 
 let t : ty -> type = mu t a.
   | `Const of interp_ty a
