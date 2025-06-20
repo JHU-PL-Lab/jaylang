@@ -125,16 +125,7 @@ module Utils = struct
       stmt_to_expr hd body
 
   let pgm_to_module : type a. a statement list -> a Expr.t =
-    fun pgm ->
-      let res = ERecord (
-        pgm
-        |> List.bind ~f:ids_of_stmt
-        |> List.fold ~init:RecordLabel.Map.empty ~f:(fun acc id ->
-          Map.set acc ~key:(RecordLabel id) ~data:(EVar id)
-        )
-      ) 
-      in 
-      pgm_to_expr_with_body res pgm
+    fun pgm -> EModule pgm
 end
 
 module Function_components = struct

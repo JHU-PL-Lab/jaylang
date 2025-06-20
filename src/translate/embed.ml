@@ -134,6 +134,19 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
     (* special cases *)
     | ERecord m -> Map.exists m ~f:loop
     | ETypeRecord m -> Map.exists m ~f:loop
+    | EModule stmt_ls ->
+      List.fold_until stmt_ls ~init:false ~f:(fun acc -> function
+        | SUntyped { var ; defn } ->
+          let res = acc || loop defn in
+          if Ident.equal var id
+          then Stop res
+          else Continue res
+        | STyped { typed_var = { var ; tau } ; defn ; _ } ->
+          let res = acc || loop defn || loop tau in
+          if Ident.equal var id
+          then Stop res
+          else Continue res
+      ) ~finish:Fn.id
     | ETypeModule m -> List.fold_until m ~init:false ~f:(fun acc (label, e) ->
         let RecordLabel label_id = label in
         let res = acc || loop e in
@@ -188,6 +201,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       EVariant { label ; payload = embed payload }
     | ERecord m ->
       ERecord (Map.map m ~f:embed)
+    | EModule stmt_ls ->
+      EModule (List.map stmt_ls ~f:embed_statement)
     | EMatch { subject ; patterns } ->
       EMatch { subject = embed subject ; patterns =
         List.map patterns ~f:(fun (pat, e) -> (embed_pattern pat, embed e))

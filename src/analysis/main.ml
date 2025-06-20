@@ -45,12 +45,12 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
       | PBool, (VTrue | VFalse)
       | PUnit, VUnit
       | PRecord, VRecord _
+      | PModule, VModule _
       | PFun, VFunClosure _ -> Some (expr, fun env -> env)
       | PType, VRecord m ->
         if List.for_all Lang.Ast_tools.Reserved.[ gen ; check ; wrap ] ~f:(Map.mem m)
         then Some (expr, fun env -> env)
         else None
-      | PModule, _ -> failwith "unimplemented module pattern"
       | PVariable id, _ -> Some (expr, Env.add id v)
       | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
         when Lang.Ast.VariantLabel.equal variant_label label ->
@@ -70,10 +70,24 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
       )
     in
     return @@ VRecord value_record_body
+  | EModule stmt_ls ->
+    let%bind module_body =
+      let rec fold_stmts acc_m : Constraints.embedded Expr.With_program_points.statement list -> Value.t RecordLabel.Map.t m = function
+        | [] -> acc_m
+        | SUntyped { var ; defn } :: tl ->
+          let%bind acc = acc_m in
+          let%bind v = analyze defn in
+          local (Env.add var v) (
+            fold_stmts (return @@ Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v) tl
+          )
+      in
+      fold_stmts (return RecordLabel.Map.empty) stmt_ls
+    in
+    return (VModule module_body)
   | EProject { record ; label } -> begin
     match%bind analyze record with
-    | VRecord record_body as r -> begin
-      match Map.find record_body label with
+    | (VRecord body | VModule body) as r -> begin
+      match Map.find body label with
       | Some v -> return v
       | None -> type_mismatch @@ Error_msg.project_missing_label label r
     end 

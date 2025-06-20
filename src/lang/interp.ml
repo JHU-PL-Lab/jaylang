@@ -169,7 +169,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ERecord record_body ->
       let%bind new_record = eval_record_body record_body in
       return (VRecord new_record)
-    | EModule stmts -> eval (Ast_tools.Utils.pgm_to_module stmts)
+    | EModule stmts -> eval_stmt_list stmts
     | ETypeRecord record_type_body ->
       let%bind new_record = eval_record_body record_type_body in
       return (VTypeRecord new_record)
@@ -260,8 +260,8 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       else eval false_body
     | EProject { record ; label } ->
       let%bind r = eval record in
-      let%orzero (VRecord record_body) = r in (* Note: this means we can't project from a record type *)
-      let%orzero (Some v) = Map.find record_body label in
+      let%orzero (VRecord body | VModule body) = r in (* Note: this means we can't project from a record type or module type *)
+      let%orzero (Some v) = Map.find body label in
       return v
     (* failures *)
     | EAssert e_assert_body ->
@@ -358,6 +358,62 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         let%bind v = eval e in
         return (Map.set acc ~key ~data:v)
       )
+
+    (* evaluates statement list to a module. This is a total pain for rec funs *)
+    and eval_stmt_list (stmts : a Expr.statement list) : a V.t m =
+      let%bind module_body =
+        let rec fold_stmts acc_m : a Expr.statement list -> a V.t RecordLabel.Map.t m = function
+          | [] -> acc_m
+          | SUntyped { var ; defn } :: tl ->
+            let%bind acc = acc_m in
+            let%bind v = eval defn in
+            local_env (Env.add var v) (
+              fold_stmts (return (Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v)) tl
+            )
+          | STyped { typed_var = { var ; _ } ; defn ; _ } :: tl ->
+            let%bind acc = acc_m in
+            let%bind v = eval defn in
+            local_env (Env.add var v) (
+              fold_stmts (return (Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v)) tl
+            )
+          | SFun fsig :: tl -> begin
+            let%bind acc = acc_m in
+            let comps = Ast_tools.Funsig.to_components fsig in
+            match Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
+            | EFunction { param ; body } ->
+              let%bind env = read_env in
+              let v = VFunClosure { param ; closure = { body ; env = lazy env } } in
+              local_env (Env.add comps.func_id v) (
+                fold_stmts (return (Map.set acc ~key:(RecordLabel.RecordLabel comps.func_id) ~data:v)) tl
+              )
+            | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
+          end
+          | SFunRec fsigs :: tl ->
+            let%bind acc = acc_m in
+            let func_comps = List.map fsigs ~f:Ast_tools.Funsig.to_components in
+            let%bind env = read_env in
+            let rec rec_env = lazy (
+              List.fold func_comps ~init:env ~f:(fun acc comps ->
+                match Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
+                | EFunction { param ; body } -> 
+                  let v = VFunClosure { param ; closure = { body ; env = rec_env } } in
+                  Env.add comps.func_id v acc
+                | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
+              )
+            ) in
+            let m =
+              List.fold func_comps ~init:acc ~f:(fun acc comps ->
+                Map.set acc ~key:(RecordLabel comps.func_id) ~data:(Obj.magic @@ (* FIXME *)
+                  Env.fetch comps.func_id (force rec_env)
+                  |> Option.value_exn
+                )
+              )
+            in
+            local_env (fun _ -> force rec_env) (fold_stmts (return m) tl )
+        in
+        fold_stmts (return RecordLabel.Map.empty) stmts
+      in
+      return (VModule module_body)
   in
 
   (run (eval e) 0 Read.empty)
@@ -370,5 +426,4 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | Error Reached_max_step -> Format.printf "REACHED MAX STEP\n"; VDiverge
 
 let eval_pgm (type a) (pgm : a Program.t) : a V.t =
-  eval_exp
-  @@ Ast_tools.Utils.pgm_to_module pgm
+  eval_exp (EModule pgm)

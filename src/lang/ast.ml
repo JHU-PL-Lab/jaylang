@@ -261,6 +261,7 @@ module Expr = struct
       | EMatch : { subject : 'a t ; patterns : ('a Pattern.t * 'a t) list } -> 'a t
       | EProject : { record : 'a t ; label : RecordLabel.t } -> 'a t
       | ERecord : 'a t RecordLabel.Map.t -> 'a t
+      | EModule : 'a statement list -> 'a t
       | ENot : 'a t -> 'a t 
       | EPick_i : unit Cell.t -> 'a t (* is parsed as "input", but we can immediately make it pick_i *)
       | EFunction : { param : Ident.t ; body : 'a t } -> 'a t (* note bluejay also has multi-arg function, which generalizes this *)
@@ -301,7 +302,6 @@ module Expr = struct
       (* bluejay or type erased *)
       | EList : 'a t list -> 'a bluejay_or_type_erased t
       | EListCons : 'a t * 'a t -> 'a bluejay_or_type_erased t
-      | EModule : 'a statement list -> 'a bluejay_or_type_erased t
       | EAssert : 'a t -> 'a bluejay_or_type_erased t
       | EAssume : 'a t -> 'a bluejay_or_type_erased t
       | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_or_type_erased t
@@ -693,6 +693,9 @@ module Embedded = struct
         }
       | EProject { record ; label } -> EProject { record = t_of_expr record ; label }
       | ERecord r -> ERecord (Map.map r ~f:t_of_expr)
+      | EModule stmt_ls -> EModule (List.map stmt_ls ~f:(function SUntyped { var ; defn} ->
+          Expr.With_program_points.SUntyped { var ; defn = t_of_expr defn }
+        ))
       | ENot expr -> ENot (t_of_expr expr)
       | EVariant { label ; payload } -> EVariant { label ; payload = t_of_expr payload }
       | EIntensionalEqual { left ; right } -> EIntensionalEqual { left = t_of_expr left ; right = t_of_expr right }
@@ -779,6 +782,9 @@ module Embedded = struct
         }
       | EProject { record ; label } -> EProject { record = visit record env ; label }
       | ERecord r -> ERecord (Map.map r ~f:(fun body -> visit body env))
+      | EModule stmt_ls -> EModule (List.map stmt_ls ~f:(function SUntyped { var ; defn } ->
+          Expr.With_program_points.SUntyped { var ; defn = visit defn env }
+        ))
       | ENot expr -> ENot (visit expr env)
       | EVariant { label ; payload } -> EVariant { label ; payload = visit payload env }
       | EIntensionalEqual { left ; right } -> EIntensionalEqual { left = visit left env ; right = visit right env }

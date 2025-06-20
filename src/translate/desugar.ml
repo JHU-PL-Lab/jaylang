@@ -117,7 +117,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
         ; false_body = EDiverge ()
         }
     (* Dependent records / modules *)
-    | EModule stmts -> desugar (pgm_to_module stmts)
+    | EModule stmts -> EModule (List.bind stmts ~f:desugar_statement)
     (* Patterns *)
     | EMatch { subject ; patterns } ->
       EMatch { subject = desugar subject ; patterns = 

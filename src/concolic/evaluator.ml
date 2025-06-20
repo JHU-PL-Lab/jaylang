@@ -46,8 +46,8 @@ let eval_exp
       return @@ VUntouchable v
     | EProject { record = e_record ; label } -> begin
       match%bind eval e_record with
-      | VRecord record_body as v -> begin
-        match Map.find record_body label with
+      | (VRecord body | VModule body) as v -> begin
+        match Map.find body label with
         | Some v -> return v
         | None -> type_mismatch @@ Error_msg.project_missing_label label v
       end
@@ -67,6 +67,20 @@ let eval_exp
         )
       in
       return @@ VRecord value_record_body
+    | EModule stmt_ls ->
+      let%bind module_body =
+        let rec fold_stmts acc_m = function
+          | [] -> acc_m
+          | SUntyped { var ; defn } :: tl ->
+            let%bind acc = acc_m in
+            let%bind v = eval defn in
+            local_env (Env.add var v) (
+              fold_stmts (return @@ Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v) tl
+            )
+        in
+        fold_stmts (return RecordLabel.Map.empty) stmt_ls
+      in
+      return @@ VModule module_body 
     | EIgnore { ignored ; body } ->
       let%bind _ : Value.t = eval ignored in
       eval body

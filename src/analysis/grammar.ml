@@ -42,6 +42,7 @@ module rec Value : sig
     | VVariant of { label : VariantLabel.t ; payload : t }
     | VUntouchable of t
     | VRecord of t RecordLabel.Map.t
+    | VModule of t RecordLabel.Map.t
     | VId [@@deriving compare]
   (** [t] are the abstract values. This uses polymorphic comparison on closures. *)
 
@@ -75,6 +76,7 @@ end = struct
       | VVariant of { label : VariantLabel.t ; payload : t }
       | VUntouchable of t
       | VRecord of t RecordLabel.Map.t
+      | VModule of t RecordLabel.Map.t
       | VId [@@deriving compare]
       (* We don't yet handle tables. That will be a failure case in the analysis *)
   end
@@ -95,6 +97,9 @@ end = struct
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
     | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
     | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
+    | VModule module_body -> 
+      Format.sprintf "sig %s end" 
+      (String.concat ~sep:" " @@ List.map (Map.to_alist module_body) ~f:(fun (key, data) -> Format.sprintf "let %s = %s" (RecordLabel.to_string key) (to_string data)))
     | VId -> "(fun x -> x)"
 
   let any_int = M.choose [ VPosInt ; VNegInt ; VZero ]

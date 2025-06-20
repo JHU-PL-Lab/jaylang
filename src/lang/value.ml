@@ -52,6 +52,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       | VFunClosure : { param : Ident.t ; closure : 'a closure } -> 'a t
       | VVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
       | VRecord : 'a t RecordLabel.Map.t -> 'a t
+      | VModule : 'a t RecordLabel.Map.t -> 'a t
       | VTypeMismatch : 'a t
       | VAbort : 'a t (* this results from `EAbort` or `EAssert e` where e => false *)
       | VDiverge : 'a t (* this results from `EDiverge` or `EAssume e` where e => false *)
@@ -105,8 +106,8 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
         | PBool, VBool _
         | PUnit, VUnit
         | PRecord, VRecord _ (* Currently, types match this *)
+        | PModule, VModule _
         | PFun, VFunClosure _ -> Some []
-        | PModule, _ -> failwith "unimplemented module pattern"
         | PType, VRecord m ->
           if List.for_all Ast_tools.Reserved.[ gen ; check ; wrap ] ~f:(Map.mem m)
           then Some []
@@ -132,6 +133,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
           VariantLabel.equal r1.label r2.label
           && equal r1.payload r2.payload
         | VRecord m1, VRecord m2 -> RecordLabel.Map.equal equal m1 m2
+        | VModule m1, VModule m2 -> RecordLabel.Map.equal equal m1 m2
         | VFrozen c1, VFrozen c2 -> equal_closure [] c1 c2
         | VTable r1, VTable r2 ->
           List.equal (Tuple2.equal ~eq1:equal ~eq2:equal) r1.alist r2.alist
@@ -222,6 +224,9 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     | VFunClosure { param = Ident s ; _ } -> Format.sprintf "(fun %s -> <expr>)" s
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
     | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
+    | VModule module_body -> 
+      Format.sprintf "sig %s end" 
+      (String.concat ~sep:" " @@ List.map (Map.to_alist module_body) ~f:(fun (key, data) -> Format.sprintf "let %s = %s" (RecordLabel.to_string key) (to_string data)))
     | VTypeMismatch -> "Type_mismatch"
     | VUnboundVariable Ident v -> Format.sprintf "Unbound_variable %s" v
     | VAbort -> "Abort"
@@ -241,7 +246,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     | VTypeBottom -> "bottom"
     | VTypeUnit -> "unit"
     | VTypeRecord record_body -> RecordLabel.record_body_to_string ~sep:":" record_body to_string
-    | VTypeModule ls -> Format.sprintf "{: %s :}" (String.concat ~sep:" ; " @@ List.map ls ~f:(fun (label, _) -> Format.sprintf "%s : <expr>" (RecordLabel.to_string label)))
+    | VTypeModule ls -> Format.sprintf "sig %s end" (String.concat ~sep:" " @@ List.map ls ~f:(fun (label, _) -> Format.sprintf "val %s : <expr>" (RecordLabel.to_string label)))
     | VTypeFun { domain ; codomain ; det } -> Format.sprintf "(%s %s %s)" (to_string domain) (if det then "-->" else "->") (to_string codomain)
     | VTypeDepFun { binding = Ident s ; domain ; det ; _ } -> Format.sprintf "((%s : %s) %s <expr>)" s (if det then "-->" else "->") (to_string domain)
     | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (to_string tau) (to_string predicate)
@@ -345,10 +350,10 @@ module Bluejay = Constrain (struct type constrain = Ast.Constraints.bluejay end)
 
 module Error_msg (Value : sig type t val to_string : t -> string end) = struct
   let project_non_record label v =
-    Format.sprintf "Label %s not found in non-record `%s`" (RecordLabel.to_string label) (Value.to_string v)
+    Format.sprintf "Label %s not found in non-record/module `%s`" (RecordLabel.to_string label) (Value.to_string v)
 
   let project_missing_label label record =
-    Format.sprintf "Label %s not found in record %s" (RecordLabel.to_string label) (Value.to_string record)
+    Format.sprintf "Label %s not found in record/module %s" (RecordLabel.to_string label) (Value.to_string record)
 
   let thaw_non_frozen v =
     Format.sprintf "Thaw non-frozen value `%s`" (Value.to_string v)
