@@ -6,7 +6,7 @@ open Core
 (* this is a no-op but is needed for typing purposes *)
 let erase_from_pattern (p : Bluejay.pattern) : Type_erased.pattern =
   match p with
-  | (PAny | PVariable _ | PVariant _ | PEmptyList | PDestructList _)  as p' -> p'
+  | (PAny | PVariable _ | PVariant _ | PEmptyList | PDestructList _) as p' -> p'
 
 let erase (pgm : Bluejay.pgm) : Type_erased.pgm =
   let rec erase (e : Bluejay.t) : Type_erased.t =
@@ -26,10 +26,10 @@ let erase (pgm : Bluejay.pgm) : Type_erased.pgm =
     | ETypeVariant _
     | ETypeSingle _ 
     | ETypeList _ 
-    | ETypeMu { params = [] ; _ }
     | ETypeIntersect _ -> Ast_tools.Utils.unit_value
-    | ETypeMu { params ; _ } -> (* has some parameters so is a function *)
-      EMultiArgFunction { params ; body = Ast_tools.Utils.unit_value}
+    | ETypeMu { params = [] ; body ; _ } -> erase body
+    | ETypeMu { params ; body ; _ } -> (* has some parameters so is a function *)
+      EMultiArgFunction { params ; body = erase body }
     (* remove types *)
     | ELetTyped { typed_var = { var ; _ } ; defn ; body ; _ } -> 
       ELet { var ; defn = erase defn ; body = erase body }
