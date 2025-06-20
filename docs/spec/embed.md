@@ -182,12 +182,14 @@ Notes:
       | `~Stub $gend ->
         let B = [[`~Stubbed_mu of unit]] in
         [[tau]].~check $gend
+      | PUntouchable _ (* underscore cannot match untouchable, so combine the cases *)
       | _ -> (* run the normal checker *)
         let B = $self ($depth - 1) in [[tau]].~check $e 
       end
     ; ~wrap = fun $e ->
       match $e with
       | `Stub _ -> $e (* we can assume that $e checks out against $tau, so no wrapping to do *)
+      | PUntouchable _ (* underscore cannot match untouchable, so combine the cases *)
       | _ -> (* use the normal wrapper *)
         let B = $self ($depth - 1) in [[tau]].~wrap $e
       end

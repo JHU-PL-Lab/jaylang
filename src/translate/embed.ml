@@ -468,6 +468,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           )
         else (* limit recursive depth of generated members in this type *)
           let gend = Names.fresh_id ~suffix:"gend" () in
+          let v = Names.fresh_id ~suffix:"v" () in
           let stub_type t =
             embed @@ ETypeVariant [ Reserved.stub_type, t ]
           in
@@ -488,12 +489,14 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                     ; check = lazy (fresh_abstraction "e_mu_check" @@ fun e -> 
                       EMatch { subject = EVar e ; patterns =
                         [ PVariant { variant_label = Reserved.stub ; payload_id = gend }, with_beta_as_stub (check tau (EVar gend))
+                        ; PUntouchable v, with_beta (check tau (EUntouchable (EVar v)))
                         ; PAny, with_beta (check tau (EVar e)) ]
                       }
                     )
                     ; wrap = lazy (fresh_abstraction "e_mu_wrap" @@ fun e -> 
                       EMatch { subject = EVar e ; patterns =
                         [ PVariant { variant_label = Reserved.stub ; payload_id = Reserved.catchall }, EVar e
+                        ; PUntouchable v, with_beta (wrap tau (EUntouchable (EVar v)))
                         ; PAny, with_beta (wrap tau (EVar e)) ]
                       }
                     )
