@@ -211,9 +211,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         { gen = lazy (EPick_i ())
         ; check = lazy (
           fresh_abstraction "e_int_check" @@ fun e ->
-            build @@
-              let%bind () = ignore (EBinop { left = EVar e ; binop = BPlus ; right = EInt 0 }) in
-              return EUnit
+            EMatch { subject = EVar e ; patterns = [ PInt, EUnit ]}
         )
         ; wrap = lazy EId
         }
@@ -222,9 +220,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         { gen = lazy (EPick_b ())
         ; check = lazy (
           fresh_abstraction "e_bool_check" @@ fun e ->
-            build @@
-              let%bind () = ignore (ENot (EVar e)) in
-              return EUnit
+            EMatch { subject = EVar e ; patterns = [ PBool, EUnit ]}
         )
         ; wrap = lazy EId
         }
@@ -280,13 +276,18 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         { gen = lazy (ERecord (Map.map m ~f:gen))
         ; check = lazy (
           fresh_abstraction "e_rec_check" @@ fun e ->
-            build @@
-              let%bind () =
-                iter (Map.to_alist m) ~f:(fun (label, tau) ->
-                  ignore (check tau (proj (EVar e) label))
-                )
+            EMatch { subject = EVar e ; patterns = 
+              let body = 
+                build @@
+                  let%bind () =
+                    iter (Map.to_alist m) ~f:(fun (label, tau) ->
+                      ignore (check tau (proj (EVar e) label))
+                    )
+                  in
+                  return EUnit
               in
-              return EUnit
+              [ PRecord, body ]
+            }
         )
         ; wrap = lazy (
           fresh_abstraction "e_rec_wrap"  @@ fun e ->

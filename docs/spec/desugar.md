@@ -166,7 +166,7 @@ let filter_list x =
   `~Cons { ~hd = (| x |) ; ~tl = filter_list (| xs |) }
 
 (| [] |) =
-  `~Nil {} 
+  `~Nil () 
 
 (| [ x1 ; ... ; xn ] |) =
   (| x1 :: ... :: xn :: [] |)
@@ -223,12 +223,12 @@ Notes:
 ```ocaml
 (| assert e |) =
   if (| e |)
-  then {}
+  then ()
   else abort "Failed assertion"
 
 (| assume e |)
   if (| e |)
-  then {}
+  then ()
   else diverge
 ```
 
@@ -241,7 +241,7 @@ Notes:
       fun x_1 ... x_m ->
         (| assert e |)
   in
-  {}
+  ()
 
 (| assume (exists (type a_1 ... a_n) (x_1 : tau_1) ... (x_n : tau_m). e) |) =
   let _ : (a_1 : type) -> ... -> (a_n : type) -> (| tau_1 |) -> ... -> (| tau_m |) -> (| unit |) =
@@ -249,7 +249,7 @@ Notes:
       fun x_1 ... x_m ->
         (| assume e |)
   in
-  {}
+  ()
 ```
 
 Notes:
