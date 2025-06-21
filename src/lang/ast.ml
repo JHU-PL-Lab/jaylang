@@ -693,7 +693,7 @@ module Embedded = struct
         }
       | EProject { record ; label } -> EProject { record = t_of_expr record ; label }
       | ERecord r -> ERecord (Map.map r ~f:t_of_expr)
-      | EModule stmt_ls -> EModule (List.map stmt_ls ~f:(function SUntyped { var ; defn} ->
+      | EModule stmt_ls -> EModule (List.map stmt_ls ~f:(function SUntyped { var ; defn } ->
           Expr.With_program_points.SUntyped { var ; defn = t_of_expr defn }
         ))
       | ENot expr -> ENot (t_of_expr expr)
@@ -782,9 +782,15 @@ module Embedded = struct
         }
       | EProject { record ; label } -> EProject { record = visit record env ; label }
       | ERecord r -> ERecord (Map.map r ~f:(fun body -> visit body env))
-      | EModule stmt_ls -> EModule (List.map stmt_ls ~f:(function SUntyped { var ; defn } ->
-          Expr.With_program_points.SUntyped { var ; defn = visit defn env }
-        ))
+      | EModule stmt_ls -> EModule (
+        let rec map_stmts env : embedded Expr.With_program_points.statement list -> _ = function
+          | [] -> []
+          | Expr.With_program_points.SUntyped { var ; defn } :: tl ->
+            let var', env' = replace var env in
+            Expr.With_program_points.SUntyped { var = var' ; defn = visit defn env } :: map_stmts env' tl
+        in
+        map_stmts env stmt_ls
+      )
       | ENot expr -> ENot (visit expr env)
       | EVariant { label ; payload } -> EVariant { label ; payload = visit payload env }
       | EIntensionalEqual { left ; right } -> EIntensionalEqual { left = visit left env ; right = visit right env }
