@@ -250,6 +250,6 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
   let run (x : 'a m) : Status.Eval.t * Target.t list =
     match run x State.empty Read.empty with
     | Ok _, s ->
-      Status.Finished { pruned = Path.length s.path > max_depth || s.step > max_step }, s.targets
+      Status.Finished { pruned = Path.length s.path >= max_depth || s.step > max_step }, s.targets
     | Error e, s -> e, s.targets
 end
