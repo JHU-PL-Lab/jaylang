@@ -1,0 +1,13 @@
+(***
+  (
+    (features (Records Recursive_functions Subtyping))
+    (speed Fast) ; only because type splaying
+    (typing Well_typed)
+    (flags "-s")
+  )
+*)
+
+let rec f (r : {:}) (n : int) : { x : {:} } = 
+  if n == 0
+  then { x = {} }
+  else f { x = f r (n - 1) } (n - 1)

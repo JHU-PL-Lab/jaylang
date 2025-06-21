@@ -287,6 +287,8 @@ primary_expr:
   (* braces/parens *)
   | OPEN_PAREN CLOSE_PAREN
       { EUnit : Bluejay.t }
+  | OPEN_BRACE_COLON CLOSE_BRACE
+      { ETypeRecord empty_record : Bluejay.t }
   | OPEN_BRACE record_body CLOSE_BRACE
       { ERecord $2 : Bluejay.t }
   | OPEN_BRACE CLOSE_BRACE

@@ -287,7 +287,7 @@ let _ =
 ```ocaml
 int           (* type of integers *)
 bool          (* type of booleans *)
-unit          (* the type of empty records *)
+unit          (* the terminal type whose only member is () *)
 type          (* type of types *)
 top           (* everything has type top *)
 bottom        (* nothing has type bottom *)
@@ -435,6 +435,15 @@ let _ = r.y (* this fails *)
 let f : { x : int } -> { x : int } = fun r -> r
 let r = f { x = 0 ; y = true } (* this succeeds due to subtyping *)
 let _ = r.y (* this fails just like above *)
+```
+
+To write the type of the empty record, use the following syntax.
+
+```ocaml
+let mt_type = {:} (* empty record type *)
+let mt = {}       (* empty record value *)
+
+let _ : mt_type = mt (* the is well-typed *)
 ```
 
 ### Modules
