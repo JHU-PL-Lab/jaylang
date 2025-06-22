@@ -72,8 +72,8 @@ The full feature list of Bluejay is the following.
 **Types:**
 * `int`
 * `bool`
-* `list tau` for a type `tau`. The type function `list` is not first class.
-* `singlet tau` for a type `tau`. The type function `singlet` is not first class. `singlet tau` is the type whose only member is the type `tau`.
+* `list tau` for a type `tau`. The type function `list` is first class.
+* `singlet tau` for a type `tau`. The type function `singlet` is first class. `singlet tau` is the type whose only member is the type `tau`.
 * `type`, the type of a type.
 * `top`, the type of everything, whose generated member is an usable value, but everthing checks against `top`.
 * `bottom`, the subtype of everything, which has no members.
@@ -296,7 +296,7 @@ singlet int   (* the type containing only int *)
 list bool     (* the type of lists of booleans )
 ```
 
-`singlet` and `list` are not first class: they must be applied with a type argument where they are written.
+`singlet` and `list` are first class: they do not need an argument applied where they are written.
 
 #### Refinement types
 
