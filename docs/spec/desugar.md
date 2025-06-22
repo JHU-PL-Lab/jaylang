@@ -175,16 +175,6 @@ let filter_list x =
 Notes:
 * We need to instrument cons because otherwise it always looks well-typed. So we filter all things on the right of `(::)` to be lists.
 
-## Dependent record / module
-
-```ocaml
-(| struct let l_1 : tau_1 = e_1 ... let l_n : tau_n = e_n end |) =
-  (| let l_1 = e_1 in
-    ...
-    let l_n = e_n in 
-    { l_1 = l_1 ; ... ; l_n = l_n } |)
-```
-
 ## Pattern matching
 
 ```ocaml
