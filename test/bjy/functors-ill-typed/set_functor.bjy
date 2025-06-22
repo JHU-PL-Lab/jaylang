@@ -38,7 +38,7 @@ let F :
   end
 
 let M = struct
-  let t a = list a
+  let t = list
   let empty _ = []
   let add _ x xs = x :: xs
   let rec map a b xs f =

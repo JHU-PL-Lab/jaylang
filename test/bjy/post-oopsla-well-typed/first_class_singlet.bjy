@@ -1,0 +1,42 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions Higher_order_functions))
+    (speed Fast) ; because no recursion
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+let True = { b : bool | b }
+
+let MONAD = { M : sig
+  val m : type --> type (* deterministic type function *)
+  val return : (a : type) -> a -> m a
+  val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b
+end |
+  let check_law_1 (type a_ b_) (a : a_) (h : a_ --> M.m b_) (detf : M.m b_ --> int) : True =
+    let left = M.bind a_ b_ (M.return a_ a) h in
+    let right = h a in
+    detf left == detf right
+  in
+  let check_law_2 (type a_) (a_m : M.m a_) (detf : M.m a_ --> int) : True =
+    let left = M.bind a_ a_ a_m (M.return a_) in
+    let right = a_m in
+    detf left == detf right
+  in
+  let check_law_3 (type a_ b_ c_) (a_m : M.m a_) (g : a_ --> M.m b_) (h : b_ --> M.m c_) (detf : M.m c_ --> int) : True =
+    let left = M.bind b_ c_ (M.bind a_ b_ a_m g) h in
+    let right = M.bind a_ c_ a_m (fun x -> M.bind b_ c_ (g x) h) in
+    detf left == detf right
+  in
+  true
+}
+
+(*
+  What's crazy is that this is a monad
+*)
+let T : MONAD = struct
+  let m = singlet
+  let return a _ = a
+  let bind _ b _ _ = b
+end
