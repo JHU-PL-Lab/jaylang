@@ -26,9 +26,7 @@ rule token = parse
 | whitespace           { token lexbuf }
 | newline              { incr_lineno lexbuf; token lexbuf }
 | "{"                  { OPEN_BRACE }
-| "{:"                 { OPEN_BRACE_COLON }
 | "}"                  { CLOSE_BRACE }
-| ":}"                 { COLON_CLOSE_BRACE }
 | "("                  { OPEN_PAREN }
 | ")"                  { CLOSE_PAREN }
 | "["                  { OPEN_BRACKET }

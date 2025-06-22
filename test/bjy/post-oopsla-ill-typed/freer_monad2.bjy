@@ -26,15 +26,26 @@ let ty1 = ty 1
 
 let t : ty1 --> type --> type = mu t f a.
   | `Return of a
-  | `Bind of {: b : type ; intermediate : f b ; cont : b -> t f a :}
+  | `Bind of sig 
+      val b : type 
+      val intermediate : f b
+      val cont : b -> t f a
+    end
 
-let r_with_cont r k =
-  { b = r.b ; intermediate = r.intermediate ; cont = k }
+let r_with_cont r k = struct
+  let b = r.b 
+  let intermediate = r.intermediate 
+  let cont = k
+end
 
 let perform 
   : (a : type) -> (f : ty1) -> f a -> t f a
   = fun a f fa ->
-  `Bind { b = a ; intermediate = fa ; cont = fun a -> `Return a }
+  `Bind struct
+    let b = a 
+    let intermediate = fa 
+    let cont = fun a -> `Return a
+   end
 
 let handler 
   : ty1 --> type

@@ -55,7 +55,7 @@ let t : ty -> type = mu t a.
   | `Equal of
     match a with
     | `TInt _ -> bottom (* `Equal is not an `int t` *)
-    | `TBool _ -> {: a : ty ; left : t a ; right : t a :}
+    | `TBool _ -> sig val a : ty val left : t a val right : t a end
     end
 
 let rec any_to_int (dep a : ty) (x : t a) : int =

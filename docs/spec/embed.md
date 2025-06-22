@@ -340,14 +340,15 @@ Because of the desugaring, we only have types and dependent types instead of pol
 
 ```ocaml
 [[ sig val l_0 : tau_0 ... val l_n : tau_n end ]] =
-  { ~gen = freeze @@
-    let l_0 = thaw [[tau_0]].~gen in (* use the name l_0 to put it in scope *)
-    ...
-    let l_(n-1) = thaw [[tau_(n-1)]].~gen in (* use the name l_(n-1) to put it in scope *)
-    { l_0 = l_0 ; ... ; l_(n-1) = l_(n-1) ; l_n = thaw [[tau_n]].~gen }
+  { ~gen = freeze struct
+      let l_0 = thaw [[tau_0]].~gen
+      ...
+      let l_(n-1) = thaw [[tau_(n-1)]].~gen
+      let l_n = thaw [[tau_n]].~gen
+    end
   ; ~check = fun $e ->
     match $e with
-    | module -> (* this does not yet happen in the implementation *)
+    | module ->
       let _ = [[tau_0]].~check $e.l_0 in
       let l_0 = $e.l_0 in (* put the name l_0 in scope *) 
       ...
@@ -355,11 +356,11 @@ Because of the desugaring, we only have types and dependent types instead of pol
       let l_(n-1) = $e.l_(n-1) in (* put the name l_(n-1) in scope *)
       let _ = [[tau_n]].~check $e.l_n in
       ()
-  ; ~wrap = fun $e ->
-    let l_0 = [[tau_0]].~wrap $e.l_0 in (* put the name l_0 in scope *)
-    ...
-    let l_(n-1) = [[tau_(n-1)]].~wrap $e.l_(n-1) in (* put the name l_(n-1) in scope *)
-    { l_0 = l_0 ; ...; l_(n-1) = l_(n-1) ; l_n = [[tau_n]].~wrap $e.l_n }
+  ; ~wrap = fun $e -> struct
+      let l_0 = [[tau_0]].~wrap $e.l_0
+      ...
+      let l_n = [[tau_n]].~wrap $e.l_n
+    end
   }
 ```
 

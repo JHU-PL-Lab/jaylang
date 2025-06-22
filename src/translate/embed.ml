@@ -315,39 +315,29 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         }
     | ETypeModule ls ->
       make_embedded_type
-        { gen = lazy (
-          build @@
-            let%bind () =
-              iter ls ~f:(fun (RecordLabel label_id, tau) ->
-                assign label_id @@ gen tau
-              )
-            in
-            return (ERecord (RecordLabel.Map.of_alist_exn
-              @@ List.map ls ~f:(fun (((RecordLabel label_id) as l), _) -> l, EVar (label_id))
-            ))
+        { gen = lazy (EModule (
+            List.map ls ~f:(fun (RecordLabel var, tau) -> SUntyped { var ; defn = gen tau }
+          ))
         )
         ; check = lazy (
-          fresh_abstraction "e_dep_rec_check" @@ fun e ->
-            build @@
+          fresh_abstraction "e_module_check" @@ fun e ->
+            EMatch { subject = EVar e ; patterns =
+            [ PModule
+            , build @@
               let%bind () =
                 iter ls ~f:(fun (RecordLabel label_id as l, tau) ->
                   let%bind () = ignore @@ check tau (proj (EVar e) l) in
                   assign label_id @@ proj (EVar e) l
                 )
               in
-              return EUnit
+              return EUnit ]
+            }
         )
         ; wrap = lazy (
           fresh_abstraction "e_dep_rec_wrap" @@ fun e ->
-            build @@
-              let%bind () =
-                iter ls ~f:(fun (RecordLabel label_id as l, tau) ->
-                  assign label_id @@ wrap tau (proj (EVar e) l)
-                )
-              in
-              return (ERecord (RecordLabel.Map.of_alist_exn
-                @@ List.map ls ~f:(fun (((RecordLabel label_id) as l), _) -> l, EVar (label_id))
-              ))
+            EModule (
+              List.map ls ~f:(fun ((RecordLabel var) as l, tau) -> SUntyped { var ; defn = wrap tau (proj (EVar e) l) })
+            )
         )
         }
     | EType ->

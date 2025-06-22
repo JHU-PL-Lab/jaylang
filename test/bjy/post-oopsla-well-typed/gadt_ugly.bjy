@@ -48,13 +48,13 @@ let t : tparam -> type = mu t tp.
   | `Bool _ -> (
     | `Const of Const.t tp
     | `Var of Var.t tp
-    | `Equal of {: a : tparam ; left : t a ; right : t a :}
+    | `Equal of sig val a : tparam val left : t a val right : t a end
   )
   | `Any _ -> (
     | `Const of Const.t tp
     | `Var of Var.t tp
     | `Plus of { left : t i ; right : t i }
-    | `Equal of {: a : tparam ; left : t a ; right : t a :} 
+    | `Equal of sig val a : tparam val left : t a val right : t a end
   )
   end
 

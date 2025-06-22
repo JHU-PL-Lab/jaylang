@@ -87,7 +87,11 @@ let Expr : T 0 = struct
   let t = mu t.
     | `Int of int
     | `Var of Ident.t
-    | `Function of Triple.t Ident.t Type.t t
+    | `Function of sig
+       val first : Ident.t 
+       val second : Type.t 
+       val third : t
+    end
     | `If_then_else of Triple.t t t t
     | `Plus of Pair.t t t
     | `Minus of Pair.t t t
@@ -143,7 +147,11 @@ let is_closed e bound =
 let Value : T 0 = struct
   let t =
     `Int of int
-    | `Function of {: first : Ident.t ; second : Type.t ; third : { e : Expr.t | is_closed e [ first ] } :}
+    | `Function of sig
+       val first : Ident.t 
+       val second : Type.t 
+       val third : { e : Expr.t | is_closed e [ first ] }
+    end
 end
 
 let Result = struct
@@ -288,7 +296,11 @@ let subst (dep e : Expr.t) (dep id : Ident.t) (v : Value.t) : { new_expr : Expr.
     | `Function trip ->
         if Ident.eq trip.first id
         then e
-        else `Function { first = trip.first ; second = trip.second ; third = sub trip.third }
+        else `Function struct
+          let first = trip.first 
+          let second = trip.second 
+          let third = sub trip.third
+        end
     | `Plus p -> `Plus (sub_pair p)
     | `Minus p -> `Minus (sub_pair p)
     | `Equal p -> `Equal (sub_pair p)
