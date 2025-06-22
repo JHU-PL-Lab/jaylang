@@ -7,7 +7,11 @@
   )
 *)
 
+(*
+  Computes a numeral encoded church-like as a record,
+  where the numeral is 2^(n+1)-1
+*)
 let rec f (r : {:}) (n : int) : { x : {:} } = 
   if n == 0
-  then { x = {} }
+  then { x = r }
   else f { x = f r (n - 1) } (n - 1)

@@ -225,7 +225,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
     | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
     | VModule module_body -> 
-      Format.sprintf "sig %s end" 
+      Format.sprintf "struct %s end" 
       (String.concat ~sep:" " @@ List.map (Map.to_alist module_body) ~f:(fun (key, data) -> Format.sprintf "let %s = %s" (RecordLabel.to_string key) (to_string data)))
     | VTypeMismatch -> "Type_mismatch"
     | VUnboundVariable Ident v -> Format.sprintf "Unbound_variable %s" v
