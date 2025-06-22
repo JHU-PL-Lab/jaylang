@@ -30,6 +30,14 @@ Note the package name, which is probably `undefined_publisher.bluejay-language`,
 code --uninstall-extension undefined_publisher.bluejay-language
 ```
 
+Also uninstall from npm with
+
+```sh
+npm uninstall bluejay-language@0.0.2
+```
+
+or whatever version(s) you have installed.
+
 ## Disclaimers
 
 The icon is under the license found at [this](https://uxwing.com/license/) link.

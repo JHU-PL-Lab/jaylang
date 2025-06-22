@@ -12,5 +12,5 @@ let _ : (bool --> int) -> bool -> unit =
     if b then
       assert (f true == f b)
     else
-      unit
+      ()
 

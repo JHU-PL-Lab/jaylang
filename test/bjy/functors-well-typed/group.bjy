@@ -1,0 +1,91 @@
+
+let Option = struct
+  let t a =
+    | `Some of a
+    | `None of unit
+
+  let bind f x =
+    match x with
+    | `Some y -> f y
+    | `None _ -> x
+    end
+
+  let get x =
+    match x with
+    | `Some y -> y
+    | `None _ -> assume false
+    end
+end
+
+let ENUMERABLE = sig
+  val t : type
+  val compare : t -> t -> int
+  val zero : t
+  val next : t -> Option.t t
+end
+
+let OPERABLE = sig
+  val Enumerable : ENUMERABLE
+  val op : Enumerable.t -> Enumerable.t -> Enumerable.t
+end
+
+let Iterators (dependent Enumerable : ENUMERABLE) : let t = Enumerable.t in sig
+  val eq : t -> t -> bool
+  val for_all : (t -> bool) -> bool
+  val find : (t -> bool) -> Option.t t
+  val fold : (acc : type) -> acc -> (acc -> t -> acc) -> acc
+end = struct
+  let eq a b = Enumerable.compare a b == 0
+  
+  let for_all f =
+    let rec loop x =
+      match Enumerable.next x with
+      | `Some y -> f x && loop y
+      | `None _ -> f x
+      end
+    in
+    loop Enumerable.zero
+
+  let find f =
+    let rec loop x =
+      if f x 
+      then `Some x
+      else Option.bind loop (Enumerable.next x)
+    in
+    loop Enumerable.zero
+
+  let fold _ init f =
+    let rec go acc x =
+      match Enumerable.next x with
+      | `Some y -> go (f acc x) y
+      | `None _ -> f acc x
+      end
+    in
+    go init Enumerable.zero
+end
+
+let Group (dependent Operable : OPERABLE) : let t = Operable.Enumerable.t in sig
+  val id : t
+  val inverse : t -> t
+end = struct
+  let O = Operable
+  let I = Iterators O.Enumerable
+
+  let id =
+    Option.get (
+      I.find (fun x ->
+        I.for_all (fun y ->
+          I.eq (O.op x y) y 
+          && I.eq (O.op y x) y
+        )
+      )
+    )
+
+  let inverse x =
+    Option.get (
+      I.find (fun y ->
+        I.eq id (O.op x y)
+        && I.eq id (O.op y x)
+      )
+    )
+end

@@ -8,7 +8,7 @@
 
 let zero_type = { i : int | i == 0 }
 
-let c x = {}
+let c x = ()
 
 let b x =
   fun y ->

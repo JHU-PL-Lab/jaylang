@@ -36,12 +36,13 @@ end
 
 let confirm_type_of_state_monad 
   : (a : type) -> (b : type) -> (s : type) -> 
-      let m = State_monad.m in
-      { read : m s s
-      ; bind : m a s -> (a -> m b s) -> m b s
-      ; return : a -> m a s
-      ; modify : (s -> s) -> m s s
-      ; run : m a s -> s -> a }
+      let m = State_monad.m in sig
+        val read : m s s
+        val bind : m a s -> (a -> m b s) -> m b s
+        val return : a -> m a s
+        val modify : (s -> s) -> m s s
+        val run : m a s -> s -> a 
+      end
   = fun _ _ _ -> State_monad
 
 (*

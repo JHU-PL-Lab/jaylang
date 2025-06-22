@@ -10,10 +10,11 @@ let type_mismatch s =
 
 module Error_msg = Lang.Value.Error_msg (Value)
 
-let[@landmark] rec analyze (e : Embedded.With_callsites.t) : Value.t m =
+let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
   log e @@
   match e with
   (* immediate *)
+  | EUnit -> return VUnit
   | EInt 0 -> return VZero
   | EInt i when i > 0 -> return VPosInt
   | EInt _ -> return VNegInt
@@ -22,8 +23,8 @@ let[@landmark] rec analyze (e : Embedded.With_callsites.t) : Value.t m =
   | EVar id -> bind ask_env (Env.find id)
   | EId -> return VId
   (* inputs *)
-  | EPick_i -> any_int
-  | EPick_b -> any_bool
+  | EPick_i _ -> any_int
+  | EPick_b _ -> any_bool
   (* operations *)
   | EBinop { left ; binop ; right } -> begin
     let%bind v1 = analyze left in
@@ -37,7 +38,19 @@ let[@landmark] rec analyze (e : Embedded.With_callsites.t) : Value.t m =
     let%bind v = analyze subject in
     List.find_map patterns ~f:(fun (pat, expr) ->
       match pat, v with
-      | PAny, _ -> Some (expr, fun env -> env)
+      | PUntouchable id, VUntouchable v -> Some (expr, Env.add id v)
+      | _, VUntouchable _ -> None
+      | PAny, _
+      | PInt, (VPosInt | VNegInt | VZero)
+      | PBool, (VTrue | VFalse)
+      | PUnit, VUnit
+      | PRecord, VRecord _
+      | PModule, VModule _
+      | PFun, VFunClosure _ -> Some (expr, fun env -> env)
+      | PType, VRecord m ->
+        if List.for_all Lang.Ast_tools.Reserved.[ gen ; check ; wrap ] ~f:(Map.mem m)
+        then Some (expr, fun env -> env)
+        else None
       | PVariable id, _ -> Some (expr, Env.add id v)
       | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
         when Lang.Ast.VariantLabel.equal variant_label label ->
@@ -57,10 +70,24 @@ let[@landmark] rec analyze (e : Embedded.With_callsites.t) : Value.t m =
       )
     in
     return @@ VRecord value_record_body
+  | EModule stmt_ls ->
+    let%bind module_body =
+      let rec fold_stmts acc_m : Constraints.embedded Expr.With_program_points.statement list -> Value.t RecordLabel.Map.t m = function
+        | [] -> acc_m
+        | SUntyped { var ; defn } :: tl ->
+          let%bind acc = acc_m in
+          let%bind v = analyze defn in
+          local (Env.add var v) (
+            fold_stmts (return @@ Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v) tl
+          )
+      in
+      fold_stmts (return RecordLabel.Map.empty) stmt_ls
+    in
+    return (VModule module_body)
   | EProject { record ; label } -> begin
     match%bind analyze record with
-    | VRecord record_body as r -> begin
-      match Map.find record_body label with
+    | (VRecord body | VModule body) as r -> begin
+      match Map.find body label with
       | Some v -> return v
       | None -> type_mismatch @@ Error_msg.project_missing_label label r
     end 
@@ -69,6 +96,9 @@ let[@landmark] rec analyze (e : Embedded.With_callsites.t) : Value.t m =
   | EVariant { label ; payload } ->
     let%bind v = analyze payload in
     return @@ VVariant { label ; payload = v }
+  | EUntouchable e ->
+    let%bind v = analyze e in
+    return @@ VUntouchable v
   (* branching *)
   | EIf { cond ; true_body ; false_body } -> begin
     match%bind analyze cond with
@@ -100,29 +130,29 @@ let[@landmark] rec analyze (e : Embedded.With_callsites.t) : Value.t m =
   | EIgnore { ignored ; body } ->
     let%bind _ : Value.t = analyze ignored in
     analyze body
-  | EAppl { appl = { func ; arg } ; callsite } -> begin
+  | EAppl { data = { func ; arg } ; point } -> begin
     match%bind analyze func with
     | VFunClosure { param ; body = { body ; callstack } } -> begin
       let%bind v = analyze arg in
       let%bind env = find_env callstack in
-      with_call callsite
+      with_call point
       @@ local (fun _ -> Env.add param v env) (analyze body)
     end
     | VId -> analyze arg
     | v -> type_mismatch @@ Error_msg.bad_appl v 
   end
-  | EThaw { appl = expr ; callsite } -> begin
+  | EThaw { data = expr ; point } -> begin
     match%bind analyze expr with
     | VFrozen { body ; callstack } -> begin
       let%bind env = find_env callstack in
-      with_call callsite
+      with_call point
       @@ local (fun _ -> env) (analyze body)
     end
     | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
   end
   (* termination *)
-  | EDiverge -> vanish
-  | EAbort msg -> fail @@ Err.abort msg
+  | EDiverge _ -> vanish
+  | EAbort { data = msg ; point = _ } -> fail @@ Err.abort msg
   (* unhandled and currently ignored *)
   | EDet expr
   | EEscapeDet expr -> analyze expr

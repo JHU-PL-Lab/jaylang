@@ -1,0 +1,14 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Recursive_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s")
+  )
+*)
+
+let rec even (dependent n : int | n >= 0) : { b : bool | b == (n % 2 == 0) } =
+  n == 0 || odd (n - 1)
+
+and odd (dependent n : int | n >= 0) : { b : bool | b == (n % 2 <> 0) } =
+  n <> 0 && even (n - 1)

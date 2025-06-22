@@ -2,8 +2,8 @@
 (library
  (name translate)
  (public_name jay.translate)
- (modules convert desugar embed translation_tools)
- (private_modules desugar embed translation_tools)
- (libraries core utils lang preface)
+ (modules convert desugar embed translation_tools type_erasure)
+ (private_modules desugar embed translation_tools type_erasure)
+ (libraries core cmdliner utils lang preface)
  (preprocess (pps ocaml-monadic landmarks-ppx --auto))
  )

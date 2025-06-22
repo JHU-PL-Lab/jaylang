@@ -35,24 +35,19 @@ module Reserved = struct
   (* Variant constructors *)
   let cons : VariantLabel.t = VariantLabel (Ident "~Cons") 
   let nil : VariantLabel.t = VariantLabel (Ident "~Nil") 
-  let untouched : VariantLabel.t = VariantLabel (Ident "~Untouched")
   let top : VariantLabel.t = VariantLabel (Ident "~Top")
-  let bottom : VariantLabel.t = VariantLabel (Ident "~Bottom")
-  let predicate_failed : VariantLabel.t = VariantLabel (Ident "~Predicate_failed")
   let stub : VariantLabel.t = VariantLabel (Ident "~Stub")
 
   (* Variant type constructors *)
   let cons_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Cons") 
   let nil_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Nil") 
+  let stub_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Stub_for_mu")
 
   (* Idents *)
   let catchall : Ident.t = Ident "_"
 end
 
 module Utils = struct
-  let unit_value : type a. a Expr.t = ERecord RecordLabel.Map.empty
-  let unit_type : 'a Constraints.bluejay_or_desugared Expr.t = ETypeRecord RecordLabel.Map.empty
-
   (*
     [ x1 ; ... ; xn ], e |->
       fun x1 -> ... -> fun xn -> e
@@ -98,7 +93,7 @@ module Utils = struct
   open Expr
 
   let ids_of_stmt (type a) (stmt : a statement) : Ident.t list =
-    let id_of_fsig = function
+    let id_of_fsig : type a. a funsig -> Ident.t = function
       | FUntyped { func_id ; _ } -> func_id
       | FTyped { func_id ; _ } -> func_id
     in
@@ -130,24 +125,15 @@ module Utils = struct
       stmt_to_expr hd body
 
   let pgm_to_module : type a. a statement list -> a Expr.t =
-    fun pgm ->
-      let res = ERecord (
-        pgm
-        |> List.bind ~f:ids_of_stmt
-        |> List.fold ~init:RecordLabel.Map.empty ~f:(fun acc id ->
-          Map.set acc ~key:(RecordLabel id) ~data:(EVar id)
-        )
-      ) 
-      in 
-      pgm_to_expr_with_body res pgm
+    fun pgm -> EModule pgm
 end
 
 module Function_components = struct
   type 'a t =
     { func_id : Ident.t
-    ; tau_opt : 'a Constraints.bluejay_or_desugared Expr.t option
+    ; tau_opt : 'a Expr.t option
     ; params  : Ident.t list
-    ; defn    : 'a Constraints.bluejay_or_desugared Expr.t
+    ; defn    : 'a Expr.t
     } 
 
   let map (x : 'a t) ~(f : 'a Expr.t -> 'b Expr.t) : 'b t =
@@ -172,7 +158,8 @@ module Funsig = struct
   (*
     Breaks a function signature into its id, type (optional), parameter names, and function body.
   *)
-  let to_components (fsig : 'a t) : 'a Constraints.bluejay_or_desugared Function_components.t =
+  (* let to_components (fsig : 'a t) : 'a Function_components.t = *)
+  let to_components (type a) (fsig : a t) : a Function_components.t =
     match fsig with
     | FUntyped { func_id ; params ; defn } ->
       { func_id ; tau_opt = None ; params ; defn }

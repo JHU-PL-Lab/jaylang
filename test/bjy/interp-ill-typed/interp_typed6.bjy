@@ -31,7 +31,7 @@ let Nil : sig
   val v : t
 end = struct
   let t = unit
-  let v = {}
+  let v = ()
 end
 
 let Pair : T 2 = struct

@@ -4,7 +4,7 @@ open Lang.Ast
 
 module Callstack = struct
   module T = struct
-    type t = Callsite.t list [@@deriving compare, sexp]
+    type t = Program_point.t list [@@deriving compare, sexp]
   end
 
   include T
@@ -14,14 +14,14 @@ module Callstack = struct
   let k = 1
 
   (* inefficient for now and uses fixed k  *)
-  let k_cons : t -> Callsite.t -> t = fun stack callsite ->
+  let k_cons : t -> Program_point.t -> t = fun stack callsite ->
     List.take (callsite :: stack) k
 
   module Map = Map.Make (T)
 end
 
 module Closure = struct
-  type t = { body : Embedded.With_callsites.t ; callstack : Callstack.t }
+  type t = { body : Embedded.With_program_points.t ; callstack : Callstack.t }
 
   let compare a b =
     match Callstack.compare a.callstack b.callstack with
@@ -31,6 +31,7 @@ end
 
 module rec Value : sig 
   type t =
+    | VUnit
     | VPosInt
     | VNegInt
     | VZero
@@ -39,7 +40,9 @@ module rec Value : sig
     | VFunClosure of { param : Ident.t ; body : Closure.t }
     | VFrozen of Closure.t
     | VVariant of { label : VariantLabel.t ; payload : t }
+    | VUntouchable of t
     | VRecord of t RecordLabel.Map.t
+    | VModule of t RecordLabel.Map.t
     | VId [@@deriving compare]
   (** [t] are the abstract values. This uses polymorphic comparison on closures. *)
 
@@ -62,6 +65,7 @@ module rec Value : sig
 end = struct
   module T = struct
     type t =
+      | VUnit
       | VPosInt
       | VNegInt
       | VZero
@@ -70,7 +74,9 @@ end = struct
       | VFunClosure of { param : Ident.t ; body : Closure.t }
       | VFrozen of Closure.t
       | VVariant of { label : VariantLabel.t ; payload : t }
+      | VUntouchable of t
       | VRecord of t RecordLabel.Map.t
+      | VModule of t RecordLabel.Map.t
       | VId [@@deriving compare]
       (* We don't yet handle tables. That will be a failure case in the analysis *)
   end
@@ -80,6 +86,7 @@ end = struct
   module Set = Stdlib.Set.Make (T)
 
   let rec to_string = function
+    | VUnit -> "()"
     | VPosInt -> "(+)"
     | VNegInt -> "(-)"
     | VZero -> "0"
@@ -88,7 +95,11 @@ end = struct
     | VFunClosure { param ; _ } -> Format.sprintf "(fun %s -> <expr>)" (Ident.to_string param)
     | VFrozen _ -> "Frozen <expr>"
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
+    | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
     | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
+    | VModule module_body -> 
+      Format.sprintf "sig %s end" 
+      (String.concat ~sep:" " @@ List.map (Map.to_alist module_body) ~f:(fun (key, data) -> Format.sprintf "let %s = %s" (RecordLabel.to_string key) (to_string data)))
     | VId -> "(fun x -> x)"
 
   let any_int = M.choose [ VPosInt ; VNegInt ; VZero ]
@@ -420,7 +431,7 @@ and M : sig
   val local : (Env.t -> Env.t) -> 'a m -> 'a m
   (** [local f x] computes [x] with the local environment transformation [f]. *)
 
-  val with_call : Callsite.t -> 'a m -> 'a m
+  val with_call : Program_point.t -> 'a m -> 'a m
   (** [with_call callsite x] computes [x] with the [callsite] locally added to the callstack. *)
 
   val ask_env : Env.t m
@@ -435,7 +446,7 @@ and M : sig
     -----
   *)
 
-  val log : Embedded.With_callsites.t -> 'a m -> 'a m
+  val log : Embedded.With_program_points.t -> 'a m -> 'a m
   (** [log expr x] logs the [expr] as seen in the environment and computes [x] if [expr] is new.
       Otherwise, if [expr] had been seen in this strain before, then it vanishes. *)
 end = struct
@@ -490,9 +501,9 @@ end = struct
     fun s r ->
       x s { r with env = (f r.env) }
 
-  let with_call : Callsite.t -> 'a m -> 'a m = fun callsite x ->
+  let with_call : Program_point.t -> 'a m -> 'a m = fun point x ->
     fun s r ->
-      x s { r with callstack = Callstack.k_cons r.callstack callsite }
+      x s { r with callstack = Callstack.k_cons r.callstack point }
 
   let ask_env : Env.t m =
     fun s r -> Ok [ r.env, s ]
@@ -508,9 +519,9 @@ end = struct
     We don't log values, but it would cause no (true) harm because the cache is like env.
     It just would cause some harm in efficiency because we woule be logging unnecessarily.
   *)
-  let log : Embedded.With_callsites.t -> 'a m -> 'a m = fun expr x ->
+  let log : Embedded.With_program_points.t -> 'a m -> 'a m = fun expr x ->
     match expr with
-    | EInt _ | EBool _ | EVar _ | EPick_i | EPick_b | EFunction _ | EFreeze _ -> x (* these are fine to re-evalaute because they are values *)
+    | EInt _ | EBool _ | EVar _ | EPick_i _ | EPick_b _ | EFunction _ | EFreeze _ -> x (* these are fine to re-evalaute because they are values *)
     | _ -> (* handle non-values *)
       fun s r ->
         match Cache.put r.cache r.callstack expr r.env s with
@@ -521,10 +532,10 @@ end
 and Cache : sig
   type t 
   val empty : t
-  val put : t -> Callstack.t -> Embedded.With_callsites.t -> Env.t -> Store.t -> [ `Existed_already | `Added_to of t ]
+  val put : t -> Callstack.t -> Embedded.With_program_points.t -> Env.t -> Store.t -> [ `Existed_already | `Added_to of t ]
 end = struct
   module Key = struct
-    type expr = Embedded.With_callsites.t
+    type expr = Embedded.With_program_points.t
 
     let compare_expr = Poly.compare (* polymorphic compare is good enough *)
 

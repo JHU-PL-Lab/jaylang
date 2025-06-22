@@ -16,13 +16,11 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
   in
   Alcotest.test_case testname speed_level
   @@ fun () ->
-    testname
-    |> Driver.test 
-        ~global_timeout_sec:30.0 
-        ~do_wrap:true 
-        ~do_type_splay:false
-        ~in_parallel:false (* parallel computation off by default *)
-    |> Status.is_error_found
+    Cmdliner.Cmd.eval_value' ~argv:(Array.append [| ""; testname; "-t"; "30.0" |] metadata.flags) Driver.ceval
+    |> begin function
+      | `Ok status -> Status.is_error_found status
+      | `Exit i -> raise @@ Invalid_argument (Format.sprintf "Test couldn't evaluate and finished with exit code %d." i)
+    end
     |> Bool.(=) is_error_expected
     |> Alcotest.check Alcotest.bool "bjy concolic" true
 
@@ -68,5 +66,8 @@ let () =
 
     ; "sato-bjy-ill-typed"
     ; "sato-bjy-well-typed"
+
+    ; "type-splayed-recursion-ill-typed"
+    ; "type-splayed-recursion-well-typed"
     ]
     

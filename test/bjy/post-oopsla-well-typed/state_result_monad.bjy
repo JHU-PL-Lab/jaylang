@@ -59,7 +59,7 @@ end =
     let modify = fun f -> (* function on state type *)
         fun r -> (* result type *)
           fun reject accept s ->
-            accept {} (f s)
+            accept () (f s)
   end
 
 let M = F { t = int } { t = bool }

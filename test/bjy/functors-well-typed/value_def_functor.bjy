@@ -68,7 +68,7 @@ let AList : STORE = struct
     let id_ = match id with `Ident i -> i end in
     let rec loop ls =
       match ls with
-      | [] -> `None {}
+      | [] -> `None ()
       | hd :: tl ->
         match hd.id with
         | `Ident i ->

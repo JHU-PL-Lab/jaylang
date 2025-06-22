@@ -1,8 +1,9 @@
 (***
   (
     (features (Recursive_functions Higher_order_functions))
-    (speed Slow)
+    (speed Fast) ; b/c type splaying
     (typing Well_typed)
+    (flags "-s")
   )
 *)
 

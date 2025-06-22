@@ -27,7 +27,7 @@ module X = struct
     This is because I'm tired of calling (&&) on the result, and a simple `and_bool` that
     modifies the state would be good.
   *)
-  include Preface.Make.Writer.Over_monad (Preface.Option.Monad) (Preface.List.Monoid (struct type t = bool Expression.t end))
+  include Preface.Make.Writer.Over_monad (Preface.Option.Monad) (Utils.List_monoid.Make (struct type t = bool Expression.t end))
   let bind x f = bind f x
 
   let never_equal : 'a t = None
@@ -74,6 +74,7 @@ let rec equal (a : t) (b : t) : bool X.t =
   | VVariant r1, VVariant r2 ->
     let%bind () = assert_bool @@ Lang.Ast.VariantLabel.equal r1.label r2.label in
     equal r1.payload r2.payload
+  | VUntouchable v1, VUntouchable v2 -> equal v1 v2
   | VRecord r1, VRecord r2 -> eq_map_data equal r1 r2
   (* Intensional equality of expressions in closures *)
   | VFunClosure r1, VFunClosure r2 ->
@@ -95,7 +96,8 @@ let rec equal (a : t) (b : t) : bool X.t =
   | VId, VId
   | VTypeMismatch, VTypeMismatch
   | VAbort, VAbort
-  | VDiverge, VDiverge -> return true
+  | VDiverge, VDiverge
+  | VUnit, VUnit -> return true
   | _ -> never_equal (* they are structurally different and cannot be equal *)
 
 (*
@@ -120,7 +122,8 @@ and equal_closure bindings a b =
   let rec equal_expr bindings x y =
     let eq = equal_expr bindings in
     match x, y with
-    | Lang.Ast.Expr.EInt i1, Lang.Ast.Expr.EInt i2 -> 
+    | Lang.Ast.Expr.EUnit, Lang.Ast.Expr.EUnit -> return true
+    | EInt i1, EInt i2 -> 
       let%bind () = assert_bool @@ Int.equal i1 i2 in
       return true
     | EBool b1, EBool b2 ->
@@ -167,12 +170,20 @@ and equal_closure bindings a b =
         eq_list (fun (p1, e1) (p2, e2) ->
           (* inline compare patterns *)
           match p1, p2 with
-          | Lang.Ast.Pattern.PAny, PAny -> eq e1 e2
+          | Lang.Ast.Pattern.PAny, PAny 
+          | PInt, PInt
+          | PBool, PBool
+          | PType, PType
+          | PRecord, PRecord
+          | PModule, PModule
+          | PFun, PFun
+          | PUnit, PUnit -> eq e1 e2
           | PVariable id1, PVariable id2 -> equal_expr ((id1, id2) :: bindings) e1 e2
           | PVariant v1, PVariant v2 ->
             if Lang.Ast.VariantLabel.equal v1.variant_label v2.variant_label
             then equal_expr ((v1.payload_id, v2.payload_id) :: bindings) e1 e2
             else never_equal
+          | PUntouchable id1, PUntouchable id2 -> equal_expr ((id1, id2) :: bindings) e1 e2
           | _ -> never_equal
         ) r1.patterns r2.patterns
       in
@@ -212,14 +223,15 @@ and equal_closure bindings a b =
     | EThaw e1, EThaw e2
     | EDet e1, EDet e2
     | EEscapeDet e1, EEscapeDet e2
-    | ENot e1, ENot e2 -> eq e1 e2
+    | ENot e1, ENot e2
+    | EUntouchable e1, EUntouchable e2 -> eq e1 e2
     (* Intensional equality *)
     | ETable, ETable
-    | EPick_i, EPick_i
-    | EPick_b, EPick_b
+    | EPick_i (), EPick_i ()
+    | EPick_b (), EPick_b ()
     | EId, EId
     | EAbort _, EAbort _ (* ignore abort messages *)
-    | EDiverge, EDiverge -> return true
+    | EDiverge (), EDiverge () -> return true
     (* Not equal *)
     | _ -> never_equal
   in

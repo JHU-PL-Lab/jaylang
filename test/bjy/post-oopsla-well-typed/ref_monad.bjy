@@ -89,16 +89,16 @@ end
 
 let Poly_map = struct
   let t =
-    list
-      {: key : Id.t
-      ; t    : type
-      ; data : t
-      :}
+    list sig
+      val key : Id.t
+      val t    : type
+      val data : t
+    end
 
   let empty = []
 
   let set map key data_t data = 
-    let item = { key = key ; t = data_t ; data = data } in
+    let item = struct let key = key let t = data_t let data = data end in
     let rec insert ls =
       match ls with
       | [] -> [ item ]
@@ -175,7 +175,7 @@ let run x = (x State.initial).value
 
 let modify f =
   fun s ->
-    { new_state = f s ; value = {} }
+    { new_state = f s ; value = () }
 
 let deref ref_id =
   let%bind s = read in

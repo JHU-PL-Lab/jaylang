@@ -10,9 +10,9 @@ let f x g =
   g (x + 1)
 
 let h (y : int | y > 1) : unit =
-  {}
+  ()
 
 let main (n : int) : unit =
   if n > 0
   then f n h
-  else {}
+  else ()

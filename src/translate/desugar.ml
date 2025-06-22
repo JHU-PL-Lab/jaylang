@@ -54,7 +54,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
   let rec desugar (expr : Bluejay.t) : Desugared.t =
     match expr with
     (* Base cases *)
-    | (EInt _ | EBool _ | EVar _ | EPick_i | ETypeInt | ETypeBool | EType | ETypeTop | ETypeBottom | ETypeSingle) as e -> e
+    | (EInt _ | EBool _ | EVar _ | EPick_i () | ETypeInt | ETypeBool
+    | EType | ETypeTop | ETypeBottom | ETypeSingle | ETypeUnit | EUnit) as e -> e
     (* Simple propogation *)
     | EBinop { left ; binop ; right } -> begin
       match binop with
@@ -104,37 +105,25 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
     | EAssert assert_expr ->
       EIf
         { cond = desugar assert_expr
-        ; true_body = unit_value
+        ; true_body = EUnit
         ; false_body = EAbort "Failed assertion"
         }
     | EAssume assume_expr ->
       EIf
         { cond = desugar assume_expr
-        ; true_body = unit_value
-        ; false_body = EDiverge
+        ; true_body = EUnit
+        ; false_body = EDiverge ()
         }
     (* Dependent records / modules *)
-    | EModule stmts -> desugar (pgm_to_module stmts)
+    | EModule stmts -> EModule (List.bind stmts ~f:desugar_statement)
     (* Patterns *)
     | EMatch { subject ; patterns } ->
       EMatch { subject = desugar subject ; patterns = 
-        match patterns with
-        | [] -> raise @@ Ast_tools.Exceptions.InvariantFailure "Impossible empty pattern list"
-        | [ p, e ] -> [ desugar_pattern p e ]
-        | _ -> 
-          List.bind patterns ~f:(fun (p, e) ->
-            match p with
-            | PAny | PVariable _ ->
-              (PVariant
-                { variant_label = Reserved.untouched
-                ; payload_id = Reserved.catchall }
-              , EAbort "Matched untouchable value") :: [ desugar_pattern p e ]
-            | _ -> [ desugar_pattern p e ]
-          )
+        List.map patterns ~f:(Tuple2.uncurry desugar_pattern)
       }
     (* Lists *)
     | EList [] ->
-      EVariant { label = Reserved.nil ; payload = unit_value }
+      EVariant { label = Reserved.nil ; payload = EUnit }
     | EList ls_e ->
       desugar
       @@ List.fold_right ls_e ~init:(EList []) ~f:(fun e acc ->
@@ -154,7 +143,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       abstract_over_ids [tau] @@ 
         ETypeMu { var = t ; params = [] ; body =
           ETypeVariant
-            [ (Reserved.nil_type, unit_type)
+            [ (Reserved.nil_type, ETypeUnit)
             ; (Reserved.cons_type,
               ETypeRecord (Parsing_tools.record_of_list
                 [ (Reserved.hd, EVar tau)

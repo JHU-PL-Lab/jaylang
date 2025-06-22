@@ -1,8 +1,9 @@
 (***
   (
     (features (Polymorphic_types Variants))
-    (speed Slow)
+    (speed Fast) ; b/c type splaying
     (typing Well_typed)
+    (flags "-s")
   )
 *)
 

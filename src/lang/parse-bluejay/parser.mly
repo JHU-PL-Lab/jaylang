@@ -75,9 +75,6 @@
 %token NOT_EQUAL
 %token PIPELINE
 
-%token OPEN_BRACE_COLON
-%token COLON_CLOSE_BRACE
-
 /*
  * Precedences and associativities.  Lower precedences come first.
  */
@@ -214,8 +211,6 @@ record_type_or_refinement:
   (* refinement type with binding for tau, which looks like a record type at first, so that's why we expand the rules above *)
   | OPEN_BRACE l_ident COLON expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } : Bluejay.t }
-  | OPEN_BRACE_COLON separated_nonempty_list(SEMICOLON, record_type_item) COLON_CLOSE_BRACE
-      { ETypeModule $2 : Bluejay.t }
 
 record_type_item:
   | record_label COLON expr
@@ -268,7 +263,7 @@ primary_expr:
       { $1 : Bluejay.t }
   (* keywords *)
   | INPUT
-      { EPick_i : Bluejay.t }
+      { EPick_i () : Bluejay.t }
   | TYPE
       { EType : Bluejay.t }
   | INT_KEYWORD
@@ -276,7 +271,7 @@ primary_expr:
   | BOOL_KEYWORD
       { ETypeBool : Bluejay.t }
   | UNIT_KEYWORD
-      { ETypeRecord empty_record : Bluejay.t }
+      { ETypeUnit : Bluejay.t }
   | TOP_KEYWORD
       { ETypeTop : Bluejay.t }
   | BOTTOM_KEYWORD
@@ -286,6 +281,10 @@ primary_expr:
   | SINGLET_KEYWORD
       { ETypeSingle : Bluejay.t }
   (* braces/parens *)
+  | OPEN_PAREN CLOSE_PAREN
+      { EUnit : Bluejay.t }
+  | OPEN_BRACE COLON CLOSE_BRACE
+      { ETypeRecord empty_record : Bluejay.t }
   | OPEN_BRACE record_body CLOSE_BRACE
       { ERecord $2 : Bluejay.t }
   | OPEN_BRACE CLOSE_BRACE

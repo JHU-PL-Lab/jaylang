@@ -4,6 +4,7 @@
     (reasons (Mu_types Return_error))
     (speed Fast)
     (typing Ill_typed)
+    (flags "-s")
   )
 *)
 

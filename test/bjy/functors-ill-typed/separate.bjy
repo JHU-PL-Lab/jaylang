@@ -16,8 +16,8 @@ let tp =
   | `TInt of unit
   | `TBool of unit
 
-let t_int = `TInt {}
-let t_bool = `TBool {}
+let t_int = `TInt ()
+let t_bool = `TBool ()
 
 let is_t_int a =
   match a with
@@ -33,14 +33,14 @@ let is_t_bool a =
 
 let Make : (X : T) -> sig
   val x = X.t
-  val t =
-    {: a : tp 
-     ; v : 
+  val t = sig
+    val a : tp 
+    val v : 
       | `I of { x | fun _ -> is_t_int a }
       | `B of { x | fun _ -> is_t_bool a }
-    :} 
+  end 
 
-  (* ERROR: these use `t` like a parametric type, but it is a dependent record *)
+  (* ERROR: these use `t` like a parametric type, but it is a dependent record (i.e. a module) *)
   val int_ : X.t -> t t_int
   val bool_ : X.t -> t t_bool
 
@@ -48,15 +48,15 @@ let Make : (X : T) -> sig
   val extract_list : list t -> list x
 end = fun X -> struct
   let x = X.t
-  let t = 
-    {: a : tp 
-     ; v : 
+  let t = sig
+    val a : tp
+    val v : 
       | `I of { x | fun _ -> is_t_int a }
       | `B of { x | fun _ -> is_t_bool a }
-    :} 
+  end
 
-  let int_ x = { a = t_int ; v = `I x }
-  let bool_ x = { a = t_bool ; v = `B x }
+  let int_ x = struct let a = t_int let v = `I x end
+  let bool_ x = struct let a = t_bool let v = `B x end
 
   let extract x =
     match x.v with

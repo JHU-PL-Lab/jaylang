@@ -8,11 +8,11 @@
 
 (* effectively assert that x is true *)
 let h (x : bool | x) : unit =
-  {}
+  ()
 
 (* .. but y is true *)
 let g (_ : bool) (y : bool | y) : unit =
-  {}
+  ()
 
 let rec f x y =
   if x

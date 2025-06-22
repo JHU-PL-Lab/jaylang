@@ -1,6 +1,6 @@
 (***
   (
-    (features (Polymorphic_types Dependent_types Parametric_types First_class_types Variants Records Recursive_functions))
+    (features (Polymorphic_types Dependent_types Mu_types Parametric_types First_class_types Variants Records Recursive_functions))
     (speed Slow)
     (typing Well_typed)
   )
@@ -18,8 +18,8 @@ let tparam =
   | `Int of unit
   | `Bool of unit
 
-let b = `Bool {}
-let i = `Int {}
+let b = `Bool ()
+let i = `Int ()
 
 let Const = struct
   let t a =
@@ -48,13 +48,13 @@ let t : tparam -> type = mu t tp.
   | `Bool _ -> (
     | `Const of Const.t tp
     | `Var of Var.t tp
-    | `Equal of {: a : tparam ; left : t a ; right : t a :}
+    | `Equal of sig val a : tparam val left : t a val right : t a end
   )
   | `Any _ -> (
     | `Const of Const.t tp
     | `Var of Var.t tp
     | `Plus of { left : t i ; right : t i }
-    | `Equal of {: a : tparam ; left : t a ; right : t a :} 
+    | `Equal of sig val a : tparam val left : t a val right : t a end
   )
   end
 
