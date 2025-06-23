@@ -1,0 +1,16 @@
+
+(*
+  This shows that we easily get unbound variables, and we should
+  vanish on them instead of break
+*)
+
+let g = 
+  let x = 0 in
+  fun i -> x
+
+let f = 
+  let y = 0 in
+  fun i -> y (* this has the same callstack as in g above *)
+
+let _ = f 0 (* so when looking up the env to use for f, we might use the one in g and get unbound var y. *)
+

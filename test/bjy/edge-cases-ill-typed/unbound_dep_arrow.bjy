@@ -1,7 +1,7 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows First_class_types Other))
-    (reasons (Dependent_arrows Other)) ; unbound variable
+    (features (Refinement_types Dependent_types First_class_types Other))
+    (reasons (Dependent_types Other)) ; unbound variable
     (speed Fast)
     (typing Ill_typed)
   )

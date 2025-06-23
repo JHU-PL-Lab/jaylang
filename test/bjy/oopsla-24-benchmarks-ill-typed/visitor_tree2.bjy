@@ -28,7 +28,7 @@ let Leaf : T 1 = struct
 end
 
 let Tree : T 1 = struct
-  let t a = Mu t.
+  let t a = mu t.
     | `Node of Node.t a t
     | `Leaf of Leaf.t a
 end

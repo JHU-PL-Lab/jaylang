@@ -1,0 +1,246 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Bluejay",
+  "scopeName": "source.bluejay",
+  "patterns": [
+    {"include": "#comments"},
+    {"include": "#numbers"},
+    {"include": "#keywords"},
+    {"include": "#operators"},
+    {"include": "#identifiers"},
+    {"include": "#brackets"}
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.bluejay",
+          "begin": "\\(\\*",
+          "end": "\\*\\)",
+          "patterns": [
+            {"include": "#comments"}
+          ]
+        }
+      ]
+    },
+    
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.integer.bluejay",
+          "match": "\\b[0-9]+\\b"
+        }
+      ]
+    },
+    
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.other.bluejay",
+          "match": "\\b(if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and|mu)\\b"
+        },
+        {
+          "name": "constant.language.boolean.bluejay",
+          "match": "\\b(true|false)\\b"
+        },
+        {
+          "name": "support.type.builtin.bluejay",
+          "match": "\\b(int|bool|unit|top|bottom|list|singlet|type)\\b"
+        },
+        {
+          "name": "support.function.builtin.bluejay",
+          "match": "\\b(input|assert|assume|not)\\b"
+        }
+      ]
+    },
+
+    "operators": {
+      "patterns": [
+        {
+          "comment": "infix operators - arithmetic",
+          "name": "entity.name.function.bluejay",
+          "match": "[+\\-*/%]"
+        },
+        {
+          "comment": "infix operators - comparison", 
+          "name": "entity.name.function.bluejay",
+          "match": "(<>|<=?|>=?)"
+        },
+        {
+          "comment": "infix operators - logical and pipe",
+          "name": "entity.name.function.bluejay",
+          "match": "(\\|\\||&&|\\|>)"
+        },
+        {
+          "comment": "assignment operator",
+          "name": "entity.name.function.bluejay",
+          "match": "="
+        },
+        {
+          "comment": "type operators",
+          "name": "entity.name.function.bluejay",
+          "match": "(->|-->)"
+        },
+        {
+          "comment": "vertical bar for types/patterns",
+          "name": "keyword.other.bluejay",
+          "match": "(?<!:)(\\|)(?!\\||>)"
+        },
+        {
+          "comment": "ampersand operator",
+          "name": "keyword.other.bluejay",
+          "match": "&"
+        },
+        {
+          "comment": "list cons operator",
+          "name": "keyword.other.bluejay",
+          "match": "::"
+        },
+        {
+          "comment": "type annotation",
+          "name": "keyword.other.bluejay punctuation.other.colon punctuation.colon",
+          "match": ":"
+        },
+        {
+          "comment": "field accessor",
+          "name": "keyword.other.bluejay punctuation.other.period punctuation.separator.period",
+          "match": "\\."
+        },
+        {
+          "comment": "semicolon separator",
+          "name": "keyword.other.bluejay punctuation.separator.terminator punctuation.separator.semicolon",
+          "match": ";"
+        }
+      ]
+    },
+
+    "identifiers": {
+      "patterns": [
+        {
+          "comment": "wildcard underscore",
+          "name": "constant.language.bluejay",
+          "match": "\\b_\\b"
+        },
+        {
+          "comment": "function name after val declaration",
+          "name": "entity.name.function.bluejay",
+          "match": "(?<=\\bval\\s+)([a-z_][[:word:]']*)",
+          "captures": {
+            "1": {"name": "entity.name.function.bluejay"}
+          }
+        },
+        {
+          "comment": "function name in let bindings (followed by parameters)",
+          "name": "entity.name.function.bluejay", 
+          "match": "(?<=\\blet\\s+(?:rec\\s+)?)([a-z_][[:word:]']*)(?=\\s+(?:\\(type\\s+[^)]+\\)|[a-z_A-Z(]|\\([^)]*:[^)]*\\)))",
+          "captures": {
+            "1": {"name": "entity.name.function.bluejay"}
+          }
+        },
+        {
+          "comment": "type parameters in parentheses",
+          "name": "meta.type-parameters.bluejay",
+          "match": "\\((type)\\s+([a-z_][[:word:]']*(?:\\s+[a-z_][[:word:]']*)*)\\)",
+          "captures": {
+            "1": {"name": "keyword.other.bluejay"},
+            "2": {"name": "variable.parameter.bluejay"}
+          }
+        },
+        {
+          "comment": "function after dot (record/module projection used as function)",
+          "name": "entity.name.function.bluejay",
+          "match": "(?<=\\.)([a-z_][[:word:]']*)(?=\\s+(?!\\b(?:if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and)\\b)(?:[a-z_A-Z][[:word:]']*|\\([^)]*\\)|[0-9]+|\\b(?:int|bool|unit|top|bottom|singlet|list|type)\\b))",
+          "captures": {
+            "1": {"name": "entity.name.function.bluejay"}
+          }
+        },
+        {
+          "comment": "fun parameters - all identifiers after fun until ->",
+          "name": "variable.parameter.bluejay", 
+          "match": "(?<=\\bfun\\s+)([a-z_][[:word:]']*(?:\\s+[a-z_][[:word:]']*)*)(?=\\s*->)",
+          "captures": {
+            "1": {"name": "variable.parameter.bluejay"}
+          }
+        },
+        {
+          "comment": "function call immediately after keywords (only when followed by arguments, not other keywords)",
+          "name": "entity.name.function.bluejay",
+          "match": "(?<=\\b(?:if|then|else|in|end|of|and)\\s+)([a-z_][[:word:]']*)(?=\\s+(?!\\b(?:if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and|->)\\b)(?:[a-z_A-Z][[:word:]']*|\\([^)]*\\)|[0-9]+|\\b(?:int|bool|unit|top|bottom|singlet|list|type)\\b))",
+          "captures": {
+            "1": {"name": "entity.name.function.bluejay"}
+          }
+        },
+        {
+          "comment": "function call - identifier NOT preceded by another identifier (to avoid matching arguments as functions)",
+          "name": "entity.name.function.bluejay",
+          "match": "(?<!\\b[a-z_A-Z][[:word:]']*\\s)(?<!\\)\\s*)(?<!\\b[a-z_A-Z][[:word:]']*\\.)(?<!\\blet\\s+(?:rec\\s+)?)(?<!\\bval\\s+)\\b([a-z_][[:word:]']*)(?=\\s+(?!\\b(?:if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and|->)\\b)(?:[a-z_A-Z][[:word:]']*|\\([^)]*\\)|[0-9]+|\\b(?:int|bool|unit|top|bottom|singlet|list|type)\\b))",
+          "captures": {
+            "1": {"name": "entity.name.function.bluejay"}
+          }
+        },
+        {
+          "comment": "capital identifier for constructor, exception, or module",
+          "name": "entity.name.type.module.bluejay",
+          "match": "\\b[[:upper:]][[:word:]']*('|\\b)"
+        },
+        {
+          "comment": "builtin types used as values (including in function arguments)",
+          "name": "support.type.builtin.bluejay",
+          "match": "\\b(int|bool|unit|top|bottom|singlet|list|type)\\b"
+        },
+        {
+          "comment": "lowercase identifier (default case)",
+          "name": "variable.other.bluejay",
+          "match": "\\b[[:lower:]_][[:word:]']*('|\\b)"
+        },
+        {
+          "comment": "polymorphic variant tag",
+          "name": "constant.language.polymorphic-variant.bluejay",
+          "match": "\\`[[:alpha:]][[:word:]']*\\b"
+        },
+        {
+          "comment": "empty list (can be used as a constructor)",
+          "name": "constant.language.list.bluejay",
+          "match": "\\[\\]"
+        }
+      ]
+    },
+
+    "brackets": {
+      "patterns": [
+        {
+          "name": "punctuation.section.braces.begin.bluejay",
+          "match": "\\{"
+        },
+        {
+          "name": "punctuation.section.braces.end.bluejay",
+          "match": "\\}"
+        },
+        {
+          "name": "punctuation.section.brackets.begin.bluejay",
+          "match": "\\["
+        },
+        {
+          "name": "punctuation.section.brackets.end.bluejay",
+          "match": "\\]"
+        },
+        {
+          "name": "punctuation.section.parens.begin.bluejay",
+          "match": "\\("
+        },
+        {
+          "name": "punctuation.section.parens.end.bluejay",
+          "match": "\\)"
+        },
+        {
+          "name": "punctuation.section.record.begin.bluejay",
+          "match": "\\{:"
+        },
+        {
+          "name": "punctuation.section.record.end.bluejay",
+          "match": ":\\}"
+        }
+      ]
+    }
+  }
+}

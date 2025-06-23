@@ -29,6 +29,6 @@ let return (type a) (a : a) : m a = a
 let rec loop x =
   if x <= 0
   then return int 0
-  else bind unit int (return unit {}) (fun _ -> loop (x - 1))
+  else bind unit int (return unit ()) (fun _ -> loop (x - 1))
 
 let _ : { i : m int | i == 0 } = loop 10

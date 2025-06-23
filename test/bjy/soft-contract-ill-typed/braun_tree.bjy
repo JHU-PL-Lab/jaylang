@@ -8,7 +8,7 @@
 *)
 (* error is that item is always inserted on the left; so it doesn't stay balanced *)
 
-let t a = Mu t.
+let t a = mu t.
   | `Leaf of { leaf : bool }
   | `Node of { v : a ; l : t ; r : t }
 

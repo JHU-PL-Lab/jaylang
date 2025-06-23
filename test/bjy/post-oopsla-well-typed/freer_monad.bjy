@@ -1,0 +1,78 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Mu_types Parametric_types First_class_types Deterministic_functions Variants Records Recursive_functions Higher_order_functions)) ; not really mu types. Recursive type functions, though
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+
+(*
+  We have no need for a functor here because we have higher order type parameters.
+  In OCaml for a freer monad, we'd have to use a functor and pass in `f` inside a module.
+
+  This test is inspired by the Preface library.
+*)
+
+let ty n =
+  let rec loop i =
+    if i <= 0
+    then type
+    else type --> loop (i - 1)
+  in
+  loop n
+
+let ty1 = ty 1
+
+let t : ty1 --> type --> type = mu t f a.
+  | `Return of a
+  | `Bind of sig 
+      val b : type 
+      val intermediate : f b
+      val cont : b -> t f a
+    end
+
+let r_with_cont r k = struct
+  let b = r.b 
+  let intermediate = r.intermediate 
+  let cont = k
+end
+
+let perform 
+  : (a : type) -> (f : ty1) -> f a -> t f a
+  = fun a f fa ->
+  `Bind struct
+    let b = a 
+    let intermediate = fa 
+    let cont = fun a -> `Return a
+   end
+
+let handler 
+  : ty1 --> type
+  = fun f ->
+    (a : type) -> (b : type) -> (a -> b) -> f a -> b
+
+let run
+  : (a : type) -> (f : ty1) -> handler f -> t f a -> a
+  = fun a f h ->
+  let rec loop x =
+    match x with
+    | `Return a -> a
+    | `Bind r -> h r.b a (fun x -> loop (r.cont x)) r.intermediate
+    end
+  in
+  loop
+
+let rec map (type a b) (dep f : ty1) (tfa : t f a) (h : a -> b) : t f b =
+  match tfa with
+  | `Return a -> `Return (h a)
+  | `Bind r -> `Bind (r_with_cont r (fun x -> map a b f (r.cont x) h))
+  end
+
+(*
+  must remember that r.b is different from b. I made a mistake when writing this by confusing them.
+*)
+let rec bind (type a b) (dep f : ty1) (tfa : t f a) (h : a -> t f b) : t f b =
+  match tfa with
+  | `Return a -> h a
+  | `Bind r -> `Bind (r_with_cont r (fun x -> bind a b f (r.cont x) h))
+  end

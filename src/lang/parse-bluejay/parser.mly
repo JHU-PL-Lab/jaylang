@@ -22,7 +22,7 @@
 %token CLOSE_BRACKET
 %token EQUALS
 %token ARROW
-%token BACK_ARROW
+%token LONG_ARROW
 %token DOT
 %token COLON
 %token DOUBLE_COLON
@@ -41,7 +41,6 @@
 %token THEN
 %token ELSE
 %token AND
-// %token OR
 %token NOT
 %token INT_KEYWORD
 %token BOOL_KEYWORD
@@ -60,6 +59,8 @@
 %token SIG
 %token STRUCT
 %token VAL
+%token DEPENDENT
+%token DEP
 %token OF
 %token PLUS
 %token MINUS
@@ -73,9 +74,6 @@
 %token EQUAL_EQUAL
 %token NOT_EQUAL
 %token PIPELINE
-
-%token OPEN_BRACE_COLON
-%token COLON_CLOSE_BRACE
 
 /*
  * Precedences and associativities.  Lower precedences come first.
@@ -93,7 +91,7 @@
 %left PLUS MINUS              /* + - */
 %left ASTERISK SLASH PERCENT  /* * / % */
 %right ASSERT ASSUME          /* Asserts, Assumes */
-%right ARROW                  /* -> for type declaration */
+%right ARROW LONG_ARROW       /* -> for type declaration, and --> for deterministic */
 %right prec_variant           /* variants, lists */
 
 %start <Bluejay.statement list> prog
@@ -130,11 +128,11 @@ statement_list:
 
 statement:
   | LET l_ident COLON expr EQUALS expr
-      { STyped { typed_var = { var = $2 ; tau = $4 } ; body = $6 ; do_wrap = true ; do_check = true } : Bluejay.statement }
+      { STyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; do_wrap = true ; do_check = true } : Bluejay.statement }
   | LET l_ident EQUALS expr
-      { SUntyped { var = $2 ; body = $4 } : Bluejay.statement }
+      { SUntyped { var = $2 ; defn = $4 } : Bluejay.statement }
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr
-      { STyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 ; do_wrap = true ; do_check = true } : Bluejay.statement }
+      { STyped { typed_var = { var = $3 ; tau = $5 } ; defn = $8 ; do_wrap = true ; do_check = true } : Bluejay.statement }
   | letfun_rec
       { SFunRec $1 : Bluejay.statement }
   | letfun
@@ -158,30 +156,34 @@ expr:
       { EMultiArgFunction { params = $2 :: $3 ; body = $5 } : Bluejay.t }
   // Let
   | LET l_ident COLON expr EQUALS expr IN expr %prec prec_let
-      { ELetTyped { typed_var = { var = $2 ; tau = $4 } ; body = $6 ; cont = $8 ; do_wrap = true ; do_check = true } : Bluejay.t }
+      { ELetTyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; body = $8 ; do_wrap = true ; do_check = true } : Bluejay.t }
   | LET l_ident EQUALS expr IN expr %prec prec_let
-      { ELet { var = $2 ; body = $4 ; cont = $6 } : Bluejay.t }
+      { ELet { var = $2 ; defn = $4 ; body = $6 } : Bluejay.t }
   | LET_BIND l_ident EQUALS expr IN expr %prec prec_let (* this is desugared in place, which is a little ugly... *)
       { EAppl { func = EAppl { func = EVar (Ident "bind") ; arg = $4 } ; arg = EFunction { param = $2 ; body = $6 }} : Bluejay.t } 
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
-      { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; body = $8 ; cont = $10 ; do_wrap = true ; do_check = true } : Bluejay.t }
+      { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; defn = $8 ; body = $10 ; do_wrap = true ; do_check = true } : Bluejay.t }
   // Functions
   | letfun_rec IN expr %prec prec_fun
-      { ELetFunRec { funcs = $1 ; cont = $3 } : Bluejay.t }
+      { ELetFunRec { funcs = $1 ; body = $3 } : Bluejay.t }
   | letfun IN expr %prec prec_fun
-      { ELetFun { func = $1 ; cont = $3 } : Bluejay.t }
+      { ELetFun { func = $1 ; body = $3 } : Bluejay.t }
   // Match
-  | MATCH expr WITH PIPE? separated_nonempty_list(PIPE, match_expr) END
+  | MATCH expr WITH PIPE? match_expr_list END
       { EMatch { subject = $2 ; patterns = $5 } : Bluejay.t }
 ;
 
 type_expr:
-  | MU l_ident DOT expr %prec prec_mu
-      { ETypeMu { var = $2 ; body = $4 } : Bluejay.t}
+  | MU l_ident list(l_ident) DOT expr %prec prec_mu
+      { ETypeMu { var = $2 ; params = $3 ; body = $5 } : Bluejay.t}
   | expr ARROW expr
-      { ETypeArrow { domain = $1 ; codomain = $3 } : Bluejay.t }
+      { ETypeFun { domain = $1 ; codomain = $3 ; dep = `No ; det = false } : Bluejay.t }
+  | expr LONG_ARROW expr
+      { ETypeFun { domain = $1 ; codomain = $3 ; dep = `No ; det = true } : Bluejay.t }
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN ARROW expr
-      { ETypeArrowD { binding = $2 ; domain = $4 ; codomain = $7 } : Bluejay.t }
+      { ETypeFun { domain = $4 ; codomain = $7 ; dep = `Binding $2 ; det = false } : Bluejay.t }
+  | OPEN_PAREN l_ident COLON expr CLOSE_PAREN LONG_ARROW expr
+      { ETypeFun { domain = $4 ; codomain = $7 ; dep = `Binding $2 ; det = true } : Bluejay.t }
   | PIPE separated_nonempty_list(PIPE, single_variant_type) (* pipe optional before first variant *)
       { ETypeVariant $2 : Bluejay.t }
   | separated_nonempty_list(PIPE, single_variant_type)
@@ -209,8 +211,6 @@ record_type_or_refinement:
   (* refinement type with binding for tau, which looks like a record type at first, so that's why we expand the rules above *)
   | OPEN_BRACE l_ident COLON expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } : Bluejay.t }
-  | OPEN_BRACE_COLON separated_nonempty_list(SEMICOLON, record_type_item) COLON_CLOSE_BRACE
-      { ETypeModule $2 : Bluejay.t }
 
 record_type_item:
   | record_label COLON expr
@@ -237,20 +237,17 @@ letfun_rec:
 /* let foo (type a b) (x : int) ... : t = ... */
 fun_sig:
   | ident param_list EQUALS expr
-      { FUntyped { func_id = $1 ; params = $2 ; body = $4 } : Bluejay.funsig }
+      { FUntyped { func_id = $1 ; params = $2 ; defn = $4 } : Bluejay.funsig }
   | ident param_list_with_type COLON expr EQUALS expr
-      { FTyped { type_vars = [] ; func_id = $1 ; params = $2 ; ret_type = $4 ; body = $6 } : Bluejay.funsig }
+      { FTyped { type_vars = [] ; func_id = $1 ; params = $2 ; ret_type = $4 ; defn = $6 } : Bluejay.funsig }
   | ident OPEN_PAREN TYPE param_list CLOSE_PAREN param_list_with_type COLON expr EQUALS expr 
-      { FTyped { type_vars = $4 ; func_id = $1 ; params = $6 ; ret_type = $8 ; body = $10 } : Bluejay.funsig }
+      { FTyped { type_vars = $4 ; func_id = $1 ; params = $6 ; ret_type = $8 ; defn = $10 } : Bluejay.funsig }
 
 /* **** Primary expressions **** */
 
 /* (fun x -> x) y */
 appl_expr:
   | appl_expr primary_expr { EAppl { func = $1 ; arg = $2 } : Bluejay.t }
-  /* Give `singlet` and `list` keywords the same precedence as function application */
-  | SINGLET_KEYWORD primary_expr { ETypeSingle $2 : Bluejay.t }
-  | LIST primary_expr { ETypeList $2 : Bluejay.t } 
   | primary_expr { $1 : Bluejay.t }
 ;
 
@@ -266,7 +263,7 @@ primary_expr:
       { $1 : Bluejay.t }
   (* keywords *)
   | INPUT
-      { EPick_i : Bluejay.t }
+      { EPick_i () : Bluejay.t }
   | TYPE
       { EType : Bluejay.t }
   | INT_KEYWORD
@@ -274,12 +271,20 @@ primary_expr:
   | BOOL_KEYWORD
       { ETypeBool : Bluejay.t }
   | UNIT_KEYWORD
-      { ETypeRecord empty_record : Bluejay.t }
+      { ETypeUnit : Bluejay.t }
   | TOP_KEYWORD
       { ETypeTop : Bluejay.t }
   | BOTTOM_KEYWORD
       { ETypeBottom : Bluejay.t }
+  | LIST
+      { ETypeList : Bluejay.t }
+  | SINGLET_KEYWORD
+      { ETypeSingle : Bluejay.t }
   (* braces/parens *)
+  | OPEN_PAREN CLOSE_PAREN
+      { EUnit : Bluejay.t }
+  | OPEN_BRACE COLON CLOSE_BRACE
+      { ETypeRecord empty_record : Bluejay.t }
   | OPEN_BRACE record_body CLOSE_BRACE
       { ERecord $2 : Bluejay.t }
   | OPEN_BRACE CLOSE_BRACE
@@ -352,8 +357,14 @@ param_list_with_type:
 param_with_type:
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN
       { TVar { var = $2 ; tau = $4 } : Bluejay.param }
-  | OPEN_PAREN l_ident BACK_ARROW expr CLOSE_PAREN
-      { TVarDep { var = $2 ; tau = $4 } : Bluejay.param }
+  | OPEN_PAREN l_ident COLON expr PIPE expr CLOSE_PAREN
+      { TVar { var = $2 ; tau = ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } } : Bluejay.param }
+  | OPEN_PAREN DEP l_ident COLON expr CLOSE_PAREN
+  | OPEN_PAREN DEPENDENT l_ident COLON expr CLOSE_PAREN
+      { TVarDep { var = $3 ; tau = $5 } : Bluejay.param }
+  | OPEN_PAREN DEP l_ident COLON expr PIPE expr CLOSE_PAREN
+  | OPEN_PAREN DEPENDENT l_ident COLON expr PIPE expr CLOSE_PAREN
+      { TVarDep { var = $3 ; tau = ETypeRefinement { tau = $5 ; predicate = EFunction { param = $3 ; body = $7 } } } : Bluejay.param }
 ;
 
 param_list:
@@ -365,7 +376,7 @@ param_list:
 /* val t = tau (* pure simple sugar for val t : singlet tau *) */
 val_item:
   | VAL record_type_item { $2 }
-  | VAL record_label EQUALS expr { $2, (ETypeSingle $4) : RecordLabel.t * Bluejay.t }
+  | VAL record_label EQUALS expr { $2, EAppl { func = ETypeSingle ; arg = $4 } : RecordLabel.t * Bluejay.t }
 
 %inline record_label:
   | ident { RecordLabel.RecordLabel $1 }
@@ -403,16 +414,24 @@ variant_type_label:
 
 /* **** Pattern matching **** */
 
-match_expr:
+match_expr_list:
+  | terminating_pattern ARROW expr
+      { [ $1, $3 ] : (Bluejay.pattern * Bluejay.t) list }
+  | pattern ARROW expr PIPE match_expr_list (* does not include terminating patterns *)
+      { ($1, $3) :: $5 : (Bluejay.pattern * Bluejay.t) list }
   | pattern ARROW expr
-      { ($1, $3) : Bluejay.pattern * Bluejay.t }
+      { [ $1, $3 ] : (Bluejay.pattern * Bluejay.t) list }
 
 pattern:
-  | UNDERSCORE { PAny } (* for efficiency later, handle underscore separately *)
-  | ident { PVariable $1 } (* not l_ident because we handle underscore above *)
   | variant_label l_ident { PVariant { variant_label = $1 ; payload_id = $2 } }
   | variant_label OPEN_PAREN l_ident CLOSE_PAREN { PVariant { variant_label = $1 ; payload_id = $3 } }
   | OPEN_BRACKET CLOSE_BRACKET { PEmptyList }
   | l_ident DOUBLE_COLON l_ident { PDestructList { hd_id = $1 ; tl_id = $3 } }
   | OPEN_PAREN pattern CLOSE_PAREN { $2 }
 ;
+
+(* no patterns may follow these in a list of match expressions *)
+terminating_pattern:
+  | UNDERSCORE { PAny }
+  | ident { PVariable $1 } (* not l_ident because we handle underscore above *)
+  | OPEN_PAREN terminating_pattern CLOSE_PAREN { $2 }

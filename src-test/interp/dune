@@ -1,0 +1,12 @@
+
+(tests
+ (names test_interp)
+ (modules test_interp)
+ (libraries
+  utils
+  alcotest
+  alcotest-lwt
+  metadata
+  lang
+  translate
+ ))

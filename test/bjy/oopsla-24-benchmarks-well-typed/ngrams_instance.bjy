@@ -1,12 +1,12 @@
 (***
   (
-    (features (Refinement_types Parametric_types First_class_types Records Recursive_functions Higher_order_functions))
+    (features (Refinement_types Mu_types Parametric_types First_class_types Records Recursive_functions Higher_order_functions))
     (speed Slow)
     (typing Well_typed)
   )
 *)
 
-let rec t n =
+let t = mu t n.
   if n <= 0
   then type
   else type -> t (n - 1)
@@ -17,7 +17,7 @@ let pos_int : t 0 = { int | fun i -> i > 0 }
 let map : t 2 = fun a b -> a -> b
 
 (* Parametric bag *)
-let bag : t 1 = fun a -> list a
+let bag : t 1 = list
 
 let rec len ls = 
   match ls with

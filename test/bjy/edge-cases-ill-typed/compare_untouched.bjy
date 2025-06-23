@@ -1,0 +1,13 @@
+(***
+  (
+    (features (Polymorphic_types Deterministic_functions Higher_order_functions))
+    (reasons (Polymorphic_types Deterministic_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let f (type a) (x : a) (y : a) (detf : a --> int) : int =
+  if detf x == detf y
+  then 0
+  else false

@@ -2,145 +2,61 @@
 open Core
 open Lang.Ast
 open Expr
-open Value
 
-module State_M = struct
-  module State = struct
-    type t = { step : int ; max_step : int ; session : Eval_session.t }
-  end
-
-  include Utils.State_read_result.Make (State) (Env) (Status.Eval)
-
-  let run (x : 'a m) (session : Eval_session.t) : Status.Eval.t =
-    x.run
-      ~reject:Fn.id
-      ~accept:(fun _ s -> Eval_session.finish s.session)
-      State.{ step = 0 ; max_step = Eval_session.get_max_step session ; session }
-      Env.empty
-
-  let[@inline always][@specialise] modify_session (f : Eval_session.t -> Eval_session.t) : unit m =
-    modify (fun s -> { s with session = f s.session })
-
-  (*
-    As a general observation, it is more efficient to be hands-on and write this
-    using the structure of State_read_result instead of using `read`, `return`, etc.
-    I suppose this is due to better inlining. I consider the tradeoff in favor
-    of more efficiency to be worth the less general code.
-  *)
-  let incr_step : int m =
-    { run =
-      fun ~reject ~accept s _ ->
-        let step = s.step + 1 in
-        if step > s.max_step
-        then reject @@ Eval_session.reach_max_step s.session
-        else accept step { s with step }
-    }
-
-  let[@inline always][@specialise] modify_and_return (f : Eval_session.t -> Eval_session.t * 'a) : 'a m =
-    { run =
-      fun ~reject:_ ~accept s _ ->
-        let session, a = f s.session in
-        accept a { s with session }
-    }
-
-  let read_env : Env.t m =
-    let%bind (_, e) = read in
-    return e
-
-  let[@inline always] fail_map (f : Eval_session.t -> Status.Eval.t) : 'a m =
-    let%bind ({ session ; _ }, _) = read in
-    fail @@ f session
-
-  let diverge : 'a m = fail_map Eval_session.diverge
-  let abort msg: 'a m = fail_map @@ Eval_session.abort msg
-  let type_mismatch msg : 'a m = fail_map @@ Eval_session.type_mismatch msg
-
-  let[@inline always] fetch (id : Ident.t) : Value.t m =
-    let%bind env = read_env in
-    match Env.fetch id env with
-    | None -> fail_map @@ Fn.flip Eval_session.unbound_variable id
-    | Some v -> return v
-end
-
-module Error_msg = struct
-  let project_non_record label v =
-    Format.sprintf "Label %s not found in non-record `%s`" (RecordLabel.to_string label) (Value.to_string v)
-
-  let project_missing_label label record =
-    Format.sprintf "Label %s not found in record %s" (RecordLabel.to_string label) (Value.to_string record)
-
-  let thaw_non_frozen v =
-    Format.sprintf "Thaw non-frozen value `%s`" (Value.to_string v)
-
-  let pattern_not_found patterns v =
-    Format.sprintf "Value `%s` not in pattern list [ %s ]"
-      (Value.to_string v)
-      (String.concat ~sep:", " @@ List.map patterns ~f:(fun (p, _) -> Pattern.to_string p))
-
-  let bad_appl vfunc varg =
-    Format.sprintf "Apply `%s` to non-function `%s`" (Value.to_string varg) (Value.to_string vfunc)
-
-  let bad_binop vleft binop vright =
-    Format.sprintf "Bad binop %s %s %s"
-      (Value.to_string vleft)
-      (Binop.to_string binop)
-      (Value.to_string vright)
-
-  let bad_not v =
-    Format.sprintf "Bad unary operation `not %s`" (Value.to_string v)
-
-  let cond_non_bool v = 
-    Format.sprintf "Condition on non-bool `%s`" (Value.to_string v)
-
-  let case_non_int v = 
-    Format.sprintf "Case on non-int `%s`" (Value.to_string v)
-end
+module Error_msg = Lang.Value.Error_msg (Value)
 
 (*
-  The only time we really update the session is on max step or hitting a branch.
-  Can I then optimize it to not have to pass it around most of the time?
+  It's likely a good idea to use real OCaml state and effects to get
+  performance, but for this pass, we use a monad to encode the concolic
+  semantics. It just helps with correctness that way.
 *)
 let eval_exp 
-  (session : Eval_session.t)
-  (expr : Embedded.t) 
-  : Status.Eval.t
+  (module S : Semantics.S)
+  (expr : Embedded.t Semantics.M.m) 
+  : Status.Eval.t * Target.t list
   =
-  let open State_M in
+  let open S in
+  let open Semantics.M in
 
   let rec eval (expr : Embedded.t) : Value.t m =
     let open Value.M in (* puts the value constructors in scope *)
     let%bind step = incr_step in
     match expr with
+    (* Determinism *)
+    | EDet e -> with_incr_depth @@ eval e
+    | EEscapeDet e -> with_escaped_det @@ eval e
     (* Ints and bools -- constant expressions *)
     | EInt i -> return @@ VInt (i, Expression.const_int i)
     | EBool b -> return @@ VBool (b, Expression.const_bool b)
     (* Simple -- no different than interpreter *)
+    | EUnit -> return VUnit
     | EVar id -> fetch id
     | EFunction { param ; body } ->
       let%bind env = read_env in
-      return @@ VFunClosure { param ; body = { expr = body ; env } }
+      return @@ VFunClosure { param ; closure = { body ; env } }
     | EId -> return VId
     | EFreeze e_freeze_body -> 
       let%bind env = read_env in
-      return @@ VFrozen { expr = e_freeze_body ; env }
+      return @@ VFrozen { body = e_freeze_body ; env }
     | EVariant { label ; payload = e_payload } -> 
       let%bind payload = eval e_payload in
       return @@ VVariant { label ; payload }
+    | EUntouchable e ->
+      let%bind v = eval e in
+      return @@ VUntouchable v
     | EProject { record = e_record ; label } -> begin
-      let%bind v = eval e_record in
-      match v with
-      | VRecord record_body -> begin
-        match Map.find record_body label with
+      match%bind eval e_record with
+      | (VRecord body | VModule body) as v -> begin
+        match Map.find body label with
         | Some v -> return v
         | None -> type_mismatch @@ Error_msg.project_missing_label label v
       end
-      | _ -> type_mismatch @@ Error_msg.project_non_record label v
+      | v -> type_mismatch @@ Error_msg.project_non_record label v
     end
     | EThaw e_frozen -> begin
-      let%bind v = eval e_frozen in
-      match v with
-      | VFrozen { expr ; env } -> local (fun _ -> env) (eval expr)
-      | _ -> type_mismatch @@ Error_msg.thaw_non_frozen v
+      match%bind eval e_frozen with
+      | VFrozen { body ; env } -> local_env (fun _ -> env) (eval body)
+      | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
     end
     | ERecord record_body ->
       let%bind value_record_body =
@@ -151,9 +67,23 @@ let eval_exp
         )
       in
       return @@ VRecord value_record_body
-    | EIgnore { ignored ; cont } ->
+    | EModule stmt_ls ->
+      let%bind module_body =
+        let rec fold_stmts acc_m = function
+          | [] -> acc_m
+          | SUntyped { var ; defn } :: tl ->
+            let%bind acc = acc_m in
+            let%bind v = eval defn in
+            local_env (Env.add var v) (
+              fold_stmts (return @@ Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v) tl
+            )
+        in
+        fold_stmts (return RecordLabel.Map.empty) stmt_ls
+      in
+      return @@ VModule module_body 
+    | EIgnore { ignored ; body } ->
       let%bind _ : Value.t = eval ignored in
-      eval cont
+      eval body
     | EMatch { subject ; patterns } -> begin (* Note: there cannot be symbolic branching on match *)
       let%bind v = eval subject in
       match
@@ -166,20 +96,20 @@ let eval_exp
           | None -> None
         )
       with
-      | Some (e, f) -> local f (eval e)
+      | Some (e, f) -> local_env f (eval e)
       | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v
     end
-    | ELet { var ; body ; cont } ->
-      let%bind v = eval body in
-      local (Env.add var v) (eval cont)
+    | ELet { var ; defn ; body } ->
+      let%bind v = eval defn in
+      local_env (Env.add var v) (eval body)
     | EAppl { func ; arg } -> begin
       let%bind vfunc = eval func in
-      let%bind varg = eval arg in
       match vfunc with
-      | VId -> return varg
-      | VFunClosure { param ; body } ->
-        local (fun _ -> Env.add param varg body.env) (eval body.expr)
-      | _ -> type_mismatch @@ Error_msg.bad_appl vfunc varg
+      | VId -> eval arg
+      | VFunClosure { param ; closure } ->
+        let%bind varg = eval arg in
+        local_env (fun _ -> Env.add param varg closure.env) (eval closure.body)
+      | _ -> type_mismatch @@ Error_msg.bad_appl vfunc
     end
     (* Operations -- build new expressions *)
     | EBinop { left ; binop ; right } -> begin
@@ -209,54 +139,86 @@ let eval_exp
       | _ -> type_mismatch @@ Error_msg.bad_binop vleft binop vright
     end
     | ENot e_not_body -> begin
-      let%bind v = eval e_not_body in
-      match v with
+      match%bind eval e_not_body with
       | VBool (b, e_b) -> return @@ VBool (not b, Expression.not_ e_b) 
-      | _ -> type_mismatch @@ Error_msg.bad_not v
+      | v -> type_mismatch @@ Error_msg.bad_not v
     end
+    | EIntensionalEqual { left ; right } ->
+      let%bind vleft = eval left in
+      let%bind vright = eval right in
+      return @@ VBool (Value.equal vleft vright)
     (* Branching *)
     | EIf { cond ; true_body ; false_body } -> begin
-      let%bind v = eval cond in
-      match v with
+      match%bind eval cond with
       | VBool (b, e) ->
         let body = if b then true_body else false_body in
-        let%bind () = modify_session @@ Eval_session.hit_branch (Direction.of_bool b) e in
+        let%bind () = hit_branch (Direction.of_bool b) e in
         eval body
-      | _ -> type_mismatch @@ Error_msg.cond_non_bool v
+      | v -> type_mismatch @@ Error_msg.cond_non_bool v
     end
     | ECase { subject ; cases ; default } -> begin
-      let%bind v = eval subject in
       let int_cases = List.map cases ~f:Tuple2.get1 in
-      match v with
+      match%bind eval subject with
       | VInt (i, e) -> begin
         let body_opt = List.find_map cases ~f:(fun (i', body) -> if i = i' then Some body else None) in
         match body_opt with
         | Some body -> (* found a matching case *)
           let other_cases = List.filter int_cases ~f:((<>) i) in
-          let%bind () = modify_session @@ Eval_session.hit_case (Direction.of_int i) e ~other_cases in
+          let%bind () = hit_case (Direction.of_int i) e ~other_cases in
           eval body
         | None -> (* no matching case, so take default case *)
-          let%bind () = modify_session @@ Eval_session.hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases in
+          let%bind () = hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases in
           eval default
       end
-      | _ -> type_mismatch @@ Error_msg.case_non_int v
+      | v -> type_mismatch @@ Error_msg.case_non_int v
     end
     (* Inputs *)
-    | EPick_i -> modify_and_return @@ Eval_session.get_input (Stepkey.I step)
-    | EPick_b -> modify_and_return @@ Eval_session.get_input (Stepkey.B step)
+    | EPick_i () ->
+      let%bind () = assert_nondeterminism in
+      get_input (Stepkey.I step)
+    | EPick_b () ->
+      let%bind () = assert_nondeterminism in
+      get_input (Stepkey.B step)
+    (* Tables -- includes some branching *)
+    | ETable -> return (VTable { alist = [] })
+    | ETblAppl { tbl ; gen ; arg } -> begin
+      match%bind eval tbl with
+      | VTable mut_r -> begin
+        let%bind v = eval arg in
+        let%bind output_opt =
+          List.fold mut_r.alist ~init:(return None) ~f:(fun acc_m (input, output) ->
+            match%bind acc_m with
+            | None -> 
+              let (b, e) = Value.equal input v in
+              let%bind () = hit_branch (Direction.of_bool b) e in
+              if b
+              then return (Some output)
+              else return None
+            | Some _ -> acc_m (* already found an output, so go unchanged *)
+          )
+        in
+        match output_opt with
+        | Some output -> return output
+        | None ->
+            let%bind new_output = with_escaped_det @@ eval gen in
+            mut_r.alist <- (v, new_output) :: mut_r.alist;
+            return new_output
+      end
+      | tb -> type_mismatch @@ Error_msg.appl_non_table tb
+    end
     (* Failure cases *)
     | EAbort msg -> abort msg
-    | EDiverge -> diverge
+    | EDiverge () -> diverge
   in
 
-  run (eval expr) session
+  S.run (bind expr eval)
 
 (*
   -------------------
   BEGIN CONCOLIC EVAL   
   -------------------
 
-  This sections starts up and runs the concolic evaluator (see the eval_exp above)
+  This section starts up and runs the concolic evaluator (see the eval_exp above)
   repeatedly to hit all the branches.
 
   This eval spans multiple interpretations, hitting a provably different
@@ -267,34 +229,66 @@ let global_runtime = Utils.Safe_cell.create 0.0
 let global_solvetime = Utils.Safe_cell.create 0.0
 
 module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
-  module Intra = Intra_session.Make (S) (P) (O)
+  module TQ = Target_queue.All
 
-  let rec loop (e : Embedded.t) (main_session : Intra.t) (session : Eval_session.t) : Status.Terminal.t P.t =
-    let open P in
-    let* () = pause () in
-    let t0 = Caml_unix.gettimeofday () in
-    let res = eval_exp session e in
-    let t1 = Caml_unix.gettimeofday () in
-    let _ = Utils.Safe_cell.map ((+.) (t1 -. t0)) global_runtime in
-    Intra.next
-    @@ Intra.accum_eval main_session res
-    >>= begin function
-      | `Done status ->
-        let t2 = Caml_unix.gettimeofday () in
-        let _ = Utils.Safe_cell.map ((+.) (t2 -. t1)) global_solvetime in
-        return status
-      | `Next (session, symb_session) ->
-        let t2 = Caml_unix.gettimeofday () in
-        let _ = Utils.Safe_cell.map ((+.) (t2 -. t1)) global_solvetime in
-        loop e session symb_session
+  let empty_tq = Options.Arrow.appl TQ.of_options O.r ()
+
+  let rec step : Embedded.t -> has_pruned:bool -> has_unknown:bool -> TQ.t -> Status.Terminal.t P.t =
+    fun e ~has_pruned ~has_unknown tq ->
+      let open P in
+      let* () = pause () in
+      let t0 = Caml_unix.gettimeofday () in
+      match TQ.peek tq with
+      | Some target -> begin
+        let tq = TQ.remove tq target in
+        let solve_result = S.solve (Target.to_expressions target) in
+        let t1 = Caml_unix.gettimeofday () in
+        let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
+        match solve_result with
+        | `Sat feeder -> begin
+            let* () = pause () in
+            let module I = Semantics.Initialize (struct
+              let c = Semantics.Consts.{ target ; options = O.r ; input_feeder = feeder }
+            end)
+            in
+            let status, targets = eval_exp (module I) (Semantics.M.return e) in
+            let t2 = Caml_unix.gettimeofday () in
+            let _ : float = Utils.Safe_cell.map (fun t -> t +. (t2 -. t1)) global_runtime in
+            match status with
+            | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
+            | Finished { pruned } ->
+              let has_pruned = has_pruned || pruned in
+              step e ~has_pruned ~has_unknown (TQ.push_list tq targets)
+          end
+        | `Unknown -> let* () = pause () in step e ~has_pruned ~has_unknown:true tq
+        | `Unsat -> let* () = pause () in step e ~has_pruned ~has_unknown tq
       end
+      | None ->
+        let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_solvetime in
+        if has_unknown then
+          return Status.Unknown
+        else if has_pruned then
+          return Status.Exhausted_pruned_tree
+        else
+          return Status.Exhausted_full_tree
 
   let eval : Embedded.t -> Status.Terminal.t P.t =
     fun e ->
       if not O.r.random then C_random.reset ();
-      let session = Options.Arrow.appl Eval_session.with_options O.r Eval_session.empty in
-      P.with_timeout O.r.global_timeout_sec
-      @@ fun () -> loop e Intra.empty session
+      P.with_timeout O.r.global_timeout_sec @@ fun () ->
+      let module I = Semantics.Initialize (struct
+        let c =
+          Semantics.Consts.{ target = Target.make Path.empty
+          ; options = O.r
+          ; input_feeder = Input_feeder.zero }  
+      end) in
+      let t0 = Caml_unix.gettimeofday () in
+      let status, targets = eval_exp (module I) (Semantics.M.return e) in
+      let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_runtime in
+      match status with
+      | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
+      | Finished { pruned } ->
+        step e ~has_pruned:pruned ~has_unknown:false (TQ.push_list empty_tq targets)
 end
 
 module F = Make (Solve.Default) (Pause.Lwt)

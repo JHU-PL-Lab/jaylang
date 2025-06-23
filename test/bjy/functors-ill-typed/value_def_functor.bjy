@@ -1,0 +1,90 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules Mu_types Parametric_types First_class_types Deterministic_functions Variants Records Recursive_functions))
+    (reasons (Modules Variants Recursive_functions))
+    (speed Slow) ; just sort of slow. Not that bad. Very fast with parallelism
+    (typing Ill_typed)
+  )
+*)
+
+
+let Ident = struct
+  let t = `Ident of int
+end
+
+let T n = sig
+  val t :
+    let rec loop i =
+      if i <= 0
+      then type
+      else type --> loop (i - 1)
+    in
+    loop n
+end
+
+let STORE = sig
+  val t : type --> type
+  val empty : (a : type) -> t a
+  val add : (a : type) -> Ident.t -> a -> t a -> t a
+  val fetch : (a : type) -> Ident.t -> t a -> `Some of a | `None of unit
+end
+
+let Make (dependent Store : STORE) (Env_cell : T 1) (V : T 1) : sig
+  val T : sig
+    val t : type
+  end
+
+  val Env : sig
+    val t : type
+    val empty : t
+    val add : Ident.t -> T.t -> t -> t
+    val fetch : Ident.t -> t -> `Some of T.t | `None of unit
+  end
+end = struct
+  let T = struct
+    let t = mu t.
+      let env = Store.t t in
+      let closure = { expr : unit ; env : Env_cell.t env } in
+      | `VInt of V.t int
+      | `VBool of V.t bool
+      | `VFunCLosure of { param : Ident.t ; body : closure }
+      | `VVariant of { label : Ident.t ; payload : t }
+      | `VList of list t
+      | `VAbort of unit
+  end
+
+  let Env = struct
+    let t = Store.t T.t
+    let empty = Store.empty T.t
+    let add = Store.add T.t
+    let fetch = Store.fetch T.t
+  end
+end
+
+let AList : STORE = struct
+  let t a = list { id : Ident.t ; v : a }
+  let empty _ = []
+  let add _ id v ls =
+    { id = id ; v = v } :: ls
+  let fetch _ id env =
+    let id_ = match id with `Ident i -> i end in
+    let rec loop ls =
+      match ls with
+      | [] -> `None ()
+      | hd :: tl ->
+        match hd.id with
+        | `Ident i ->
+          if i == id_
+          then hd.v (* ERROR: forgot to return as `Some *)
+          else loop tl
+        end
+      end
+    in
+    loop env
+end
+
+let Wrap : T 1 = struct
+  let t a = `Wrapped of a
+end
+
+let Value = Make AList Wrap Wrap

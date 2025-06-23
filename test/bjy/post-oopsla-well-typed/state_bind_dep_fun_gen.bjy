@@ -1,6 +1,6 @@
 (***
   (
-    (features (Polymorphic_types Dependent_arrows Modules Parametric_types First_class_types Records Recursive_functions Higher_order_functions))
+    (features (Polymorphic_types Dependent_types Modules Parametric_types First_class_types Records Recursive_functions Higher_order_functions))
     (speed Slow)
     (typing Well_typed)
   )
@@ -36,12 +36,13 @@ end
 
 let confirm_type_of_state_monad 
   : (a : type) -> (b : type) -> (s : type) -> 
-      let m = State_monad.m in
-      { read : m s s
-      ; bind : m a s -> (a -> m b s) -> m b s
-      ; return : a -> m a s
-      ; modify : (s -> s) -> m s s
-      ; run : m a s -> s -> a }
+      let m = State_monad.m in sig
+        val read : m s s
+        val bind : m a s -> (a -> m b s) -> m b s
+        val return : a -> m a s
+        val modify : (s -> s) -> m s s
+        val run : m a s -> s -> a 
+      end
   = fun _ _ _ -> State_monad
 
 (*
@@ -67,7 +68,7 @@ let t n =
 (*
   Now use the cool type
 *)
-let main (n <- int) (f : t n) : (int -> int) =
+let main (dependent n : int) (f : t n) : (int -> int) =
   let rec loop i = 
     if i <= 0
     then f

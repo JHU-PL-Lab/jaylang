@@ -14,5 +14,5 @@ let record_constraint re =
 
 let isTrue b = b
 
-let test (test_record : { { a : int; b : int } | record_constraint }) : { bool | isTrue } =
+let test (test_record : { a : int; b : int } | record_constraint test_record) : { bool | isTrue } =
   test_record.a >= 0 

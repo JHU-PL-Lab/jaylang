@@ -20,9 +20,9 @@
 module type S = sig
   include Z3_api.S
 
-  val solve : bool Expression.t list -> [ `Sat of Input_feeder.t | `Unsat ]
-  (** [solve exprs] does not handle solver timeout. An exception is thrown in that
-      case, but it practically does not happen in the concolic system. *)
+  val solve : bool Expression.t list -> [ `Sat of Input_feeder.t | `Unsat | `Unknown ]
+  (** [solve exprs] solves the expressions. Unknown result is due to solver timeout, which
+      only happens in extremely rare cases, usually due to one-way functions. *)
 end
 
 (* This functor is generative because it makes a new Z3 context *)

@@ -20,7 +20,7 @@ module T : sig
     | Case_int : int -> int t
     | Case_default : { not_in : int list; } -> int t
 
-  val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int
+  (* val compare : ('a -> 'a -> int) -> 'a t -> 'a t -> int *)
 end
 
 include module type of T with type 'a t = 'a T.t

@@ -105,22 +105,6 @@ let not_ (x : bool t) : bool t =
   | Not e -> e (* cancel a double negation *)
   | _ -> Not x
 
-let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t) : b t =
-  match left, right, binop with
-  | e, Const B b, And -> if b then e else Const (B false)
-  | Const B b, e, And -> if b then e else Const (B false) (* combining with above doesn't typecheck, annoyingly *)
-  | Const B b, e, Or -> if b then Const (B true) else e
-  | e, Const B b, Or -> if b then Const (B true) else e (* .. *)
-  | Const cx, Const cy, _ -> Const (Typed_binop.to_arithmetic binop cx cy)
-  | Key k1, Key k2, Equal_bool when Stepkey.equal k1 k2 -> Const (B true)
-  | Key k1, Key k2, Equal_int when Stepkey.equal k1 k2 -> Const (B true)
-  | Key k1, Key k2, Not_equal when Stepkey.equal k1 k2 -> Const (B false)
-  | Key k, Const B true, Equal_bool -> Key k
-  | Const B true, Key k, Equal_bool -> Key k
-  | Key k, Const B false, Equal_bool -> not_ (Key k)
-  | Const B false, Key k, Equal_bool -> not_ (Key k)
-  | _ -> Binop (binop, left, right)
-
 let rec equal : type a. a t -> a t -> bool =
   fun x y ->
     match x, y with
@@ -147,6 +131,24 @@ let rec equal : type a. a t -> a t -> bool =
     end
     | _ -> false
 
+let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t) : b t =
+  match left, right, binop with
+  | e, Const B b, And -> if b then e else Const (B false)
+  | Const B b, e, And -> if b then e else Const (B false) (* combining with above doesn't typecheck, annoyingly *)
+  | e, e', And when equal e (Not e') -> Const (B false)
+  | e, e', And when equal e e' -> e
+  | Const B b, e, Or -> if b then Const (B true) else e
+  | e, Const B b, Or -> if b then Const (B true) else e (* .. *)
+  | Const cx, Const cy, _ -> Const (Typed_binop.to_arithmetic binop cx cy)
+  | Key k1, Key k2, Equal_bool when Stepkey.equal k1 k2 -> Const (B true)
+  | Key k1, Key k2, Equal_int when Stepkey.equal k1 k2 -> Const (B true)
+  | Key k1, Key k2, Not_equal when Stepkey.equal k1 k2 -> Const (B false)
+  | Key k, Const B true, Equal_bool -> Key k
+  | Const B true, Key k, Equal_bool -> Key k
+  | Key k, Const B false, Equal_bool -> not_ (Key k)
+  | Const B false, Key k, Equal_bool -> not_ (Key k)
+  | _ -> Binop (binop, left, right)
+
 let rec subst : type a b. a t -> b Stepkey.t -> b Const.t -> a t =
   fun e k c ->
     match e with
@@ -168,6 +170,28 @@ module Subst = Utils.Pack.Make (struct
     | c -> c
 end)
 
+(*
+  We would also like to notice when two keys must be equal, and then we
+  substitute those through. This would help a lot with the formulas we
+  get from deterministic functions.
+
+  Instead of substitutions, it would be a good idea to use union-find
+  to group keys and values. Some constant is always the representative if
+  it exists. Otherwise choose the smallest key. The moment there are two different 
+  constants (i.e. a conflict for representative), then we have an unsat formula.
+  We would probably like to flatten all "ands" to lists of expressions, and that
+  way we have the most simple expressions possible. We look at them for any
+  equality at the top of the formula, and add to the equivalence classes if possible.
+  Then we can substitute through with the representative. It may or may not be
+  good to substitute through because it might be slow, but it also might reveal
+  an unsat formula or constant formula.
+
+  No bool is any good if we don't branch on it, which means we'll eventually want
+  to simplify its formulas. Might as well do it early to only do it once.
+
+  Problem with an out of the box union find is we don't have control over the
+  representative. I want to be able to choose the representative to be a concrete value.
+*)
 let is_trivial (e : bool t) : [ `Trivial of Subst.t | `Nontrivial | `Const of bool ] =
   match e with
   | Const (B b) -> `Const b

@@ -26,9 +26,7 @@ rule token = parse
 | whitespace           { token lexbuf }
 | newline              { incr_lineno lexbuf; token lexbuf }
 | "{"                  { OPEN_BRACE }
-| "{:"                 { OPEN_BRACE_COLON }
 | "}"                  { CLOSE_BRACE }
-| ":}"                 { COLON_CLOSE_BRACE }
 | "("                  { OPEN_PAREN }
 | ")"                  { CLOSE_PAREN }
 | "["                  { OPEN_BRACKET }
@@ -45,7 +43,6 @@ rule token = parse
 | "&"                  { AMPERSAND }
 | "&&"                 { DOUBLE_AMPERSAND }
 | "and"                { AND }
-(* | "or"                 { OR } *)
 | "not"                { NOT }
 | "int"                { INT_KEYWORD }
 | "bool"               { BOOL_KEYWORD }
@@ -60,11 +57,11 @@ rule token = parse
 | "then"               { THEN }
 | "else"               { ELSE }
 | "let"                { LET }
-| "let%bind"          { LET_BIND}
+| "let%bind"           { LET_BIND}
 | "rec"                { REC }
 | "in"                 { IN }
 | "->"                 { ARROW }
-| "<-"                 { BACK_ARROW }
+| "-->"                { LONG_ARROW }
 | "false"              { BOOL false }
 | "true"               { BOOL true }
 | "input"              { INPUT }
@@ -73,11 +70,13 @@ rule token = parse
 | "assert"             { ASSERT }
 | "assume"             { ASSUME }
 | "type"               { TYPE }
-| "Mu"                 { MU }
+| "mu"                 { MU }
 | "list"               { LIST }
 | "sig"                { SIG }
 | "struct"             { STRUCT }
 | "val"                { VAL }
+| "dependent"          { DEPENDENT }
+| "dep"                { DEP }
 | "of"                 { OF }
 | "+"                  { PLUS }
 | "-"                  { MINUS }

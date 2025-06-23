@@ -1,0 +1,25 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions Other))
+    (reasons (Refinement_types Recursive_functions Other))
+    (speed Fast)
+    (typing Ill_typed) ; because of type splaying incompleteness
+    (flags "-s")
+  )
+*)
+
+let rec len (type a) (ls : list a) : { i : int | i >= 0 } =
+  match ls with
+  | [] -> 0
+  | _ :: tl -> 1 + len a tl
+  end
+
+let long_list a = { ls : list a | len a ls > 1 }
+
+(*
+  Since the refinement is totally made up because the recursive call
+  to len is stubbed, then len actually doesn't mean anything, so it's
+  not guaranteed that `l` checks out as a long list (the call to `len`
+  may give back `1`).
+*)
+let f (l : long_list int) : long_list int = l

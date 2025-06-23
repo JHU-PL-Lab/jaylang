@@ -5,8 +5,6 @@ type 'a terminal = 'a constraint 'a = [ `Terminal ]
 
 type 'a eval = 'a constraint 'a = [ `Eval ]
 
-type 'a in_progress = 'a constraint 'a = [ `In_progress ]
-
 type _ t =
   | Found_abort : Input.t list * string -> 'a t
   | Type_mismatch : Input.t list * string -> 'a t
@@ -15,26 +13,23 @@ type _ t =
   (* result from entire concolic evaluation *)
   | Exhausted_full_tree : 'a terminal t
   | Exhausted_pruned_tree : 'a terminal t
+  | Unknown : 'a terminal t (* due to solver timeout, but continued otherwise with no error found *)
   | Timeout : 'a terminal t
 
   (* result from a single run *)
-  | Finished : { pruned : bool ; reached_max_step : bool ; stem : Stem.t } -> 'a eval t
-
-  (* status while evaluation is ongoing *)
-  | Diverge : 'a in_progress t
-  | In_progress : 'a in_progress t
+  | Finished : { pruned : bool } -> 'a eval t
 
 let is_terminal (type a) (x : a t) : bool =
   match x with
   | Found_abort _ | Type_mismatch _ | Timeout | Unbound_variable _ 
-  | Exhausted_full_tree | Exhausted_pruned_tree -> true
-  | Finished _ | Diverge | In_progress -> false
+  | Exhausted_full_tree | Exhausted_pruned_tree | Unknown -> true
+  | Finished _ -> false
 
 let is_error_found (type a) (x : a t) : bool =
   match x with
   | Found_abort _ | Type_mismatch _ | Unbound_variable _ -> true
-  | Timeout | Exhausted_full_tree | Exhausted_pruned_tree
-  | Finished _ | Diverge | In_progress -> false
+  | Timeout | Exhausted_full_tree | Exhausted_pruned_tree | Unknown
+  | Finished _ -> false
 
 let to_string (type a) (x : a t) : string =
   match x with
@@ -43,10 +38,9 @@ let to_string (type a) (x : a t) : string =
   | Unbound_variable (_, id) -> Format.sprintf "Unbound variable:\n  %s" (Lang.Ast.Ident.to_string id)
   | Exhausted_full_tree      -> "Exhausted"
   | Exhausted_pruned_tree    -> "Exhausted pruned true"
+  | Unknown                  -> "Unknown due to solver timeout"
   | Timeout                  -> "Timeout"
   | Finished _               -> "Finished interpretation"
-  | Diverge                  -> "Diverge"
-  | In_progress              -> "In progress"
 
 let to_loud_string (type a) (x : a t) : string =
   let make_loud s =
@@ -63,10 +57,6 @@ let to_loud_string (type a) (x : a t) : string =
   | [ s ] -> make_loud s
   | before_colon :: after_colon :: [] -> make_loud before_colon ^ ":" ^ after_colon
   | _ -> failwith "this doesn't make sense"
-
-module In_progress = struct
-  type nonrec t = [ `In_progress ] t
-end
 
 module Eval = struct
   type nonrec t = [ `Eval ] t

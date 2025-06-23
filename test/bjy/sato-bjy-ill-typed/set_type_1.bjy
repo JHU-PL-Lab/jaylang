@@ -14,7 +14,7 @@ let isNeg n = n < 0
 let twice (f : int -> int) (x : int) : int =
   f (f x)
 
-let inc (x : { int | isPos} ) : { int | isNeg} =
+let inc (x : int | isPos x) : { int | isNeg} =
   x + 1
 
 let res = twice inc 0

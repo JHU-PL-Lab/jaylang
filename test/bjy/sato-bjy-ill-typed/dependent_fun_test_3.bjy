@@ -1,6 +1,6 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows Return_error))
+    (features (Refinement_types Dependent_types Return_error))
     (reasons (Refinement_types Return_error))
     (speed Fast)
     (typing Ill_typed)
@@ -9,7 +9,7 @@
 
 let f x g = g (x + 1)
 
-let h (x <- int) (y <- { a : int | a > x }) : { a : int | a > y } = 
+let h (dep x : int) (dep y : int | y > x) : { a : int | a > y } = 
   y + 1
 
 let main (n : int) : { c : int | c < 0 } =

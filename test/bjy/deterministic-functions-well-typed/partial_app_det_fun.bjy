@@ -1,0 +1,19 @@
+(***
+  (
+    (features (Deterministic_functions Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+
+let rec map f ls =
+  match ls with
+  | [] -> []
+  | hd :: tl -> f hd :: map f tl
+  end
+
+let _ : ((list int --> list bool) --> bool) -> int =
+  fun f ->
+    if f (map (fun i -> i % 2 == 0)) == f (map (fun i -> i % 2 == 0))
+    then 0
+    else false

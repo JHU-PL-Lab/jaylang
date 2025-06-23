@@ -31,7 +31,7 @@ let Nil : sig
   val v : t
 end = struct
   let t = unit
-  let v = {}
+  let v = ()
 end
 
 let Pair : T 2 = struct
@@ -48,7 +48,7 @@ let Type : sig
   val eq : t -> t -> bool
   val is_int : t -> bool
 end = struct
-  let t = Mu t.
+  let t = mu t.
     | `TArrow of Pair.t t t
     | `TInt of Nil.t
 
@@ -85,7 +85,7 @@ end = struct
 end
 
 let Expr : T 0 = struct
-  let t = Mu t.
+  let t = mu t.
     | `Int of int
     | `Var of Ident.t
     | `Function of Triple.t Ident.t Type.t t

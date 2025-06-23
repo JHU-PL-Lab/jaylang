@@ -82,7 +82,7 @@ module Make_common_builders (C : Context) = struct
 
   let constrained_vars model = 
     List.map ~f:(fun decl -> FuncDecl.get_name decl |> Symbol.get_int)
-    @@ Model.get_decls model
+    @@ Model.get_const_decls model
 end
 
 module Make_datatype_builders (C : Context) = struct
@@ -106,8 +106,6 @@ module Make_datatype_builders (C : Context) = struct
   let plus = op_two_ints int_ @@ list_curry @@ Arithmetic.mk_add ctx
   let minus = op_two_ints int_ @@ list_curry @@ Arithmetic.mk_sub ctx
   let times = op_two_ints int_ @@ list_curry @@ Arithmetic.mk_mul ctx
-  let divide = op_two_ints int_ @@ Arithmetic.mk_div ctx
-  let modulus = op_two_ints int_ @@ Arithmetic.Integer.mk_mod ctx
   let less_than = op_two_ints bool_ @@ Arithmetic.mk_lt ctx
   let less_than_eq = op_two_ints bool_ @@ Arithmetic.mk_le ctx
   let eq_ints = op_two_ints bool_ @@ Boolean.mk_eq ctx
@@ -115,6 +113,27 @@ module Make_datatype_builders (C : Context) = struct
   let neq e1 e2 = not_ @@ (op_two_ints bool_ @@ Boolean.mk_eq ctx) e1 e2
   let and_ = op_two_bools bool_ @@ list_curry @@ Boolean.mk_and ctx
   let or_ = op_two_bools bool_ @@ list_curry @@ Boolean.mk_or ctx
+
+  (*
+    See the docs at `jaylang/docs/implementation/z3.md` for explanation of division and modulus.
+  *)
+  (** [divides a b] is true iff [a] divides [b]. *)
+  let divides a b =
+    eq_ints (box_int 0) (op_two_ints int_ (Arithmetic.Integer.mk_mod ctx) b a)
+
+  let divide x y = 
+    let res = Arithmetic.mk_div ctx (extract x) (extract y) in
+    int_ @@
+      Boolean.mk_ite ctx
+        (extract (or_ (divides y x) (less_than_eq (box_int 0) x)))
+        res
+        (Boolean.mk_ite ctx
+          (extract (less_than_eq (box_int 0) y))
+          (extract (plus (int_ res) (box_int 1)))
+          (extract (minus (int_ res) (box_int 1)))
+        )
+
+  let modulus a b = minus a (times b (divide a b))
 
   let bool_expr_list_to_expr ls = 
     Boolean.mk_and ctx
@@ -150,14 +169,17 @@ module Make_solver (C : Context) = struct
     |> Int.to_string
     |> Z3.Params.update_param_value ctx "timeout"
 
+  let () = set_timeout (Time_float.Span.of_sec 2.)
+
   let solve : bool t list -> Solve_status.t = fun bool_formulas ->
     (* It is a bit faster to `and` all formulas together and only run `check` with that one. *)
     (* That is, instead of adding to the solver, keep the solver empty and check the one formula. *)
+    (* Format.printf "Formulas:%s\n" (String.concat ~sep:" " @@ List.map bool_formulas ~f:(fun x -> Z3.Expr.to_string @@ extract x)); *)
     let res = Z3.Solver.check solver [ bool_expr_list_to_expr bool_formulas ] in
     match res with
     | Z3.Solver.SATISFIABLE ->
-      let model = Z3.Solver.get_model solver in
-      Solve_status.Sat (Option.value_exn model)
+      let model = Option.value_exn @@ Z3.Solver.get_model solver in
+      Solve_status.Sat model
     | UNKNOWN -> Unknown
     | UNSATISFIABLE -> Unsat
 end

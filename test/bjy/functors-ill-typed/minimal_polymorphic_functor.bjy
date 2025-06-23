@@ -1,0 +1,19 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules Parametric_types))
+    (reasons (Polymorphic_types Parametric_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let S = sig
+  val t : type -> type (* ERROR: `t` needs to be deterministic *)
+  val f : (a : type) -> a -> t a
+end
+
+let F (dependent X : S) : sig 
+  val g : (a : type) -> a -> X.t a (* This `X.t a` is not the same result as `t a` because `t` is nondeterministic *)
+end = struct
+  let g = X.f
+end

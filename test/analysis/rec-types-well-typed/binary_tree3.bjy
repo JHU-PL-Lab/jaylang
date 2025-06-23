@@ -1,0 +1,6 @@
+
+let rec t _ =
+  | `A of { x : t () ; y : t () }
+  | `B of { leaf : int }
+
+let x : t () = `A { x = `B { leaf = 0 } ; y = `B { leaf = 0 }}

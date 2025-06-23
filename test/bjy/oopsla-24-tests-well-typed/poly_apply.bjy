@@ -1,7 +1,7 @@
 (***
   (
     (features (Polymorphic_types Higher_order_functions))
-    (speed Slow)
+    (speed Fast)
     (typing Well_typed)
   )
 *)

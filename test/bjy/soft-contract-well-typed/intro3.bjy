@@ -1,6 +1,6 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows Higher_order_functions))
+    (features (Refinement_types Dependent_types Higher_order_functions))
     (speed Fast)
     (typing Well_typed)
   )
@@ -9,10 +9,10 @@
 let f x g =
   g (x + 1)
 
-let h (z <- int) (y : { y : int | z < y }) : unit =
-  {}
+let h (dependent z : int) (y : int | z < y) : unit =
+  ()
 
 let main (n : int) : unit =
   if n > 0
   then f n (h n)
-  else {}
+  else ()

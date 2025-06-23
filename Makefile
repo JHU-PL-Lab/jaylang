@@ -44,7 +44,11 @@ test-fast:
 test-all:
 	dune exec -- src-test/concolic/test_concolic.exe
 
+# run the interpreter on all test files
+test-interp:
+	dune exec -- src-test/interp/test_interp.exe
+
 # benchmark
 
 cbenchmark:
-	dune exec --profile=release $(BENCH_C)/cbenchmark.exe
+	dune exec --profile=release $(BENCH_C)/cbenchmark.exe -- $(ARGS)

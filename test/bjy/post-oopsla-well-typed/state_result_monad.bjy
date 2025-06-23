@@ -1,6 +1,6 @@
 (***
   (
-    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Records Recursive_functions Higher_order_functions))
+    (features (Polymorphic_types Dependent_types Modules Parametric_types Records Recursive_functions Higher_order_functions))
     (speed Slow)
     (typing Well_typed)
   )
@@ -59,7 +59,7 @@ end =
     let modify = fun f -> (* function on state type *)
         fun r -> (* result type *)
           fun reject accept s ->
-            accept {} (f s)
+            accept () (f s)
   end
 
 let M = F { t = int } { t = bool }

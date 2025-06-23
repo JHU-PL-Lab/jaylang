@@ -21,6 +21,7 @@
  (modules (:standard))
  (libraries
   core
+  cmdliner
   preface
   utils
   )

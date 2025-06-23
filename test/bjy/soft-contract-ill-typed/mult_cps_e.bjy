@@ -15,7 +15,7 @@ let rec mult x y k =
   then k 0
   else x + mult x (y - 1) (acc x k)
 
-let check100 (w : { w : int | 600 <= w }) : int =
+let check100 (w : int | 600 <= w) : int =
   w
 
 let main (n : int) : int =

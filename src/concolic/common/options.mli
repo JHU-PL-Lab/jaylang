@@ -36,25 +36,12 @@ type t = T.t
 
 val default : t
 
+val cmd_arg_term : t Cmdliner.Term.t
+(** [cmd_arg_term] is a [Cmdliner] term that parses command line arguments into a [T.t]. *)
+
 module type V = sig
   val r : t
   (** [r] is a record containing values to fill in for each optional arg. *)
-end
-
-module Refs : sig
-  type t =
-    { global_timeout_sec : float ref
-    ; global_max_step    : int ref
-    ; max_tree_depth     : int ref
-    ; random             : bool ref
-    ; n_depth_increments : int ref
-    ; in_parallel        : bool ref }
-
-  val create_default : unit -> t
-  (** [create_default ()] has the default values from [default]. *)
-
-  val without_refs : t -> T.t
-  (** [without_refs t] is all the values in the cells in [t]. *)
 end
 
 (* `Arrow` for optional arguments on functions *)
@@ -77,7 +64,4 @@ module Arrow : sig
 
   val make : (T.t -> 'b -> 'c) -> ('b, 'c) t
   (** [make f] accepts optional arguments and applies them in the default record to [f]. *)
-
-  val thaw : (unit, 'a -> 'b) t -> ('a, 'b) t
-  (** [thaw x] is [uncurry x <<^ (fun y -> (), y)] *)
 end

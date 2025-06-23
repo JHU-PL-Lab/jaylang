@@ -1,6 +1,6 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions))
+    (features (Refinement_types Dependent_types Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions))
     (speed Slow)
     (typing Well_typed)
   )
@@ -30,7 +30,7 @@ let Nil : sig
   val v : t
 end = struct
   let t = unit
-  let v = {}
+  let v = ()
 end
 
 let Pair : T 2 = struct
@@ -47,7 +47,7 @@ let Type : sig
   val eq : t -> t -> bool
   val is_int : t -> bool
 end = struct
-  let t = Mu t.
+  let t = mu t.
     | `TArrow of Pair.t t t
     | `TInt of Nil.t
 
@@ -84,10 +84,14 @@ end = struct
 end
 
 let Expr : T 0 = struct
-  let t = Mu t.
+  let t = mu t.
     | `Int of int
     | `Var of Ident.t
-    | `Function of Triple.t Ident.t Type.t t
+    | `Function of sig
+       val first : Ident.t 
+       val second : Type.t 
+       val third : t
+    end
     | `If_then_else of Triple.t t t t
     | `Plus of Pair.t t t
     | `Minus of Pair.t t t
@@ -104,7 +108,7 @@ let rec mem ls a eq =
       else mem tl a eq
   end
 
-let free_vars e =
+let free_vars e bound =
   let rec loop e bound_ids acc =
     match e with
     | `Var var_id ->
@@ -132,10 +136,10 @@ let free_vars e =
       acc2
     end
   in
-  loop e [] []
+  loop e bound []
 
-let is_closed e = 
-  match free_vars e with
+let is_closed e bound = 
+  match free_vars e bound with
   | [] -> true
   | _ -> false
   end
@@ -143,7 +147,11 @@ let is_closed e =
 let Value : T 0 = struct
   let t =
     `Int of int
-    | `Function of Triple.t Ident.t Type.t { Expr.t | is_closed }
+    | `Function of sig
+       val first : Ident.t 
+       val second : Type.t 
+       val third : { e : Expr.t | is_closed e [ first ] }
+    end
 end
 
 let Result = struct
@@ -269,9 +277,9 @@ let set_eq ls1 ls2 eq =
   && is_subset ls2 ls1
 
 (* after subst; the expression has the same free variables as e; minus id *)
-let subst (e <- Expr.t) (id <- Ident.t) (v : Value.t) : { new_expr : Expr.t |
-  let new_free_vars = free_vars new_expr in
-  let old_free_vars = free_vars e in
+let subst (dep e : Expr.t) (dep id : Ident.t) (v : Value.t) : { new_expr : Expr.t |
+  let new_free_vars = free_vars new_expr [] in
+  let old_free_vars = free_vars e [] in
   set_eq new_free_vars (list_remove old_free_vars id Ident.eq) Ident.eq
   } =
   let rec sub e =
@@ -288,7 +296,11 @@ let subst (e <- Expr.t) (id <- Ident.t) (v : Value.t) : { new_expr : Expr.t |
     | `Function trip ->
         if Ident.eq trip.first id
         then e
-        else `Function { first = trip.first ; second = trip.second ; third = sub trip.third }
+        else `Function struct
+          let first = trip.first 
+          let second = trip.second 
+          let third = sub trip.third
+        end
     | `Plus p -> `Plus (sub_pair p)
     | `Minus p -> `Minus (sub_pair p)
     | `Equal p -> `Equal (sub_pair p)

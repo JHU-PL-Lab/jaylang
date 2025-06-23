@@ -2,7 +2,7 @@
 open Core
 open Options.Arrow.Infix (* expose infix operators *)
 
-type 'a test = ('a, do_wrap:bool -> Status.Terminal.t) Options.Arrow.t
+type 'a test = ('a, do_wrap:bool -> do_type_splay:bool -> Status.Terminal.t) Options.Arrow.t
 
 (*
   ----------------------
@@ -37,6 +37,7 @@ module Compute (O : Options.V) = struct
           | _, Found_abort _ | _, Type_mismatch _ | _, Unbound_variable _ -> b
           (* none say to quit, so keep the message that says we know the LEAST *)
           | Timeout, _ | _, Timeout -> Timeout
+          | Unknown, _ | _, Unknown -> Unknown
           | Exhausted_pruned_tree, _ | _, Exhausted_pruned_tree -> Exhausted_pruned_tree
           | Exhausted_full_tree, Exhausted_full_tree -> Exhausted_full_tree
     end)
@@ -71,11 +72,11 @@ end
 
 let test_bjy : Lang.Ast.Bluejay.pgm test =
   Options.Arrow.make
-  @@ fun r -> fun bjy -> fun ~do_wrap ->
+  @@ fun r -> fun bjy -> fun ~do_wrap ~do_type_splay ->
     let programs =
       if r.in_parallel
-      then Translate.Convert.bjy_to_many_emb bjy ~do_wrap
-      else Preface.Nonempty_list.Last (Translate.Convert.bjy_to_emb bjy ~do_wrap)
+      then Translate.Convert.bjy_to_many_emb bjy ~do_wrap ~do_type_splay
+      else Preface.Nonempty_list.Last (Translate.Convert.bjy_to_emb bjy ~do_wrap ~do_type_splay)
     in
     let module C = Compute (struct let r = r end) in
     let module P = Overlays.Computation_pool.Process (C) in
@@ -92,3 +93,23 @@ let test_bjy : Lang.Ast.Bluejay.pgm test =
 let test : Filename.t test =
   (fun s -> Lang.Parse.parse_single_pgm_string @@ In_channel.read_all s)
   ^>> test_bjy
+
+(*
+  ------------------------------
+  TESTING FROM COMMAND LINE ARGS
+  ------------------------------
+*)
+
+let ceval =
+  let open Cmdliner in
+  let open Cmdliner.Term.Syntax in
+  Cmd.v (Cmd.info "ceval") @@
+  let+ concolic_args = Options.cmd_arg_term
+  and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
+  and+ bjy_pgm = Lang.Parse.parse_bjy_file_from_argv in
+  Options.Arrow.appl
+    test_bjy
+    concolic_args
+    bjy_pgm
+    ~do_wrap
+    ~do_type_splay

@@ -7,46 +7,27 @@
   programs to other languages before interpreting.
 *)
 
-open Core
-open Lang
+open Cmdliner
+open Cmdliner.Term.Syntax
 
-let usage_msg =
-  {|
-  interp <file> -m <mode> [-w yes/no]
-  |}
-  (* would like to add [<input_i>] optional inputs *)
-
-let source_file = ref "" 
-let mode = ref ""
-let wrap = ref "yes"
-
-let read_anon_arg src_file_raw =
-  source_file := src_file_raw
-
-let speclist = 
-  [ ("-m", Arg.Set_string mode, "Mode: bluejay, desugared, or embedded.")
-  ; ("-w", Arg.Set_string wrap, "Wrap flag: yes or no. Default is yes.")]
+let interp =
+  Cmd.v (Cmd.info "interp") @@
+  let+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
+  and+ pgm = Lang.Parse.parse_bjy_file_from_argv
+  and+ mode = Arg.(value
+    & opt (enum ["type-erased", `Type_erased; "bluejay", `Bluejay; "desugared", `Desugared; "embedded", `Embedded]) `Type_erased
+    & info ["m"] ~doc:"Mode: bluejay, desugared, or embedded. Default is type-erased.")
+  in
+  match mode with
+  | `Type_erased -> Core.Fn.const () @@
+    Lang.Interp.eval_pgm @@ Translate.Convert.bjy_to_erased pgm
+  | `Bluejay -> Core.Fn.const () @@
+    Lang.Interp.eval_pgm pgm
+  | `Desugared -> Core.Fn.const () @@
+    (* Type splaying not allowed if the program is being interpretted in desugared mode *)
+    Lang.Interp.eval_pgm @@ Translate.Convert.bjy_to_des pgm ~do_type_splay:false
+  | `Embedded -> Core.Fn.const () @@
+    Lang.Interp.eval_pgm @@ Translate.Convert.bjy_to_emb pgm ~do_wrap ~do_type_splay
 
 let () = 
-  Arg.parse speclist read_anon_arg usage_msg;
-  match !source_file with
-  | "" -> ()
-  | src_file -> begin
-    let pgm =
-      Lang.Parse.parse_single_pgm_string
-      @@ In_channel.read_all src_file
-    in
-    match !mode with
-    | "bluejay" -> let _ = Interp.eval_pgm pgm in ()
-    | "desugared" -> let _ = Interp.eval_pgm @@ Translate.Convert.bjy_to_des pgm in ()
-    | "embedded" ->
-      let do_wrap =
-        match String.lowercase !wrap with
-        | "yes" | "y" -> true
-        | "no" | "n" -> false
-        | _ -> Format.eprintf "Error: bad string given to wrap -w flag. Should be yes/no."; assert false
-      in
-      let _ = Interp.eval_pgm @@ Translate.Convert.bjy_to_emb pgm ~do_wrap in
-      ()
-    | _ -> Format.eprintf "Error: mode should be one of bluejay, desugared, embedded."; assert false
-  end
+  exit @@ Cmd.eval interp

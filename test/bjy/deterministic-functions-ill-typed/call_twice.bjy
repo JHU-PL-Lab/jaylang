@@ -1,0 +1,27 @@
+(***
+  (
+    (features (Deterministic_functions Higher_order_functions))
+    (reasons (Deterministic_functions Higher_order_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+(*
+  From Section 1 of
+
+    Sound and Complete Concolic Testing  for Higher-order Functions
+    by You, Findler, and Dimoulas
+*)
+
+let equals a b = a == b
+
+let call_twice (f : (int --> bool) --> int) : int =
+  if f (equals 2) <> 12 then
+    1
+  else if f (equals 30) <> 5 then
+    2
+  else if f (equals 7) <> (0 - 2) then
+    3
+  else
+    assert false (* ERROR: this is reachable *)

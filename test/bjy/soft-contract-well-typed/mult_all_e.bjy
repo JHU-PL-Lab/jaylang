@@ -16,5 +16,5 @@ let h y =
   in
   b
 
-let main (n : { i : int | i > 1 }) : { b : bool | b } =
+let main (n : int | n > 1) : { b : bool | b } =
   h n

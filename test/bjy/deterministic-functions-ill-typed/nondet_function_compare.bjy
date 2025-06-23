@@ -1,0 +1,14 @@
+(***
+  (
+    (features (Deterministic_functions Higher_order_functions Other))
+    (reasons (Deterministic_functions Higher_order_functions Other))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let _ : ((int -> int) --> int) -> (int -> int) -> (int -> int) -> int =
+  fun f g h ->
+    if f g == f h
+    then 0
+    else true (* ERROR: g and h are different so f g is not the same as f h *)

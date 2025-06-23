@@ -1,0 +1,16 @@
+(***
+  (
+    (features (Deterministic_functions Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+let _ : (bool --> int) -> bool -> unit =
+  fun f b ->
+    let ft = f true in
+    if b then
+      assert (f true == f b)
+    else
+      ()
+

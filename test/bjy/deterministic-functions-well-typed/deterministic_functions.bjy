@@ -1,0 +1,36 @@
+(***
+  (
+    (features (Deterministic_functions Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+(*
+  Any deterministic function can act nondeterministic
+*)
+let _ : (int --> int) -> int -> int =
+  fun f -> f
+
+(*
+  This is deterministically returns the same function and is fine
+*)
+let _ : (int -> int) --> int -> int =
+  fun f -> f
+
+let _ : (int --> int -> int) --> int =
+  fun f -> 
+    let _ = f 0 in (* no problems here *)
+    0 (* but then there's nothing we can do to get a deterministic output *)
+
+let _ : (int --> int --> int) --> int =
+  fun f ->
+    f 0 0 (* safe to apply *)
+
+let _ : (int --> int) -> int --> int =
+  fun f -> f
+
+let _ : ((int -> int) --> int) -> (int -> int) -> int =
+  fun f g ->
+    let _ = assert (f g == f g) in
+    f g

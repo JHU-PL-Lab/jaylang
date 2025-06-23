@@ -1,6 +1,6 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows Higher_order_functions))
+    (features (Refinement_types Dependent_types Higher_order_functions))
     (speed Fast)
     (typing Well_typed)
   )

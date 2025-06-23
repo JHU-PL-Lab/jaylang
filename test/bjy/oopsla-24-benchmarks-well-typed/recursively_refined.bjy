@@ -1,6 +1,6 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows Mu_types Variants Records Recursive_functions))
+    (features (Refinement_types Dependent_types Mu_types Variants Records Recursive_functions))
     (speed Slow)
     (typing Well_typed)
   )
@@ -10,7 +10,7 @@ let coord : type =
   { x : int
   ; y : int }
 
-let t : type = Mu t.
+let t : type = mu t.
   { parent : `Some of t | `None of unit
   ; relative_coord : coord }
 
@@ -26,7 +26,7 @@ let has_parent x =
   | _ -> false
   end
 
-let rec get_abs_coord (r <- t)
+let rec get_abs_coord (dependent r : t)
   : 
   { abs_coord : coord |
     match r.parent with

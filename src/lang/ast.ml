@@ -33,6 +33,7 @@ module Constraints = struct
   type bluejay = [ `Bluejay ]
   type desugared = [ `Desugared ]
   type embedded = [ `Embedded ]
+  type type_erased = [ `Type_erased ]
 
   (*
     Constrains 'a to be exactly `Bluejay.
@@ -48,6 +49,9 @@ module Constraints = struct
   *)
   type 'a bluejay_or_desugared = 'a constraint 'a = [< `Bluejay | `Desugared ]
   type 'a desugared_or_embedded = 'a constraint 'a = [< `Desugared | `Embedded ]
+
+  type 'a bluejay_or_type_erased = 'a constraint 'a = [< `Bluejay | `Type_erased ]
+  type 'a bluejay_or_desugared_or_type_erased = 'a constraint 'a = [< `Bluejay | `Type_erased | `Desugared ]
 
   (*
     Constrains 'a to be exactly `Desugared .
@@ -125,6 +129,7 @@ module Binop = struct
     | BGeq
     | BAnd
     | BOr
+  [@@deriving equal, compare]
 
   let to_string = function
     | BPlus -> "+"
@@ -142,105 +147,506 @@ module Binop = struct
     | BOr -> "or"
 end
 
+exception InvalidComparison of string
+
 module Pattern = struct
   type _ t =
     (* all languages *)
     | PAny : 'a t
     | PVariable : Ident.t -> 'a t
     | PVariant : { variant_label : VariantLabel.t ; payload_id : Ident.t } -> 'a t
+    (* only Embedded *)
+    | PInt : 'a embedded_only t
+    | PBool : 'a embedded_only t
+    | PType : 'a embedded_only t
+    | PRecord : 'a embedded_only t
+    | PModule : 'a embedded_only t
+    | PFun : 'a embedded_only t
+    | PUnit : 'a embedded_only t
+    | PUntouchable : Ident.t -> 'a embedded_only t
     (* only Bluejay *)
-    | PEmptyList : 'a bluejay_only t
-    | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_only t
+    | PEmptyList : 'a bluejay_or_type_erased t
+    | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_or_type_erased t
+
+  let to_rank : type a. a t -> int = function
+    | PAny -> 0
+    | PVariable _ -> 1
+    | PVariant _ -> 2
+    | PUntouchable _ -> 3
+    | PEmptyList -> 4
+    | PDestructList _ -> 5
+    | PInt -> 6
+    | PBool -> 7
+    | PType -> 8
+    | PRecord -> 9
+    | PModule -> 10
+    | PFun -> 11
+    | PUnit -> 12
+
+  let cmp : type a. a t -> a t -> [ `LT | `GT | `Eq of (Ident.t * Ident.t) list ] =
+    fun a b ->
+      match Int.compare (to_rank a) (to_rank b) with
+      | 0 -> begin
+        match a, b with
+        | PAny, PAny -> `Eq []
+        | PVariable id1, PVariable id2 -> `Eq [ id1, id2 ]
+        | PVariant r1, PVariant r2 -> begin
+          match VariantLabel.compare r1.variant_label r2.variant_label with
+          | 0 -> `Eq [ r1.payload_id, r2.payload_id ]
+          | x when x < 0 -> `LT
+          | _ -> `GT
+        end
+        | PUntouchable id1, PUntouchable id2 -> `Eq [ id1, id2 ]
+        | PEmptyList, PEmptyList
+        | PInt, PInt
+        | PBool, PBool
+        | PType, PType
+        | PRecord, PRecord
+        | PModule, PModule
+        | PFun, PFun
+        | PUnit, PUnit -> `Eq []
+        | PDestructList r1, PDestructList r2 -> `Eq [ (r1.hd_id, r2.hd_id) ; (r1.tl_id, r2.tl_id) ]
+        | _ -> raise @@ InvalidComparison "Impossible comparison of patterns"
+      end
+      | x when x < 0 -> `LT
+      | _ -> `GT
 
   let to_string : type a. a t -> string = function
     | PAny -> "any"
-    | PVariable Ident s -> Format.sprintf "var %s" s
-    | PVariant { variant_label  = VariantLabel Ident s ; _ } -> Format.sprintf "variant `%s" s
+    | PVariable Ident s -> Format.sprintf "%s" s
+    | PVariant { variant_label  = VariantLabel Ident s ; _ } -> Format.sprintf "`%s" s
+    | PUntouchable Ident s -> Format.sprintf "Untouchable %s" s
     | PEmptyList -> "[]"
     | PDestructList { hd_id = Ident hd ; tl_id = Ident tl } -> Format.sprintf "%s :: %s" hd tl
+    | PInt -> "int"
+    | PBool -> "bool"
+    | PType -> "type"
+    | PRecord -> "record"
+    | PModule -> "module"
+    | PFun -> "fun"
+    | PUnit -> "unit"
+end
+
+module Program_point = struct
+  type t = Program_point of int [@@unboxed] [@@deriving compare, equal, sexp]
+
+  let next =
+    let counter = Utils.Counter.create () in
+    fun () ->
+      Program_point (Utils.Counter.next counter)
 end
 
 module Expr = struct
-  type _ t =
-    (* all languages. 'a is unconstrained *)
-    | EInt : int -> 'a t
-    | EBool : bool -> 'a t
-    | EVar : Ident.t -> 'a t
-    | EBinop : { left : 'a t ; binop : Binop.t ; right : 'a t } -> 'a t
-    | EIf : { cond : 'a t ; true_body : 'a t ; false_body : 'a t } -> 'a t
-    | ELet : { var : Ident.t ; body : 'a t ; cont : 'a t } -> 'a t
-    | EAppl : { func : 'a t ; arg : 'a t } -> 'a t
-    | EMatch : { subject : 'a t ; patterns : ('a Pattern.t * 'a t) list } -> 'a t
-    | EProject : { record : 'a t ; label : RecordLabel.t } -> 'a t
-    | ERecord : 'a t RecordLabel.Map.t -> 'a t
-    | ENot : 'a t -> 'a t 
-    | EPick_i : 'a t (* is parsed as "input", but we can immediately make it pick_i *)
-    | EFunction : { param : Ident.t ; body : 'a t } -> 'a t (* note bluejay also has multi-arg function, which generalizes this *)
-    | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
-    (* embedded only, so constrain 'a to only be `Embedded *)
-    | EPick_b : 'a embedded_only t
-    | ECase : { subject : 'a t ; cases : (int * 'a t) list ; default : 'a t } -> 'a embedded_only t (* simply sugar for nested conditionals *)
-    | EFreeze : 'a t -> 'a embedded_only t
-    | EThaw : 'a t -> 'a embedded_only t 
-    | EId : 'a embedded_only t
-    | EIgnore : { ignored : 'a t ; cont : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in cont` but is more efficient *)
-    (* these exist in the desugared and embedded languages *)
-    | EAbort : string -> 'a desugared_or_embedded t (* string is error message *)
-    | EDiverge : 'a desugared_or_embedded t
-    (* these exist in the bluejay and desugared languages *)
-    | EType : 'a bluejay_or_desugared t
-    | ETypeInt : 'a bluejay_or_desugared t
-    | ETypeBool : 'a bluejay_or_desugared t
-    | ETypeTop : 'a bluejay_or_desugared t
-    | ETypeBottom : 'a bluejay_or_desugared t
-    | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
-    | ETypeModule : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
-    | ETypeArrow : { domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
-    | ETypeArrowD : { binding : Ident.t ; domain : 'a t ; codomain : 'a t } -> 'a bluejay_or_desugared t
-    | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
-    | ETypeMu : { var : Ident.t ; body : 'a t } -> 'a bluejay_or_desugared t
-    | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
-    | ELetTyped : { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
-    | ETypeSingle : 'a t -> 'a bluejay_or_desugared t
-    (* bluejay only *)
-    | ETypeList : 'a t -> 'a bluejay_only t
-    | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
-    | EList : 'a t list -> 'a bluejay_only t
-    | EListCons : 'a t * 'a t -> 'a bluejay_only t
-    | EModule : 'a statement list -> 'a bluejay_only t
-    | EAssert : 'a t -> 'a bluejay_only t
-    | EAssume : 'a t -> 'a bluejay_only t
-    | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_only t
-    | ELetFun : { func : 'a funsig ; cont : 'a t } -> 'a bluejay_only t
-    | ELetFunRec : { funcs : 'a funsig list ; cont : 'a t } -> 'a bluejay_only t
+  (*
+    The Cell is expected to be used to add program points. Or it may be identity and do nothing.
+    Program points are allowed to be put on:
+      if/then/else
+      function application
+      thaw
+      inputs (int or bool)
+      abort
+      diverge
+  *)
+  module Make (Cell : Utils.Comparable.S1) = struct
+    type _ t =
+      (* all languages. 'a is unconstrained *)
+      | EUnit : 'a t
+      | EInt : int -> 'a t
+      | EBool : bool -> 'a t
+      | EVar : Ident.t -> 'a t
+      | EBinop : { left : 'a t ; binop : Binop.t ; right : 'a t } -> 'a t
+      | EIf : { cond : 'a t ; true_body : 'a t ; false_body : 'a t } -> 'a t
+      | ELet : { var : Ident.t ; defn : 'a t ; body : 'a t } -> 'a t
+      | EAppl : 'a application Cell.t -> 'a t
+      | EMatch : { subject : 'a t ; patterns : ('a Pattern.t * 'a t) list } -> 'a t
+      | EProject : { record : 'a t ; label : RecordLabel.t } -> 'a t
+      | ERecord : 'a t RecordLabel.Map.t -> 'a t
+      | EModule : 'a statement list -> 'a t
+      | ENot : 'a t -> 'a t 
+      | EPick_i : unit Cell.t -> 'a t (* is parsed as "input", but we can immediately make it pick_i *)
+      | EFunction : { param : Ident.t ; body : 'a t } -> 'a t (* note bluejay also has multi-arg function, which generalizes this *)
+      | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
+      (* embedded only, so constrain 'a to only be `Embedded *)
+      | EPick_b : unit Cell.t -> 'a embedded_only t
+      | ECase : { subject : 'a t ; cases : (int * 'a t) list ; default : 'a t } -> 'a embedded_only t (* simply sugar for nested conditionals *)
+      | EFreeze : 'a t -> 'a embedded_only t
+      | EThaw : 'a t Cell.t -> 'a embedded_only t 
+      | EId : 'a embedded_only t
+      | EIgnore : { ignored : 'a t ; body : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in body` but is more efficient *)
+      | ETable : 'a embedded_only t
+      | ETblAppl : { tbl : 'a t ; gen : 'a t ; arg : 'a t } -> 'a embedded_only t
+      | EDet : 'a t -> 'a embedded_only t
+      | EEscapeDet : 'a t -> 'a embedded_only t
+      | EIntensionalEqual : { left : 'a t ; right : 'a t } -> 'a embedded_only t
+      | EUntouchable : 'a t -> 'a embedded_only t
+      (* these exist in the desugared and embedded languages *)
+      | EAbort : string Cell.t -> 'a desugared_or_embedded t (* string is error message *)
+      | EDiverge : unit Cell.t -> 'a desugared_or_embedded t
+      (* only the desugared language *)
+      | EGen : 'a t -> 'a desugared_only t (* Cannot be interpreted. Is only an intermediate step in translation *)
+      (* these exist in the bluejay and desugared languages *)
+      | EType : 'a bluejay_or_desugared t
+      | ETypeInt : 'a bluejay_or_desugared t
+      | ETypeBool : 'a bluejay_or_desugared t
+      | ETypeTop : 'a bluejay_or_desugared t
+      | ETypeBottom : 'a bluejay_or_desugared t
+      | ETypeUnit : 'a bluejay_or_desugared t
+      | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
+      | ETypeModule : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
+      | ETypeFun : { domain : 'a t ; codomain : 'a t ; dep : [ `No | `Binding of Ident.t ] ; det : bool } -> 'a bluejay_or_desugared t
+      | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
+      | ETypeMu : { var : Ident.t ; params : Ident.t list ; body : 'a t } -> 'a bluejay_or_desugared t
+      | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
+      | ELetTyped : { typed_var : 'a typed_var ; defn : 'a t ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
+      | ETypeSingle : 'a bluejay_or_desugared t
+      (* bluejay or type erased *)
+      | EList : 'a t list -> 'a bluejay_or_type_erased t
+      | EListCons : 'a t * 'a t -> 'a bluejay_or_type_erased t
+      | EAssert : 'a t -> 'a bluejay_or_type_erased t
+      | EAssume : 'a t -> 'a bluejay_or_type_erased t
+      | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_or_type_erased t
+      | ELetFun : { func : 'a funsig ; body : 'a t } -> 'a bluejay_or_type_erased t
+      | ELetFunRec : { funcs : 'a funsig list ; body : 'a t } -> 'a bluejay_or_type_erased t
+      (* bluejay only *)
+      | ETypeList : 'a bluejay_only t
+      | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
 
-  (* the let-function signatures *)
-  and _ funsig =
-    | FUntyped : { func_id : Ident.t ; params : Ident.t list ; body : 'a t } -> 'a funsig
-    | FTyped : ('a, 'a param list) typed_fun -> 'a funsig
+    (* the let-function signatures *)
+    and _ funsig =
+      | FUntyped : { func_id : Ident.t ; params : Ident.t list ; defn : 'a t } -> 'a bluejay_or_type_erased funsig
+      | FTyped : ('a, 'a param list) typed_fun -> 'a bluejay_only funsig
 
-  (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
-  and ('a, 'p) typed_fun = { type_vars : Ident.t list ; func_id : Ident.t ; params : 'p ; ret_type : 'a t ; body : 'a t }
+    (* the common parts of typed let-function signature. Note type_vars is empty for non polymorphic functions *)
+    and ('a, 'p) typed_fun = { type_vars : Ident.t list ; func_id : Ident.t ; params : 'p ; ret_type : 'a t ; defn : 'a t }
 
-  (* a variable with its type, where the type is an expression *)
-  and 'a typed_var = { var : Ident.t ; tau : 'a t }
+    (* a variable with its type, where the type is an expression *)
+    and 'a typed_var = { var : Ident.t ; tau : 'a t }
 
-  (* function parameters for use in funsigs *)
-  and _ param =
-    | TVar : 'a typed_var -> 'a bluejay_only param
-    | TVarDep : 'a typed_var -> 'a bluejay_only param
+    (* function parameters for use in funsigs *)
+    and _ param =
+      | TVar : 'a typed_var -> 'a bluejay_only param
+      | TVarDep : 'a typed_var -> 'a bluejay_only param
 
-  (* Bluejay and desugared have typed let-expressions *)
-  and 'a let_typed = { typed_var : 'a typed_var ; body : 'a t ; cont : 'a t } constraint 'a = 'a bluejay_or_desugared
+    and 'a application = { func : 'a t ; arg : 'a t }
+    and 'a ite = { cond : 'a t ; true_body : 'a t ; false_body : 'a t }
 
-  and _ statement =
-    (* all *)
-    | SUntyped : { var : Ident.t ; body : 'a t } -> 'a statement
-    (* bluejay or desugared *)
-    | STyped : { typed_var : 'a typed_var ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared statement
-    (* bluejay only *)
-    | SFun : 'a funsig -> 'a bluejay_only statement
-    | SFunRec : 'a funsig list -> 'a bluejay_only statement
+    (* Bluejay and desugared have typed let-expressions *)
+    and 'a let_typed = { typed_var : 'a typed_var ; defn : 'a t ; body : 'a t } constraint 'a = 'a bluejay_or_desugared
+
+    and _ statement =
+      (* all *)
+      | SUntyped : { var : Ident.t ; defn : 'a t } -> 'a statement
+      (* bluejay or desugared *)
+      | STyped : { typed_var : 'a typed_var ; defn : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared statement
+      (* bluejay only *)
+      | SFun : 'a funsig -> 'a bluejay_or_type_erased statement
+      | SFunRec : 'a funsig list -> 'a bluejay_or_type_erased statement
+
+    let func_id_of_funsig : type a. a funsig -> Ident.t = function
+      | FUntyped { func_id ; _ }
+      | FTyped { func_id ; _ } -> func_id
+
+    let ids_of_statement : type a. a statement -> Ident.t list = function
+      | SUntyped { var ; _ } -> [ var ]
+      | STyped { typed_var = { var ; _ } ; _ } -> [ var ]
+      | SFun fs -> [ func_id_of_funsig fs ]
+      | SFunRec fss -> List.map fss ~f:func_id_of_funsig
+
+    (* Completely arbitrary rank. PPX libs can't do this automatically on a GADT. *)
+    let to_rank : type a. a t -> int = function
+      | EInt _ -> 0            | EBool _ -> 1      | EVar _ -> 2               | EBinop _ -> 3
+      | EIf _ -> 4             | ELet _ -> 5       | EAppl _ -> 6              | EMatch _ -> 7
+      | EProject _ -> 8        | ERecord _ -> 9    | ENot _ -> 10              | EPick_i _ -> 11
+      | EFunction _ -> 12      | EVariant _ -> 13  | EPick_b _ -> 14           | ECase _ -> 15
+      | EFreeze _ -> 16        | EThaw _ -> 17     | EId -> 18                 | EIgnore _ -> 19
+      | ETable -> 20           | ETblAppl _ -> 21  | EDet _ -> 22              | EEscapeDet _ -> 23
+      | EAbort _ -> 24         | EDiverge _ -> 25  | EType -> 26               | ETypeInt -> 27
+      | ETypeBool -> 28        | ETypeTop -> 29    | ETypeBottom -> 30         | ETypeRecord _ -> 31
+      | ETypeModule _ -> 32    | ETypeFun _ -> 33  | ETypeRefinement _ -> 34   | ETypeMu _ -> 35
+      | ETypeVariant _ -> 36   | ELetTyped _ -> 37 | ETypeSingle -> 38         | ETypeList -> 39
+      | ETypeIntersect _ -> 40 | EList _ -> 41     | EListCons _ -> 42         | EModule _ -> 43 
+      | EAssert _ -> 44        | EAssume _ -> 45   | EMultiArgFunction _ -> 46 | ELetFun _ -> 47
+      | ELetFunRec _ -> 48     | EGen _  -> 49     | EIntensionalEqual _ -> 50 | EUntouchable _ -> 51
+      | EUnit -> 52          | ETypeUnit -> 53
+
+    let statement_to_rank : type a. a statement -> int = function
+      | SUntyped _ -> 0
+      | STyped _ -> 1
+      | SFun _ -> 2
+      | SFunRec _ -> 3
+
+    module Alist = struct
+      (* association list of identifiers *)
+      type t = (Ident.t * Ident.t) list
+
+      let empty : t = []
+      
+      let cons_assoc id1 id2 t = (id1, id2) :: t
+
+      let concat t1 t2 = t1 @ t2
+
+      let rec compare_in_t id1 id2 t =
+        match t with
+        | [] -> `Not_found
+        | (d1, d2) :: tl ->
+          if Ident.equal id1 d1 then
+            `Found (Ident.compare id2 d2)
+          else if Ident.equal id2 d2 then
+            `Found (Ident.compare id1 d1)
+          else
+            compare_in_t id1 id2 tl
+
+      let cons_assocs ids1 ids2 t =
+        match Int.compare (List.length ids1) (List.length ids2) with
+        | 0 -> `Bindings (concat (List.zip_exn ids1 ids2) t)
+        | x -> `Unequal_lengths x
+    end
+
+    (**
+      Param [compare_vars] compares free variables.
+
+      Two expressions are intensionally compared.
+      It is expected that expressions are typically compared in a closure, so [compare_vars] likely
+      refers to some closure to check free variable equality.
+
+      Bound variables are compared by de Bruijn index.
+
+      Lots of boilerplate here, but I don't see a way around it.
+    *)
+    let compare (type a) (compare_vars : Ident.t -> Ident.t -> int) (x : a t) (y : a t) : int =
+      (* [let-] is simple sugar to help us only continue when x is 0 and short-circuit f otherwise *)
+      let (let-) x f =
+        if x = 0
+        then f ()
+        else x
+      in
+      let rec compare : type a. Alist.t -> a t -> a t -> int =
+        fun bindings a b ->
+          if phys_equal a b then 0 else
+          let- () = Int.compare (to_rank a) (to_rank b) in
+          let cmp : type a. a t -> a t -> int = fun x y -> compare bindings x y in 
+          match a, b with
+          | EId, EId | ETable, ETable | EType, EType | ETypeInt, ETypeInt | ETypeBool, ETypeBool
+          | ETypeTop, ETypeTop | ETypeBottom, ETypeBottom | ETypeList, ETypeList
+          | ETypeSingle, ETypeSingle | EUnit, EUnit | ETypeUnit, ETypeUnit -> 0
+          | EDiverge c1, EDiverge c2
+          | EPick_i c1, EPick_i c2
+          | EPick_b c1, EPick_b c2 -> Cell.compare Unit.compare c1 c2
+          | EInt i, EInt j -> Int.compare i j
+          | EBool b, EBool c -> Bool.compare b c
+          | EVar x, EVar y -> begin
+            match Alist.compare_in_t x y bindings with
+            | `Found x -> x (* vars are bound, so was able to compare de Bruijn indices *)
+            | `Not_found -> compare_vars x y (* variables are free. Use provided comparison *)
+          end
+          | EBinop r1, EBinop r2 ->
+            let- () = cmp r1.left r2.left in
+            let- () = Binop.compare r1.binop r2.binop in
+            cmp r1.right r2.right
+          | EIf r1, EIf r2 ->
+            let- () = cmp r1.cond r2.cond in
+            let- () = cmp r1.true_body r2.true_body in
+            cmp r1.false_body r2.false_body
+          | ELet r1, ELet r2 ->
+            let- () = cmp r1.defn r2.defn in
+            compare (Alist.cons_assoc r1.var r2.var bindings) r1.body r2.body
+          | EAppl c1, EAppl c2 -> Cell.compare (compare_application bindings) c1 c2
+          | EMatch r1, EMatch r2 -> begin
+            let- () = cmp r1.subject r2.subject in
+            Tuple2.get1 @@
+            compare_lists r1.patterns r2.patterns bindings ~f:(fun (p1, e1) (p2, e2) bindings ->
+              match Pattern.cmp p1 p2 with
+              | `LT -> `Done (-1)
+              | `GT -> `Done 1
+              | `Eq bindings' ->
+                let r = compare (Alist.concat bindings' bindings) e1 e2 in
+                if r = 0 then `Continue_and_overwrite_bindings bindings else `Done r
+            )
+          end
+          | EProject r1, EProject r2 ->
+            let- () = RecordLabel.compare r1.label r2.label in
+            cmp r1.record r2.record
+          | ERecord m1, ERecord m2 -> RecordLabel.Map.compare cmp m1 m2
+          | ENot e1, ENot e2 -> cmp e1 e2
+          | EFunction r1, EFunction r2 -> compare (Alist.cons_assoc r1.param r2.param bindings) r1.body r2.body
+          | EVariant r1, EVariant r2 ->
+            let- () = VariantLabel.compare r1.label r2.label in
+            cmp r1.payload r2.payload
+          | EIntensionalEqual r1, EIntensionalEqual r2 ->
+            let- () = cmp r1.left r2.left in
+            cmp r1.right r2.right
+          | ECase r1, ECase r2 ->
+            let- () = cmp r1.subject r2.subject in
+            let- () = List.compare (Tuple2.compare ~cmp1:Int.compare ~cmp2:cmp) r1.cases r2.cases in
+            cmp r1.default r2.default
+          | EFreeze e1, EFreeze e2 -> cmp e1 e2
+          | EThaw a1, EThaw a2 -> Cell.compare cmp a1 a2
+          | EIgnore r1, EIgnore r2 -> 
+            let- () = cmp r1.ignored r2.ignored in
+            cmp r1.body r2.body
+          | ETblAppl r1, ETblAppl r2 -> 
+            let- () = cmp r1.tbl r2.tbl in
+            let- () = cmp r1.gen r2.gen in
+            cmp r1.arg r2.arg
+          | EDet e1, EDet e2 -> cmp e1 e2
+          | EEscapeDet e1, EEscapeDet e2 -> cmp e1 e2
+          | EUntouchable e1, EUntouchable e2 -> cmp e1 e2
+          | EAbort s1, EAbort s2 -> Cell.compare String.compare s1 s2
+          | EGen e1, EGen e2 -> cmp e1 e2
+          | ETypeRecord m1, ETypeRecord m2 -> RecordLabel.Map.compare cmp m1 m2
+          | ETypeFun r1, ETypeFun r2 -> begin
+            let- () = cmp r1.domain r2.domain in
+            let- () = Bool.compare r1.det r2.det in
+            match r1.dep, r2.dep with
+            | `Binding id1, `Binding id2 ->
+              compare (Alist.cons_assoc id1 id2 bindings) r1.codomain r2.codomain
+            | `No, `No -> cmp r1.codomain r2.codomain
+            | `No, `Binding _ -> -1
+            | `Binding _, `No -> 1
+          end
+          | ETypeRefinement r1, ETypeRefinement r2 -> 
+            let- () = cmp r1.tau r2.tau in
+            cmp r1.predicate r2.predicate
+          | ETypeMu r1, ETypeMu r2 -> begin
+            match Alist.cons_assocs (r1.var :: r1.params) (r2.var :: r2.params) bindings with
+            | `Bindings bindings -> compare bindings r1.body r2.body
+            | `Unequal_lengths x -> x
+          end
+          | ETypeVariant l1, ETypeVariant l2 ->
+            List.compare (Tuple2.compare ~cmp1:VariantTypeLabel.compare ~cmp2:cmp) l1 l2
+          | ELetTyped r1, ELetTyped r2 -> begin
+            let- () = Bool.compare r1.do_wrap r2.do_wrap in
+            let- () = Bool.compare r1.do_check r2.do_check in
+            let- () = cmp r1.typed_var.tau r2.typed_var.tau in
+            let- () = cmp r1.defn r2.defn in
+            compare (Alist.cons_assoc r1.typed_var.var r2.typed_var.var bindings) r1.body r2.body
+          end
+          | ETypeIntersect l1, ETypeIntersect l2 ->
+            List.compare (Tuple3.compare ~cmp1:VariantTypeLabel.compare ~cmp2:cmp ~cmp3:cmp) l1 l2
+          | EList l1, EList l2 -> List.compare cmp l1 l2
+          | EListCons (hd1, tl1), EListCons (hd2, tl2) -> 
+            let- () = cmp hd1 hd2 in cmp tl1 tl2
+          | EModule l1, EModule l2 -> 
+            Tuple2.get1 @@
+            compare_lists l1 l2 bindings ~f:(fun s1 s2 bindings ->
+              match compare_statement bindings s1 s2 with
+              | 0 -> begin
+                match Alist.cons_assocs (ids_of_statement s1) (ids_of_statement s2) bindings with
+                | `Bindings bindings -> `Continue_and_overwrite_bindings bindings
+                | `Unequal_lengths x -> `Done x
+              end
+              | x -> `Done x
+            )
+          | EAssert e1, EAssert e2 -> cmp e1 e2
+          | EAssume e1, EAssume e2 -> cmp e1 e2
+          | EMultiArgFunction r1, EMultiArgFunction r2 -> begin
+            match Alist.cons_assocs r1.params r2.params bindings with
+            | `Bindings bindings -> compare bindings r1.body r2.body
+            | `Unequal_lengths x -> x
+          end
+          | ELetFun r1, ELetFun r2 ->
+            let- () = compare_funsig bindings r1.func r2.func in
+            compare (Alist.cons_assoc (func_id_of_funsig r1.func) (func_id_of_funsig r2.func) bindings) 
+              r1.body r2.body
+          | ELetFunRec r1, ELetFunRec r2 -> begin
+            match Alist.cons_assocs (List.map r1.funcs ~f:func_id_of_funsig) (List.map r2.funcs ~f:func_id_of_funsig) bindings with
+            | `Bindings bindings ->
+              let- () = List.compare (compare_funsig bindings) r1.funcs r2.funcs in
+              compare bindings r1.body r2.body
+            | `Unequal_lengths x -> x
+          end
+          | _ -> raise @@ InvalidComparison "Impossible comparison of expressions"
+
+      and compare_application : type a. Alist.t -> a application -> a application -> int =
+        fun bindings a1 a2 ->
+          if phys_equal a1 a2 then 0 else
+          let- () = compare bindings a1.func a2.func in
+          compare bindings a1.arg a2.arg
+
+      and compare_statement : type a. Alist.t -> a statement -> a statement -> int =
+        fun bindings s1 s2 ->
+          if phys_equal s1 s2 then 0 else
+          let- () = Int.compare (statement_to_rank s1) (statement_to_rank s2) in
+          match s1, s2 with
+          | SUntyped r1, SUntyped r2 -> compare (Alist.cons_assoc r1.var r2.var bindings) r1.defn r2.defn
+          | STyped r1, STyped r2 ->
+            let- () = Bool.compare r1.do_wrap r2.do_wrap in
+            let- () = Bool.compare r1.do_check r2.do_check in
+            let- () = compare bindings r1.typed_var.tau r2.typed_var.tau in
+            compare bindings r1.defn r2.defn
+          | SFun fs1, SFun fs2 -> compare_funsig bindings fs1 fs2
+          | SFunRec l1, SFunRec l2 -> begin
+            match Alist.cons_assocs (List.map l1 ~f:func_id_of_funsig) (List.map l2 ~f:func_id_of_funsig) bindings with
+            | `Bindings bindings -> List.compare (compare_funsig bindings) l1 l2
+            | `Unequal_lengths x -> x
+          end
+          | _ -> raise @@ InvalidComparison "Impossible comparison of statements"
+
+      and compare_funsig : type a. Alist.t -> a funsig -> a funsig -> int =
+        fun bindings fs1 fs2 ->
+          if phys_equal fs1 fs2 then 0 else
+          match fs1, fs2 with
+          | FUntyped r1, FUntyped r2 -> begin
+            (* assumes the function ids have already been associated if these are recursive *)
+            match Alist.cons_assocs r1.params r2.params bindings with
+            | `Bindings bindings -> compare bindings r1.defn r2.defn
+            | `Unequal_lengths x -> x
+          end
+          | FTyped r1, FTyped r2 -> begin
+            match Alist.cons_assocs r1.type_vars r2.type_vars bindings with
+            | `Bindings bindings ->
+              (* assumes the function ids have already been associated if these are recursive *)
+              (* here just compare parameters. Later will add params to bindings and compare bodies *)
+              let param_cmp, bindings_after_param_cmp = 
+                compare_lists r1.params r2.params bindings ~f:(fun p1 p2 bindings ->
+                  match p1, p2 with
+                  | TVar tv1, TVar tv2 -> begin
+                    match compare bindings tv1.tau tv2.tau with
+                    | 0 -> `Continue_and_overwrite_bindings bindings
+                    | x -> `Done x
+                  end
+                  | TVarDep tv1, TVarDep tv2 -> begin
+                    match compare bindings tv1.tau tv2.tau with
+                    | 0 -> `Continue_and_overwrite_bindings (Alist.cons_assoc tv1.var tv2.var bindings)
+                    | x -> `Done x
+                  end
+                  | TVar _, TVarDep _ -> `Done (-1)
+                  | TVarDep _, TVar _ -> `Done 1
+                )
+              in
+              let- () = param_cmp in
+              let- () = compare bindings_after_param_cmp r1.ret_type r2.ret_type in
+              compare bindings_after_param_cmp r1.defn r2.defn
+            | `Unequal_lengths x -> x
+          end
+          | FUntyped _, FTyped _ -> -1
+          | FTyped _, FUntyped _ -> 1
+
+      and compare_lists
+        : type a. a list -> a list -> Alist.t ->
+            f:(a -> a -> Alist.t -> [ `Done of int | `Continue_and_overwrite_bindings of Alist.t ]) -> int * Alist.t
+        = fun ls1 ls2 bindings ~f ->
+          match ls1, ls2 with
+          | [], [] -> 0, bindings
+          | _, [] -> 1, bindings
+          | [], _ -> -1, bindings
+          | a1 :: tl1, a2 :: tl2 ->
+            match f a1 a2 bindings with
+            | `Done x -> x, bindings
+            | `Continue_and_overwrite_bindings bindings -> compare_lists tl1 tl2 bindings ~f
+      in
+      compare Alist.empty x y
+  end
+
+  module Made = Make (Utils.Identity)
+  include Made
+
+  module Point_cell = struct
+    type 'a t = { data : 'a ; point : Program_point.t }[@@deriving compare]
+    let make (data : 'a) : 'a t =
+      { data ; point = Program_point.next () }
+  end
+  module With_program_points = Make (Point_cell)
 end
 
 module Program = struct
@@ -254,6 +660,153 @@ module Embedded = struct
   type pgm = embedded Program.t
   type pattern = embedded Pattern.t
   type statement = embedded Expr.statement
+
+  module With_program_points = struct
+    type t = embedded Expr.With_program_points.t
+
+    (* It's not promised that there is any ordering property here *)
+    let rec t_of_expr (e : embedded Expr.t) : t =
+      match e with
+      (* leaves -- these need to be recreated because we don't share constructors *)
+      | EInt i -> EInt i
+      | EBool b -> EBool b
+      | EVar id -> EVar id
+      | EId -> EId
+      | ETable -> ETable
+      | EUnit -> EUnit
+      (* add program points *)
+      | EPick_i () -> EPick_i (Expr.Point_cell.make ())
+      | EPick_b () -> EPick_b (Expr.Point_cell.make ())
+      | EAbort msg -> EAbort (Expr.Point_cell.make msg)
+      | EDiverge () -> EDiverge (Expr.Point_cell.make ())
+      | EAppl { func ; arg } -> EAppl (Expr.Point_cell.make { Expr.With_program_points.func = t_of_expr func ; arg = t_of_expr arg })
+      | EThaw expr -> EThaw (Expr.Point_cell.make (t_of_expr expr))
+      (* propagation *)
+      | ELet { var ; defn ; body } -> ELet { var ; defn = t_of_expr defn ; body = t_of_expr body }
+      | EFunction { param ; body } -> EFunction { param ; body = t_of_expr body }
+      | EBinop { left ; binop ; right } -> EBinop { left = t_of_expr left ; binop ; right = t_of_expr right }
+      | EIf { cond ; true_body ; false_body } -> EIf { cond = t_of_expr cond ; true_body = t_of_expr true_body ; false_body = t_of_expr false_body }
+      | EMatch { subject ; patterns } ->
+        EMatch { subject = t_of_expr subject ; patterns =
+          List.map patterns ~f:(fun (pat, expr) -> (pat, t_of_expr expr))
+        }
+      | EProject { record ; label } -> EProject { record = t_of_expr record ; label }
+      | ERecord r -> ERecord (Map.map r ~f:t_of_expr)
+      | EModule stmt_ls -> EModule (List.map stmt_ls ~f:(function SUntyped { var ; defn } ->
+          Expr.With_program_points.SUntyped { var ; defn = t_of_expr defn }
+        ))
+      | ENot expr -> ENot (t_of_expr expr)
+      | EVariant { label ; payload } -> EVariant { label ; payload = t_of_expr payload }
+      | EIntensionalEqual { left ; right } -> EIntensionalEqual { left = t_of_expr left ; right = t_of_expr right }
+      | ECase { subject ; cases ; default } ->
+        ECase { subject = t_of_expr subject ; default = t_of_expr default ; cases =
+          List.map cases ~f:(fun (i, expr) -> (i, t_of_expr expr))
+        }
+      | EFreeze expr -> EFreeze (t_of_expr expr)
+      | EIgnore { ignored ; body } -> EIgnore { ignored = t_of_expr ignored ; body = t_of_expr body }
+      | ETblAppl { tbl ; gen ; arg } -> ETblAppl { tbl = t_of_expr tbl ; gen = t_of_expr gen ; arg = t_of_expr arg }
+      | EDet expr -> EDet (t_of_expr expr)
+      | EEscapeDet expr -> EEscapeDet (t_of_expr expr)
+      | EUntouchable expr -> EUntouchable (t_of_expr expr)
+
+  (*
+    The idea is that we rename each variable to something brand new and then
+    substitute that into each subexpression.
+    
+    Do this with a map that maps each name to the new name. When we come across
+    a usage, we replace. When we come across a declaration, we give a new name
+    in the map (and replace that instance, obviously).
+
+    Ignores unbound variables. They get a new name, too.
+  *)
+  let alphatize (e : t) : t =
+    (* order does not matter when alphatizing because we don't care about names, so mindless mutation is okay *)
+    let new_name = 
+      let i = ref 0 in
+      fun () ->
+        incr i;
+        Ident.Ident (Format.sprintf "$%d" !i)
+    in
+    let replace key env =
+      if Ident.equal key (Ident "_")
+      then key, env (* no need to replace ignored values, I think. TODO: check this logic *)
+      else
+        let id' = new_name () in
+        id', Map.set env ~key ~data:id'
+    in
+    let rec visit (e : t) (env : Ident.t Ident.Map.t) : t =
+      match e with
+      (* leaves -- these need to be recreated because we don't share constructors *)
+      | EInt i -> EInt i
+      | EBool b -> EBool b
+      | EPick_i c -> EPick_i c
+      | EPick_b c -> EPick_b c
+      | EId -> EId
+      | ETable -> ETable
+      | EUnit -> EUnit
+      | EAbort msg -> EAbort msg
+      | EDiverge c -> EDiverge c
+      (* replacement *)
+      | EVar id -> begin
+        match Map.find env id with
+        | Some id' -> EVar id'
+        | None -> EVar (new_name ()) (* unbound variable. We promise to not fail but give a new name instead *)
+      end
+      (* binding a new name *)
+      | ELet { var ; defn ; body } ->
+        let id', env' = replace var env in
+        ELet { var = id' ; defn = visit defn env ; body = visit body env' }
+      | EFunction { param ; body } ->
+        let id', env' = replace param env in
+        EFunction { param = id' ; body = visit body env' }
+      (* propagation *)
+      | EAppl { data = { func ; arg } ; point } -> EAppl { data = { func = visit func env ; arg = visit arg env } ; point }
+      | EBinop { left ; binop ; right } -> EBinop { left = visit left env ; binop ; right = visit right env }
+      | EIf { cond ; true_body ; false_body } -> EIf { cond = visit cond env ; true_body = visit true_body env ; false_body = visit false_body env }
+      | EMatch { subject ; patterns } ->
+        EMatch { subject = visit subject env ; patterns =
+          List.map patterns ~f:(fun (pat, expr) ->
+            match pat with
+            | Pattern.PVariable x ->
+              let id', env' = replace x env in
+              Pattern.PVariable id', visit expr env'
+            | PVariant { variant_label ; payload_id } ->
+              let id', env' = replace payload_id env in
+              PVariant { variant_label ; payload_id = id' }, visit expr env'
+            | PUntouchable id ->
+              let id', env' = replace id env in
+              PUntouchable id', visit expr env'
+            | _ -> pat, visit expr env
+          )
+        }
+      | EProject { record ; label } -> EProject { record = visit record env ; label }
+      | ERecord r -> ERecord (Map.map r ~f:(fun body -> visit body env))
+      | EModule stmt_ls -> EModule (
+        let rec map_stmts env : embedded Expr.With_program_points.statement list -> _ = function
+          | [] -> []
+          | Expr.With_program_points.SUntyped { var ; defn } :: tl ->
+            let var', env' = replace var env in
+            Expr.With_program_points.SUntyped { var = var' ; defn = visit defn env } :: map_stmts env' tl
+        in
+        map_stmts env stmt_ls
+      )
+      | ENot expr -> ENot (visit expr env)
+      | EVariant { label ; payload } -> EVariant { label ; payload = visit payload env }
+      | EIntensionalEqual { left ; right } -> EIntensionalEqual { left = visit left env ; right = visit right env }
+      | ECase { subject ; cases ; default } ->
+        ECase { subject = visit subject env ; default = visit default env ; cases =
+          List.map cases ~f:(fun (i, expr) -> i, visit expr env)
+        }
+      | EFreeze expr -> EFreeze (visit expr env)
+      | EThaw { data ; point } -> EThaw { data = visit data env ; point }
+      | EIgnore { ignored ; body } -> EIgnore { ignored = visit ignored env ; body = visit body env }
+      | ETblAppl { tbl ; gen ; arg } -> ETblAppl { tbl = visit tbl env ; gen = visit gen env ; arg = visit arg env }
+      | EDet expr -> EDet (visit expr env)
+      | EEscapeDet expr -> EEscapeDet (visit expr env)
+      | EUntouchable expr -> EUntouchable (visit expr env)
+    in
+    visit e Ident.Map.empty
+  end
 end
 
 module Desugared = struct
@@ -261,6 +814,14 @@ module Desugared = struct
   type pgm = desugared Program.t
   type pattern = desugared Pattern.t
   type statement = desugared Expr.statement
+end
+
+module Type_erased = struct
+  type t = type_erased Expr.t
+  type pgm = type_erased Program.t
+  type pattern = type_erased Pattern.t
+  type funsig = type_erased Expr.funsig
+  type statement = type_erased Expr.statement
 end
 
 module Bluejay = struct
@@ -271,6 +832,72 @@ module Bluejay = struct
   type typed_var = bluejay Expr.typed_var
   type param = bluejay Expr.param
   type statement = bluejay Expr.statement
+
+  let rec is_deterministic_pgm (pgm : pgm) : bool =
+    match pgm with
+    | [] -> true
+    | stmt :: tl ->
+      is_deterministic_pgm tl &&
+      match stmt with
+      | SUntyped { defn ; _ } -> is_det_e defn
+      | STyped { typed_var = { tau ; _ } ; defn ; _ } -> is_det_e tau && is_det_e defn
+      | SFun fsig -> is_det_fsig fsig
+      | SFunRec fsigs -> List.for_all fsigs ~f:is_det_fsig
+
+  and is_det_fsig (fsig : funsig) : bool =
+    match fsig with
+    | FUntyped { defn ; _ } -> is_det_e defn
+    | FTyped { params ; ret_type ; defn ; _ } ->
+      is_det_e ret_type
+      && is_det_e defn
+      && List.for_all params ~f:(function TVar { tau ; _ } | TVarDep { tau ; _ } -> is_det_e tau)
+
+  and is_det_e (expr : t) : bool =
+    match expr with
+    (* pick_i is the only nondeterminism in bluejay. We're just looking for this *)
+    | EPick_i () -> false
+    (* leaves *)
+    | EInt _ | EBool _ | EVar _ | EType | ETypeInt
+    | ETypeBool | ETypeTop | ETypeBottom
+    | ETypeSingle | ETypeList | EUnit | ETypeUnit -> true
+    (* one subexpression *)
+    | EProject { record = e ; label = _ }
+    | ENot e
+    | EFunction { param = _ ; body = e }
+    | EVariant { label = _ ; payload = e }
+    | ETypeMu { var = _ ; params = _ ; body = e }
+    | EAssert e
+    | EAssume e
+    | EMultiArgFunction { params = _ ; body = e } -> is_det_e e
+    (* two subexpressions *)
+    | EBinop { left = e1 ; binop = _ ; right = e2 }
+    | ELet { var = _ ; defn = e1 ; body = e2 }
+    | EAppl { func = e1 ; arg = e2 }
+    | ETypeFun { domain = e1 ; codomain = e2 ; dep = _ ; det = _ }
+    | ETypeRefinement { tau = e1 ; predicate = e2 }
+    | EListCons (e1, e2)
+    -> is_det_e e1 && is_det_e e2
+    (* three subexpressions *)
+    | EIf { cond = e1 ; true_body = e2 ; false_body = e3 }
+    | ELetTyped { typed_var = { var = _ ; tau = e1 } ; defn = e2 ; body = e3 ; do_wrap = _ ; do_check = _ } ->
+      is_det_e e1
+      && is_det_e e2
+      && is_det_e e3
+    (* custom *)
+    | ELetFun { func ; body } -> is_det_fsig func && is_det_e body
+    | ELetFunRec { funcs ; body } ->
+      is_det_e body
+      && List.for_all funcs ~f:is_det_fsig
+    | EMatch { subject ; patterns } ->
+      is_det_e subject
+      && List.for_all patterns ~f:(fun (_pattern, e) -> is_det_e e)
+    | ERecord m 
+    | ETypeRecord m -> Map.for_all m ~f:is_det_e
+    | ETypeModule ls -> List.for_all ls ~f:(fun (_label, e) -> is_det_e e)
+    | ETypeVariant ls -> List.for_all ls ~f:(fun (_label, e) -> is_det_e e)
+    | ETypeIntersect ls -> List.for_all ls ~f:(fun (_label, e1, e2) -> is_det_e e1 && is_det_e e2)
+    | EList ls -> List.for_all ls ~f:is_det_e
+    | EModule stmt_ls -> is_deterministic_pgm stmt_ls
 end
 
 module Parsing_tools = struct

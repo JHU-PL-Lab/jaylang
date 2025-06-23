@@ -3,21 +3,6 @@
 Jay Lang
 =====
 
-Please cite this software as:
-
-```bibtex
-@software{Artifact24Zenodo,
-  author       = {Kelvin Qian and Brandon Stride and Scott Smith and Shiwei Weng and Ke Wu},
-  doi          = {10.5281/zenodo.13388361},
-  organization = {Zenodo},
-  month        = aug,
-  title        = {Software Artifact for Semantic-Type-Guided Bug Finding},
-  url          = {https://doi.org/10.5281/zenodo.13388361},
-  version      = {1.0.0},
-  year         = {2024}
-}
-```
-
 This is the codebase for the BlueJay language with its semantic-type-guided bug finder.
 This code is developed by the JHU Programming Languages Lab.
 
@@ -90,9 +75,7 @@ command
 ./ceval.exe <source_file>.bjy
 ```
 
-Optional arguments for this executable can be found in the source code at
-`src/bin/ceval.ml`.
-
+Try the `--help` flag to learn more about arguments to the executable.
 
 ### Tests
 
@@ -112,7 +95,14 @@ make test-fast
 ```
 
 Note this also runs any well-typed test that has no recursion and is expected to be
-proven well-typed quickly.
+proven well-typed quickly, and those for which the incompleteness of type-splaying
+and stubbing recursive types is not a problem and can be proven well-typed.
+
+To check that the interpreter can run in all modes on all tests:
+
+```
+make test-interp
+```
 
 ### Benchmarks
 
@@ -120,15 +110,36 @@ proven well-typed quickly.
 make cbenchmark
 ```
 
-This makes the benchmark for the concolic evaluator. The results are printed to stdout
+This makes the benchmarks for the concolic evaluator. The results are printed to stdout
 in a LaTeX table format as is seen in Table 2 in Section 6.6 of the paper.
 
-To run the benchmarks in other tables, go to the file `benchmark/concolic/cbenchmark.ml`
-and change the directories run at the bottom of the file (several directories that might
-be run are currently commented out).
+To run the benchmarks for other directories or to change the run settings, use command
+line arguments under a `ARGS="args here"` argument. For example,
 
-All benchmarks are run in the test suite. Success of each run is not confirmed during
+```
+make cbenchmark ARGS="--dirs 'test/bjy/post-oopsla-ill-typed test/bjy/soft-contract-ill-typed' --trials 100 -r"
+```
+
+runs the concolic evaluator on all tests in the two directories for 100 trials, where the evaluation
+has been randomized with the `-r` flag, and the results are combined into one table.
+
+All benchmarks run are in the test suite. Success of each run is not confirmed during
 benchmarking. Instead, use `make test-fast` to see the results or run the file individually
 with `ceval.exe`. Results are deterministic by default (modulo small variations in timeout)
 and are therefore replicable.
 
+Suggested directories to benchmark (besides the default `test/bjy/oopsla-24-benchmarks-ill-typed`) include
+- `test/bjy/soft-contract-ill-typed`
+- `test/bjy/oopsla-24-tests-ill-typed`
+- `test/bjy/interp-ill-typed` (suggested to decrease trials from the default 50 due to longer run times)
+- `test/bjy/post-oopsla-ill-typed`
+
+## Coding in Bluejay
+
+Write Bluejay code in `.bjy` files. It's strongly recommended to use the syntax highlighter found
+in `bluejay-language/`. See the instructions there for how to install the highlighter as
+a VS Code extension.
+
+The features and syntax of Bluejay are informally but thoroughly documented in `docs/language/bluejay`.
+It is recommended to look there to learn the language, and then refer to the many example programs
+in the test suite.

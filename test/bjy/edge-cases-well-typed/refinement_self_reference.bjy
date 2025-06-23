@@ -1,7 +1,7 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows Recursive_functions))
-    (speed Slow)
+    (features (Refinement_types Dependent_types Recursive_functions))
+    (speed Fast)
     (typing Well_typed)
   )
 *)
@@ -9,5 +9,5 @@
 let rec f (x : int) : { int | fun i -> (f i) == i } =
   x
 
-let rec g (x <- int) : { int | fun i -> (g x) == i } =
+let rec g (dependent x : int) : { int | fun i -> (g x) == i } =
   x + 1

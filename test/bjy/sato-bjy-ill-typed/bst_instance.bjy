@@ -9,7 +9,7 @@
 
 (* error is that x has 6 on left of root value 2; which is not a bst *)
 
-let tree_type = Mu t.
+let tree_type = mu t.
   | `Node of { left : t ; right : t ; item : int }
   | `Leaf of { leaf : bool }
 

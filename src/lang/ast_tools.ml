@@ -12,6 +12,10 @@
 open Core
 open Ast
 
+module Exceptions = struct
+  exception InvariantFailure of string
+end
+
 (*
   Here are some reserved names that don't parse, so the programmer cannot
   write them, and we are safe to inject them into the AST.
@@ -25,27 +29,25 @@ module Reserved = struct
   let wrap : RecordLabel.t = RecordLabel (Ident "~wrap")
   let hd : RecordLabel.t = RecordLabel (Ident "~hd")
   let tl : RecordLabel.t = RecordLabel (Ident "~tl")
+  let i : RecordLabel.t = RecordLabel (Ident "~i")
+  let nonce : RecordLabel.t = RecordLabel (Ident "~nonce")
 
   (* Variant constructors *)
   let cons : VariantLabel.t = VariantLabel (Ident "~Cons") 
   let nil : VariantLabel.t = VariantLabel (Ident "~Nil") 
-  let untouched : VariantLabel.t = VariantLabel (Ident "~Untouched")
   let top : VariantLabel.t = VariantLabel (Ident "~Top")
-  let bottom : VariantLabel.t = VariantLabel (Ident "~Bottom")
-  let predicate_failed : VariantLabel.t = VariantLabel (Ident "~Predicate_failed")
+  let stub : VariantLabel.t = VariantLabel (Ident "~Stub")
 
   (* Variant type constructors *)
   let cons_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Cons") 
   let nil_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Nil") 
+  let stub_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Stub_for_mu")
 
   (* Idents *)
   let catchall : Ident.t = Ident "_"
 end
 
 module Utils = struct
-  let unit_value : type a. a Expr.t = ERecord RecordLabel.Map.empty
-  let unit_type : 'a Constraints.bluejay_or_desugared Expr.t = ETypeRecord RecordLabel.Map.empty
-
   (*
     [ x1 ; ... ; xn ], e |->
       fun x1 -> ... -> fun xn -> e
@@ -91,7 +93,7 @@ module Utils = struct
   open Expr
 
   let ids_of_stmt (type a) (stmt : a statement) : Ident.t list =
-    let id_of_fsig = function
+    let id_of_fsig : type a. a funsig -> Ident.t = function
       | FUntyped { func_id ; _ } -> func_id
       | FTyped { func_id ; _ } -> func_id
     in
@@ -104,50 +106,41 @@ module Utils = struct
     in
     List.filter ids ~f:(fun id -> not @@ Ident.equal id Reserved.catchall)
 
-  let stmt_to_expr (type a) (stmt : a statement) (cont : a Expr.t) : a Expr.t =
+  let stmt_to_expr (type a) (stmt : a statement) (body : a Expr.t) : a Expr.t =
     match stmt with
-    | SUntyped { var ; body } ->
-      ELet { var ; body ; cont = cont }
-    | STyped { typed_var ; body ; do_wrap ; do_check } ->
-      ELetTyped { typed_var ; body ; cont ; do_wrap ; do_check }
+    | SUntyped { var ; defn } ->
+      ELet { var ; defn ; body }
+    | STyped { typed_var ; defn ; do_wrap ; do_check } ->
+      ELetTyped { typed_var ; defn ; body ; do_wrap ; do_check }
     | SFun fsig ->
-      ELetFun { func = fsig ; cont }
+      ELetFun { func = fsig ; body }
     | SFunRec fsigs ->
-      ELetFunRec { funcs = fsigs ; cont }
+      ELetFunRec { funcs = fsigs ; body }
 
-  let rec pgm_to_expr_with_cont : type a. a Expr.t -> a statement list -> a Expr.t =
-    fun cont -> function
-    | [] -> cont
+  let rec pgm_to_expr_with_body : type a. a Expr.t -> a statement list -> a Expr.t =
+    fun body -> function
+    | [] -> body
     | hd :: tl ->
-      let cont = pgm_to_expr_with_cont cont tl in
-      stmt_to_expr hd cont
+      let body = pgm_to_expr_with_body body tl in
+      stmt_to_expr hd body
 
   let pgm_to_module : type a. a statement list -> a Expr.t =
-    fun pgm ->
-      let res = ERecord (
-        pgm
-        |> List.bind ~f:ids_of_stmt
-        |> List.fold ~init:RecordLabel.Map.empty ~f:(fun acc id ->
-          Map.set acc ~key:(RecordLabel id) ~data:(EVar id)
-        )
-      ) 
-      in 
-      pgm_to_expr_with_cont res pgm
+    fun pgm -> EModule pgm
 end
 
 module Function_components = struct
   type 'a t =
     { func_id : Ident.t
-    ; tau_opt : 'a Constraints.bluejay_or_desugared Expr.t option
+    ; tau_opt : 'a Expr.t option
     ; params  : Ident.t list
-    ; body    : 'a Constraints.bluejay_or_desugared Expr.t
+    ; defn    : 'a Expr.t
     } 
 
   let map (x : 'a t) ~(f : 'a Expr.t -> 'b Expr.t) : 'b t =
     { func_id = x.func_id
     ; tau_opt = Option.map x.tau_opt ~f
     ; params  = x.params
-    ; body    = f x.body
+    ; defn    = f x.defn
     }
 end
 
@@ -165,12 +158,13 @@ module Funsig = struct
   (*
     Breaks a function signature into its id, type (optional), parameter names, and function body.
   *)
-  let to_components (fsig : 'a t) : 'a Constraints.bluejay_or_desugared Function_components.t =
+  (* let to_components (fsig : 'a t) : 'a Function_components.t = *)
+  let to_components (type a) (fsig : a t) : a Function_components.t =
     match fsig with
-    | FUntyped { func_id ; params ; body } ->
-      { func_id ; tau_opt = None ; params ; body }
-    | FTyped { type_vars ; func_id ; params ; ret_type ; body } ->
-      { func_id ; body ; params = type_vars @ List.map params ~f:Param.to_id
+    | FUntyped { func_id ; params ; defn } ->
+      { func_id ; tau_opt = None ; params ; defn }
+    | FTyped { type_vars ; func_id ; params ; ret_type ; defn } ->
+      { func_id ; defn ; params = type_vars @ List.map params ~f:Param.to_id
       ; tau_opt = Some (
         (* Create dependent parameters out of the type variables *)
         let tvar_params : Bluejay.param list =
@@ -179,8 +173,8 @@ module Funsig = struct
         (* Create an arrow type (possibly dependent) out of all parameters *)
         List.fold_right (tvar_params @ params) ~init:ret_type ~f:(fun tvar codomain ->
           match tvar with
-          | TVar { var = _ ; tau } -> Expr.ETypeArrow { domain = tau ; codomain }
-          | TVarDep { var ; tau } -> ETypeArrowD { binding = var ; domain = tau ; codomain }
+          | TVar { var = _ ; tau } -> Expr.ETypeFun { domain = tau ; codomain ; dep = `No ; det = false }
+          | TVarDep { var ; tau } -> ETypeFun { domain = tau ; codomain ; dep = `Binding var ; det = false }
         )
       ) }
 end

@@ -27,7 +27,7 @@ let rec is_balanced t =
   | `Leaf leaf -> true
   end
 
-let tree_type = Mu t.
+let tree_type = mu t.
   | `Node of { left : t; right : t }
   | `Leaf of { leaf : int }
 

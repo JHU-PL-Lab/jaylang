@@ -1,0 +1,8 @@
+
+(* This seems much faster than with records as the leaf payload *)
+
+let t = mu t.
+  | `A of { x : t ; y : t }
+  | `B of int
+
+let x : t = `A { x = `B 0 ; y = `B 0 }

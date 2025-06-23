@@ -5,20 +5,15 @@ let uid = Utils.Counter.create ()
 type t =
   { path_n : int
   ; uniq_id : int
-  ; exprs : bool Expression.t list }
+  ; path : Path.t }
 
-let empty : t =
-  { path_n = 0
+let make (path : Path.t) : t =
+  { path_n = Path.length path
   ; uniq_id = Utils.Counter.next uid
-  ; exprs = [] }
+  ; path }
 
-let cons (claim : 'a Claim.t) (target : t) : t =
-  { path_n = target.path_n + 1
-  ; uniq_id = Utils.Counter.next uid
-  ; exprs = Claim.to_expression claim :: target.exprs }
-
-let to_expressions ({ exprs ; _ } : t) : bool Expression.t list =
-  exprs
+let to_expressions ({ path ; _ } : t) : bool Expression.t list =
+  Path.to_exprs path
 
 (*
   SUPER IMPORTANT NOTE:

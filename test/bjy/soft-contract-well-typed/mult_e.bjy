@@ -1,12 +1,13 @@
 (***
   (
     (features (Recursive_functions))
-    (speed Slow)
+    (speed Fast) ; b/c type splaying
     (typing Well_typed)
+    (flags "-s")
   )
 *)
 
-let rec mult x y =
+let rec mult (x : int) (y : int) : int =
   if x <= 0 || y <= 0
   then 0
   else x + mult x (y - 1)

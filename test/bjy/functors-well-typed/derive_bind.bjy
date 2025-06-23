@@ -1,0 +1,57 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules Parametric_types Deterministic_functions Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+(*
+  This is the OCaml version
+
+    module type BASIC = sig
+      type 'a m
+      val return : 'a -> 'a m
+      val join   : 'a m m -> 'a m
+      val map    : 'a m -> ('a -> 'b) -> 'b m
+    end
+
+
+    module Derive_bind (M : BASIC) = struct
+      include M
+      let bind x f = M.join (M.map x f)
+    end
+
+*)
+
+let BASIC = sig
+  val m : type --> type
+  val map  : (a : type) -> (b : type) -> m a -> (a -> b) -> m b
+  val join : (a : type) -> m (m a) -> m a
+  val return : (a : type) -> a -> m a
+end
+
+(* this works well *)
+let Id_example : BASIC = struct
+  let m a = `Id of a
+
+  let map = fun a b x f ->
+    match x with
+    | `Id z -> `Id (f z)
+    end
+
+  let join = fun a x ->
+    match x with
+    | `Id m -> m
+    end
+
+  let return = fun a x -> `Id x
+end
+
+let Derive_bind (dep M : BASIC) : sig
+  val m : (a : type) -> singlet (M.m a)
+  val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b
+end = struct
+  let m = M.m
+  let bind = fun a b x f -> M.join b (M.map a (M.m b) x f)
+end

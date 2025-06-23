@@ -32,7 +32,7 @@ let rec is_bst t =
   | `Leaf leaf -> true
   end
 
-let tree_type = Mu t.
+let tree_type = mu t.
   | `Node of { left : t; right : t; item : int }
   | `Leaf of { leaf : bool }
 

@@ -1,7 +1,7 @@
 (***
   (
-    (features (Dependent_arrows Variants OOP_style))
-    (reasons (Dependent_arrows OOP_style)) ; "intersection type" is dep arrow, and when checking it, we hit the error
+    (features (Dependent_types Variants OOP_style))
+    (reasons (Dependent_types OOP_style)) ; "intersection type" is dep arrow, and when checking it, we hit the error
     (speed Fast)
     (typing Ill_typed)
   )
@@ -14,9 +14,9 @@ let obj : t =
     fun self ->
       fun arg ->
         match arg with
-        | `A u -> self self (`B {}) + 10
+        | `A u -> self self (`B ()) + 10
         | `B u -> 0
-        | `C i -> self self (`A {}) :: self (`B {}) :: [ i ] (* ERROR: forgot to self-apply on `B call *)
+        | `C i -> self self (`A ()) :: self (`B ()) :: [ i ] (* ERROR: forgot to self-apply on `B call *)
         end
   in
   ob ob

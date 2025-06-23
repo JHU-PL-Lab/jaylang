@@ -1,0 +1,84 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions Records Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+
+(*
+  OCaml:
+    module type ARROW = sig
+      type ('a, 'b) t
+      val arr : ('a -> 'b) -> ('a, 'b) t
+      val fst : ('a, 'b) t -> ('a * 'd, 'b * 'd) t
+      val compose : ('b, 'c) t -> ('a, 'b) t -> ('a, 'c) t
+    end
+
+    module Make_split (A : ARROW) = struct
+      include A
+
+      let swap (x, y) = (y, x)
+
+      (* spelled-out version *)
+      let split (type a b c d) (ab : (a, b) t) (cd : (c, d) t) =
+        let ac_bc : (a * c, b * c) t = (fst : (a, b) t -> (a * c, b * c) t) ab in
+        let ac_cb : (a * c, c * b) t = (compose : (b * c, c * b) t -> (a * c, b * c) t -> (a * c, c * b) t) (arr swap) ac_bc in
+        let cb_db : (c * b, d * b) t = (fst : (c, d) t -> (c * b, d * b) t) cd in
+        let ac_db : (a * c, d * b) t = (compose : (c * b, d * b) t -> (a * c, c * b) t -> (a * c, d * b) t) cb_db ac_cb in
+        let ac_bd : (a * c, b * d) t = (compose : (d * b, b * d) t -> (a * c, d * b) t -> (a * c, b * d) t) (arr swap) ac_db in
+        ac_bd
+
+      (* nice version *)
+      let split' ab cd = 
+        let (>>>) f g = compose g f in
+        fst ab >>> arr swap >>> fst cd >>> arr swap
+    end
+
+  We would like to be able to type this. If I haven't make any mistakes, the code below should be well-typed.
+
+  We actually are able to prove this is well-typed by searching 150 branches deep, and we exhaust the path tree.
+  I think that some better expression simplification can make this a lot better.
+*)
+
+let T n = sig
+  val t : 
+    let rec loop i =
+      if i <= 0
+      then type
+      else type -> loop (i - 1)
+    in
+    loop n
+end
+
+let Pair : T 2 = struct
+  let t a b =
+    { left : a
+    ; right : b }
+end
+
+let ARROW = sig
+  val t : type --> type --> type
+  val arr : (a : type) -> (b : type) -> (a -> b) -> t a b
+  val fst : (a : type) -> (b : type) -> (d : type) -> t a b -> t (Pair.t a d) (Pair.t b d)
+  val compose : (a : type) -> (b : type) -> (c : type) -> t b c -> t a b -> t a c
+end
+
+let Make_split : (A : ARROW) ->
+  { split :
+    (a : type) -> (b : type) -> (c : type) -> (d : type) ->
+      A.t a b -> A.t c d -> A.t (Pair.t a c) (Pair.t b d)
+  } = fun A ->
+    { split =
+        fun a b c d ->
+          fun ab cd ->
+            let swap r = { left = r.right ; right = r.left } in
+            let arr_swap : (x : type) -> (y : type) -> A.t (Pair.t x y) (Pair.t y x) =
+              fun x y -> A.arr (Pair.t x y) (Pair.t y x) swap in 
+            let ac_bc = A.fst a b c ab in
+            let ac_cb = A.compose (Pair.t a c) (Pair.t b c) (Pair.t c b) (arr_swap b c) ac_bc in
+            let cb_db = A.fst c d b cd in
+            let ac_db = A.compose (Pair.t a c) (Pair.t c b) (Pair.t d b) cb_db ac_cb in
+            let ac_bd = A.compose (Pair.t a c) (Pair.t d b) (Pair.t b d) (arr_swap d b) ac_db in
+            ac_bd
+    }

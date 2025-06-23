@@ -1,13 +1,13 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Parametric_types First_class_types Records Recursive_functions Higher_order_functions ))
+    (features (Polymorphic_types Mu_types Refinement_types Dependent_types Parametric_types First_class_types Records Recursive_functions Higher_order_functions ))
     (reasons (Polymorphic_types Records))
     (speed Fast)
     (typing Ill_typed)
   )
 *)
 
-let rec t n =
+let t = mu t n.
   if n <= 0
   then type
   else type -> t (n - 1)
@@ -18,7 +18,7 @@ let pos_int : t 0 = { int | fun i -> i > 0 }
 let map : t 2 = fun a b -> a -> b
 
 (* Parametric bag *)
-let bag : t 1 = fun a -> list a
+let bag : t 1 = list
 
 let rec len ls = 
   match ls with
@@ -98,7 +98,7 @@ let bag_map_of_list tup_list =
       in
       loop tup_list
 
-let make_dist (type a_) (n <- pos_int) (l : list a_) (compare : a_ -> a_ -> int) : distribution n a_ =
+let make_dist (type a_) (dep n : pos_int) (l : list a_) (compare : a_ -> a_ -> int) : distribution n a_ =
   let ngrams = make_ngrams n l in
   let tup_of_ng ng =
     { fst = last_exn ng ; snd = take (n - 1) ng } (* ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below *)

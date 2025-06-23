@@ -1,7 +1,7 @@
 (***
   (
-    (features (Refinement_types Dependent_arrows Higher_order_functions))
-    (reasons (Refinement_types Dependent_arrows))
+    (features (Refinement_types Dependent_types Higher_order_functions))
+    (reasons (Refinement_types Dependent_types))
     (speed Fast)
     (typing Ill_typed)
   )
@@ -16,5 +16,5 @@ let f x y =
   then x
   else y
 
-let main (x <- int) (y : int) (z : int) : { c : int | c == f x c } =
+let main (dependent x : int) (y : int) (z : int) : { c : int | c == f x c } =
   max f x y z (* ERROR: should be `max f y x z` *)

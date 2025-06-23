@@ -1,0 +1,16 @@
+(***
+  (
+    (features (Modules Records Return_error))
+    (reasons (Modules Records Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+let t_record = { x : int }
+let t_module = sig val x : int end
+
+(* ERROR: a record cannot double as a module *)
+let f (r : t_record) : t_module =
+  r

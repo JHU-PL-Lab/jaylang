@@ -70,7 +70,8 @@ end
 let () =
   [ "deep-type-error"
   ; "edge-cases-ill-typed"
-  ; "functors"
+  (* ; "functors" *)
+  ; "deterministic-functions-ill-typed"
   ; "interp-ill-typed"
   ; "limitations"
   ; "oopsla-24-benchmarks-ill-typed"

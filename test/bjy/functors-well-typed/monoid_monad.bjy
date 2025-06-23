@@ -1,0 +1,35 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules Parametric_types Deterministic_functions Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+let MONOID = sig
+  val t : type
+  val neutral : t 
+  val combine : t -> t -> t
+end
+
+let MONAD = sig
+  val m : type --> type
+  val return : (a : type) -> a -> m a
+  val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b
+end
+
+let F : (X : MONOID) -> (M : MONAD) -> sig
+  val t = M.m X.t (* good use of singlet sugar here *)
+  val neutral : t
+  val combine : t -> t -> t
+end = fun X M -> struct
+  let t = M.m X.t
+  let neutral = M.return X.t X.neutral
+  let combine a_m b_m =
+    let bind = M.bind X.t X.t in
+    bind a_m (fun a ->
+      bind b_m (fun b ->
+        M.return X.t (X.combine a b)
+      )
+    )
+end

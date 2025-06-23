@@ -1,6 +1,6 @@
 (***
   (
-    (features (Polymorphic_types Dependent_arrows Parametric_types First_class_types Variants Records Recursive_functions))
+    (features (Polymorphic_types Dependent_types Mu_types Parametric_types First_class_types Variants Records Recursive_functions))
     (speed Slow)
     (typing Well_typed)
   )
@@ -18,8 +18,8 @@ let tparam =
   | `Int of unit
   | `Bool of unit
 
-let b = `Bool {}
-let i = `Int {}
+let b = `Bool ()
+let i = `Int ()
 
 let Const = struct
   let t a =
@@ -38,7 +38,7 @@ end
   Any case that is OCaml's `'a t` is unified with the constrained cases
   by manually pasting them under such cases.
 *)
-let rec t (tp : tparam) : type =
+let t : tparam -> type = mu t tp.
   match tp with
   | `Int _ -> (
     | `Const of Const.t tp
@@ -48,17 +48,17 @@ let rec t (tp : tparam) : type =
   | `Bool _ -> (
     | `Const of Const.t tp
     | `Var of Var.t tp
-    | `Equal of {: a : tparam ; left : t a ; right : t a :}
+    | `Equal of sig val a : tparam val left : t a val right : t a end
   )
   | `Any _ -> (
     | `Const of Const.t tp
     | `Var of Var.t tp
     | `Plus of { left : t i ; right : t i }
-    | `Equal of {: a : tparam ; left : t a ; right : t a :} 
+    | `Equal of sig val a : tparam val left : t a val right : t a end
   )
   end
 
-let rec any_to_int (a <- tparam) (x : t a) : int =
+let rec any_to_int (dep a : tparam) (x : t a) : int =
   match x with
   | `Const _ -> 0 (* would have to case on a to determine the type of the constant value, or encode it in Const.t *)
   | `Var v -> v.id

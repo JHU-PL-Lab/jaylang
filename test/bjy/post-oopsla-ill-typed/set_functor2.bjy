@@ -1,13 +1,14 @@
 (***
   (
-    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Recursive_functions Other))
-    (reasons (Other)) ; because limitation
+    (features (Polymorphic_types Dependent_types Modules Parametric_types Recursive_functions Other))
+    (reasons (Other)) ; because *didn't* use a deterministic function
     (speed Fast)
     (typing Ill_typed)
   )
 *)
 
-let F (tf <- type -> type) (a <- type) : sig
+(* This error is solved by letting tf be in `type --> type`, a deterministic function. *)
+let F (dep tf : type -> type) (dep a : type) : sig
   val empty : unit -> tf a (* ERROR: all of these `tf a` are different *)
   val add   : a -> tf a -> tf a
 end -> sig
@@ -20,5 +21,5 @@ end = fun r -> struct
       | hd :: tl -> loop (r.add hd acc) tl
       end
     in
-    loop (r.empty {}) ls
+    loop (r.empty ()) ls
 end

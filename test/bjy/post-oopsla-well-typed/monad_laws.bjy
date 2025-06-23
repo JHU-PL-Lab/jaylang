@@ -1,0 +1,106 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions Variants Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+  )
+*)
+
+let True = { b : bool | b }
+
+(* 
+  These are the three monad laws.
+
+    Left identity:
+    For all types 'a, 'b, and a in 'a, and h in 'a -> m 'b,
+      bind 'a 'b (return 'a a) h === h a
+
+    Right identity:
+    For all types 'a, and a_m in m 'a,
+      bind 'a 'a a_m (return 'a) === a_m
+
+    Associativity:
+    For all types 'a, 'b, 'c, and a_m in m 'a, and g in 'a -> m 'b, and h in 'b -> m 'c,
+      bind 'b 'c (bind 'a 'b a_m g) h === bind 'a 'c a_m (fun x -> bind 'b 'c (g x) h)
+
+  We know that the types will come out to be the same, and we want to verify that the values
+  are the same. This requires polymorphic equality. We have such a thing with deterministic functions,
+  so we simply ask if a deterministic function can tell them apart.
+
+  We will only be able to type check monads where intensional equality is enough. It is
+  not enough for a state monad; the state monad is an example of incompleteness.
+*)
+let MONAD = { M : sig
+  val m : type --> type (* deterministic type function *)
+  val return : (a : type) -> a -> m a
+  val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b
+end | (* now let's refine M to be only one where the laws hold *)
+  (*
+    This checks the first law by ensuring that any deterministic function acting on the output 
+    cannot tell them apart. Since our deterministic functions are sound (but not always complete),
+    this forces the law to hold.
+    We do the same thing for the other two laws.
+
+    Note that these functions `g` and `h` need to be deterministic or else we can't check something like the Option monad.
+  *)
+  let check_law_1 (type a_ b_) (a : a_) (h : a_ --> M.m b_) (detf : M.m b_ --> int) : True =
+    let left = M.bind a_ b_ (M.return a_ a) h in
+    let right = h a in
+    detf left == detf right
+  in
+  let check_law_2 (type a_) (a_m : M.m a_) (detf : M.m a_ --> int) : True =
+    let left = M.bind a_ a_ a_m (M.return a_) in
+    let right = a_m in
+    detf left == detf right
+  in
+  let check_law_3 (type a_ b_ c_) (a_m : M.m a_) (g : a_ --> M.m b_) (h : b_ --> M.m c_) (detf : M.m c_ --> int) : True =
+    let left = M.bind b_ c_ (M.bind a_ b_ a_m g) h in
+    let right = M.bind a_ c_ a_m (fun x -> M.bind b_ c_ (g x) h) in
+    detf left == detf right
+  in
+  true
+}
+
+let Id : MONAD = struct
+  let m a = a
+  let return _ a = a
+  let bind _ _ x f = f x
+end
+
+let Option : MONAD = struct
+  let m a = `Some of a | `None of unit
+  let return _ a = `Some a
+  let bind _ _ x f = 
+    match x with
+    | `Some a -> f a
+    | `None _ -> x
+    end
+end
+
+(*
+  Because our intensional equality for deterministic functions causes incompleteness, we cannot verify the laws on this one.
+  The values on each side of the law are operationally equivalent but not intensionally equivalent.
+
+  The system therefore calls this ill-typed.
+  It is commented in this well-typed version. There is an ill-typed test that has it.
+*)
+(* let State (S : sig val s : type end) : MONAD = struct
+  let s = S.s
+  let m a = s -> { v : a ; state : s }
+  let return _ a =
+    fun s -> 
+      { v = a ; state = s }
+  let bind _ _ x f =
+    fun s ->
+      let r = x s in
+      f r.v r.state
+end *)
+
+(*
+  Note that we can generate a member of MONAD. This line works just fine.
+  Actually it doesn't because we fail assertions we generating.
+  We would like to be able to "assume forall" when generating, but this just
+  theoretically isn't possible. We can only "assert forall", which makes sense
+  when checking but isn't good when generating.
+*)
+(* let _ : MONAD -> int = fun _ -> 0 *)

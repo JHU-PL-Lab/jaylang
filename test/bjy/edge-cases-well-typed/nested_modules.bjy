@@ -1,0 +1,17 @@
+(***
+  (
+    (features (Dependent_types Modules First_class_types Records))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+let t = sig
+  val t : type
+  val a : type
+  val r : sig val a : a val b : t end
+  val s : a (* this should have the type of a, which is unaffected by `r.a` *)
+end
+
+let f (dependent x : t) : x.a =
+  x.s

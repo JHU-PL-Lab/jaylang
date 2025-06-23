@@ -1,0 +1,80 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Mu_types Parametric_types First_class_types Deterministic_functions Variants Records Recursive_functions Higher_order_functions)) ; not really mu types. Recursive type functions, though
+    (reasons (Polymorphic_types Dependent_types First_class_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+(*
+  We have no need for a functor here because we have higher order type parameters.
+  In OCaml for a freer monad, we'd have to use a functor and pass in `f` inside a module.
+
+  This test is inspired by the Preface library.
+*)
+
+let ty n =
+  let rec loop i =
+    if i <= 0
+    then type
+    else type --> loop (i - 1)
+  in
+  loop n
+
+let ty1 = ty 1
+
+let t : ty1 --> type --> type = mu t f a.
+  | `Return of a
+  | `Bind of sig 
+      val b : type 
+      val intermediate : f b
+      val cont : b -> t f a
+    end
+
+let r_with_cont r k = struct
+  let b = r.b 
+  let intermediate = r.intermediate 
+  let cont = k
+end
+
+let perform 
+  : (a : type) -> (f : ty1) -> f a -> t f a
+  = fun a f fa ->
+  `Bind struct
+    let b = a 
+    let intermediate = fa 
+    let cont = fun a -> `Return a
+   end
+
+(*
+  There error boils down to here, where we have a type function on two parameters,
+  but we want it to be a type function on one parameter that returns a type with
+  one more parameter than this has.
+
+  A types as values issue, I'd argue. If we just partially apply in the types in `run`,
+  we would be trying to generate a member of a function.
+  It's also a usage error, but usage errors on generated functions aren't typically
+  categorized as such because the error shows up whether wrap is on or not.
+*)
+let handler 
+  : ty1 --> type --> type
+  = fun f a ->
+    (b : type) -> (a -> b) -> f a -> b
+
+(*
+  This doesn't work because the handler actually needs to be a `handler f b` if defined this
+  way, but we don't know `b` until we have found it inside `Bind`.
+
+  Thus the definition of the handler is wrong if we want to use it here.
+*)
+let run
+  : (a : type) -> (f : ty1) -> handler f a -> t f a -> a (* ERROR: should be handler f b, but that's not really possible in this setup ... *)
+  = fun a f h ->
+  let rec loop x =
+    match x with
+    | `Return a -> a
+    | `Bind r -> h a (fun x -> loop (r.cont x)) r.intermediate
+    end
+  in
+  loop

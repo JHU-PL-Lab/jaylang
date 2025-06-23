@@ -1,7 +1,7 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Parametric_types Records Higher_order_functions Return_error))
-    (reasons (Refinement_types Dependent_arrows Records Return_error))
+    (features (Polymorphic_types Refinement_types Dependent_types Parametric_types Records Higher_order_functions Return_error))
+    (reasons (Refinement_types Dependent_types Records Return_error))
     (speed Fast)
     (typing Ill_typed)
   )
@@ -21,12 +21,12 @@ let bind (type a b) (x : t a) (f : a -> t b) : t b =
 let return (type a) (a : a) : t a =
   fun s -> { state = s ; body = a }
 
-let set s = fun _ -> { state = s ; body = {} }
+let set s = fun _ -> { state = s ; body = () }
 
 let read = fun s -> { state = s ; body = s }
 
 (* ERROR: the `>` in the refinement should be `>=` *)
-let set_max (x <- int) : t { i : int | i > x } =
+let set_max (dependent x : int) : t { i : int | i > x } =
   bind int int read (fun max ->
     if max >= x    
     then return int max

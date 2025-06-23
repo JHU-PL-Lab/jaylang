@@ -6,7 +6,7 @@
   )
 *)
 
-let tree_type = Mu t.
+let tree_type = mu t.
   | `Node of { left : t; right : t }
   | `Leaf of { leaf : int }
 

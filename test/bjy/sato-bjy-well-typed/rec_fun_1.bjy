@@ -15,7 +15,7 @@ let getHead l =
   | hd :: _ -> hd
   end
 
-let main (n : { a : int | a > 0}) : { a : int | a > 0} =
+let main (n : int | n > 0) : { a : int | a > 0 } =
   let l = makelist n in
   if n > 0 then getHead l
   else 0

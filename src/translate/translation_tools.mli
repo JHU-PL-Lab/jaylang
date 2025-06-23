@@ -23,9 +23,9 @@ end
 module Let_builder (L : sig
   type a
   type t
-  val t_to_expr : t -> cont:(a Lang.Ast.Expr.t) -> a Lang.Ast.Expr.t
-  (** [t_to_expr t ~cont] makes an expression using [t] that continues to [cont].
-      e.g. implementation [fun (var, body) ~cont -> ELet { var ; body ; cont }].
+  val t_to_expr : t -> body:(a Lang.Ast.Expr.t) -> a Lang.Ast.Expr.t
+  (** [t_to_expr t ~body] makes an expression using [t] that is bound in [body].
+      e.g. implementation [fun (var, defn) ~body -> ELet { var ; defn ; body }].
       i.e. take one tape item and turn it into a let binding. *)
 end) : sig
   type 'a m
@@ -98,4 +98,6 @@ module Embedded_functions : sig
       passing an argument. This is because we know the use case is for mu types.
   *)
   val y_freeze_thaw : Lang.Ast.Embedded.t
+
+  val y_1 : Lang.Ast.Embedded.t
 end

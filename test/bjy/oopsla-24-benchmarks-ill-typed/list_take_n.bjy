@@ -1,6 +1,6 @@
 (***
   (
-    (features (Polymorphic_types Refinement_types Dependent_arrows Recursive_functions Return_error))
+    (features (Polymorphic_types Refinement_types Dependent_types Recursive_functions Return_error))
     (reasons (Return_error))
     (speed Fast)
     (typing Ill_typed)
@@ -17,7 +17,7 @@ let rec len ls =
   | hd :: tl -> 1 + len tl
   end
 
-let rec take (type a_) (n <- pos_int) (l : list a_) : { ls : list a_ | len ls <= n } =
+let rec take (type a_) (dep n : pos_int) (l : list a_) : { ls : list a_ | len ls <= n } =
   match l with
   | [] -> []
   | hd :: tl ->

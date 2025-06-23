@@ -1,6 +1,6 @@
 (***
   (
-    (features (Dependent_arrows Variants OOP_style))
+    (features (Dependent_types Variants OOP_style))
     (speed Slow)
     (typing Well_typed)
   )
@@ -13,9 +13,9 @@ let obj : t =
     fun self ->
       fun arg ->
         match arg with
-        | `A u -> self self (`B {}) + 10
+        | `A u -> self self (`B ()) + 10
         | `B u -> 0
-        | `C i -> self self (`A {}) :: self self (`B {}) :: [ i ]
+        | `C i -> self self (`A ()) :: self self (`B ()) :: [ i ]
         end
   in
   ob ob

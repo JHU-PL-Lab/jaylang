@@ -1,0 +1,11 @@
+
+(* This is a one way function for large primes p and q. Here they don't even have to be that large. *)
+let p = 997
+let q = 9973
+let rabin x = (x * x) % (p * q)
+
+let x = 123456
+let y = rabin x
+
+let f (x : int | x >= 0) : int =
+  assume (rabin x == y)

@@ -1,0 +1,49 @@
+(***
+  (
+    (features (Mu_types Return_error))
+    (reasons (Mu_types Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "-s")
+  )
+*)
+
+(*
+  There are a ton of members of this type.
+  Suppose we cap depth at d
+
+  Then the number of members is described by t is
+
+  || t_d || = f_d (d) where
+
+  f_d(x) =
+    1 if x = 0
+    sum_(k=0)^d (f_d(x-1))^k otherwise
+
+  So at fixed depth 3, we have
+    f_3(0) = 1     -- just the stub
+    f_3(1) = 4     -- lists length 0-3 of the stub
+    f_3(2) = 1 + 4 + 16 + 64 = 85    -- lists length 0-3, where elements may be any of 4 things
+    f_3(3) = 621436
+  So || t_3 || = 621436
+
+  But || t_2 || = 13
+
+  This blows up ridiculously fast.
+
+  Currently, the error in this program is not deep, so it is found quickly.
+*)
+
+let t = mu t. list t
+
+let f (x : t) : int = 
+  match x with
+  | [] -> 0
+  | hd :: tl ->
+    match tl with
+    | [] -> 1
+    | hd :: tl -> false (* ERROR: not an int *)
+    end
+  end
+
+

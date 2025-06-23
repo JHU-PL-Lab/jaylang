@@ -53,7 +53,7 @@ module Report_row (* : Latex_table.ROW *) = struct
           )
     )
 
-  let of_testname (n_trials : int) (testname : Filename.t) : t list =
+  let of_testname (n_trials : int) (runtest : Lang.Ast.Bluejay.pgm -> Concolic.Status.Terminal.t) (testname : Filename.t) : t list =
     assert (n_trials > 0);
     let metadata = Metadata.of_bjy_file testname in
     let test_one (n : int) : t =
@@ -65,9 +65,7 @@ module Report_row (* : Latex_table.ROW *) = struct
         |> Lang.Parse.parse_single_pgm_string
       in
       let t1 = Caml_unix.gettimeofday () in
-      let test_result =
-        Concolic.Driver.test_bjy source ~global_timeout_sec:90.0 ~do_wrap:true ~in_parallel:false (* parallel computation off by default *)
-      in
+      let test_result = runtest source in
       let t2 = Caml_unix.gettimeofday () in
       (* let interp1 = Utils.Safe_cell.get Concolic.Evaluator.global_runtime in
       let solve1 = Utils.Safe_cell.get Concolic.Evaluator.global_solvetime in *)
@@ -115,14 +113,14 @@ end
 module Result_table = struct
   type t = Report_row.t Latex_tbl.t
 
-  let of_dirs ?(avg_only : bool = true)  (n_trials : int) (dirs : Filename.t list) : t =
+  let of_dirs ?(avg_only : bool = true) (n_trials : int) (dirs : Filename.t list) (runtest : Lang.Ast.Bluejay.pgm -> Concolic.Status.Terminal.t) : t =
     let open List.Let_syntax in
     { row_module = (module Report_row)
     ; rows =
       dirs
       |> Utils.File_utils.get_all_bjy_files
       |> List.sort ~compare:(fun a b -> String.compare (Filename.basename a) (Filename.basename b))
-      >>= Report_row.of_testname n_trials
+      >>= Report_row.of_testname n_trials runtest
       |> List.filter ~f:(fun (row : Report_row.t) ->
         not avg_only || match row.trial with Average -> true | _ -> false
         )
@@ -140,10 +138,30 @@ module Result_table = struct
     }
 end
 
-let run n_trials dirs =
+let cbench_args =
+  let open Cmdliner.Term.Syntax in
+  let open Cmdliner.Arg in
+  let+ n_trials = value & opt int 50 & info ["trials"] ~doc:"Number of trials"
+  and+ dirs = value & opt (list ~sep:' ' dir) [ "test/bjy/oopsla-24-benchmarks-ill-typed" ] & info ["dirs"] ~doc:"Directories to benchmark" in
+  n_trials, dirs
+
+let run () =
+  let open Cmdliner in
+  let open Cmdliner.Term.Syntax in
+  Cmd.v (Cmd.info "cbenchmark") @@
+  let+ concolic_args = Concolic.Options.cmd_arg_term
+  and+ n_trials, dirs = cbench_args in
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
-  let tbl = Result_table.of_dirs n_trials dirs in
+  let runtest pgm =
+    Concolic.Options.Arrow.appl
+      Concolic.Driver.test_bjy
+      concolic_args
+      pgm
+      ~do_wrap:true        (* always wrap during benchmarking *)
+      ~do_type_splay:false (* never type splay during benchmarking *)
+  in
+  let tbl = Result_table.of_dirs n_trials dirs runtest in
   let times =
     List.filter_map tbl.rows ~f:(function
       | Row row -> Some (Time_float.Span.to_ms row.total_time)
@@ -169,12 +187,19 @@ let run n_trials dirs =
     (Utils.Safe_cell.get Concolic.Evaluator.global_runtime) 
     (Utils.Safe_cell.get Concolic.Evaluator.global_solvetime)
 
+(*
+  Common directories to benchmark include
+
+    "test/bjy/soft-contract-ill-typed"
+    "test/bjy/deep-type-error"
+    "test/bjy/oopsla-24-tests-ill-typed"; "test/bjy/sato-bjy-ill-typed"
+    "test/bjy/interp-ill-typed"
+
+  To test multiple directories, put them in single quotes and separate by spaces.
+*)
+
 let () =
-  run 50 [ 
-    "test/bjy/oopsla-24-benchmarks-ill-typed";
-    (* "test/bjy/soft-contract-ill-typed"; *)
-    (* "test/bjy/deep-type-error"; *)
-    (* "test/bjy/oopsla-24-tests-ill-typed"; "test/bjy/sato-bjy-ill-typed"; *)
-    (* "test/bjy/interp-ill-typed"; *)
-  ]
+  match Cmdliner.Cmd.eval_value' @@ run () with
+  | `Ok _ -> ()
+  | `Exit i -> exit i
 

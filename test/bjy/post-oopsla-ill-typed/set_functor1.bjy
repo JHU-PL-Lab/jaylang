@@ -1,13 +1,13 @@
 (***
   (
-    (features (Polymorphic_types Dependent_arrows Modules Parametric_types Recursive_functions Usage_error))
+    (features (Polymorphic_types Dependent_types Modules Parametric_types Recursive_functions Usage_error))
     (reasons (Usage_error))
     (speed Fast)
     (typing Ill_typed)
   )
 *)
 
-let F (tf <- type -> type) (a <- type) : let t = tf a in sig
+let F (dependent tf : type -> type) (dep a : type) : let t = tf a in sig
   val empty : unit -> t
   val add   : a -> t -> t
 end -> sig

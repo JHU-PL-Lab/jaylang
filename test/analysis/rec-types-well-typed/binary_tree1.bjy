@@ -1,0 +1,17 @@
+
+let t = mu t.
+  | `A of { x : t ; y : t }
+  | `B of { l : int }
+
+let x : t = `A { x = `B { l = 0 } ; y = `B { l = 0 } }
+
+(* There is a 200x speed improvement between the following and what's above. Something feels wrong with records *)
+(* I think what *might* be wrong is that we use polymorphic comparison on them and don't vanish soon enough. *)
+(* Not also that it is much slower to have k = 0 because we split on environments so much. *)
+(* There is also a major improvement when we use a recursive function instead of a mu type. Does it have to do with freeze/thaw? *)
+
+(* let t = mu t.
+  | `A of { x : t ; y : t }
+  | `B of int
+
+let x : t = `A { x = `B 0 ; y = `B 0 } *)

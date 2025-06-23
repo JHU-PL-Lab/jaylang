@@ -7,6 +7,7 @@
   core
   core_unix
   core_unix.sys_unix
+  preface
   )
  (synopsis "Utils module for the Jaylang project")
  (inline_tests)
