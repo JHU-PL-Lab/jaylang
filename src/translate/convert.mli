@@ -20,3 +20,7 @@ val bjy_to_emb : Lang.Ast.Bluejay.pgm -> do_wrap:bool -> do_type_splay:bool -> L
 val bjy_to_many_emb : Lang.Ast.Bluejay.pgm -> do_wrap:bool -> do_type_splay:bool -> Lang.Ast.Embedded.pgm Preface.Nonempty_list.t
 (** [bjy_to_many_emb bjy do_wrap do_type_splay] embeds the Bluejay program into many embedded programs,
     each with a different check turned on so that the checks can be run in parallel. *)
+
+val bjy_to_erased : Lang.Ast.Bluejay.pgm -> Lang.Ast.Type_erased.pgm
+(** [bjy_to_erased pgm] is a program where all types in the given Bluejay program [pgm]
+    are erased. Types are replaced with unusable unit values. *)

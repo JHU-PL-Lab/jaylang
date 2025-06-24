@@ -31,6 +31,7 @@ end
 
 module rec Value : sig 
   type t =
+    | VUnit
     | VPosInt
     | VNegInt
     | VZero
@@ -39,7 +40,9 @@ module rec Value : sig
     | VFunClosure of { param : Ident.t ; body : Closure.t }
     | VFrozen of Closure.t
     | VVariant of { label : VariantLabel.t ; payload : t }
+    | VUntouchable of t
     | VRecord of t RecordLabel.Map.t
+    | VModule of t RecordLabel.Map.t
     | VId [@@deriving compare]
   (** [t] are the abstract values. This uses polymorphic comparison on closures. *)
 
@@ -62,6 +65,7 @@ module rec Value : sig
 end = struct
   module T = struct
     type t =
+      | VUnit
       | VPosInt
       | VNegInt
       | VZero
@@ -70,7 +74,9 @@ end = struct
       | VFunClosure of { param : Ident.t ; body : Closure.t }
       | VFrozen of Closure.t
       | VVariant of { label : VariantLabel.t ; payload : t }
+      | VUntouchable of t
       | VRecord of t RecordLabel.Map.t
+      | VModule of t RecordLabel.Map.t
       | VId [@@deriving compare]
       (* We don't yet handle tables. That will be a failure case in the analysis *)
   end
@@ -80,6 +86,7 @@ end = struct
   module Set = Stdlib.Set.Make (T)
 
   let rec to_string = function
+    | VUnit -> "()"
     | VPosInt -> "(+)"
     | VNegInt -> "(-)"
     | VZero -> "0"
@@ -88,7 +95,11 @@ end = struct
     | VFunClosure { param ; _ } -> Format.sprintf "(fun %s -> <expr>)" (Ident.to_string param)
     | VFrozen _ -> "Frozen <expr>"
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
+    | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
     | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
+    | VModule module_body -> 
+      Format.sprintf "sig %s end" 
+      (String.concat ~sep:" " @@ List.map (Map.to_alist module_body) ~f:(fun (key, data) -> Format.sprintf "let %s = %s" (RecordLabel.to_string key) (to_string data)))
     | VId -> "(fun x -> x)"
 
   let any_int = M.choose [ VPosInt ; VNegInt ; VZero ]

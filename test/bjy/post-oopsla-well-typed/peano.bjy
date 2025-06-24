@@ -27,9 +27,9 @@ let t : ty -> type = mu t a.
     end
 
 (* concrete, constant example *)
-let two_type_param = `TSucc (`TSucc (`TZero {}))
+let two_type_param = `TSucc (`TSucc (`TZero ()))
 let two_type = t two_type_param
-let two : two_type = `Succ (`Succ (`Zero {}))
+let two : two_type = `Succ (`Succ (`Zero ()))
 
 let rec to_int (dep a : ty) (x : t a) : int =
   match x with
@@ -46,18 +46,18 @@ let _ : { i : int | i == 2 } = to_int two_type_param two
 (* of_int with untyped return *)
 let rec of_int (i : int | i >= 0) : top =
   if i == 0 then 
-    `Zero {}
+    `Zero ()
   else
     `Succ (of_int (i - 1))
 
 (* return type as value from result, and also have a predicate to check that it's the inverse of to_int *)
-let rec of_int (dep i : int | i >= 0) : { r : {: a : ty ; v : t a :} | to_int r.a r.v == i } =
+let rec of_int (dep i : int | i >= 0) : { r : sig val a : ty val v : t a end | to_int r.a r.v == i } =
   if i == 0 then 
-    { a = `TZero {} ; v = `Zero {} }
+    struct let a = `TZero () let v = `Zero () end 
   else
     let r = of_int (i - 1) in
-    { a = `TSucc r.a ; v = `Succ r.v }
+    struct let a = `TSucc r.a let v = `Succ r.v end
 
-let div (dep a : ty) (dep b : ty) (x : t a) (y : t (`TSucc b)) : {: a : ty ; v : t a :} =
+let div (dep a : ty) (dep b : ty) (x : t a) (y : t (`TSucc b)) : sig val a : ty val v : t a end =
   of_int (to_int a x / to_int (`TSucc b) y)
 

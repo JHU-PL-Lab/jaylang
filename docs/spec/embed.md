@@ -30,13 +30,13 @@ Statements are embedded exactly like their corresponding let-expression as it is
 ```ocaml
 [[int]] =
   { ~gen = freeze pick_i
-  ; ~check = fun $e -> let _ = 0 + $e in {} (* attempt to use as integer to check it *)
+  ; ~check = fun $e -> match $e with int -> ()
   ; ~wrap = fun $e -> $e
   }
 
 [[bool]] =
   { ~gen = freeze pick_b
-  ; ~check = fun $e -> let _ = not $e in {} (* attempt to use as bool to check it *)
+  ; ~check = fun $e -> match $e with bool -> ()
   ; ~wrap = fun $e -> $e
   }
 ```
@@ -175,19 +175,21 @@ Notes:
   Y (fun $self -> fun $depth -> fun x1 -> ... fun xn ->
     { ~gen = freeze @@
       if $depth == 0
-      then let B = [[`~Stubbed_mu of unit]] in `~Stub [[tau]] (* Replaced B with some type the user cannot make *)
+      then let B = [[`~Stubbed_mu of unit]] in `~Stub (thaw [[tau]].~gen) (* Replaced B with some type the user cannot make *)
       else let B = $self ($depth - 1) in thaw [[tau]].~gen (* still have some depth allowed, so continue normally *)
     ; ~check = fun $e ->
       match $e with
-      | `Stub $t ->
+      | `~Stub $gend ->
         let B = [[`~Stubbed_mu of unit]] in
-        [[tau]].~check (thaw $t.~gen)
+        [[tau]].~check $gend
+      | PUntouchable _ (* underscore cannot match untouchable, so combine the cases *)
       | _ -> (* run the normal checker *)
         let B = $self ($depth - 1) in [[tau]].~check $e 
       end
     ; ~wrap = fun $e ->
       match $e with
       | `Stub _ -> $e (* we can assume that $e checks out against $tau, so no wrapping to do *)
+      | PUntouchable _ (* underscore cannot match untouchable, so combine the cases *)
       | _ -> (* use the normal wrapper *)
         let B = $self ($depth - 1) in [[tau]].~wrap $e
       end
@@ -253,10 +255,12 @@ Notes:
   { ~gen = freeze @@
     { l_0 = thaw [[tau_0]].~gen ; ... ; l_n = thaw [[tau_n]].~gen }
   ; ~check = fun $e ->
-    let _ = [[tau_0]].~check $e.l_0 in
-    ...
-    let _ = [[tau_n]].~check $e.l_n in
-    {}
+    match $e with
+    | record ->
+      let _ = [[tau_0]].~check $e.l_0 in
+      ...
+      let _ = [[tau_n]].~check $e.l_n in
+      ()
   ; ~wrap = fun $e ->
     { l_0 = [[tau_0]].~wrap $e.l_0 ; ... ; l_n = [[tau_n]].~wrap $e.l_n }
   }
@@ -274,7 +278,7 @@ Notes:
   ; ~check = fun $e ->
     let _ = [[tau]].~check $e in
     if [[ e_p ]] $e
-    then {}
+    then ()
     else abort "Failed predicate"
   ; ~wrap = fun $e ->
     [[tau]].~wrap $e
@@ -289,12 +293,12 @@ Because of the desugaring, we only have types and dependent types instead of pol
 [[ type ]] =
   { ~gen = freeze @@
     let i = pick_i in
-    { ~gen = freeze @@ `~Untouched { ~i = i ; ~nonce = pick_i }
+    { ~gen = freeze @@ Untouchable { ~i = i ; ~nonce = pick_i }
     ; ~check = fun $e ->
       match $e with
-      | `~Untouched v ->
+      | Untouchable v ->
         if v.~i == i
-        then {}
+        then ()
         else abort "Non-equal untouchable values"
     ; ~wrap = fun $e -> $e
     }
@@ -302,7 +306,7 @@ Because of the desugaring, we only have types and dependent types instead of pol
     let _ = $e.~gen in
     let _ = $e.~check in
     let _ = $e.~wrap in
-    {}
+    ()
   ; ~wrap = fun $e -> $e
   }
 ```
@@ -312,7 +316,7 @@ Because of the desugaring, we only have types and dependent types instead of pol
 ```ocaml
 [[ top ]] = 
   { ~gen = freeze @@ `~Top { ~nonce = pick_i }
-  ; ~check = fun _ -> {} (* anything is in top *)
+  ; ~check = fun _ -> () (* anything is in top *)
   ; ~wrap = fun $e -> $e
   }
 
@@ -323,28 +327,40 @@ Because of the desugaring, we only have types and dependent types instead of pol
   }
 ```
 
+### Unit
+
+```ocaml
+[[ unit ]] =
+  { ~gen = freeze ()
+  ; ~check = fun $e -> match $e with unit -> ()
+  ; ~wrap = fun $e -> $e  }
+```
+
 ### Module types
 
 ```ocaml
 [[ sig val l_0 : tau_0 ... val l_n : tau_n end ]] =
-  { ~gen = freeze @@
-    let l_0 = thaw [[tau_0]].~gen in (* use the name l_0 to put it in scope *)
-    ...
-    let l_(n-1) = thaw [[tau_(n-1)]].~gen in (* use the name l_(n-1) to put it in scope *)
-    { l_0 = l_0 ; ... ; l_(n-1) = l_(n-1) ; l_n = thaw [[tau_n]].~gen }
+  { ~gen = freeze struct
+      let l_0 = thaw [[tau_0]].~gen
+      ...
+      let l_(n-1) = thaw [[tau_(n-1)]].~gen
+      let l_n = thaw [[tau_n]].~gen
+    end
   ; ~check = fun $e ->
-    let _ = [[tau_0]].~check $e.l_0 in
-    let l_0 = $e.l_0 in (* put the name l_0 in scope *) 
-    ...
-    let _ = [[tau_(n-1)]].~check $e.l_(n-1) in
-    let l_(n-1) = $e.l_(n-1) in (* put the name l_(n-1) in scope *)
-    let _ = [[tau_n]].~check $e.l_n in
-    {}
-  ; ~wrap = fun $e ->
-    let l_0 = [[tau_0]].~wrap $e.l_0 in (* put the name l_0 in scope *)
-    ...
-    let l_(n-1) = [[tau_(n-1)]].~wrap $e.l_(n-1) in (* put the name l_(n-1) in scope *)
-    { l_0 = l_0 ; ...; l_(n-1) = l_(n-1) ; l_n = [[tau_n]].~wrap $e.l_n }
+    match $e with
+    | module ->
+      let _ = [[tau_0]].~check $e.l_0 in
+      let l_0 = $e.l_0 in (* put the name l_0 in scope *) 
+      ...
+      let _ = [[tau_(n-1)]].~check $e.l_(n-1) in
+      let l_(n-1) = $e.l_(n-1) in (* put the name l_(n-1) in scope *)
+      let _ = [[tau_n]].~check $e.l_n in
+      ()
+  ; ~wrap = fun $e -> struct
+      let l_0 = [[tau_0]].~wrap $e.l_0
+      ...
+      let l_n = [[tau_n]].~wrap $e.l_n
+    end
   }
 ```
 
@@ -356,13 +372,14 @@ Notes:
 The singleton of a type is just the singleton set containing that type.
 
 ```ocaml
-[[singlet tau]] =
-  { ~gen = freeze @@ [[tau]]
-  ; ~check = fun $t ->
-      let _ =  [[tau]].~check (thaw $t.~gen) in
-      $t.~check (thaw [[tau]].~gen)
-  ; ~wrap = fun $t -> $t
-  }
+[[singlet]] =
+  fun $tau ->
+    { ~gen = freeze @@ $tau
+    ; ~check = fun $t ->
+        let _ =  $tau.~check (thaw $t.~gen) in
+        $t.~check (thaw $tau.~gen)
+    ; ~wrap = fun $t -> $t
+    }
 ```
 
 Note:
@@ -389,9 +406,9 @@ These ideas are not in the implementation. The only one here (refinement types a
   { ~gen = freeze @@
     (thaw $r.~gen).~value
   ; ~check = fun $e ->
-    $r.~check { ~value = $e ; ~dummy = {} }
+    $r.~check { ~value = $e ; ~dummy = () }
   ; ~wrap = fun $e ->
-    $r.~wrap { ~value = $e ; ~dummy = {} }
+    $r.~wrap { ~value = $e ; ~dummy = () }
   }
 ```
 

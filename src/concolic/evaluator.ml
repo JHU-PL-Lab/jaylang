@@ -29,6 +29,7 @@ let eval_exp
     | EInt i -> return @@ VInt (i, Expression.const_int i)
     | EBool b -> return @@ VBool (b, Expression.const_bool b)
     (* Simple -- no different than interpreter *)
+    | EUnit -> return VUnit
     | EVar id -> fetch id
     | EFunction { param ; body } ->
       let%bind env = read_env in
@@ -40,10 +41,13 @@ let eval_exp
     | EVariant { label ; payload = e_payload } -> 
       let%bind payload = eval e_payload in
       return @@ VVariant { label ; payload }
+    | EUntouchable e ->
+      let%bind v = eval e in
+      return @@ VUntouchable v
     | EProject { record = e_record ; label } -> begin
       match%bind eval e_record with
-      | VRecord record_body as v -> begin
-        match Map.find record_body label with
+      | (VRecord body | VModule body) as v -> begin
+        match Map.find body label with
         | Some v -> return v
         | None -> type_mismatch @@ Error_msg.project_missing_label label v
       end
@@ -63,6 +67,20 @@ let eval_exp
         )
       in
       return @@ VRecord value_record_body
+    | EModule stmt_ls ->
+      let%bind module_body =
+        let rec fold_stmts acc_m = function
+          | [] -> acc_m
+          | SUntyped { var ; defn } :: tl ->
+            let%bind acc = acc_m in
+            let%bind v = eval defn in
+            local_env (Env.add var v) (
+              fold_stmts (return @@ Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v) tl
+            )
+        in
+        fold_stmts (return RecordLabel.Map.empty) stmt_ls
+      in
+      return @@ VModule module_body 
     | EIgnore { ignored ; body } ->
       let%bind _ : Value.t = eval ignored in
       eval body
@@ -230,7 +248,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
         | `Sat feeder -> begin
             let* () = pause () in
             let module I = Semantics.Initialize (struct
-              let c = Semantics.Consts.{ target_step = Target.step target ; options = O.r ; input_feeder = feeder }
+              let c = Semantics.Consts.{ target ; options = O.r ; input_feeder = feeder }
             end)
             in
             let status, targets = eval_exp (module I) (Semantics.M.return e) in
@@ -260,7 +278,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
       P.with_timeout O.r.global_timeout_sec @@ fun () ->
       let module I = Semantics.Initialize (struct
         let c =
-          Semantics.Consts.{ target_step = 0
+          Semantics.Consts.{ target = Target.make Path.empty
           ; options = O.r
           ; input_feeder = Input_feeder.zero }  
       end) in

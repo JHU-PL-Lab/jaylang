@@ -46,11 +46,13 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
   module T = struct
     type _ t =
       (* all languages *)
+      | VUnit : 'a t
       | VInt : int V.t -> 'a t
       | VBool : bool V.t -> 'a t
       | VFunClosure : { param : Ident.t ; closure : 'a closure } -> 'a t
       | VVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
       | VRecord : 'a t RecordLabel.Map.t -> 'a t
+      | VModule : 'a t RecordLabel.Map.t -> 'a t
       | VTypeMismatch : 'a t
       | VAbort : 'a t (* this results from `EAbort` or `EAssert e` where e => false *)
       | VDiverge : 'a t (* this results from `EDiverge` or `EAssume e` where e => false *)
@@ -59,15 +61,17 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       | VId : 'a embedded_only t
       | VFrozen : 'a closure -> 'a embedded_only t
       | VTable : { mutable alist : ('a t * 'a t) list } -> 'a embedded_only t
-      (* bluejay only *)
-      | VList : 'a t list -> 'a bluejay_only t
-      | VMultiArgFunClosure : { params : Ident.t list ; closure : 'a closure } -> 'a bluejay_only t
+      | VUntouchable : 'a t -> 'a embedded_only t
+      (* bluejay or type erased *)
+      | VList : 'a t list -> 'a bluejay_or_type_erased t
+      | VMultiArgFunClosure : { params : Ident.t list ; closure : 'a closure } -> 'a bluejay_or_type_erased t
       (* types in desugared and embedded *)
       | VType : 'a bluejay_or_desugared t
       | VTypeInt : 'a bluejay_or_desugared t
       | VTypeBool : 'a bluejay_or_desugared t
       | VTypeTop : 'a bluejay_or_desugared t
       | VTypeBottom : 'a bluejay_or_desugared t
+      | VTypeUnit : 'a bluejay_or_desugared t
       | VTypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
       | VTypeModule : (RecordLabel.t * 'a closure) list -> 'a bluejay_or_desugared t
       | VTypeFun : { domain : 'a t ; codomain : 'a t ; det : bool } -> 'a bluejay_or_desugared t
@@ -75,8 +79,10 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       | VTypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
       | VTypeMu : { var : Ident.t ; params : Ident.t list ; closure : 'a closure } -> 'a bluejay_or_desugared t
       | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
+      | VTypeSingleFun : 'a bluejay_or_desugared t
       | VTypeSingle : 'a t -> 'a bluejay_or_desugared t
       (* types in bluejay only *)
+      | VTypeListFun : 'a bluejay_only t
       | VTypeList : 'a t -> 'a bluejay_only t
       | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
 
@@ -95,7 +101,19 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     let matches : type a. a t -> a Pattern.t -> (a t * Ident.t) list option =
       fun v pattern ->
         match pattern, v with
-        | PAny, _ -> Some []
+        | PUntouchable id, VUntouchable v -> Some [ v, id ]
+        | _, VUntouchable _ -> None (* untouchable cannot match any *)
+        | PAny, _
+        | PInt, VInt _ 
+        | PBool, VBool _
+        | PUnit, VUnit
+        | PRecord, VRecord _ (* Currently, types match this *)
+        | PModule, VModule _
+        | PFun, VFunClosure _ -> Some []
+        | PType, VRecord m ->
+          if List.for_all Ast_tools.Reserved.[ gen ; check ; wrap ] ~f:(Map.mem m)
+          then Some []
+          else None
         | PVariable id, _ -> Some [ v, id ]
         | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
             when VariantLabel.equal variant_label label ->
@@ -117,9 +135,11 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
           VariantLabel.equal r1.label r2.label
           && equal r1.payload r2.payload
         | VRecord m1, VRecord m2 -> RecordLabel.Map.equal equal m1 m2
+        | VModule m1, VModule m2 -> RecordLabel.Map.equal equal m1 m2
         | VFrozen c1, VFrozen c2 -> equal_closure [] c1 c2
         | VTable r1, VTable r2 ->
           List.equal (Tuple2.equal ~eq1:equal ~eq2:equal) r1.alist r2.alist
+        | VUntouchable v1, VUntouchable v2 -> equal v1 v2
         | VList l1, VList l2 -> List.equal equal l1 l2
         | VMultiArgFunClosure r1, VMultiArgFunClosure r2 -> begin
           match Expr.Alist.cons_assocs r1.params r2.params Expr.Alist.empty with
@@ -171,7 +191,11 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
         | VTypeInt, VTypeInt
         | VTypeBool, VTypeBool
         | VTypeTop, VTypeTop
-        | VTypeBottom, VTypeBottom -> true
+        | VTypeBottom, VTypeBottom
+        | VTypeSingleFun, VTypeSingleFun
+        | VTypeListFun, VTypeListFun
+        | VUnit, VUnit
+        | VTypeUnit, VTypeUnit -> true
         | _ -> false (* these are structurally different and cannot be equal *)
 
     and equal_closure : type a. Expr.Alist.t -> a closure -> a closure -> bool =
@@ -198,11 +222,15 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
   include T
 
   let rec to_string : type a. a t -> string = function
+    | VUnit -> "()"
     | VInt i -> V.to_string Int.to_string i
     | VBool b -> V.to_string Bool.to_string b
     | VFunClosure { param = Ident s ; _ } -> Format.sprintf "(fun %s -> <expr>)" s
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
     | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
+    | VModule module_body -> 
+      Format.sprintf "struct %s end" 
+      (String.concat ~sep:" " @@ List.map (Map.to_alist module_body) ~f:(fun (key, data) -> Format.sprintf "let %s = %s" (RecordLabel.to_string key) (to_string data)))
     | VTypeMismatch -> "Type_mismatch"
     | VUnboundVariable Ident v -> Format.sprintf "Unbound_variable %s" v
     | VAbort -> "Abort"
@@ -212,6 +240,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     | VTable { alist } -> 
       Format.sprintf "Table (%s)\n"
         (String.concat ~sep:" ; " @@ List.map ~f:(fun (k, v) -> Format.sprintf "(%s, %s)" (to_string k) (to_string v)) alist)
+    | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
     | VList ls -> Format.sprintf "[ %s ]" (String.concat ~sep:" ; " @@ List.map ~f:to_string ls)
     | VMultiArgFunClosure { params ; _ } -> Format.sprintf "(fun %s -> <expr>)" (String.concat ~sep:" ; " @@ List.map ~f:(fun (Ident s) -> s) params)
     | VType -> "type"
@@ -219,12 +248,15 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     | VTypeBool -> "bool"
     | VTypeTop -> "top"
     | VTypeBottom -> "bottom"
+    | VTypeUnit -> "unit"
     | VTypeRecord record_body -> RecordLabel.record_body_to_string ~sep:":" record_body to_string
-    | VTypeModule ls -> Format.sprintf "{: %s :}" (String.concat ~sep:" ; " @@ List.map ls ~f:(fun (label, _) -> Format.sprintf "%s : <expr>" (RecordLabel.to_string label)))
+    | VTypeModule ls -> Format.sprintf "sig %s end" (String.concat ~sep:" " @@ List.map ls ~f:(fun (label, _) -> Format.sprintf "val %s : <expr>" (RecordLabel.to_string label)))
     | VTypeFun { domain ; codomain ; det } -> Format.sprintf "(%s %s %s)" (to_string domain) (if det then "-->" else "->") (to_string codomain)
     | VTypeDepFun { binding = Ident s ; domain ; det ; _ } -> Format.sprintf "((%s : %s) %s <expr>)" s (if det then "-->" else "->") (to_string domain)
     | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (to_string tau) (to_string predicate)
+    | VTypeSingleFun -> Format.sprintf "singlet"
     | VTypeSingle v -> Format.sprintf "(singlet (%s))" (to_string v)
+    | VTypeListFun -> Format.sprintf "list"
     | VTypeList v -> Format.sprintf "(list (%s))" (to_string v)
     | VTypeIntersect ls ->
       Format.sprintf "(%s)"
@@ -324,10 +356,10 @@ module Bluejay = Constrain (struct type constrain = Ast.Constraints.bluejay end)
 
 module Error_msg (Value : sig type t val to_string : t -> string end) = struct
   let project_non_record label v =
-    Format.sprintf "Label %s not found in non-record `%s`" (RecordLabel.to_string label) (Value.to_string v)
+    Format.sprintf "Label %s not found in non-record/module `%s`" (RecordLabel.to_string label) (Value.to_string v)
 
   let project_missing_label label record =
-    Format.sprintf "Label %s not found in record %s" (RecordLabel.to_string label) (Value.to_string record)
+    Format.sprintf "Label %s not found in record/module %s" (RecordLabel.to_string label) (Value.to_string record)
 
   let thaw_non_frozen v =
     Format.sprintf "Thaw non-frozen value `%s`" (Value.to_string v)

@@ -74,7 +74,7 @@ let is_balanced x =
       let%bind right_height = get_height node.right in
       if abs (left_height - right_height) < 2
       then `Some (max left_height right_height + 1)
-      else `None {}
+      else `None ()
     end
   in
   match get_height x with

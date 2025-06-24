@@ -75,9 +75,6 @@
 %token NOT_EQUAL
 %token PIPELINE
 
-%token OPEN_BRACE_COLON
-%token COLON_CLOSE_BRACE
-
 /*
  * Precedences and associativities.  Lower precedences come first.
  */
@@ -214,8 +211,6 @@ record_type_or_refinement:
   (* refinement type with binding for tau, which looks like a record type at first, so that's why we expand the rules above *)
   | OPEN_BRACE l_ident COLON expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } : Bluejay.t }
-  | OPEN_BRACE_COLON separated_nonempty_list(SEMICOLON, record_type_item) COLON_CLOSE_BRACE
-      { ETypeModule $2 : Bluejay.t }
 
 record_type_item:
   | record_label COLON expr
@@ -253,9 +248,6 @@ fun_sig:
 /* (fun x -> x) y */
 appl_expr:
   | appl_expr primary_expr { EAppl { func = $1 ; arg = $2 } : Bluejay.t }
-  /* Give `singlet` and `list` keywords the same precedence as function application */
-  | SINGLET_KEYWORD primary_expr { ETypeSingle $2 : Bluejay.t }
-  | LIST primary_expr { ETypeList $2 : Bluejay.t } 
   | primary_expr { $1 : Bluejay.t }
 ;
 
@@ -279,12 +271,20 @@ primary_expr:
   | BOOL_KEYWORD
       { ETypeBool : Bluejay.t }
   | UNIT_KEYWORD
-      { ETypeRecord empty_record : Bluejay.t }
+      { ETypeUnit : Bluejay.t }
   | TOP_KEYWORD
       { ETypeTop : Bluejay.t }
   | BOTTOM_KEYWORD
       { ETypeBottom : Bluejay.t }
+  | LIST
+      { ETypeList : Bluejay.t }
+  | SINGLET_KEYWORD
+      { ETypeSingle : Bluejay.t }
   (* braces/parens *)
+  | OPEN_PAREN CLOSE_PAREN
+      { EUnit : Bluejay.t }
+  | OPEN_BRACE COLON CLOSE_BRACE
+      { ETypeRecord empty_record : Bluejay.t }
   | OPEN_BRACE record_body CLOSE_BRACE
       { ERecord $2 : Bluejay.t }
   | OPEN_BRACE CLOSE_BRACE
@@ -376,7 +376,7 @@ param_list:
 /* val t = tau (* pure simple sugar for val t : singlet tau *) */
 val_item:
   | VAL record_type_item { $2 }
-  | VAL record_label EQUALS expr { $2, (ETypeSingle $4) : RecordLabel.t * Bluejay.t }
+  | VAL record_label EQUALS expr { $2, EAppl { func = ETypeSingle ; arg = $4 } : RecordLabel.t * Bluejay.t }
 
 %inline record_label:
   | ident { RecordLabel.RecordLabel $1 }

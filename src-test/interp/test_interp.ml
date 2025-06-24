@@ -29,7 +29,7 @@ let testcases_of_filename (testname : Filename.t) : unit Alcotest.test_case list
       let bjy = Parse.parse_single_pgm_string @@ In_channel.read_all testname in
       check (convert bjy)
   in
-  [ make Fn.id ; make (Translate.Convert.bjy_to_des ~do_type_splay:false) ; make (Translate.Convert.bjy_to_emb ~do_wrap:true ~do_type_splay:false) ]
+  [ make Translate.Convert.bjy_to_erased ; make Fn.id ; make (Translate.Convert.bjy_to_des ~do_type_splay:false) ; make (Translate.Convert.bjy_to_emb ~do_wrap:true ~do_type_splay:false) ]
 
 let root_dir = "test/bjy/"
 

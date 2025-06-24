@@ -12,9 +12,7 @@ module Make (State : T) (Env : ENV) (Err : sig
   type t
   val fail_on_nondeterminism_misuse : State.t -> t
   val fail_on_fetch : Ident.t -> State.t -> t
-end) (Tape : Preface.Specs.MONOID) = struct
-  module Tape = Tape
-
+end) = struct
   module Read = struct
     type t = 
       { env : Env.t
@@ -34,23 +32,19 @@ end) (Tape : Preface.Specs.MONOID) = struct
     ------------
   *)
   type 'a m = {
-    run : 'r. reject:(Err.t -> Tape.t -> 'r) -> accept:('a -> Tape.t -> State.t -> 'r) -> State.t -> Read.t -> 'r
+    run : 'r. reject:(Err.t -> State.t -> 'r) -> accept:('a -> State.t -> 'r) -> State.t -> Read.t -> 'r
   }
 
   let[@inline always][@specialise][@landmark] bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
     { run =
       fun ~reject ~accept s r ->
-        x.run s r ~reject ~accept:(fun x t1 s ->
-          (f x).run ~reject:(fun err t2 ->
-            reject err (Tape.combine t1 t2)
-          ) ~accept:(fun y t2 s ->
-            accept y (Tape.combine t1 t2) s
-          ) s r
+        x.run s r ~reject ~accept:(fun x s ->
+          (f x).run ~reject ~accept s r
         )
     }
 
   let[@inline always][@specialise] return (a : 'a) : 'a m =
-    { run = fun ~reject:_ ~accept s _ -> accept a Tape.neutral s }
+    { run = fun ~reject:_ ~accept s _ -> accept a s }
 
   (*
     -------------
@@ -58,7 +52,7 @@ end) (Tape : Preface.Specs.MONOID) = struct
     -------------
   *)
   let read : (State.t * Read.t) m =
-    { run = fun ~reject:_ ~accept s r -> accept (s, r) Tape.neutral s }
+    { run = fun ~reject:_ ~accept s r -> accept (s, r) s }
 
   let read_env : Env.t m =
     let%bind (_, { env ; _ }) = read in
@@ -67,7 +61,7 @@ end) (Tape : Preface.Specs.MONOID) = struct
   let[@inline always][@specialise] modify (f : State.t -> State.t) : unit m =
     { run =
       fun ~reject:_ ~accept s _ ->
-        accept () Tape.neutral (f s)
+        accept () (f s)
     }
 
   let[@inline always][@specialise] local (f : Read.t -> Read.t) (x : 'a m) : 'a m =
@@ -75,20 +69,11 @@ end) (Tape : Preface.Specs.MONOID) = struct
 
   (*
     ------
-    WRITER
-    ------
-  *)
-
-  let[@inline always][@specialise] tell (t : Tape.t) : unit m =
-    { run = fun ~reject:_ ~accept s _ -> accept () t s }
-
-  (*
-    ------
     RESULT
     ------
   *)
   let[@inline always][@specialise] fail (e : Err.t) : 'a m =
-    { run = fun ~reject ~accept:_ _ _ -> reject e Tape.neutral }
+    { run = fun ~reject ~accept:_ s _ -> reject e s }
 
   let fail_map f = 
     let%bind (state, _) : State.t * Read.t = read in
@@ -99,8 +84,8 @@ end) (Tape : Preface.Specs.MONOID) = struct
     EXITING
     -------
   *)
-  let run (x : 'a m) (init_state : State.t) (init_read : Read.t) : ('a * State.t, Err.t) result * Tape.t =
-    x.run ~reject:(fun e t -> Error e, t) ~accept:(fun a t s -> Ok (a, s), t) init_state init_read
+  let run (x : 'a m) (init_state : State.t) (init_read : Read.t) : ('a, Err.t) result * State.t =
+    x.run ~reject:(fun e s -> Error e, s) ~accept:(fun a s -> Ok a, s) init_state init_read
 
   (*
     --------------------
@@ -108,7 +93,7 @@ end) (Tape : Preface.Specs.MONOID) = struct
     --------------------
   *)
   let[@inline always][@specialise] local_env (f : Env.t -> Env.t) (x : 'a m) : 'a m =
-    local (fun r -> { r with env = f r.env }) x
+    { run = fun ~reject ~accept s r -> x.run ~reject ~accept s { r with env = f r.env } }
 
   let[@inline always][@specialise] with_incr_depth (x : 'a m) : 'a m =
     local (fun r -> { r with det_depth =
@@ -136,7 +121,7 @@ end
 
 module Consts = struct
   type t =
-    { target_step : int
+    { target : Target.t
     ; options : Options.t
     ; input_feeder : Input_feeder.t }
 end
@@ -145,18 +130,18 @@ module State = struct
   type t =
     { step : int
     ; path : Path.t
+    ; targets : Target.t list (* is a log in the semantics, but it's more efficient in state *)
     ; rev_inputs : Input.t list }
 
   let empty : t =
     { step = 0
     ; path = Path.empty
+    ; targets = []
     ; rev_inputs = [] }
 
   let inputs ({ rev_inputs ; _ } : t) : Input.t list =
     List.rev rev_inputs
 end
-
-module Log = Utils.List_monoid.Make (Target)
 
 module Read = struct
   include Status.Eval
@@ -167,7 +152,7 @@ module Read = struct
 end
 
 module M = struct
-  include Make (State) (Value.Env) (Read) (Log)
+  include Make (State) (Value.Env) (Read)
 
   let abort (msg : string) : 'a m =
     let%bind s, _ = read in
@@ -177,6 +162,11 @@ module M = struct
     let%bind s, _ = read in
     fail (Status.Type_mismatch (State.inputs s, msg))
 
+  (*
+    For efficiency, we don't use a writer but instead thread a state of accumulated targets.
+  *)
+  let[@inline always][@specialise] tell (targets : Target.t list) : unit m =
+    modify (fun s -> { s with targets = targets @ s.targets })
 end
 
 module type S = sig
@@ -186,14 +176,14 @@ module type S = sig
   val hit_branch : bool Direction.t -> bool Expression.t -> unit m
   val hit_case : int Direction.t -> int Expression.t -> other_cases:int list -> unit m
   val get_input : 'a Stepkey.t -> Value.t m
-  val run : 'a m -> Status.Eval.t * M.Tape.t
+  val run : 'a m -> Status.Eval.t * Target.t list
 end
 
-module Initialize (C : sig val c : Consts.t end) : S = struct
+module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
   let max_step = C.c.options.global_max_step
   let max_depth = C.c.options.max_tree_depth
   let input_feeder = C.c.input_feeder
-  let target_step = C.c.target_step
+  let target = C.c.target
 
   type 'a m = 'a M.m
 
@@ -211,30 +201,31 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
         if step > max_step
         then reject 
           (Status.Finished { pruned = Path.length s.path > max_depth || s.step > max_step })
-          Tape.neutral
-        else accept step Tape.neutral { s with step }
+          { s with step }
+        else accept step { s with step }
     }
 
   let push_branch_and_tell (type a) (dir : a Direction.t) (e : a Expression.t) 
-      (tape : a Claim.t -> Path.t -> step:int -> Tape.t) : unit m =
+      (make_tape : a Claim.t -> Path.t -> Target.t list) : unit m =
     if Expression.is_const e then return () else
     let%bind s, _ = read in
+    let n = Path.length s.path in
+    if n >= max_depth then return () else
     let claim = Claim.Equality (e, dir) in
     let%bind () = modify (fun s' -> { s' with path = Path.cons (Claim.to_expression claim) s'.path }) in
-    if s.step <= target_step || Path.length s.path >= max_depth
+    if n < Target.path_n target
     then return ()
-    else tell (tape claim s.path ~step:s.step)
+    else tell (make_tape claim s.path)
 
   let hit_branch (dir : bool Direction.t) (e : bool Expression.t) : unit m =
-    push_branch_and_tell dir e (fun claim path ~step ->
+    push_branch_and_tell dir e (fun claim path ->
       [ Target.make
-        ~step 
         (Path.cons (Claim.to_expression (Claim.flip claim)) path)
       ]
     )
 
   let hit_case (dir : int Direction.t) (e : int Expression.t) ~(other_cases : int list) : unit m =
-    push_branch_and_tell dir e (fun _ path ~step ->
+    push_branch_and_tell dir e (fun _ path ->
       let other_dirs =
         match dir with
         | Case_default { not_in } -> List.map not_in ~f:Direction.of_int
@@ -242,7 +233,6 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
       in
       List.map other_dirs ~f:(fun d -> 
         Target.make
-          ~step
           (Path.cons (Claim.to_expression (Claim.Equality (e, d))) path)
       )
     )
@@ -257,9 +247,9 @@ module Initialize (C : sig val c : Consts.t end) : S = struct
       let%bind () = modify (fun s -> { s with rev_inputs = B v :: s.rev_inputs }) in
       return @@ Value.M.VBool (v, Expression.key key)
 
-  let run (x : 'a m) : Status.Eval.t * Tape.t =
+  let run (x : 'a m) : Status.Eval.t * Target.t list =
     match run x State.empty Read.empty with
-    | Ok (_, s), t ->
-      Status.Finished { pruned = Path.length s.path > max_depth || s.step > max_step }, t
-    | Error s, t -> s, t
+    | Ok _, s ->
+      Status.Finished { pruned = Path.length s.path >= max_depth || s.step > max_step }, s.targets
+    | Error e, s -> e, s.targets
 end

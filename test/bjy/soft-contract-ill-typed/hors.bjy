@@ -7,7 +7,7 @@
   )
 *)
 
-let c x = {}
+let c x = ()
 
 let b x =
   fun y ->

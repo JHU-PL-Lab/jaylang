@@ -16,7 +16,7 @@ let bind (type a b) (x : m a) (f : a -> m b) : m b =
     f r.body r.state
 
 let modify (f : s -> s) : m unit =
-  fun s -> { state = f s ; body = {} }
+  fun s -> { state = f s ; body = () }
 
 let read : m s =
   fun s -> { state = s ; body = s }
@@ -81,7 +81,7 @@ let return (type a) (a : a) : m a =
 let modify (f : s -> s) : m unit =
   fun r ->
     fun k s ->
-      k {} (f s)
+      k () (f s)
 
 let (read : m s) =
   fun r ->

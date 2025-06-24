@@ -72,7 +72,7 @@ end
 
 module Consts : sig
   type t =
-    { target_step  : int
+    { target       : Target.t
     ; options      : Options.t
     ; input_feeder : Input_feeder.t } 
 end

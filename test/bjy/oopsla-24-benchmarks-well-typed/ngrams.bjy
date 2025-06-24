@@ -17,7 +17,7 @@ let pos_int : t 0 = { int | fun i -> i > 0 }
 let map : t 2 = fun a b -> a -> b
 
 (* Parametric bag *)
-let bag : t 1 = fun a -> list a
+let bag : t 1 = list
 
 let rec len ls = 
   match ls with

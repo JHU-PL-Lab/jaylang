@@ -72,11 +72,12 @@ The full feature list of Bluejay is the following.
 **Types:**
 * `int`
 * `bool`
-* `list tau` for a type `tau`. The type function `list` is not first class.
-* `singlet tau` for a type `tau`. The type function `singlet` is not first class. `singlet tau` is the type whose only member is the type `tau`.
+* `list tau` for a type `tau`. The type function `list` is first class.
+* `singlet tau` for a type `tau`. The type function `singlet` is first class. `singlet tau` is the type whose only member is the type `tau`.
 * `type`, the type of a type.
 * `top`, the type of everything, whose generated member is an usable value, but everthing checks against `top`.
 * `bottom`, the subtype of everything, which has no members.
+* `unit`, the type containing the terminal value `()`.
 * `{ l_1 : tau_1 ; ... ; l_n : tau_n }`, record types.
 * `sig val l_1 : tau1 ... val l_n : tau_n end`, module types.
 * `tau1 -> tau2`, function types.
@@ -287,7 +288,7 @@ let _ =
 ```ocaml
 int           (* type of integers *)
 bool          (* type of booleans *)
-unit          (* the type of empty records *)
+unit          (* the terminal type whose only member is () *)
 type          (* type of types *)
 top           (* everything has type top *)
 bottom        (* nothing has type bottom *)
@@ -295,7 +296,7 @@ singlet int   (* the type containing only int *)
 list bool     (* the type of lists of booleans )
 ```
 
-`singlet` and `list` are not first class: they must be applied with a type argument where they are written.
+`singlet` and `list` are first class: they do not need an argument applied where they are written.
 
 #### Refinement types
 
@@ -435,6 +436,15 @@ let _ = r.y (* this fails *)
 let f : { x : int } -> { x : int } = fun r -> r
 let r = f { x = 0 ; y = true } (* this succeeds due to subtyping *)
 let _ = r.y (* this fails just like above *)
+```
+
+To write the type of the empty record, use the following syntax.
+
+```ocaml
+let mt_type = {:} (* empty record type *)
+let mt = {}       (* empty record value *)
+
+let _ : mt_type = mt (* the is well-typed *)
 ```
 
 ### Modules
