@@ -12,6 +12,7 @@ let unimplemented () =
 
 let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : unit =
   match expr with
+  | EUnit -> unimplemented ()
   | EInt _i -> unimplemented ()
   | EBool _b -> unimplemented ()
   | EVar _id -> unimplemented ()
@@ -23,11 +24,8 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : unit =
   | EBinop { left = _ ; binop = _ ; right = _ } -> unimplemented ()
   | ENot _expr -> unimplemented ()
   | EProject { record = _ ; label = _ } -> unimplemented ()
-  (* control flow *)
+  (* control flow / branches *)
   | EMatch { subject = _ ; patterns = _ } -> unimplemented ()
-  | ERecord _label_map -> unimplemented ()
-  | EVariant { label = _ ; payload = _ } -> unimplemented ()
-  (* branches *)
   | EIf { cond = _ ; true_body = _ ; false_body = _ } -> unimplemented ()
   | ECase { subject = _ ; cases = _ ; default = _ } -> unimplemented ()
   (* closures and applications *)
@@ -37,6 +35,11 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : unit =
   | EIgnore { ignored = _ ; body = _ } -> unimplemented () (* eval ignored, discard it, then eval body *)
   | EAppl { data = { func = _ ; arg = _ } ; point = _ } -> unimplemented ()
   | EThaw { data = _expr_closure ; point = _ } -> unimplemented ()
+  (* modules, records, and variants  *)
+  | ERecord _label_map -> unimplemented ()
+  | EVariant { label = _ ; payload = _ } -> unimplemented ()
+  | EModule _stmt_ls -> unimplemented ()
+  | EUntouchable _e -> unimplemented ()
   (* termination *)
   | EDiverge { data = () ; point = _ } -> unimplemented ()
   | EAbort { data = _msg ; point = _ } -> unimplemented ()
