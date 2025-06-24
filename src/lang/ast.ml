@@ -231,7 +231,7 @@ module Program_point = struct
   type t = Program_point of int [@@unboxed] [@@deriving compare, equal, sexp]
 
   let next =
-    let counter = Utils.Counter.create () in
+    let counter = Utils.Counter.create () in (* program-wide counter *)
     fun () ->
       Program_point (Utils.Counter.next counter)
 end
@@ -664,7 +664,13 @@ module Embedded = struct
   module With_program_points = struct
     type t = embedded Expr.With_program_points.t
 
-    (* It's not promised that there is any ordering property here *)
+    (*
+      The ordering here is generally post-order: traversal is the same order as in big-step evaluation.
+     
+      Evaluation order is made explicit to avoid having to think about OCaml's evaluation order wrt side effects. 
+      Since order of record evaluation is not specified in OCaml, we make sure all but one expression inside a
+      record is pulled out unless the order does not matter.
+    *)
     let rec t_of_expr (e : embedded Expr.t) : t =
       match e with
       (* leaves -- these need to be recreated because we don't share constructors *)
@@ -679,32 +685,51 @@ module Embedded = struct
       | EPick_b () -> EPick_b (Expr.Point_cell.make ())
       | EAbort msg -> EAbort (Expr.Point_cell.make msg)
       | EDiverge () -> EDiverge (Expr.Point_cell.make ())
-      | EAppl { func ; arg } -> EAppl (Expr.Point_cell.make { Expr.With_program_points.func = t_of_expr func ; arg = t_of_expr arg })
-      | EThaw expr -> EThaw (Expr.Point_cell.make (t_of_expr expr))
+      | EAppl { func ; arg } -> 
+        let func = t_of_expr func in
+        EAppl (Expr.Point_cell.make { Expr.With_program_points.func ; arg = t_of_expr arg })
+      | EThaw expr -> EThaw (Expr.Point_cell.make (t_of_expr expr)) (* expr's points are smaller than the thaw's *)
       (* propagation *)
-      | ELet { var ; defn ; body } -> ELet { var ; defn = t_of_expr defn ; body = t_of_expr body }
+      | ELet { var ; defn ; body } -> 
+        let defn = t_of_expr defn in
+        let body = t_of_expr body in
+        ELet { var ; defn ; body }
       | EFunction { param ; body } -> EFunction { param ; body = t_of_expr body }
-      | EBinop { left ; binop ; right } -> EBinop { left = t_of_expr left ; binop ; right = t_of_expr right }
-      | EIf { cond ; true_body ; false_body } -> EIf { cond = t_of_expr cond ; true_body = t_of_expr true_body ; false_body = t_of_expr false_body }
+      | EBinop { left ; binop ; right } -> 
+        let left = t_of_expr left in
+        EBinop { left ; binop ; right = t_of_expr right }
+      | EIf { cond ; true_body ; false_body } -> 
+        let cond = t_of_expr cond in (* we do not care about the order inside the branches; we only care about the condition *)
+        EIf { cond ; true_body = t_of_expr true_body ; false_body = t_of_expr false_body }
       | EMatch { subject ; patterns } ->
-        EMatch { subject = t_of_expr subject ; patterns =
+        let subject = t_of_expr subject in
+        EMatch { subject ; patterns =
+          (* ordering inside the patterns does not matter, just like inside branches *)
           List.map patterns ~f:(fun (pat, expr) -> (pat, t_of_expr expr))
         }
       | EProject { record ; label } -> EProject { record = t_of_expr record ; label }
-      | ERecord r -> ERecord (Map.map r ~f:t_of_expr)
+      | ERecord r -> ERecord (Map.map r ~f:t_of_expr) (* we do not guarantee an order in our record semantics *)
       | EModule stmt_ls -> EModule (List.map stmt_ls ~f:(function SUntyped { var ; defn } ->
           Expr.With_program_points.SUntyped { var ; defn = t_of_expr defn }
         ))
       | ENot expr -> ENot (t_of_expr expr)
       | EVariant { label ; payload } -> EVariant { label ; payload = t_of_expr payload }
-      | EIntensionalEqual { left ; right } -> EIntensionalEqual { left = t_of_expr left ; right = t_of_expr right }
+      | EIntensionalEqual { left ; right } -> 
+        let left = t_of_expr left in
+        EIntensionalEqual { left ; right = t_of_expr right }
       | ECase { subject ; cases ; default } ->
-        ECase { subject = t_of_expr subject ; default = t_of_expr default ; cases =
+        let subject = t_of_expr subject in (* other than subject, order does not matter, just like branches and matches *)
+        ECase { subject ; default = t_of_expr default ; cases =
           List.map cases ~f:(fun (i, expr) -> (i, t_of_expr expr))
         }
       | EFreeze expr -> EFreeze (t_of_expr expr)
-      | EIgnore { ignored ; body } -> EIgnore { ignored = t_of_expr ignored ; body = t_of_expr body }
-      | ETblAppl { tbl ; gen ; arg } -> ETblAppl { tbl = t_of_expr tbl ; gen = t_of_expr gen ; arg = t_of_expr arg }
+      | EIgnore { ignored ; body } -> 
+        let ignored = t_of_expr ignored in
+        EIgnore { ignored ; body = t_of_expr body }
+      | ETblAppl { tbl ; gen ; arg } -> 
+        let tbl = t_of_expr tbl in
+        let arg = t_of_expr arg in
+        ETblAppl { tbl ; gen = t_of_expr gen ; arg }
       | EDet expr -> EDet (t_of_expr expr)
       | EEscapeDet expr -> EEscapeDet (t_of_expr expr)
       | EUntouchable expr -> EUntouchable (t_of_expr expr)
