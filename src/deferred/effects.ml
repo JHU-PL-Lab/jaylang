@@ -71,14 +71,17 @@ let fail (err : Timestamp.t -> Value.err) : 'a m =
     reject (err e.time) s
   }
 
-let abort : Value.err m =
+let abort : 'a m =
   fail (fun t -> Value.VAbort t)
 
-let type_mismatch (msg : string) : Value.err m =
+let type_mismatch (msg : string) : 'a m =
   fail (fun t -> Value.VTypeMismatch (t, msg))
 
-let diverge : Value.err m =
+let diverge : 'a m =
   fail (fun t -> Value.VDiverge t)
+
+let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
+  fail (fun t -> Value.VUnboundVariable (id, t))
 
 (*
   -----------
@@ -95,11 +98,14 @@ let local (f : Env.t -> Env.t) (x : 'a m) : 'a m =
 let local_env (f : Value.env -> Value.env) : 'a m -> 'a m =
   local (fun e -> { e with env = f e.env })
 
-let fetch (id : Lang.Ast.Ident.t) : Value.safe_t option m =
+let fetch (id : Lang.Ast.Ident.t) : Value.nonerr option m =
   { run = fun ~reject:_ ~accept e s -> accept (Map.find e.env id) s }
 
 let with_binding (id : Lang.Ast.Ident.t) (v : Value.nonerr) (x : 'a m) : 'a m =
-  local_env (Map.set ~key:id ~data:(Value.Safe v)) x
+  local_env (Map.set ~key:id ~data:v) x
+
+let get_input (p : Lang.Ast.Program_point.t) : Value.nonerr m =
+  { run = fun ~reject:_ ~accept e s -> accept (Value.VInt (e.feeder (Timestamp.cons p e.time))) s }
 
 (*
   -----
@@ -136,7 +142,6 @@ let run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embedded.With_progra
     (* sets concrete environment and the timestamp *)
     { e with env = closure.env ; time = Value.timestamp_of_symbol symb }
   ) (f closure.body)
-
 
 (*
   ---------------

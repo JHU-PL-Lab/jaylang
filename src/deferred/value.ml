@@ -42,7 +42,7 @@ type _ t =
   | VUntouchable : safe_t -> 'a ok t
   | VSymbol : Timestamp.t -> 'a symbol t
 
-and env = safe_t Ident.Map.t
+and env = [ `Ok | `Symbol ] t Ident.Map.t
 
 and closure = { body : E.t ; env : env }
 
@@ -59,6 +59,9 @@ type nonerr = [ `Ok | `Symbol ] t
 
 (* Error values *)
 type err = [ `Error ] t
+
+(* Not symbols *)
+type nonsymb = [ `Ok | `Error ] t
 
 (* All values *)
 type any = [ `Error | `Ok | `Symbol ] t
