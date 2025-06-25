@@ -14,5 +14,6 @@
  (preprocess
   (pps
    ppx_compare
+   ocaml-monadic
    landmarks-ppx
    --auto)))

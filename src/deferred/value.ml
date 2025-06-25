@@ -33,7 +33,7 @@ type _ t =
   | VVariant : { label : VariantLabel.t ; payload : safe_t } -> 'a ok t
   | VRecord : safe_t RecordLabel.Map.t -> 'a ok t
   | VModule : safe_t RecordLabel.Map.t -> 'a ok t
-  | VTypeMismatch : 'a error t (* probably needs callstack *)
+  | VTypeMismatch : Timestamp.t * string -> 'a error t
   | VAbort : Timestamp.t -> 'a error t
   | VDiverge : Timestamp.t -> 'a error t
   | VUnboundVariable : Ident.t * Timestamp.t -> 'a error t
@@ -51,6 +51,9 @@ and safe_t = Safe : 'a safe t -> safe_t [@@unboxed]
 (* Values in weak head normal form *)
 type whnf = [ `Ok ] t
 
+(* Value symbol *)
+type symb = [ `Symbol ] t
+
 (* Values that are not errors *)
 type nonerr = [ `Ok | `Symbol ] t
 
@@ -59,6 +62,9 @@ type err = [ `Error ] t
 
 (* All values *)
 type any = [ `Error | `Ok | `Symbol ] t
+
+let timestamp_of_symbol (VSymbol t : symb) : Timestamp.t =
+  t
 
 (* let f (a : any) : unit =
   match a with
