@@ -14,14 +14,6 @@ module C = struct
   type 'a ok = 'a constraint 'a = [> `Ok ]
 end
 
-module Err = struct
-  type t =
-    | XTypeMismatch of string * Timestamp.t
-    | XAbort of string * Timestamp.t
-    | XDiverge of Timestamp.t
-    | XUnboundVariable of Ident.t * Timestamp.t
-end
-
 open C
 
 (*

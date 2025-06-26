@@ -149,7 +149,7 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
   | ETable
   | ETblAppl _ -> failwith "unhandled table operations in deferred evaluation"
 
-and eval_to_err (expr : Lang.Ast.Embedded.With_program_points.t) : (Value.t, Value.Err.t) result m =
+and eval_to_err (expr : Lang.Ast.Embedded.With_program_points.t) : (Value.t, Err.t) result m =
   handle_error 
     (eval expr)
     (fun v -> return (Ok v))

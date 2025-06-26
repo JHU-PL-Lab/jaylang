@@ -7,12 +7,12 @@ module Env = struct
   (* stuff to read from *)
   type t =
     { time   : Timestamp.t
-    ; feeder : Grammar.Input_feeder.t
+    ; feeder : Input_feeder.t
     ; env    : Value.env }
 
   let empty : t =
     { time = Timestamp.zero
-    ; feeder = Grammar.Input_feeder.zero
+    ; feeder = Input_feeder.zero
     ; env = Lang.Ast.Ident.Map.empty }
 end
 
@@ -23,16 +23,16 @@ end
   Baby, on the other hand, offers an O(log n) cut operation, as opposed to
   O(m + log n) where m is the size of the resulting map, offered from Core.
 
-  This is why we use Baby in the maps in Grammar.
+  This is why we use Baby in the maps in the grammar.
 *)
 module State = struct
   type t =
-    { symbol_env : Grammar.Symbol_map.t
-    ; pending_proofs : Grammar.Pending.t } 
+    { symbol_env : Symbol_map.t
+    ; pending_proofs : Pending_proofs.t } 
 
   let empty : t =
-    { symbol_env = Grammar.Symbol_map.empty
-    ; pending_proofs = Grammar.Pending.empty }
+    { symbol_env = Symbol_map.empty
+    ; pending_proofs = Pending_proofs.empty }
 
   (* If we end up logging inputs, then I'll just add a label to the state and cons them there *)
 end
@@ -46,7 +46,7 @@ end
 (* I don't think errors will be this simple because we need to be ready to continue on younger proofs *)
 (* The error needs to produce new state *)
 type 'a m = {
-  run : 'r. reject:(Value.Err.t -> State.t -> 'r) -> accept:('a -> State.t -> 'r) -> Env.t -> State.t -> 'r
+  run : 'r. reject:(Err.t -> State.t -> 'r) -> accept:('a -> State.t -> 'r) -> Env.t -> State.t -> 'r
 }
 
 let bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
@@ -66,7 +66,7 @@ let return (a : 'a) : 'a m =
   -------
 *)
 
-let run_on_empty (x : 'a m) : ('a, Value.Err.t) result * State.t =
+let run_on_empty (x : 'a m) : ('a, Err.t) result * State.t =
   x.run
     ~reject:(fun a s -> Error a, s)
     ~accept:(fun a s -> Ok a, s)
@@ -79,30 +79,30 @@ let run_on_empty (x : 'a m) : ('a, Value.Err.t) result * State.t =
   ------
 *)
 
-let fail (e : Value.Err.t) : 'a m =
+let fail (e : Err.t) : 'a m =
   { run = fun ~reject ~accept:_ _ s -> reject e s }
 
-let fail_at_time (err : Timestamp.t -> Value.Err.t) : 'a m =
+let fail_at_time (err : Timestamp.t -> Err.t) : 'a m =
   { run = fun ~reject ~accept:_ e s -> 
     reject (err e.time) s
   }
 
 let abort (msg : string) (p : Lang.Ast.Program_point.t) : 'a m =
-  fail_at_time (fun t -> Value.Err.XAbort (msg, Timestamp.cons p t))
+  fail_at_time (fun t -> Err.XAbort (msg, Timestamp.cons p t))
 
 let type_mismatch (msg : string) : 'a m =
-  fail_at_time (fun t -> Value.Err.XTypeMismatch (msg, t))
+  fail_at_time (fun t -> Err.XTypeMismatch (msg, t))
 
 let diverge (p : Lang.Ast.Program_point.t) : 'a m =
-  fail_at_time (fun t -> Value.Err.XDiverge (Timestamp.cons p t))
+  fail_at_time (fun t -> Err.XDiverge (Timestamp.cons p t))
 
 let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
-  fail_at_time (fun t -> Value.Err.XUnboundVariable (id, t))
+  fail_at_time (fun t -> Err.XUnboundVariable (id, t))
 
 (*
-  Catch an error by running and distinguishing the results with Ok/Error.
+  Catch an error by running and distinguishing the results with Ok/Err.
 *)
-let handle_error (x : 'a m) (ok : 'a -> 'b m) (err : Value.Err.t -> 'b m) : 'b m =
+let handle_error (x : 'a m) (ok : 'a -> 'b m) (err : Err.t -> 'b m) : 'b m =
   { run = fun ~reject ~accept e s ->
     let res, s = 
       x.run 
@@ -155,11 +155,11 @@ let modify (f : State.t -> State.t) : unit m =
   { run = fun ~reject:_ ~accept _ s -> accept () (f s) }
 
 let push_deferred_proof (symb : Value.symb) (work : Value.closure) : unit m =
-  modify (fun s -> { s with pending_proofs = Grammar.Pending.push symb work s.pending_proofs })
+  modify (fun s -> { s with pending_proofs = Pending_proofs.push symb work s.pending_proofs })
 
 let pop_deferred_proof (symb : Value.symb) : Value.closure m =
   let%bind s = get in
-  match Grammar.Pending.pop symb s.pending_proofs with
+  match Pending_proofs.pop symb s.pending_proofs with
   | Some (closure, pending) ->
     let%bind () = modify (fun s -> { s with pending_proofs = pending }) in
     return closure
@@ -167,8 +167,8 @@ let pop_deferred_proof (symb : Value.symb) : Value.closure m =
 
 let remove_greater_symbols (symb : Value.symb) : unit m =
   modify (fun s -> 
-    { symbol_env = Grammar.Symbol_map.cut symb s.symbol_env
-    ; pending_proofs = Grammar.Pending.cut symb s.pending_proofs }
+    { symbol_env = Symbol_map.cut symb s.symbol_env
+    ; pending_proofs = Pending_proofs.cut symb s.pending_proofs }
   )
 
 let run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embedded.With_program_points.t -> 'a m) : 'a m =
