@@ -24,6 +24,14 @@
   (into "../..")))
 
 (executable
+ (name deval)
+ (modules deval)
+ (libraries core cmdliner lang deferred translate)
+ (promote
+  (until-clean)
+  (into "../..")))
+
+(executable
  (name bjy_cloc)
  (modules bjy_cloc)
  (libraries utils core core_unix.sys_unix)
