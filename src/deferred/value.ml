@@ -16,10 +16,10 @@ end
 
 module Err = struct
   type t =
-    | VTypeMismatch of Timestamp.t * string
-    | VAbort of string * Timestamp.t
-    | VDiverge of Timestamp.t
-    | VUnboundVariable of Ident.t * Timestamp.t
+    | XTypeMismatch of string * Timestamp.t
+    | XAbort of string * Timestamp.t
+    | XDiverge of Timestamp.t
+    | XUnboundVariable of Ident.t * Timestamp.t
 end
 
 open C

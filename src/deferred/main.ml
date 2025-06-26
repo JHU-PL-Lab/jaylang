@@ -1,14 +1,6 @@
 
 open Core
 
-let unimplemented () = 
-  failwith "unimplemented"
-
-(*
-  Still haven't...
-    - set up an executable
-*)
-
 open Effects
 
 let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
@@ -25,7 +17,7 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
   | EId -> return VId
   (* inputs *)
   | EPick_i { data = () ; point } -> get_input point
-  | EPick_b { data = () ; point = _ } -> unimplemented () (* TODO: bool inputs *)
+  | EPick_b { data = () ; point = _ } -> failwith "need to handle bool input, TODO"
   (* operations *)
   | EBinop { left ; binop ; right } -> begin
     let%bind a = stern_eval left in
@@ -179,17 +171,41 @@ and stern_eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.whnf m =
   let open Value in
   (* We can handle the value rules by relaxed eval first *)
   match%bind eval_to_err expr with
-  | Error _e ->
-    failwith "do error semantics here"
+  | Error e -> begin
+    match e with
+    | XAbort (_, t)
+    | XTypeMismatch (_, t)
+    | XDiverge t
+    | XUnboundVariable (_, t) ->
+      let%bind () = remove_greater_symbols (VSymbol t) in
+      fail e
+      (* May just continue to eval on error here. Not sure. Rules do say to do that though *)
+  end
   | Ok v -> begin
     Value.split v
       ~symb:(fun ((VSymbol t) as sym) ->
         let%bind s = get in
         match Timestamp.Map.find_opt t s.symbol_env with
-        | Some v -> return v (* TODO: don't just return, but apply proof rule *)
+        | Some v -> return v
         | None -> 
-          (* implicitly, the symbol must be for a deferred proof *)
-          run_on_deferred_proof sym stern_eval
+          (* evaluate the deferred proof for this symbol *)
+          let%bind v = run_on_deferred_proof sym stern_eval in
+          (* update the symbol environment to contain the result  *)
+          let%bind () = modify (fun s -> { s with symbol_env = Timestamp.Map.add t v s.symbol_env }) in
+          return v
       )
-      ~whnf:return (* TODO: don't just return, but apply proof rule *)
+      ~whnf:return (* may choose to work on deferred proofs here *)
   end
+
+(*
+  The general idea is we need to stern eval until there are no more proofs to do.
+
+  Stern eval only turns it into whnf, but we need a full on value, not just one
+  that appears to be a value at first glance.
+
+  So what we can do is after a stern eval of the main thing, we can just chug along
+  on all deferred proofs in the same way, throwing away everything (because if its
+  value is needed, then it will be put in the store) and returning the main whnf
+  value. In the end, if we're being good, we can substitute all of the values through
+  for the symbols.
+*)

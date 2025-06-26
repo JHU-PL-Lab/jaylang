@@ -79,22 +79,25 @@ let run_on_empty (x : 'a m) : ('a, Value.Err.t) result * State.t =
   ------
 *)
 
-let fail (err : Timestamp.t -> Value.Err.t) : 'a m =
+let fail (e : Value.Err.t) : 'a m =
+  { run = fun ~reject ~accept:_ _ s -> reject e s }
+
+let fail_at_time (err : Timestamp.t -> Value.Err.t) : 'a m =
   { run = fun ~reject ~accept:_ e s -> 
     reject (err e.time) s
   }
 
 let abort (msg : string) (p : Lang.Ast.Program_point.t) : 'a m =
-  fail (fun t -> Value.Err.VAbort (msg, Timestamp.cons p t))
+  fail_at_time (fun t -> Value.Err.XAbort (msg, Timestamp.cons p t))
 
 let type_mismatch (msg : string) : 'a m =
-  fail (fun t -> Value.Err.VTypeMismatch (t, msg))
+  fail_at_time (fun t -> Value.Err.XTypeMismatch (msg, t))
 
 let diverge (p : Lang.Ast.Program_point.t) : 'a m =
-  fail (fun t -> Value.Err.VDiverge (Timestamp.cons p t))
+  fail_at_time (fun t -> Value.Err.XDiverge (Timestamp.cons p t))
 
 let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
-  fail (fun t -> Value.Err.VUnboundVariable (id, t))
+  fail_at_time (fun t -> Value.Err.XUnboundVariable (id, t))
 
 (*
   Catch an error by running and distinguishing the results with Ok/Error.
