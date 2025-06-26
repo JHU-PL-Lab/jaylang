@@ -76,13 +76,22 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
     | None -> type_mismatch "missing pattern"
   end
   | EIf { cond ; true_body ; false_body } -> begin
-    match%bind eval cond with
+    match%bind stern_eval cond with
     | VBool b ->
       let body = if b then true_body else false_body in
       eval body
     | _v -> type_mismatch "cond on non bool"
   end
-  | ECase { subject = _ ; cases = _ ; default = _ } -> unimplemented ()
+  | ECase { subject ; cases ; default } -> begin
+    match%bind stern_eval subject with
+    | VInt i -> begin
+      let body_opt = List.find_map cases ~f:(fun (i', body) -> if i = i' then Some body else None) in
+      match body_opt with
+      | Some body -> eval body
+      | None -> eval default
+    end
+    | _v -> type_mismatch "non int case" (* this should be impossible *)
+  end
   (* closures and applications *)
   | EFunction { param  ; body } ->
     let%bind env = read_env in
@@ -90,18 +99,56 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
   | EFreeze body ->
     let%bind env = read_env in
     return (VFrozen { body ; env })
-  | ELet { var = _ ; defn = _ ; body = _ } -> unimplemented ()
-  | EIgnore { ignored = _ ; body = _ } -> unimplemented () (* eval ignored, discard it, then eval body *)
-  | EAppl { data = { func = _ ; arg = _ } ; point = _ } -> unimplemented ()
-  | EThaw { data = _expr_closure ; point = _ } -> unimplemented ()
+  | ELet { var ; defn ; body } ->
+    let%bind v = eval defn in
+    local_env (Env.add var v) (eval body)
+  | EIgnore { ignored ; body } ->
+    let%bind _ : Value.t = eval ignored in
+    eval body
+  | EAppl { data = { func ; arg } ; point } -> begin
+    match%bind stern_eval func with
+    | VFunClosure { param ; closure } ->
+      let%bind v = eval arg in 
+      with_program_point point (
+        local_env (fun _ -> Env.add param v closure.env) (eval closure.body)
+      )
+    | _v -> type_mismatch "non-func application"
+  end
+  | EThaw { data = body ; point } ->
+    with_program_point point (eval body)
   (* modules, records, and variants  *)
-  | ERecord _label_map -> unimplemented ()
-  | EVariant { label = _ ; payload = _ } -> unimplemented ()
-  | EModule _stmt_ls -> unimplemented ()
-  | EUntouchable _e -> unimplemented ()
+  | ERecord label_map ->
+    let%bind value_record_body =
+      Map.fold label_map ~init:(return Lang.Ast.RecordLabel.Map.empty) ~f:(fun ~key ~data:e acc_m ->
+        let%bind acc = acc_m in
+        let%bind v = eval e in
+        return @@ Map.set acc ~key ~data:v
+      )
+    in
+    return @@ VRecord value_record_body
+  | EVariant { label ; payload } ->
+    let%bind v = eval payload in
+    return (VVariant { label ; payload = v })
+  | EModule stmt_ls ->
+    let%bind module_body =
+      let rec fold_stmts acc_m : E.statement list -> Value.t Lang.Ast.RecordLabel.Map.t m = function
+        | [] -> acc_m
+        | SUntyped { var ; defn } :: tl ->
+          let%bind acc = acc_m in
+          let%bind v = eval defn in
+          local_env (Env.add var v) (
+            fold_stmts (return @@ Map.set acc ~key:(Lang.Ast.RecordLabel.RecordLabel var) ~data:v) tl
+          )
+      in
+      fold_stmts (return Lang.Ast.RecordLabel.Map.empty) stmt_ls
+    in
+    return @@ VModule module_body 
+  | EUntouchable e ->
+    let%bind v = eval e in
+    return (VUntouchable v)
   (* termination *)
-  | EDiverge { data = () ; point = _ } -> unimplemented ()
-  | EAbort { data = _msg ; point = _ } -> unimplemented ()
+  | EDiverge { data = () ; point } -> diverge point
+  | EAbort { data = msg ; point } -> abort msg point
   (* unhandled and currently ignored *)
   | EDet expr
   | EEscapeDet expr -> eval expr (* it is fine to ignore these and just eval what's inside for now *)
@@ -110,44 +157,39 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
   | ETable
   | ETblAppl _ -> failwith "unhandled table operations in deferred evaluation"
 
+and eval_to_err (expr : Lang.Ast.Embedded.With_program_points.t) : (Value.t, Value.Err.t) result m =
+  handle_error 
+    (eval expr)
+    (fun v -> return (Ok v))
+    (fun e -> return (Error e))
+
+(*
+  TODO: need to be able to stern eval with an error as the expression.
+    Obviously the math allows this, but I don't want to allow values as
+    expressions in the code, nor errors as values, so this isn't clean anymore.
+
+  But we don't want to clean up all symbols on every stern eval because we
+  use the stern eval inside the relaxed eval. So stern can't be "full".
+
+  I'm also noticing that at some point we'll want to substitute the values in
+  for all the symbols when we return a final value. We don't make the necessary
+  substitutions ever in the current rules.
+*)
 and stern_eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.whnf m = 
   let open Value in
-  match expr with
-  | EUnit -> return VUnit
-  | EInt i -> return (VInt i)
-  | EBool _b -> unimplemented ()
-  | EVar _id -> unimplemented ()
-  | EId -> unimplemented () (* baked in identify function *)
-  (* inputs *)
-  | EPick_i { data = () ; point = _ } -> unimplemented ()
-  | EPick_b { data = () ; point = _ } -> unimplemented ()
-  (* operations *)
-  | EBinop { left = _ ; binop = _ ; right = _ } -> unimplemented ()
-  | ENot _expr -> unimplemented ()
-  | EProject { record = _ ; label = _ } -> unimplemented ()
-  (* control flow / branches *)
-  | EMatch { subject = _ ; patterns = _ } -> unimplemented ()
-  | EIf { cond = _ ; true_body = _ ; false_body = _ } -> unimplemented ()
-  | ECase { subject = _ ; cases = _ ; default = _ } -> unimplemented ()
-  (* closures and applications *)
-  | EFunction { param = _ ; body = _ } -> unimplemented ()
-  | EFreeze _expr -> unimplemented ()
-  | ELet { var = _ ; defn = _ ; body = _ } -> unimplemented ()
-  | EIgnore { ignored = _ ; body = _ } -> unimplemented () (* eval ignored, discard it, then eval body *)
-  | EAppl { data = { func = _ ; arg = _ } ; point = _ } -> unimplemented ()
-  | EThaw { data = _expr_closure ; point = _ } -> unimplemented ()
-  (* modules, records, and variants  *)
-  | ERecord _label_map -> unimplemented ()
-  | EVariant { label = _ ; payload = _ } -> unimplemented ()
-  | EModule _stmt_ls -> unimplemented ()
-  | EUntouchable _e -> unimplemented ()
-  (* termination *)
-  | EDiverge { data = () ; point = _ } -> unimplemented ()
-  | EAbort { data = _msg ; point = _ } -> unimplemented ()
-  (* unhandled and currently ignored *)
-  | EDet expr
-  | EEscapeDet expr -> stern_eval expr (* it is fine to ignore these and just eval what's inside for now *)
-  (* unhandled and currently aborting -- okay to ignore for now because these are uncommon *)
-  | EIntensionalEqual _ -> failwith "unhandled intensional equality in deferred evaluation"
-  | ETable
-  | ETblAppl _ -> failwith "unhandled table operations in deferred evaluation"
+  (* We can handle the value rules by relaxed eval first *)
+  match%bind eval_to_err expr with
+  | Error _e ->
+    failwith "do error semantics here"
+  | Ok v -> begin
+    Value.split v
+      ~symb:(fun ((VSymbol t) as sym) ->
+        let%bind s = get in
+        match Timestamp.Map.find_opt t s.symbol_env with
+        | Some v -> return v (* TODO: don't just return, but apply proof rule *)
+        | None -> 
+          (* implicitly, the symbol must be for a deferred proof *)
+          run_on_deferred_proof sym stern_eval
+      )
+      ~whnf:return (* TODO: don't just return, but apply proof rule *)
+  end

@@ -663,6 +663,7 @@ module Embedded = struct
 
   module With_program_points = struct
     type t = embedded Expr.With_program_points.t
+    type statement = embedded Expr.With_program_points.statement
 
     (*
       The ordering here is generally post-order: traversal is the same order as in big-step evaluation.

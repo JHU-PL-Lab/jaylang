@@ -61,6 +61,19 @@ let return (a : 'a) : 'a m =
 
 
 (*
+  -------
+  RUNNING
+  -------
+*)
+
+let run_on_empty (x : 'a m) : ('a, Value.Err.t) result * State.t =
+  x.run
+    ~reject:(fun a s -> Error a, s)
+    ~accept:(fun a s -> Ok a, s)
+    Env.empty
+    State.empty
+
+(*
   ------
   RESULT
   ------
@@ -71,17 +84,33 @@ let fail (err : Timestamp.t -> Value.Err.t) : 'a m =
     reject (err e.time) s
   }
 
-let abort : 'a m =
-  fail (fun t -> Value.Err.VAbort t)
+let abort (msg : string) (p : Lang.Ast.Program_point.t) : 'a m =
+  fail (fun t -> Value.Err.VAbort (msg, Timestamp.cons p t))
 
 let type_mismatch (msg : string) : 'a m =
   fail (fun t -> Value.Err.VTypeMismatch (t, msg))
 
-let diverge : 'a m =
-  fail (fun t -> Value.Err.VDiverge t)
+let diverge (p : Lang.Ast.Program_point.t) : 'a m =
+  fail (fun t -> Value.Err.VDiverge (Timestamp.cons p t))
 
 let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
   fail (fun t -> Value.Err.VUnboundVariable (id, t))
+
+(*
+  Catch an error by running and distinguishing the results with Ok/Error.
+*)
+let handle_error (x : 'a m) (ok : 'a -> 'b m) (err : Value.Err.t -> 'b m) : 'b m =
+  { run = fun ~reject ~accept e s ->
+    let res, s = 
+      x.run 
+      ~reject:(fun a s -> Error a, s)
+      ~accept:(fun a s -> Ok a, s)
+      e s
+    in
+    match res with
+    | Ok a -> (ok a).run ~reject ~accept e s
+    | Error v -> (err v).run ~reject ~accept e s
+  }
 
 (*
   -----------
@@ -103,6 +132,9 @@ let fetch (id : Lang.Ast.Ident.t) : Value.t option m =
 
 let with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : 'a m) : 'a m =
   local_env (Value.Env.add id v) x
+
+let with_program_point (p : Lang.Ast.Program_point.t) (x : 'a m) : 'a m =
+  local (fun e -> { e with time = Timestamp.cons p e.time }) x
 
 let get_input (p : Lang.Ast.Program_point.t) : Value.t m =
   { run = fun ~reject:_ ~accept e s -> accept (Value.VInt (e.feeder (Timestamp.cons p e.time))) s }
@@ -151,17 +183,4 @@ let run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embedded.With_progra
 
 let lookup (Value.VSymbol t : Value.symb) : Value.whnf option m =
   { run = fun ~reject:_ ~accept _ s -> accept (Timestamp.Map.find_opt t s.symbol_env) s }
-
-(*
-  -------
-  RUNNING
-  -------
-*)
-
-let run_on_empty (x : 'a m) : ('a, Value.Err.t) result * State.t =
-  x.run
-    ~reject:(fun a s -> Error a, s)
-    ~accept:(fun a s -> Ok a, s)
-    Env.empty
-    State.empty
 

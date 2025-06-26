@@ -17,7 +17,7 @@ end
 module Err = struct
   type t =
     | VTypeMismatch of Timestamp.t * string
-    | VAbort of Timestamp.t
+    | VAbort of string * Timestamp.t
     | VDiverge of Timestamp.t
     | VUnboundVariable of Ident.t * Timestamp.t
 end
@@ -73,6 +73,21 @@ let[@inline always] cast_up (type a) (v : a v) : t =
     | VFrozen _ 
     | VUntouchable _
     | VSymbol _) as x -> x
+
+let split (type a b) (v : a v) ~(whnf : whnf -> b) ~(symb : symb -> b) : b =
+  match v with
+  | (VUnit
+    | VInt _
+    | VBool _
+    | VFunClosure _
+    | VVariant _
+    | VRecord _
+    | VModule _
+    | VId
+    | VFrozen _ 
+    | VUntouchable _) as x -> whnf x
+  | VSymbol _ as x -> symb x
+
 
 let timestamp_of_symbol (VSymbol t : symb) : Timestamp.t =
   t
