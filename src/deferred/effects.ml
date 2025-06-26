@@ -99,20 +99,15 @@ let diverge (p : Lang.Ast.Program_point.t) : 'a m =
 let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
   fail_at_time (fun t -> Err.XUnboundVariable (id, t))
 
-(*
-  Catch an error by running and distinguishing the results with Ok/Err.
-*)
 let handle_error (x : 'a m) (ok : 'a -> 'b m) (err : Err.t -> 'b m) : 'b m =
   { run = fun ~reject ~accept e s ->
-    let res, s = 
-      x.run 
-      ~reject:(fun a s -> Error a, s)
-      ~accept:(fun a s -> Ok a, s)
-      e s
-    in
-    match res with
-    | Ok a -> (ok a).run ~reject ~accept e s
-    | Error v -> (err v).run ~reject ~accept e s
+    x.run e s 
+      ~reject:(fun a s ->
+        (err a).run ~reject ~accept e s
+      )
+      ~accept:(fun a s ->
+        (ok a).run ~reject ~accept e s
+      )
   }
 
 (*

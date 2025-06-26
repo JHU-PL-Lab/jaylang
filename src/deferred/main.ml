@@ -1,9 +1,10 @@
 
 open Core
-
 open Effects
 
-let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
+module E = Lang.Ast.Embedded.With_program_points
+
+let rec eval (expr : E.t) : Value.t m =
   let open Value in
   match expr with
   | EUnit -> return VUnit
@@ -37,21 +38,21 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
     | BGeq         , VInt n1  , VInt n2              -> return (VBool (n1 >= n2))
     | BAnd         , VBool b1 , VBool b2             -> return (VBool (b1 && b2))
     | BOr          , VBool b1 , VBool b2             -> return (VBool (b1 || b2))
-    | _ -> type_mismatch "bad binop; no good error message yet"
+    | _ -> type_mismatch @@ Error_msg.bad_binop a binop b
   end
   | ENot expr -> begin
     match%bind stern_eval expr with
     | VBool b -> return (VBool (not b))
-    | _v -> type_mismatch "bad not"
+    | v -> type_mismatch @@ Error_msg.bad_not v
   end
   | EProject { record ; label } -> begin
     match%bind stern_eval record with
-    | (VRecord body | VModule body) -> begin
+    | (VRecord body | VModule body) as v -> begin
       match Map.find body label with
       | Some v -> return (Value.cast_up v)
-      | None -> type_mismatch "missing label in projection"
+      | None -> type_mismatch @@ Error_msg.project_missing_label label v
     end
-    | _v -> type_mismatch "project from non record/module"
+    | v -> type_mismatch @@ Error_msg.project_non_record label v
   end
   (* control flow / branches *)
   | EMatch { subject  ; patterns  } -> begin
@@ -65,14 +66,14 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
       )
     with
     | Some (e, f) -> local_env f (eval e)
-    | None -> type_mismatch "missing pattern"
+    | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v
   end
   | EIf { cond ; true_body ; false_body } -> begin
     match%bind stern_eval cond with
     | VBool b ->
       let body = if b then true_body else false_body in
       eval body
-    | _v -> type_mismatch "cond on non bool"
+    | v -> type_mismatch @@ Error_msg.cond_non_bool v
   end
   | ECase { subject ; cases ; default } -> begin
     match%bind stern_eval subject with
@@ -82,7 +83,7 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
       | Some body -> eval body
       | None -> eval default
     end
-    | _v -> type_mismatch "non int case" (* this should be impossible *)
+    | v -> type_mismatch @@ Error_msg.case_non_int v
   end
   (* closures and applications *)
   | EFunction { param  ; body } ->
@@ -99,15 +100,22 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
     eval body
   | EAppl { data = { func ; arg } ; point } -> begin
     match%bind stern_eval func with
+    | VId -> eval arg
     | VFunClosure { param ; closure } ->
       let%bind v = eval arg in 
       with_program_point point (
         local_env (fun _ -> Env.add param v closure.env) (eval closure.body)
       )
-    | _v -> type_mismatch "non-func application"
+    | v -> type_mismatch @@ Error_msg.bad_appl v
   end
-  | EThaw { data = body ; point } ->
-    with_program_point point (eval body)
+  | EThaw { data = expr ; point } -> begin
+    match%bind stern_eval expr with
+    | VFrozen closure ->
+      with_program_point point (
+        local_env (fun _ -> closure.env) (eval closure.body)
+      )
+    | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
+  end
   (* modules, records, and variants  *)
   | ERecord label_map ->
     let%bind value_record_body =
@@ -149,7 +157,7 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
   | ETable
   | ETblAppl _ -> failwith "unhandled table operations in deferred evaluation"
 
-and eval_to_err (expr : Lang.Ast.Embedded.With_program_points.t) : (Value.t, Err.t) result m =
+and eval_to_err (expr : E.t) : (Value.t, Err.t) result m =
   handle_error 
     (eval expr)
     (fun v -> return (Ok v))
@@ -167,7 +175,7 @@ and eval_to_err (expr : Lang.Ast.Embedded.With_program_points.t) : (Value.t, Err
   for all the symbols when we return a final value. We don't make the necessary
   substitutions ever in the current rules.
 *)
-and stern_eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.whnf m = 
+and stern_eval (expr : E.t) : Value.whnf m = 
   let open Value in
   (* We can handle the value rules by relaxed eval first *)
   match%bind eval_to_err expr with
@@ -189,13 +197,19 @@ and stern_eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.whnf m =
         | Some v -> return v
         | None -> 
           (* evaluate the deferred proof for this symbol *)
-          let%bind v = run_on_deferred_proof sym stern_eval in
+          let%bind v = run_on_deferred_proof sym stern_eval in (* TODO: what to do if this fails? *)
           (* update the symbol environment to contain the result  *)
           let%bind () = modify (fun s -> { s with symbol_env = Timestamp.Map.add t v s.symbol_env }) in
           return v
       )
       ~whnf:return (* may choose to work on deferred proofs here *)
   end
+
+and stern_eval_to_err (expr : E.t) : (Value.whnf, Err.t) result m =
+  handle_error 
+    (stern_eval expr)
+    (fun v -> return (Ok v))
+    (fun e -> return (Error e))
 
 (*
   The general idea is we need to stern eval until there are no more proofs to do.
@@ -208,4 +222,22 @@ and stern_eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.whnf m =
   value is needed, then it will be put in the store) and returning the main whnf
   value. In the end, if we're being good, we can substitute all of the values through
   for the symbols.
+
+  I'm currently not handling errors properly. The propagate when they shouldn't.
 *)
+
+let rec loop (ev : (E.t, Value.whnf) Either.t) : Value.whnf m =
+  let%bind v =
+    match ev with
+    | First expr -> stern_eval expr
+    | Second v -> return v
+  in
+  let%bind s = get in
+  match Timestamp.Map.choose_opt s.pending_proofs with
+  | None -> return v
+  | Some (t, _) ->
+    let%bind _ = run_on_deferred_proof (VSymbol t) stern_eval in
+    loop (Second v)
+
+let deval (_expr : E.t) : (Value.whnf, Err.t) result =
+  failwith "unimplemented"

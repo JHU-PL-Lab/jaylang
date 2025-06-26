@@ -112,3 +112,58 @@ module Env = struct
   let find id m = Map.find m id
   let add id v m = Map.set m ~key:id ~data:v
 end
+
+let rec to_string : type a. a v -> string = function
+  | VUnit -> "()"
+  | VInt i -> Int.to_string i
+  | VBool b -> Bool.to_string b
+  | VFunClosure { param = Ident s ; _ } -> Format.sprintf "(fun %s -> <expr>)" s
+  | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
+  | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
+  | VModule module_body -> 
+    Format.sprintf "struct %s end" 
+    (String.concat ~sep:" " @@ List.map (Map.to_alist module_body) ~f:(fun (key, data) -> Format.sprintf "let %s = %s" (RecordLabel.to_string key) (to_string data)))
+  | VId -> "(fun x -> x)"
+  | VFrozen _ -> "(Freeze <expr>)"
+  (* | VTable { alist } -> 
+    Format.sprintf "Table (%s)\n"
+      (String.concat ~sep:" ; " @@ List.map ~f:(fun (k, v) -> Format.sprintf "(%s, %s)" (to_string k) (to_string v)) alist) *)
+  | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
+  | VSymbol _ -> "Timestamp"
+
+module Error_msg = struct
+  let project_non_record label v =
+    Format.sprintf "Label %s not found in non-record/module `%s`" (RecordLabel.to_string label) (to_string v)
+
+  let project_missing_label label record =
+    Format.sprintf "Label %s not found in record/module %s" (RecordLabel.to_string label) (to_string record)
+
+  let thaw_non_frozen v =
+    Format.sprintf "Thaw non-frozen value `%s`" (to_string v)
+
+  let pattern_not_found patterns v =
+    Format.sprintf "Value `%s` not in pattern list [ %s ]"
+      (to_string v)
+      (String.concat ~sep:", " @@ List.map patterns ~f:(fun (p, _) -> Pattern.to_string p))
+
+  let bad_appl vfunc =
+    Format.sprintf "Apply to non-function %s" (to_string vfunc)
+
+  let bad_binop vleft binop vright =
+    Format.sprintf "Bad binop %s %s %s"
+      (to_string vleft)
+      (Binop.to_string binop)
+      (to_string vright)
+
+  let bad_not v =
+    Format.sprintf "Bad unary operation `not %s`" (to_string v)
+
+  let cond_non_bool v = 
+    Format.sprintf "Condition on non-bool `%s`" (to_string v)
+
+  let case_non_int v = 
+    Format.sprintf "Case on non-int `%s`" (to_string v)
+
+  let appl_non_table v =
+    Format.sprintf "Use non-table `%s` as a table" (to_string v)
+end
