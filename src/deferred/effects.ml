@@ -46,7 +46,7 @@ end
 (* I don't think errors will be this simple because we need to be ready to continue on younger proofs *)
 (* The error needs to produce new state *)
 type 'a m = {
-  run : 'r. reject:(Value.err -> State.t -> 'r) -> accept:('a -> State.t -> 'r) -> Env.t -> State.t -> 'r
+  run : 'r. reject:(Value.Err.t -> State.t -> 'r) -> accept:('a -> State.t -> 'r) -> Env.t -> State.t -> 'r
 }
 
 let bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
@@ -66,22 +66,22 @@ let return (a : 'a) : 'a m =
   ------
 *)
 
-let fail (err : Timestamp.t -> Value.err) : 'a m =
+let fail (err : Timestamp.t -> Value.Err.t) : 'a m =
   { run = fun ~reject ~accept:_ e s -> 
     reject (err e.time) s
   }
 
 let abort : 'a m =
-  fail (fun t -> Value.VAbort t)
+  fail (fun t -> Value.Err.VAbort t)
 
 let type_mismatch (msg : string) : 'a m =
-  fail (fun t -> Value.VTypeMismatch (t, msg))
+  fail (fun t -> Value.Err.VTypeMismatch (t, msg))
 
 let diverge : 'a m =
-  fail (fun t -> Value.VDiverge t)
+  fail (fun t -> Value.Err.VDiverge t)
 
 let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
-  fail (fun t -> Value.VUnboundVariable (id, t))
+  fail (fun t -> Value.Err.VUnboundVariable (id, t))
 
 (*
   -----------
@@ -98,13 +98,13 @@ let local (f : Env.t -> Env.t) (x : 'a m) : 'a m =
 let local_env (f : Value.env -> Value.env) : 'a m -> 'a m =
   local (fun e -> { e with env = f e.env })
 
-let fetch (id : Lang.Ast.Ident.t) : Value.nonerr option m =
-  { run = fun ~reject:_ ~accept e s -> accept (Map.find e.env id) s }
+let fetch (id : Lang.Ast.Ident.t) : Value.t option m =
+  { run = fun ~reject:_ ~accept e s -> accept (Value.Env.find id e.env) s }
 
-let with_binding (id : Lang.Ast.Ident.t) (v : Value.nonerr) (x : 'a m) : 'a m =
-  local_env (Map.set ~key:id ~data:v) x
+let with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : 'a m) : 'a m =
+  local_env (Value.Env.add id v) x
 
-let get_input (p : Lang.Ast.Program_point.t) : Value.nonerr m =
+let get_input (p : Lang.Ast.Program_point.t) : Value.t m =
   { run = fun ~reject:_ ~accept e s -> accept (Value.VInt (e.feeder (Timestamp.cons p e.time))) s }
 
 (*
@@ -158,7 +158,7 @@ let lookup (Value.VSymbol t : Value.symb) : Value.whnf option m =
   -------
 *)
 
-let run_on_empty (x : 'a m) : ('a, Value.err) result * State.t =
+let run_on_empty (x : 'a m) : ('a, Value.Err.t) result * State.t =
   x.run
     ~reject:(fun a s -> Error a, s)
     ~accept:(fun a s -> Ok a, s)

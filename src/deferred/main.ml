@@ -11,7 +11,7 @@ let unimplemented () =
 
 open Effects
 
-let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.nonerr m =
+let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.t m =
   let open Value in
   match expr with
   | EUnit -> return VUnit
@@ -56,18 +56,40 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.nonerr m =
     match%bind stern_eval record with
     | (VRecord body | VModule body) -> begin
       match Map.find body label with
-      | Some Safe _v -> failwith "would get a type constructor escaping scope" (*return v*)
+      | Some v -> return (Value.cast_up v)
       | None -> type_mismatch "missing label in projection"
     end
     | _v -> type_mismatch "project from non record/module"
   end
   (* control flow / branches *)
-  | EMatch { subject = _ ; patterns = _ } -> unimplemented ()
-  | EIf { cond = _ ; true_body = _ ; false_body = _ } -> unimplemented ()
+  | EMatch { subject  ; patterns  } -> begin
+    let%bind v = stern_eval subject in
+    match
+      List.find_map patterns ~f:(fun (pat, body) ->
+        match Value.matches v pat with
+        | `Matches -> Some (body, fun x -> x)
+        | `Matches_with (v', id) -> Some (body, Env.add id v')
+        | `No_match -> None
+      )
+    with
+    | Some (e, f) -> local_env f (eval e)
+    | None -> type_mismatch "missing pattern"
+  end
+  | EIf { cond ; true_body ; false_body } -> begin
+    match%bind eval cond with
+    | VBool b ->
+      let body = if b then true_body else false_body in
+      eval body
+    | _v -> type_mismatch "cond on non bool"
+  end
   | ECase { subject = _ ; cases = _ ; default = _ } -> unimplemented ()
   (* closures and applications *)
-  | EFunction { param = _ ; body = _ } -> unimplemented ()
-  | EFreeze _expr -> unimplemented ()
+  | EFunction { param  ; body } ->
+    let%bind env = read_env in
+    return (VFunClosure { param ; closure = { body ; env }})
+  | EFreeze body ->
+    let%bind env = read_env in
+    return (VFrozen { body ; env })
   | ELet { var = _ ; defn = _ ; body = _ } -> unimplemented ()
   | EIgnore { ignored = _ ; body = _ } -> unimplemented () (* eval ignored, discard it, then eval body *)
   | EAppl { data = { func = _ ; arg = _ } ; point = _ } -> unimplemented ()
@@ -88,7 +110,7 @@ let rec eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.nonerr m =
   | ETable
   | ETblAppl _ -> failwith "unhandled table operations in deferred evaluation"
 
-and stern_eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.nonsymb m = 
+and stern_eval (expr : Lang.Ast.Embedded.With_program_points.t) : Value.whnf m = 
   let open Value in
   match expr with
   | EUnit -> return VUnit
