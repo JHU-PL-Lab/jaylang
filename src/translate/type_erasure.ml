@@ -71,6 +71,8 @@ let erase (pgm : Bluejay.pgm) : Type_erased.pgm =
       EAssert (erase e)
     | EAssume e ->
       EAssume (erase e)
+    | EDefer e ->
+      EDefer (erase e)
     | EMultiArgFunction { params ; body } ->
       EMultiArgFunction { params ; body = erase body }
 

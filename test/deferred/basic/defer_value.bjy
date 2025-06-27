@@ -1,0 +1,4 @@
+
+let x = defer 0
+
+let y = x + 1

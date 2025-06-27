@@ -266,6 +266,7 @@ module Expr = struct
       | EPick_i : unit Cell.t -> 'a t (* is parsed as "input", but we can immediately make it pick_i *)
       | EFunction : { param : Ident.t ; body : 'a t } -> 'a t (* note bluejay also has multi-arg function, which generalizes this *)
       | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
+      | EDefer : 'a t Cell.t -> 'a t
       (* embedded only, so constrain 'a to only be `Embedded *)
       | EPick_b : unit Cell.t -> 'a embedded_only t
       | ECase : { subject : 'a t ; cases : (int * 'a t) list ; default : 'a t } -> 'a embedded_only t (* simply sugar for nested conditionals *)
@@ -367,7 +368,7 @@ module Expr = struct
       | ETypeIntersect _ -> 40 | EList _ -> 41     | EListCons _ -> 42         | EModule _ -> 43 
       | EAssert _ -> 44        | EAssume _ -> 45   | EMultiArgFunction _ -> 46 | ELetFun _ -> 47
       | ELetFunRec _ -> 48     | EGen _  -> 49     | EIntensionalEqual _ -> 50 | EUntouchable _ -> 51
-      | EUnit -> 52          | ETypeUnit -> 53
+      | EUnit -> 52            | ETypeUnit -> 53   | EDefer _ -> 54
 
     let statement_to_rank : type a. a statement -> int = function
       | SUntyped _ -> 0
@@ -492,6 +493,7 @@ module Expr = struct
           | EEscapeDet e1, EEscapeDet e2 -> cmp e1 e2
           | EUntouchable e1, EUntouchable e2 -> cmp e1 e2
           | EAbort s1, EAbort s2 -> Cell.compare String.compare s1 s2
+          | EDefer e1, EDefer e2 -> Cell.compare cmp e1 e2
           | EGen e1, EGen e2 -> cmp e1 e2
           | ETypeRecord m1, ETypeRecord m2 -> RecordLabel.Map.compare cmp m1 m2
           | ETypeFun r1, ETypeFun r2 -> begin
@@ -686,6 +688,7 @@ module Embedded = struct
       | EPick_b () -> EPick_b (Expr.Point_cell.make ())
       | EAbort msg -> EAbort (Expr.Point_cell.make msg)
       | EDiverge () -> EDiverge (Expr.Point_cell.make ())
+      | EDefer e -> EDefer (Expr.Point_cell.make (t_of_expr e))
       | EAppl { func ; arg } -> 
         let func = t_of_expr func in
         EAppl (Expr.Point_cell.make { Expr.With_program_points.func ; arg = t_of_expr arg })
@@ -786,6 +789,7 @@ module Embedded = struct
         let id', env' = replace param env in
         EFunction { param = id' ; body = visit body env' }
       (* propagation *)
+      | EDefer { data = expr ; point } -> EDefer { data = visit expr env ; point }
       | EAppl { data = { func ; arg } ; point } -> EAppl { data = { func = visit func env ; arg = visit arg env } ; point }
       | EBinop { left ; binop ; right } -> EBinop { left = visit left env ; binop ; right = visit right env }
       | EIf { cond ; true_body ; false_body } -> EIf { cond = visit cond env ; true_body = visit true_body env ; false_body = visit false_body env }
@@ -894,6 +898,7 @@ module Bluejay = struct
     | ETypeMu { var = _ ; params = _ ; body = e }
     | EAssert e
     | EAssume e
+    | EDefer e
     | EMultiArgFunction { params = _ ; body = e } -> is_det_e e
     (* two subexpressions *)
     | EBinop { left = e1 ; binop = _ ; right = e2 }

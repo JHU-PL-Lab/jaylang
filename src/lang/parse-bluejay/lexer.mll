@@ -77,6 +77,7 @@ rule token = parse
 | "val"                { VAL }
 | "dependent"          { DEPENDENT }
 | "dep"                { DEP }
+| "defer"              { DEFER }
 | "of"                 { OF }
 | "+"                  { PLUS }
 | "-"                  { MINUS }

@@ -116,6 +116,9 @@ let handle_error (x : 'a m) (ok : 'a -> 'b m) (err : Err.t -> 'b m) : 'b m =
   -----------
 *)
 
+let read : Env.t m =
+  { run = fun ~reject:_ ~accept e s -> accept e s }
+
 let read_env : Value.env m =
   { run = fun ~reject:_ ~accept e s -> accept e.env s }
 

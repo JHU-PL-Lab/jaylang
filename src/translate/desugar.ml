@@ -81,6 +81,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       EProject { record = desugar record ; label }
     | ENot e ->
       ENot (desugar e)
+    | EDefer e ->
+      EDefer (desugar e)
     | EFunction { param ; body } ->
       EFunction { param ; body = desugar body }
     | EVariant { label ; payload } ->

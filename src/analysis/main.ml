@@ -34,6 +34,8 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
   | ENot expr -> bind (analyze expr) not_
   | EIntensionalEqual _ -> failwith "unimplemented"
   (* propagation *)
+  | EDefer { data = expr ; point } ->
+    with_call point (analyze expr)
   | EMatch { subject ; patterns } -> begin
     let%bind v = analyze subject in
     List.find_map patterns ~f:(fun (pat, expr) ->

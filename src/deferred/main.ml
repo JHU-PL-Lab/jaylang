@@ -147,6 +147,12 @@ let rec eval (expr : E.t) : Value.t m =
   | EUntouchable e ->
     let%bind v = eval e in
     return (VUntouchable v)
+  (* deferal *)
+  | EDefer { data = body ; point } ->
+    let%bind e = read in
+    let symb = VSymbol (Timestamp.cons point e.time) in
+    let%bind () = push_deferred_proof symb { body ; env = e.env } in
+    return (cast_up symb)
   (* termination *)
   | EDiverge { data = () ; point } -> diverge point
   | EAbort { data = msg ; point } -> abort msg point
@@ -250,11 +256,10 @@ let rec loop (t : t3) : Value.whnf m =
     | Ok v -> loop (Value v)
     | Error e -> loop (Err e)
   end
-  | Value v -> work_on_deferred (return v)
-  | Err e -> work_on_deferred (fail e)
+  | Value v -> clean_up_deferred (return v)
+  | Err e -> clean_up_deferred (fail e)
 
-(* I don't think finish even needs to be frozen *)
-and work_on_deferred (finish : Value.whnf m) : Value.whnf m =
+and clean_up_deferred (finish : Value.whnf m) : Value.whnf m =
   let%bind s = get in
   match Timestamp.Map.choose_opt s.pending_proofs with
   | None -> finish
@@ -264,9 +269,10 @@ and work_on_deferred (finish : Value.whnf m) : Value.whnf m =
     | Ok v' ->
       (* deferred proof evaluated. Put it into the map, and continue on looping *)
       let%bind () = modify (fun s -> { s with symbol_env = Timestamp.Map.add t v' s.symbol_env }) in
-      work_on_deferred finish
-    | Error e -> work_on_deferred (fail e)
+      clean_up_deferred finish
+    | Error e -> clean_up_deferred (fail e)
 
+(* TODO: need to differentiate between diverge and other errors *)
 let deval (expr : E.t) : (Value.whnf, Err.t) result =
   match run_on_empty (loop (Expr expr)) with
   | Ok v, _ -> Ok v

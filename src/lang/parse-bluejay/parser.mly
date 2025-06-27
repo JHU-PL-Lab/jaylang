@@ -61,6 +61,7 @@
 %token VAL
 %token DEPENDENT
 %token DEP
+%token DEFER
 %token OF
 %token PLUS
 %token MINUS
@@ -248,6 +249,7 @@ fun_sig:
 /* (fun x -> x) y */
 appl_expr:
   | appl_expr primary_expr { EAppl { func = $1 ; arg = $2 } : Bluejay.t }
+  | DEFER primary_expr { EDefer $2 : Bluejay.t }
   | primary_expr { $1 : Bluejay.t }
 ;
 

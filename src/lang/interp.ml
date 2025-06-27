@@ -125,6 +125,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%bind () = assert_nondeterminism in
       return (VBool false)
     (* simple propogation *)
+    | EDefer e -> eval e (* deferred expressions are eagerly evaluated *)
     | EVariant { label ; payload } ->
       let%bind payload = eval payload in
       return (VVariant { label ; payload = payload })
