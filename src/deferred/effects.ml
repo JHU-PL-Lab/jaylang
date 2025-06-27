@@ -43,8 +43,6 @@ end
   ------
 *)
 
-(* I don't think errors will be this simple because we need to be ready to continue on younger proofs *)
-(* The error needs to produce new state *)
 type 'a m = {
   run : 'r. reject:(Err.t -> State.t -> 'r) -> accept:('a -> State.t -> 'r) -> Env.t -> State.t -> 'r
 }

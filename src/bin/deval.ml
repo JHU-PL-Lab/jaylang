@@ -11,7 +11,7 @@ let deval =
   |> Deferred.Main.deval
   |> function
     | Ok v -> Format.printf "Your program evaluated to:\n%s\n" (Deferred.Value.to_string v)
-    | Error _e -> Format.printf "ERROR: the deferred interpreter hit an error.\n" 
+    | Error e -> Format.printf "ERROR: the deferred interpreter hit an error:\n%s\n" (Deferred.Err.to_string e)
 
 let () = 
   exit @@ Cmd.eval deval

@@ -1,0 +1,6 @@
+
+let _ = defer (assert false)
+
+let _ = defer (0 + true)
+
+let y = 0

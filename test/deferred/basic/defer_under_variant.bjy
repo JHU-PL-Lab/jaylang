@@ -1,0 +1,4 @@
+
+let x = 0
+
+let y = `V (defer (assert false))

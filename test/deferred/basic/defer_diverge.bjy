@@ -1,0 +1,9 @@
+
+let x = 0
+
+let _ = defer (assume false)
+
+let y = 1 + defer (assert false)
+
+let z = y + 10
+

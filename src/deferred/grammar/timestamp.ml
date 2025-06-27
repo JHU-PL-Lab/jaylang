@@ -9,6 +9,10 @@ end
 
 include T
 
+let to_string : t -> string = function
+  | Cstack ls ->
+    String.concat ~sep:"." (List.map ls ~f:(fun (Lang.Ast.Program_point.Program_point i) -> Int.to_string i))
+
 let zero = Cstack []
 
 let cons p (Cstack cstack) = Cstack (p :: cstack)
