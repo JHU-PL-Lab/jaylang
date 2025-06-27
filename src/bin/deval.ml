@@ -8,11 +8,10 @@ let deval =
   Translate.Convert.bjy_to_emb pgm ~do_wrap ~do_type_splay
   |> Lang.Ast_tools.Utils.pgm_to_module
   |> Lang.Ast.Embedded.With_program_points.t_of_expr
-  |> Deferred.Main.stern_eval
-  |> Deferred.Effects.run_on_empty
+  |> Deferred.Main.deval
   |> function
-    | Ok _v, _ -> Format.printf "Your program evaluated to a value\n"
-    | Error _e, _ -> Format.printf "ERROR: the deferred interpreter hit an error.\n" 
+    | Ok _v_ -> Format.printf "Your program evaluated to a value\n"
+    | Error _e -> Format.printf "ERROR: the deferred interpreter hit an error.\n" 
 
 let () = 
   exit @@ Cmd.eval deval

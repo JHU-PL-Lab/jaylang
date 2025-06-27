@@ -4,6 +4,7 @@ open Effects
 
 module E = Lang.Ast.Embedded.With_program_points
 
+(* Eval may error (monadically) *)
 let rec eval (expr : E.t) : Value.t m =
   let open Value in
   match expr with
@@ -157,6 +158,9 @@ let rec eval (expr : E.t) : Value.t m =
   | ETable
   | ETblAppl _ -> failwith "unhandled table operations in deferred evaluation"
 
+(*
+  I wish I had a contract that says this does not error.
+*)
 and eval_to_err (expr : E.t) : (Value.t, Err.t) result m =
   handle_error 
     (eval expr)
@@ -175,6 +179,12 @@ and eval_to_err (expr : E.t) : (Value.t, Err.t) result m =
   for all the symbols when we return a final value. We don't make the necessary
   substitutions ever in the current rules.
 *)
+(*
+  Right now, I'm saying this may error (monadically) so that relaxed eval
+  gets error propagation.
+  However, I'm thinking that maybe it should not error because it doesn't
+  have error propagation in itself (per the rules) but instead catches them.
+*)
 and stern_eval (expr : E.t) : Value.whnf m = 
   let open Value in
   (* We can handle the value rules by relaxed eval first *)
@@ -186,7 +196,7 @@ and stern_eval (expr : E.t) : Value.whnf m =
     | XDiverge t
     | XUnboundVariable (_, t) ->
       let%bind () = remove_greater_symbols (VSymbol t) in
-      fail e
+      fail e (* not sure what to do here. rules say this is fine, techincally *)
       (* May just continue to eval on error here. Not sure. Rules do say to do that though *)
   end
   | Ok v -> begin
@@ -197,12 +207,13 @@ and stern_eval (expr : E.t) : Value.whnf m =
         | Some v -> return v
         | None -> 
           (* evaluate the deferred proof for this symbol *)
-          let%bind v = run_on_deferred_proof sym stern_eval in (* TODO: what to do if this fails? *)
+          (* if this fails, the greater symbols get removed, and this error propagates *)
+          let%bind v = run_on_deferred_proof sym stern_eval in
           (* update the symbol environment to contain the result  *)
           let%bind () = modify (fun s -> { s with symbol_env = Timestamp.Map.add t v s.symbol_env }) in
           return v
       )
-      ~whnf:return (* may choose to work on deferred proofs here *)
+      ~whnf:return (* may optionally choose to work on deferred proofs here *)
   end
 
 and stern_eval_to_err (expr : E.t) : (Value.whnf, Err.t) result m =
@@ -223,21 +234,40 @@ and stern_eval_to_err (expr : E.t) : (Value.whnf, Err.t) result m =
   value. In the end, if we're being good, we can substitute all of the values through
   for the symbols.
 
-  I'm currently not handling errors properly. The propagate when they shouldn't.
+  I'm currently not handling errors properly. They propagate when they shouldn't.
 *)
 
-let rec loop (ev : (E.t, Value.whnf) Either.t) : Value.whnf m =
-  let%bind v =
-    match ev with
-    | First expr -> stern_eval expr
-    | Second v -> return v
-  in
+type t3 =
+  | Expr of E.t
+  | Value of Value.whnf
+  | Err of Err.t
+
+let rec loop (t : t3) : Value.whnf m =
+  match t with
+  | Expr expr -> begin
+    (* Working with an expression. Evaluate it sternly, and loop *)
+    match%bind stern_eval_to_err expr with
+    | Ok v -> loop (Value v)
+    | Error e -> loop (Err e)
+  end
+  | Value v -> work_on_deferred (return v)
+  | Err e -> work_on_deferred (fail e)
+
+(* I don't think finish even needs to be frozen *)
+and work_on_deferred (finish : Value.whnf m) : Value.whnf m =
   let%bind s = get in
   match Timestamp.Map.choose_opt s.pending_proofs with
-  | None -> return v
+  | None -> finish
   | Some (t, _) ->
-    let%bind _ = run_on_deferred_proof (VSymbol t) stern_eval in
-    loop (Second v)
+    (* Do some cleanup by running this timestamp *)
+    match%bind run_on_deferred_proof (VSymbol t) stern_eval_to_err with
+    | Ok v' ->
+      (* deferred proof evaluated. Put it into the map, and continue on looping *)
+      let%bind () = modify (fun s -> { s with symbol_env = Timestamp.Map.add t v' s.symbol_env }) in
+      work_on_deferred finish
+    | Error e -> work_on_deferred (fail e)
 
-let deval (_expr : E.t) : (Value.whnf, Err.t) result =
-  failwith "unimplemented"
+let deval (expr : E.t) : (Value.whnf, Err.t) result =
+  match run_on_empty (loop (Expr expr)) with
+  | Ok v, _ -> Ok v
+  | Error e, _ -> Error e
