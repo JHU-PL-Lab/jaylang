@@ -25,14 +25,13 @@ let erase (pgm : Bluejay.pgm) : Type_erased.pgm =
     | ETypeRefinement _
     | ETypeVariant _
     | ETypeIntersect _
+    | ETypeMu { var = _ ; params = [] ; body = _ }
     | ETypeUnit -> EUnit (* send all types to unit value *)
     (* parametrized type propagation *)
     | ETypeList 
     | ETypeSingle -> EFunction { param = Ast_tools.Reserved.catchall ; body = EUnit }
-    | ETypeMu { var ; params = [] ; body } -> (* is not a function, but may have a function body, so need to propagate *)
-      ELet { var ; defn = EUnit ; body = erase body }
-    | ETypeMu { var ; params ; body } -> (* has some parameters so is a function, and we can use let rec *)
-      ELetFunRec { funcs = [ FUntyped { func_id = var ; params ; defn = erase body } ] ; body = EVar var }
+    | ETypeMu { var = _ ; params ; body = _ } ->
+      EMultiArgFunction { params = List.map params ~f:(fun _ -> Ast_tools.Reserved.catchall) ; body = EUnit }
     (* remove types *)
     | ELetTyped { typed_var = { var ; _ } ; defn ; body ; _ } -> 
       ELet { var ; defn = erase defn ; body = erase body }
