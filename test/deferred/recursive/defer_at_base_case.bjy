@@ -1,0 +1,10 @@
+
+let id x = x
+
+let rec f x =
+  if x == 0
+  then 1 + defer 0 + defer 1 + defer 2 + defer 3
+  else id (f (x - 1))
+
+let n = 10000
+let result = f n

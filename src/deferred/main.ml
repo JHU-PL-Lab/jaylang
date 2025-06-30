@@ -273,7 +273,7 @@ and clean_up_deferred (finish : Value.whnf m) : Value.whnf m =
     | Error e -> clean_up_deferred (fail e)
 
 (* TODO: need to differentiate between diverge and other errors *)
-let deval (expr : E.t) : (Value.whnf, Err.t) result =
+let[@landmark] deval (expr : E.t) : (Value.whnf, Err.t) result =
   match run_on_empty (loop (Expr expr)) with
   | Ok v, _ -> Ok v
   | Error e, _ -> Error e

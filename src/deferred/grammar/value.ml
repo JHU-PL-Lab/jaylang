@@ -131,6 +131,10 @@ let rec to_string : type a. a v -> string = function
   | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
   | VSymbol _ -> "Timestamp"
 
+(* we promise here that it's not just whnf but it actually contains _no_ symbols *)
+(* let rec subst (v : t) ~(f : Timestamp.t -> whnf) : whnf =
+  failwith "unimplemented" *)
+
 module Error_msg = struct
   let project_non_record label v =
     Format.sprintf "Label %s not found in non-record/module `%s`" (RecordLabel.to_string label) (to_string v)

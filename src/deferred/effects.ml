@@ -47,14 +47,14 @@ type 'a m = {
   run : 'r. reject:(Err.t -> State.t -> 'r) -> accept:('a -> State.t -> 'r) -> Env.t -> State.t -> 'r
 }
 
-let bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
+let[@inline always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
   { run = fun ~reject ~accept e s ->
     x.run e s ~reject ~accept:(fun a s ->
       (f a).run ~accept ~reject e s
     )
   }
 
-let return (a : 'a) : 'a m =
+let[@inline always] return (a : 'a) : 'a m =
   { run = fun ~reject:_ ~accept _ s -> accept a s }
 
 
@@ -97,7 +97,7 @@ let diverge (p : Lang.Ast.Program_point.t) : 'a m =
 let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
   fail_at_time (fun t -> Err.XUnboundVariable (id, t))
 
-let handle_error (x : 'a m) (ok : 'a -> 'b m) (err : Err.t -> 'b m) : 'b m =
+let[@inline always] handle_error (x : 'a m) (ok : 'a -> 'b m) (err : Err.t -> 'b m) : 'b m =
   { run = fun ~reject ~accept e s ->
     x.run e s 
       ~reject:(fun a s ->
@@ -120,19 +120,19 @@ let read : Env.t m =
 let read_env : Value.env m =
   { run = fun ~reject:_ ~accept e s -> accept e.env s }
 
-let local (f : Env.t -> Env.t) (x : 'a m) : 'a m =
+let[@inline always] local (f : Env.t -> Env.t) (x : 'a m) : 'a m =
   { run = fun ~reject ~accept e s -> x.run ~reject ~accept (f e) s }
 
-let local_env (f : Value.env -> Value.env) : 'a m -> 'a m =
+let[@inline always] local_env (f : Value.env -> Value.env) : 'a m -> 'a m =
   local (fun e -> { e with env = f e.env })
 
-let fetch (id : Lang.Ast.Ident.t) : Value.t option m =
+let[@inline always] fetch (id : Lang.Ast.Ident.t) : Value.t option m =
   { run = fun ~reject:_ ~accept e s -> accept (Value.Env.find id e.env) s }
 
-let with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : 'a m) : 'a m =
+let[@inline always] with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : 'a m) : 'a m =
   local_env (Value.Env.add id v) x
 
-let with_program_point (p : Lang.Ast.Program_point.t) (x : 'a m) : 'a m =
+let[@inline always] with_program_point (p : Lang.Ast.Program_point.t) (x : 'a m) : 'a m =
   local (fun e -> { e with time = Timestamp.cons p e.time }) x
 
 let get_input (p : Lang.Ast.Program_point.t) : Value.t m =
@@ -147,7 +147,7 @@ let get_input (p : Lang.Ast.Program_point.t) : Value.t m =
 let get : State.t m =
   { run = fun ~reject:_ ~accept _ s -> accept s s }
 
-let modify (f : State.t -> State.t) : unit m =
+let[@inline always] modify (f : State.t -> State.t) : unit m =
   { run = fun ~reject:_ ~accept _ s -> accept () (f s) }
 
 let push_deferred_proof (symb : Value.symb) (work : Value.closure) : unit m =
@@ -167,7 +167,7 @@ let remove_greater_symbols (symb : Value.symb) : unit m =
     ; pending_proofs = Pending_proofs.cut symb s.pending_proofs }
   )
 
-let run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embedded.With_program_points.t -> 'a m) : 'a m =
+let[@inline always] run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embedded.With_program_points.t -> 'a m) : 'a m =
   let%bind closure = pop_deferred_proof symb in
   local (fun e ->
     (* sets concrete environment and the timestamp *)

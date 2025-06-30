@@ -1,0 +1,23 @@
+
+let id x = x
+
+let rec f x =
+  if x == 0
+  then 1 + defer 0 + defer 1 + defer 2 + defer 3
+  else defer (id (defer (f (x - 1))))
+
+let n = 1000 (* this is really slow! can we make it faster? *)
+
+(*
+  A reason it is slow is we evalate to a value (a symbol, really), and then must go
+  clean up all the work, which only takes one step. Some we're loading a TON of symbols.
+  It's all because I don't use any smart comparison on call stacks yet. But further, it 
+  indicates that maybe once we compute a value for a symbol, there's something better
+  than storing it in a big map.
+
+  It also motivates me to take an effectful approach to this stuff (and use hash sets),
+  but I wonder if that makes the concolic integration more difficult. That's why I have
+  not yet gone over to effects.
+*)
+
+let result = f n
