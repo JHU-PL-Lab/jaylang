@@ -1,0 +1,34 @@
+(***
+  (
+    (features (Polymorphic_types Mu_types Parametric_types First_class_types Variants Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(* freer monads already do hkt parameters with mu, but this simplifies it a bit *)
+
+(* the type `t f a` is passed to the type function `f` *)
+let tree = mu t f a.
+  | `Leaf of a
+  | `Node of f (t f a)
+
+(* the type function is `list`, which is a built-in type function *)
+let list_tree a = tree list a
+
+let rec concat a b =
+  match a with
+  | [] -> b
+  | hd :: tl -> hd :: concat tl b
+  end
+
+let rec flatten (type a) (t : list_tree a) : list a =
+  match t with
+  | `Leaf a -> [ a ]
+  | `Node ls ->
+    match ls with
+    | [] -> []
+    | hd :: tl -> concat (flatten a hd) (flatten a (`Node tl))
+    end
+  end
