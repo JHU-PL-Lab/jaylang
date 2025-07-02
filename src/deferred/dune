@@ -8,6 +8,7 @@
   lang
   utils
   baby
+  interp_common
  )
  (synopsis "Deferred evaluator on embedded-type programs")
  (inline_tests)

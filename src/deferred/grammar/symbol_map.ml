@@ -1,13 +1,13 @@
 
 open Core
 
-type t = Value.whnf Timestamp.Map.t
+type t = Value.whnf Stack_map.t
 
-let empty : t = Timestamp.Map.empty
+let empty : t = Stack_map.empty
 
 (*
   Cuts off all symbols at least as big as [t].
 *)
 let cut (Value.VSymbol t : Value.symb) (m : t) : t =
   Tuple3.get1
-  @@ Timestamp.Map.split t m
+  @@ Stack_map.split t m

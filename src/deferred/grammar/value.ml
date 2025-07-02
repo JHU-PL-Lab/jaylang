@@ -1,6 +1,7 @@
 
 open Core
 open Lang.Ast
+open Interp_common
 
 module E = Embedded.With_program_points (* the expressions we work over *)
 
@@ -37,7 +38,7 @@ type _ v =
   | VId : 'a ok v
   | VFrozen : closure -> 'a ok v
   | VUntouchable : t -> 'a ok v
-  | VSymbol : Timestamp.t -> 'a symbol v
+  | VSymbol : Callstack.t -> 'a symbol v
 
 and env = t Ident.Map.t
 
@@ -81,7 +82,7 @@ let split (type a b) (v : a v) ~(whnf : whnf -> b) ~(symb : symb -> b) : b =
   | VSymbol _ as x -> symb x
 
 
-let timestamp_of_symbol (VSymbol t : symb) : Timestamp.t =
+let timestamp_of_symbol (VSymbol t : symb) : Callstack.t =
   t
 
 (* returns binding if there is a matching pattern *)
@@ -129,10 +130,10 @@ let rec to_string : type a. a v -> string = function
     Format.sprintf "Table (%s)\n"
       (String.concat ~sep:" ; " @@ List.map ~f:(fun (k, v) -> Format.sprintf "(%s, %s)" (to_string k) (to_string v)) alist) *)
   | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
-  | VSymbol _ -> "Timestamp"
+  | VSymbol _ -> "Callstack"
 
 (* we promise here that it's not just whnf but it actually contains _no_ symbols *)
-(* let rec subst (v : t) ~(f : Timestamp.t -> whnf) : whnf =
+(* let rec subst (v : t) ~(f : Callstack.t -> whnf) : whnf =
   failwith "unimplemented" *)
 
 module Error_msg = struct

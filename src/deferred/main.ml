@@ -1,6 +1,7 @@
 
 open Core
 open Effects
+open Interp_common
 
 module E = Lang.Ast.Embedded.With_program_points
 
@@ -18,8 +19,16 @@ let rec eval (expr : E.t) : Value.t m =
   end
   | EId -> return VId
   (* inputs *)
-  | EPick_i { data = () ; point } -> get_input point
-  | EPick_b { data = () ; point = _ } -> failwith "need to handle bool input, TODO"
+  | EPick_i { data = () ; point } -> 
+    with_program_point point (
+      let%bind e = read in
+      get_input (Utils.Separate.I e.time)
+    )
+  | EPick_b { data = () ; point } ->
+    with_program_point point (
+      let%bind e = read in
+      get_input (Utils.Separate.B e.time)
+    )
   (* operations *)
   | EBinop { left ; binop ; right } -> begin
     let%bind a = stern_eval left in
@@ -150,7 +159,7 @@ let rec eval (expr : E.t) : Value.t m =
   (* deferal *)
   | EDefer { data = body ; point } ->
     let%bind e = read in
-    let symb = VSymbol (Timestamp.cons point e.time) in
+    let symb = VSymbol (Callstack.cons point e.time) in
     let%bind () = push_deferred_proof symb { body ; env = e.env } in
     return (cast_up symb)
   (* termination *)
@@ -209,14 +218,14 @@ and stern_eval (expr : E.t) : Value.whnf m =
     Value.split v
       ~symb:(fun ((VSymbol t) as sym) ->
         let%bind s = get in
-        match Timestamp.Map.find_opt t s.symbol_env with
+        match Stack_map.find_opt t s.symbol_env with
         | Some v -> return v
         | None -> 
           (* evaluate the deferred proof for this symbol *)
           (* if this fails, the greater symbols get removed, and this error propagates *)
           let%bind v = run_on_deferred_proof sym stern_eval in
           (* update the symbol environment to contain the result  *)
-          let%bind () = modify (fun s -> { s with symbol_env = Timestamp.Map.add t v s.symbol_env }) in
+          let%bind () = modify (fun s -> { s with symbol_env = Stack_map.add t v s.symbol_env }) in
           return v
       )
       ~whnf:return (* may optionally choose to work on deferred proofs here *)
@@ -261,14 +270,14 @@ let rec loop (t : t3) : Value.whnf m =
 
 and clean_up_deferred (finish : Value.whnf m) : Value.whnf m =
   let%bind s = get in
-  match Timestamp.Map.choose_opt s.pending_proofs with
+  match Stack_map.choose_opt s.pending_proofs with
   | None -> finish
   | Some (t, _) ->
     (* Do some cleanup by running this timestamp *)
     match%bind run_on_deferred_proof (VSymbol t) stern_eval_to_err with
     | Ok v' ->
       (* deferred proof evaluated. Put it into the map, and continue on looping *)
-      let%bind () = modify (fun s -> { s with symbol_env = Timestamp.Map.add t v' s.symbol_env }) in
+      let%bind () = modify (fun s -> { s with symbol_env = Stack_map.add t v' s.symbol_env }) in
       clean_up_deferred finish
     | Error e -> clean_up_deferred (fail e)
 

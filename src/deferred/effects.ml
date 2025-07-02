@@ -1,19 +1,29 @@
 
 open Core
+open Interp_common
 
 (* monad to handle all of the effects *)
 
+module Feeder = Input_feeder.Using_stackkey
+
 module Env = struct
+  type value = Value.t
+
   (* stuff to read from *)
   type t =
-    { time   : Timestamp.t
-    ; feeder : Input_feeder.t
+    { time   : Callstack.t
+    ; feeder : Feeder.t
     ; env    : Value.env }
 
   let empty : t =
-    { time = Timestamp.zero
-    ; feeder = Input_feeder.zero
+    { time = Callstack.empty
+    ; feeder = Feeder.zero
     ; env = Lang.Ast.Ident.Map.empty }
+
+  let fetch : Lang.Ast.Ident.t -> t -> Value.t option =
+    fun id e ->
+      Value.Env.find id e.env
+
 end
 
 (*
@@ -80,19 +90,19 @@ let run_on_empty (x : 'a m) : ('a, Err.t) result * State.t =
 let fail (e : Err.t) : 'a m =
   { run = fun ~reject ~accept:_ _ s -> reject e s }
 
-let fail_at_time (err : Timestamp.t -> Err.t) : 'a m =
+let fail_at_time (err : Callstack.t -> Err.t) : 'a m =
   { run = fun ~reject ~accept:_ e s -> 
     reject (err e.time) s
   }
 
 let abort (msg : string) (p : Lang.Ast.Program_point.t) : 'a m =
-  fail_at_time (fun t -> Err.XAbort (msg, Timestamp.cons p t))
+  fail_at_time (fun t -> Err.XAbort (msg, Callstack.cons p t))
 
 let type_mismatch (msg : string) : 'a m =
   fail_at_time (fun t -> Err.XTypeMismatch (msg, t))
 
 let diverge (p : Lang.Ast.Program_point.t) : 'a m =
-  fail_at_time (fun t -> Err.XDiverge (Timestamp.cons p t))
+  fail_at_time (fun t -> Err.XDiverge (Callstack.cons p t))
 
 let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
   fail_at_time (fun t -> Err.XUnboundVariable (id, t))
@@ -133,10 +143,15 @@ let[@inline always] with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : 'a m
   local_env (Value.Env.add id v) x
 
 let[@inline always] with_program_point (p : Lang.Ast.Program_point.t) (x : 'a m) : 'a m =
-  local (fun e -> { e with time = Timestamp.cons p e.time }) x
+  local (fun e -> { e with time = Callstack.cons p e.time }) x
 
-let get_input (p : Lang.Ast.Program_point.t) : Value.t m =
-  { run = fun ~reject:_ ~accept e s -> accept (Value.VInt (e.feeder (Timestamp.cons p e.time))) s }
+let get_input (type a) (key : a Key.Stackkey.t) : Value.t m =
+  { run = fun ~reject:_ ~accept e s -> 
+    let v = e.feeder.get key in
+    match key with
+    | I _ -> accept (Value.VInt v) s
+    | B _ -> accept (Value.VBool v) s
+  }
 
 (*
   -----
@@ -181,5 +196,5 @@ let[@inline always] run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embe
 *)
 
 let lookup (Value.VSymbol t : Value.symb) : Value.whnf option m =
-  { run = fun ~reject:_ ~accept _ s -> accept (Timestamp.Map.find_opt t s.symbol_env) s }
+  { run = fun ~reject:_ ~accept _ s -> accept (Stack_map.find_opt t s.symbol_env) s }
 
