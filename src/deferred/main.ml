@@ -160,9 +160,9 @@ let rec eval (expr : E.t) : Value.t m =
   (* termination *)
   | EDiverge { data = () ; point } -> diverge point
   | EAbort { data = msg ; point } -> abort msg point
-  (* unhandled and currently ignored *)
-  | EDet expr
-  | EEscapeDet expr -> eval expr (* it is fine to ignore these and just eval what's inside for now *)
+  (* determinism stuff *)
+  | EDet expr -> with_incr_depth (eval expr)
+  | EEscapeDet expr -> with_escaped_det (eval expr)
   (* unhandled and currently aborting -- okay to ignore for now because these are uncommon *)
   | EIntensionalEqual _ -> failwith "unhandled intensional equality in deferred evaluation"
   | ETable
