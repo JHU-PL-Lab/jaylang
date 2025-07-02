@@ -10,7 +10,7 @@
 (executable
  (name interp)
  (modules interp)
- (libraries core lang translate)
+ (libraries core interpreter lang translate)
  (promote
   (until-clean)
   (into "../..")))

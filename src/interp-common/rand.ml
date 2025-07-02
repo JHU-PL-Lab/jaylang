@@ -1,6 +1,11 @@
 
 open Core
 
+(*
+ I should pass around instances of random number generators. 
+ And also have a functor to pre-seed a module with such a generator.
+*)
+
 let seed =
   String.fold "jhu-pl-lab" ~init:0 ~f:(fun acc c -> Char.to_int c + acc)
 

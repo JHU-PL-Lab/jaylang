@@ -1,0 +1,16 @@
+(include_subdirs unqualified)
+
+(library
+ (name interpreter)
+ (public_name jay.interpreter)
+ (libraries
+  core
+  utils
+  lang
+  interp_common
+  )
+ (synopsis "Concrete interpreter for the Jaylang project")
+ (inline_tests)
+ (instrumentation
+  (backend landmarks))
+ (preprocess (pps ppx_compare ocaml-monadic landmarks-ppx --auto)))

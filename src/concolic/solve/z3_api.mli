@@ -17,10 +17,6 @@
     The behavior here is used by [Solve] and [Expression] in a
     sort of layered architecture. Any solving done by the concolic
     evaluator is through those modules.
-
-  Dependencies:
-    Stepkey -- identifies the symbolic variables
-
 *)
 
 module type S = sig
@@ -28,8 +24,8 @@ module type S = sig
 
   include Overlays.Typed_z3.S with type model := model
 
-  val var_of_key : 'a Stepkey.t -> 'a t
-  val value_of_key : model -> 'a Stepkey.t -> 'a option
+  val var_of_key : 'a Interp_common.Key.Stepkey.t -> 'a t
+  val value_of_key : model -> 'a Interp_common.Key.Stepkey.t -> 'a option
 end
 
 module Make () : S

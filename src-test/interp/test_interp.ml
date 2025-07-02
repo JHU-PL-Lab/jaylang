@@ -1,6 +1,7 @@
 open Core
 open Lang
 open Utils
+open Interpreter
 
 (*
   This just runs some acceptance tests on the interpreter. We

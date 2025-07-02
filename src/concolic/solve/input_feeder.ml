@@ -1,27 +1,7 @@
 
 open Core
 
-type t = { get : 'a. 'a Stepkey.t -> 'a } [@@unboxed]
-
-let zero : t =
-  { get = 
-    let f (type a) (key : a Stepkey.t) : a =
-      match key with
-      | I _ -> 0
-      | B _ -> false
-    in
-    f
-  }
-
-let default : t =
-  { get = 
-    let f (type a) (key : a Stepkey.t) : a =
-      match key with
-      | I _ -> C_random.int_incl (-10) 10
-      | B _ -> C_random.bool ()
-    in
-    f
-  }
+include Interp_common.Input_feeder.Using_stepkey
 
 module Make (Z : Z3_api.S) = struct
   let from_model_and_subs (model : Z.model) (subs : Expression.Subst.t list) : t =

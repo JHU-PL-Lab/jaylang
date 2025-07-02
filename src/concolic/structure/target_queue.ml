@@ -28,7 +28,7 @@ module Uniform = struct
     Options.Arrow.arrow (fun () -> empty)
 
   let push_one (q : t) (target : Target.t) : t =
-    Q.push target (C_random.any_pos_int ()) q
+    Q.push target (Interp_common.Rand.any_pos_int ()) q
 
   let push_list (q : t) (ls : Target.t list) : t =
     List.fold ls ~init:q ~f:push_one
@@ -115,7 +115,7 @@ module Merge (P : S) (Q : S) : S = struct
     P.remove p target, Q.remove q target
 
   let peek ((p, q) : t) : Target.t option =
-    if C_random.bool ()
+    if Interp_common.Rand.bool ()
     then
       match P.peek p with
       | None -> Q.peek q
