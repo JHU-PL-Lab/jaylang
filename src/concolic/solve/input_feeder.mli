@@ -12,17 +12,9 @@
     
   Dependencies:
     Z3_api -- the source of the model
-    Stepkey -- how to identify which input is desired
 *)
 
-type t = { get : 'a. 'a Stepkey.t -> 'a } [@@unboxed]
-(** [t] gets an input to go for the clause with the provided key. *)
-
-val zero : t
-(** [zero] is 0 or false. *)
-
-val default : t
-(** [default] is random in -10, 10 inclusive or a random bool. *)
+include module type of Interp_common.Input_feeder.Using_stepkey
 
 module Make (Z : Z3_api.S) : sig
   val from_model_and_subs : Z.model -> Expression.Subst.t list -> t

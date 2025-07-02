@@ -1,0 +1,26 @@
+(***
+  (
+    (features (Polymorphic_types Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+let cons = mu t f a.
+  | `Nil of unit
+  | `Cons of f t a (* passes self as hkt parameter *)
+
+let item = mu t f a.
+  { hd : a ; tl : f t a } (* passes self as hkt parameter *)
+
+(* home brewed list type *)
+let ls a = cons item a
+
+let rec fold (type a acc) (lst : ls a) (init : acc) (f : acc -> a -> acc) : acc =
+  match lst with
+  | `Nil _ -> init (* I accidentally wrote acc here instead of init. Honest error I could add as a test *)
+  | `Cons r ->
+    fold a acc r.tl (f init r.hd) f
+  end
+

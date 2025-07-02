@@ -284,10 +284,11 @@ module Constrain (C : sig type constrain end) (Store : STORE) (Cell : CELL) (V :
   let to_string = M.to_string
 
   module Env = struct
+    type value = T.t
     type t = C.constrain M.Env.t
     let empty : t = M.Env.empty
-    let add : Ident.t -> T.t -> t -> t = M.Env.add
-    let fetch : Ident.t -> t -> T.t option = M.Env.fetch
+    let add : Ident.t -> value -> t -> t = M.Env.add
+    let fetch : Ident.t -> t -> value option = M.Env.fetch
   end
 end
 

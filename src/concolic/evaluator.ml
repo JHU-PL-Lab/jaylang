@@ -176,10 +176,10 @@ let eval_exp
     (* Inputs *)
     | EPick_i () ->
       let%bind () = assert_nondeterminism in
-      get_input (Stepkey.I step)
+      get_input (Utils.Separate.I step) (* Wish Stepkey.I was a valid path... *)
     | EPick_b () ->
       let%bind () = assert_nondeterminism in
-      get_input (Stepkey.B step)
+      get_input (Utils.Separate.B step)
     (* Tables -- includes some branching *)
     | ETable -> return (VTable { alist = [] })
     | ETblAppl { tbl ; gen ; arg } -> begin
@@ -275,7 +275,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
 
   let eval : Embedded.t -> Status.Terminal.t P.t =
     fun e ->
-      if not O.r.random then C_random.reset ();
+      if not O.r.random then Interp_common.Rand.reset ();
       P.with_timeout O.r.global_timeout_sec @@ fun () ->
       let module I = Semantics.Initialize (struct
         let c =

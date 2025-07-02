@@ -1,6 +1,8 @@
 
 open Core
 
+module Key = Interp_common.Key.Stepkey
+
 module Const = struct
   type _ t =
     | I : int -> int t
@@ -85,7 +87,7 @@ end
 type _ t =
   | Const : 'a Const.t -> 'a t
   (* The following constructors form abstract expressions *)
-  | Key : 'a Stepkey.t -> 'a t
+  | Key : 'a Key.t -> 'a t
   | Not : bool t -> bool t
   | Binop : ('a * 'a * 'b) Typed_binop.t * 'a t * 'a t -> 'b t
 
@@ -109,7 +111,7 @@ let rec equal : type a. a t -> a t -> bool =
   fun x y ->
     match x, y with
     | Const c1, Const c2 -> Const.equal c1 c2
-    | Key k1, Key k2 -> Stepkey.equal k1 k2
+    | Key k1, Key k2 -> Key.equal k1 k2
     | Not e1, Not e2 -> equal e1 e2
     | Binop (op1, l1, r1), Binop (op2, l2, r2) -> begin
       match op1, op2 with
@@ -140,16 +142,16 @@ let op (type a b) (left : a t) (right : a t) (binop : (a * a * b) Typed_binop.t)
   | Const B b, e, Or -> if b then Const (B true) else e
   | e, Const B b, Or -> if b then Const (B true) else e (* .. *)
   | Const cx, Const cy, _ -> Const (Typed_binop.to_arithmetic binop cx cy)
-  | Key k1, Key k2, Equal_bool when Stepkey.equal k1 k2 -> Const (B true)
-  | Key k1, Key k2, Equal_int when Stepkey.equal k1 k2 -> Const (B true)
-  | Key k1, Key k2, Not_equal when Stepkey.equal k1 k2 -> Const (B false)
+  | Key k1, Key k2, Equal_bool when Key.equal k1 k2 -> Const (B true)
+  | Key k1, Key k2, Equal_int when Key.equal k1 k2 -> Const (B true)
+  | Key k1, Key k2, Not_equal when Key.equal k1 k2 -> Const (B false)
   | Key k, Const B true, Equal_bool -> Key k
   | Const B true, Key k, Equal_bool -> Key k
   | Key k, Const B false, Equal_bool -> not_ (Key k)
   | Const B false, Key k, Equal_bool -> not_ (Key k)
   | _ -> Binop (binop, left, right)
 
-let rec subst : type a b. a t -> b Stepkey.t -> b Const.t -> a t =
+let rec subst : type a b. a t -> b Key.t -> b Const.t -> a t =
   fun e k c ->
     match e with
     | Key k' -> begin
@@ -163,9 +165,9 @@ let rec subst : type a b. a t -> b Stepkey.t -> b Const.t -> a t =
     | Binop (bop, e1, e2) -> op (subst e1 k c) (subst e2 k c) bop
 
 module Subst = Utils.Pack.Make (struct
-  type 'a t = 'a Stepkey.t * 'a
+  type 'a t = 'a Key.t * 'a
   let compare compare_a (k1, a1) (k2, a2) =
-    match Stepkey.compare k1 k2 with
+    match Key.compare k1 k2 with
     | 0 -> compare_a a1 a2
     | c -> c
 end)
@@ -204,7 +206,7 @@ let is_trivial (e : bool t) : [ `Trivial of Subst.t | `Nontrivial | `Const of bo
   | _ -> `Nontrivial
 
 let[@landmark] simplify (ls : bool t list) : Subst.t list * bool t list =
-  let sub_list : type a b. a t list -> b Stepkey.t -> b -> a t list =
+  let sub_list : type a b. a t list -> b Key.t -> b -> a t list =
     fun l k v ->
       match k with
       | I _ -> List.map l ~f:(fun e -> subst e k (I v))

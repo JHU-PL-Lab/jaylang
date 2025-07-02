@@ -20,14 +20,14 @@ let interp =
   in
   match mode with
   | `Type_erased -> Core.Fn.const () @@
-    Lang.Interp.eval_pgm @@ Translate.Convert.bjy_to_erased pgm
+    Interpreter.Interp.eval_pgm @@ Translate.Convert.bjy_to_erased pgm
   | `Bluejay -> Core.Fn.const () @@
-    Lang.Interp.eval_pgm pgm
+    Interpreter.Interp.eval_pgm pgm
   | `Desugared -> Core.Fn.const () @@
     (* Type splaying not allowed if the program is being interpretted in desugared mode *)
-    Lang.Interp.eval_pgm @@ Translate.Convert.bjy_to_des pgm ~do_type_splay:false
+    Interpreter.Interp.eval_pgm @@ Translate.Convert.bjy_to_des pgm ~do_type_splay:false
   | `Embedded -> Core.Fn.const () @@
-    Lang.Interp.eval_pgm @@ Translate.Convert.bjy_to_emb pgm ~do_wrap ~do_type_splay
+    Interpreter.Interp.eval_pgm @@ Translate.Convert.bjy_to_emb pgm ~do_wrap ~do_type_splay
 
 let () = 
   exit @@ Cmd.eval interp

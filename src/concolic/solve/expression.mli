@@ -13,7 +13,6 @@
 
   Dependencies:
     Z3_api -- is the destination of expressions
-    Stepkey -- keys represent unconstrained symbolic inputs
 *)
 
 module Typed_binop : sig
@@ -57,7 +56,7 @@ val const_int : int -> int t
 val const_bool : bool -> bool t
 (** [const_bool b] is the constant expression representing the constant bool [b]. *)
 
-val key : 'a Stepkey.t -> 'a t
+val key : 'a Interp_common.Key.Stepkey.t -> 'a t
 (** [key k] is a symbolic expression for the key [k]. *)
 
 val not_ : bool t -> bool t
@@ -71,7 +70,7 @@ val equal : 'a t -> 'a t -> bool
 (** [equal e1 e2] is true if and only if the expressions [e1] and [e2] are structurally
     equivalent. E.g. [x + 1] is not equivalent to [1 + x]. *)
 
-module Subst : Utils.Pack.S with type 'a x := 'a Stepkey.t * 'a
+module Subst : Utils.Pack.S with type 'a x := 'a Interp_common.Key.Stepkey.t * 'a
 (** [Subst] specifies that in the solution to some expressions, the key
     should be replaced with the value. *)
 

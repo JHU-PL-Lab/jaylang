@@ -8,5 +8,6 @@
   alcotest-lwt
   metadata
   lang
+  interpreter
   translate
  ))

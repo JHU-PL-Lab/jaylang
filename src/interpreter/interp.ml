@@ -10,14 +10,14 @@
 *)
 
 open Core
-open Ast
-open Expr
-open Ast_tools.Exceptions
+open Lang.Ast
+open Lang.Ast.Expr
+open Lang.Ast_tools.Exceptions
 
-module V = Value.Make (Value.Map_store) (Value.Lazy_cell) (Utils.Identity)
+module V = Lang.Value.Make (Lang.Value.Map_store) (Lang.Value.Lazy_cell) (Utils.Identity)
 open V
 
-module CPS_Error_M (Env : Interp_monad.ENV) = struct
+module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
   (* State tracks step count *)
   module State = Int 
   let max_step = Int.(10 ** 6)
@@ -38,7 +38,7 @@ module CPS_Error_M (Env : Interp_monad.ENV) = struct
       Unbound_variable id
   end
 
-  include Interp_monad.Make (State) (Env) (Err)
+  include Interp_common.Effects.Make (State) (Env) (Err)
 
   let abort (type a) (msg : string) : a m =
     fail @@ Err.Abort msg
@@ -69,7 +69,7 @@ module CPS_Error_M (Env : Interp_monad.ENV) = struct
       fun ~reject ~accept s _ ->
         let step = s + 1 in
         if step > max_step
-        then reject Reached_max_step
+        then reject Reached_max_step step
         else accept () step
     }
 end
@@ -214,7 +214,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         Env.add var (VTypeMu { var ; params ; closure = { body ; env = rec_env } }) env
       )
       in
-      local_env (fun _ -> force rec_env) (eval (Ast_tools.Utils.abstract_over_ids params (EVar var)))
+      local_env (fun _ -> force rec_env) (eval (Lang.Ast_tools.Utils.abstract_over_ids params (EVar var)))
     (* operations *)
     | EListCons (e_hd, e_tl) -> begin
       let%bind hd = eval e_hd in
@@ -303,8 +303,8 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%bind env = read_env in
       let rec rec_env = lazy (
         List.fold funcs ~init:env ~f:(fun acc fsig ->
-          let comps = Ast_tools.Funsig.to_components fsig in
-          match Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
+          let comps = Lang.Ast_tools.Funsig.to_components fsig in
+          match Lang.Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
           | EFunction { param ; body } -> 
             Env.add comps.func_id (VFunClosure { param ; closure = { body ; env = rec_env } }) acc
           | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
@@ -314,8 +314,8 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       local_env (fun _ -> force rec_env) (eval body)
     end
     | ELetFun { func ; body = body' } -> begin
-      let comps = Ast_tools.Funsig.to_components func in
-      Ast_tools.Utils.abstract_over_ids comps.params comps.defn
+      let comps = Lang.Ast_tools.Funsig.to_components func in
+      Lang.Ast_tools.Utils.abstract_over_ids comps.params comps.defn
       |> function
         | EFunction { param ; body } ->
           local_env (fun env ->
@@ -377,8 +377,8 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
             )
           | SFun fsig :: tl -> begin
             let%bind acc = acc_m in
-            let comps = Ast_tools.Funsig.to_components fsig in
-            match Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
+            let comps = Lang.Ast_tools.Funsig.to_components fsig in
+            match Lang.Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
             | EFunction { param ; body } ->
               let%bind env = read_env in
               let v = VFunClosure { param ; closure = { body ; env = lazy env } } in
@@ -389,11 +389,11 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
           end
           | SFunRec fsigs :: tl ->
             let%bind acc = acc_m in
-            let func_comps = List.map fsigs ~f:Ast_tools.Funsig.to_components in
+            let func_comps = List.map fsigs ~f:Lang.Ast_tools.Funsig.to_components in
             let%bind env = read_env in
             let rec rec_env = lazy (
               List.fold func_comps ~init:env ~f:(fun acc comps ->
-                match Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
+                match Lang.Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
                 | EFunction { param ; body } -> 
                   let v = VFunClosure { param ; closure = { body ; env = rec_env } } in
                   Env.add comps.func_id v acc
@@ -416,8 +416,9 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
   in
 
   (run (eval e) 0 Read.empty)
+  |> Tuple2.get1 (* discard resulting state *)
   |> function
-    | Ok (r, _) -> Format.printf "OK:\n  %s\n" (V.to_string r); r
+    | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
     | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
     | Error Abort msg -> Format.printf "FOUND ABORT %s\n" msg; VAbort
     | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge

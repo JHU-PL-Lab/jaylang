@@ -13,9 +13,6 @@
     of the entire concolic algorithm.
 
     GADTs and polymorphic variants are used for subtyping and reuse.
-
-  Dependencies:
-    Input -- in order to convey how to hit an abort of type mismatch
 *)
 
 (* The following types are just constraints to use in the GADT. *)
@@ -23,9 +20,9 @@ type 'a terminal = 'a constraint 'a = [ `Terminal ]
 type 'a eval = 'a constraint 'a = [ `Eval ]
 
 type _ t =
-  | Found_abort : Input.t list * string -> 'a t
-  | Type_mismatch : Input.t list * string -> 'a t
-  | Unbound_variable : Input.t list * Lang.Ast.Ident.t -> 'a t
+  | Found_abort : Interp_common.Input.t list * string -> 'a t
+  | Type_mismatch : Interp_common.Input.t list * string -> 'a t
+  | Unbound_variable : Interp_common.Input.t list * Lang.Ast.Ident.t -> 'a t
 
   (* result from entire concolic evaluation *)
   | Exhausted_full_tree : 'a terminal t
