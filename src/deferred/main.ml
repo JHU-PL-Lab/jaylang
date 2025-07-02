@@ -1,7 +1,6 @@
 
 open Core
 open Effects
-open Interp_common
 
 module E = Lang.Ast.Embedded.With_program_points
 
@@ -12,21 +11,17 @@ let rec eval (expr : E.t) : Value.t m =
   | EUnit -> return VUnit
   | EInt i -> return (VInt i)
   | EBool b -> return (VBool b)
-  | EVar id -> begin
-    match%bind fetch id with
-    | Some v -> return v
-    | None -> unbound_variable id
-  end
+  | EVar id -> fetch id
   | EId -> return VId
   (* inputs *)
   | EPick_i { data = () ; point } -> 
     with_program_point point (
-      let%bind e = read in
+      let%bind e = read_env in
       get_input (Utils.Separate.I e.time)
     )
   | EPick_b { data = () ; point } ->
     with_program_point point (
-      let%bind e = read in
+      let%bind e = read_env in
       get_input (Utils.Separate.B e.time)
     )
   (* operations *)
@@ -65,7 +60,7 @@ let rec eval (expr : E.t) : Value.t m =
     | v -> type_mismatch @@ Error_msg.project_non_record label v
   end
   (* control flow / branches *)
-  | EMatch { subject  ; patterns  } -> begin
+  | EMatch { subject ; patterns  } -> begin
     let%bind v = stern_eval subject in
     match
       List.find_map patterns ~f:(fun (pat, body) ->
@@ -97,10 +92,10 @@ let rec eval (expr : E.t) : Value.t m =
   end
   (* closures and applications *)
   | EFunction { param  ; body } ->
-    let%bind env = read_env in
+    let%bind { env ; _ } = read_env in
     return (VFunClosure { param ; closure = { body ; env }})
   | EFreeze body ->
-    let%bind env = read_env in
+    let%bind { env ; _ } = read_env in
     return (VFrozen { body ; env })
   | ELet { var ; defn ; body } ->
     let%bind v = eval defn in
@@ -158,8 +153,8 @@ let rec eval (expr : E.t) : Value.t m =
     return (VUntouchable v)
   (* deferal *)
   | EDefer { data = body ; point } ->
-    let%bind e = read in
-    let symb = VSymbol (Callstack.cons point e.time) in
+    let%bind e = read_env in
+    let symb = VSymbol (Interp_common.Callstack.cons point e.time) in
     let%bind () = push_deferred_proof symb { body ; env = e.env } in
     return (cast_up symb)
   (* termination *)

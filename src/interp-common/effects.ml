@@ -63,12 +63,11 @@ end) = struct
     let%bind { env ; _ } = read in
     return env
 
-  let[@inline always][@specialise] local (f : Read.t -> Read.t) (x : 'a m) : 'a m =
+  let[@inline always][@specialise] local_read (f : Read.t -> Read.t) (x : 'a m) : 'a m =
     { run = fun ~reject ~accept s r -> x.run ~reject ~accept s (f r) }
 
-  let[@inline always][@specialise] local_env (f : Env.t -> Env.t) (x : 'a m) : 'a m =
-    local (fun r -> { r with env = f r.env }) x
-
+  let[@inline always][@specialise] local (f : Env.t -> Env.t) (x : 'a m) : 'a m =
+    local_read (fun r -> { r with env = f r.env }) x
   (*
     -----
     STATE
@@ -97,6 +96,17 @@ end) = struct
     let%bind state = get in
     fail @@ f state
 
+  let[@inline always] handle_error (x : 'a m) (ok : 'a -> 'b m) (err : Err.t -> 'b m) : 'b m =
+    { run = fun ~reject ~accept s e ->
+      x.run s e 
+        ~reject:(fun a s ->
+          (err a).run ~reject ~accept s e
+        )
+        ~accept:(fun a s ->
+          (ok a).run ~reject ~accept s e
+        )
+  }
+
   (*
     ------------------
     ESCAPING THE MONAD
@@ -113,7 +123,7 @@ end) = struct
   *)
 
   let[@inline always][@specialise] with_incr_depth (x : 'a m) : 'a m =
-    local (fun r -> { r with det_depth =
+    local_read (fun r -> { r with det_depth =
       match r.det_depth with
       | `Escaped -> `Escaped
       | `Depth i -> `Depth (i + 1)
@@ -121,7 +131,7 @@ end) = struct
     ) x
 
   let[@inline always][@specialise] with_escaped_det (x : 'a m) : 'a m =
-    local (fun r -> { r with det_depth = `Escaped}) x
+    local_read (fun r -> { r with det_depth = `Escaped}) x
 
   let assert_nondeterminism : unit m =
     let%bind r = read in

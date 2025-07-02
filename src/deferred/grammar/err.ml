@@ -13,4 +13,3 @@ let to_string : t -> string = function
   | XAbort (s, t) -> Format.sprintf "Abort at time %s: %s" (Callstack.to_string t) s
   | XDiverge t -> Format.sprintf "Diverge at time %s" (Callstack.to_string t)
   | XUnboundVariable (id, t) -> Format.sprintf "Unbound variable at time %s: %s" (Callstack.to_string t) (Ident.to_string id)
-

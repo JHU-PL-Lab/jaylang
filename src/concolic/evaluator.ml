@@ -56,7 +56,7 @@ let eval_exp
     end
     | EThaw e_frozen -> begin
       match%bind eval e_frozen with
-      | VFrozen { body ; env } -> local_env (fun _ -> env) (eval body)
+      | VFrozen { body ; env } -> local (fun _ -> env) (eval body)
       | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
     end
     | ERecord record_body ->
@@ -75,7 +75,7 @@ let eval_exp
           | SUntyped { var ; defn } :: tl ->
             let%bind acc = acc_m in
             let%bind v = eval defn in
-            local_env (Env.add var v) (
+            local (Env.add var v) (
               fold_stmts (return @@ Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v) tl
             )
         in
@@ -97,19 +97,19 @@ let eval_exp
           | None -> None
         )
       with
-      | Some (e, f) -> local_env f (eval e)
+      | Some (e, f) -> local f (eval e)
       | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v
     end
     | ELet { var ; defn ; body } ->
       let%bind v = eval defn in
-      local_env (Env.add var v) (eval body)
+      local (Env.add var v) (eval body)
     | EAppl { func ; arg } -> begin
       let%bind vfunc = eval func in
       match vfunc with
       | VId -> eval arg
       | VFunClosure { param ; closure } ->
         let%bind varg = eval arg in
-        local_env (fun _ -> Env.add param varg closure.env) (eval closure.body)
+        local (fun _ -> Env.add param varg closure.env) (eval closure.body)
       | _ -> type_mismatch @@ Error_msg.bad_appl vfunc
     end
     (* Operations -- build new expressions *)

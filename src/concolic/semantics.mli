@@ -41,8 +41,8 @@ module M : sig
   (** [fetch id] is the value in the environment to which [id] maps, or a monadic error
       if [id] is unbound. *)
   
-  val local_env : (Value.Env.t -> Value.Env.t) -> 'a m -> 'a m
-  (** [local_env f m] runs [m] under the local environment transformed by [f]. *)
+  val local : (Value.Env.t -> Value.Env.t) -> 'a m -> 'a m
+  (** [local f m] runs [m] under the local environment transformed by [f]. *)
 
   val read_env : Value.Env.t m
   (** [read_env] is the environment. *)

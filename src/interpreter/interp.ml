@@ -176,7 +176,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | EThaw e ->
       let%bind v_frozen = eval e in
       let%orzero (VFrozen { body = e_frozen ; env = lazy env }) = v_frozen in
-      local_env (fun _ -> env) (eval e_frozen)
+      local (fun _ -> env) (eval e_frozen)
     | EGen e ->
       let%bind _ : a V.t = eval e in
       return VAbort
@@ -189,15 +189,15 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%bind arg = eval arg in
       match vfunc with
       | VFunClosure { param ; closure = { body ; env = lazy env } } ->
-        local_env (fun _ -> Env.add param arg env) (eval body)
+        local (fun _ -> Env.add param arg env) (eval body)
       | VId -> return arg
       | VMultiArgFunClosure { params ; closure = { body ; env = lazy env }} -> begin
         match params with
         | [] -> type_mismatch ()
         | [ param ] ->
-          local_env (fun _ -> Env.add param arg env) (eval body)
+          local (fun _ -> Env.add param arg env) (eval body)
         | param :: params ->
-          local_env (fun _ -> Env.add param arg env) (eval (EMultiArgFunction { params ; body }))
+          local (fun _ -> Env.add param arg env) (eval (EMultiArgFunction { params ; body }))
         end
       | VTypeSingleFun -> return (VTypeSingle arg)
       | VTypeListFun -> return (VTypeList arg)
@@ -214,7 +214,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         Env.add var (VTypeMu { var ; params ; closure = { body ; env = rec_env } }) env
       )
       in
-      local_env (fun _ -> force rec_env) (eval (Lang.Ast_tools.Utils.abstract_over_ids params (EVar var)))
+      local (fun _ -> force rec_env) (eval (Lang.Ast_tools.Utils.abstract_over_ids params (EVar var)))
     (* operations *)
     | EListCons (e_hd, e_tl) -> begin
       let%bind hd = eval e_hd in
@@ -287,7 +287,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
           | None -> None
         )
       in
-      local_env f (eval e)
+      local f (eval e)
     | ECase { subject ; cases ; default } -> begin
       let%bind v = eval subject in
       let%orzero VInt i = v in
@@ -311,14 +311,14 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
         )
       )
       in
-      local_env (fun _ -> force rec_env) (eval body)
+      local (fun _ -> force rec_env) (eval body)
     end
     | ELetFun { func ; body = body' } -> begin
       let comps = Lang.Ast_tools.Funsig.to_components func in
       Lang.Ast_tools.Utils.abstract_over_ids comps.params comps.defn
       |> function
         | EFunction { param ; body } ->
-          local_env (fun env ->
+          local (fun env ->
             Env.add comps.func_id (VFunClosure { param ; closure = { body ; env = lazy env } }) env
           ) (eval body')
         | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
@@ -349,7 +349,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
 
     and eval_let (var : Ident.t) ~(defn : a Expr.t) ~(body : a Expr.t) : a V.t m =
       let%bind v = eval defn in
-      local_env (Env.add var v) (eval body)
+      local (Env.add var v) (eval body)
 
     and eval_record_body (record_body : a Expr.t RecordLabel.Map.t) : a V.t RecordLabel.Map.t m =
       Map.fold record_body ~init:(return RecordLabel.Map.empty) ~f:(fun ~key ~data:e acc_m ->
@@ -366,13 +366,13 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
           | SUntyped { var ; defn } :: tl ->
             let%bind acc = acc_m in
             let%bind v = eval defn in
-            local_env (Env.add var v) (
+            local (Env.add var v) (
               fold_stmts (return (Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v)) tl
             )
           | STyped { typed_var = { var ; _ } ; defn ; _ } :: tl ->
             let%bind acc = acc_m in
             let%bind v = eval defn in
-            local_env (Env.add var v) (
+            local (Env.add var v) (
               fold_stmts (return (Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v)) tl
             )
           | SFun fsig :: tl -> begin
@@ -382,7 +382,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
             | EFunction { param ; body } ->
               let%bind env = read_env in
               let v = VFunClosure { param ; closure = { body ; env = lazy env } } in
-              local_env (Env.add comps.func_id v) (
+              local (Env.add comps.func_id v) (
                 fold_stmts (return (Map.set acc ~key:(RecordLabel.RecordLabel comps.func_id) ~data:v)) tl
               )
             | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
@@ -408,7 +408,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
                 )
               )
             in
-            local_env (fun _ -> force rec_env) (fold_stmts (return m) tl )
+            local (fun _ -> force rec_env) (fold_stmts (return m) tl )
         in
         fold_stmts (return RecordLabel.Map.empty) stmts
       in

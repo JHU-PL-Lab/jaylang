@@ -6,6 +6,12 @@ open Interp_common
 
 module Feeder = Input_feeder.Using_stackkey
 
+(*
+  It can be a little confusing here because the thing we
+  read from is not just the interpreter environment but
+  also some other stuff. So note that `Env` is not only
+  the interpreter's environment.
+*)
 module Env = struct
   type value = Value.t
 
@@ -23,7 +29,6 @@ module Env = struct
   let fetch : Lang.Ast.Ident.t -> t -> Value.t option =
     fun id e ->
       Value.Env.find id e.env
-
 end
 
 (*
@@ -47,26 +52,13 @@ module State = struct
   (* If we end up logging inputs, then I'll just add a label to the state and cons them there *)
 end
 
-(*
-  ------
-  BASICS
-  ------
-*)
-
-type 'a m = {
-  run : 'r. reject:(Err.t -> State.t -> 'r) -> accept:('a -> State.t -> 'r) -> Env.t -> State.t -> 'r
-}
-
-let[@inline always] bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
-  { run = fun ~reject ~accept e s ->
-    x.run e s ~reject ~accept:(fun a s ->
-      (f a).run ~accept ~reject e s
-    )
-  }
-
-let[@inline always] return (a : 'a) : 'a m =
-  { run = fun ~reject:_ ~accept _ s -> accept a s }
-
+include Interp_common.Effects.Make (State) (Env) (struct
+  include Err
+  let fail_on_nondeterminism_misuse (_ : State.t) : t =
+    XAbort ("Nondeterminism used when not allowed.", Callstack.empty) (* FIXME : use actual callstack *)
+  let fail_on_fetch (id : Lang.Ast.Ident.t) (_ : State.t) : t =
+    XUnboundVariable (id, Callstack.empty) (* FIXME : same here *)
+end)
 
 (*
   -------
@@ -75,11 +67,10 @@ let[@inline always] return (a : 'a) : 'a m =
 *)
 
 let run_on_empty (x : 'a m) : ('a, Err.t) result * State.t =
-  x.run
-    ~reject:(fun a s -> Error a, s)
-    ~accept:(fun a s -> Ok a, s)
-    Env.empty
+  run
+    x
     State.empty
+    { env = Env.empty ; det_depth = `Depth 0 }
 
 (*
   ------
@@ -87,12 +78,9 @@ let run_on_empty (x : 'a m) : ('a, Err.t) result * State.t =
   ------
 *)
 
-let fail (e : Err.t) : 'a m =
-  { run = fun ~reject ~accept:_ _ s -> reject e s }
-
 let fail_at_time (err : Callstack.t -> Err.t) : 'a m =
-  { run = fun ~reject ~accept:_ e s -> 
-    reject (err e.time) s
+  { run = fun ~reject ~accept:_ s e -> 
+    reject (err e.env.time) s
   }
 
 let abort (msg : string) (p : Lang.Ast.Program_point.t) : 'a m =
@@ -107,47 +95,24 @@ let diverge (p : Lang.Ast.Program_point.t) : 'a m =
 let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
   fail_at_time (fun t -> Err.XUnboundVariable (id, t))
 
-let[@inline always] handle_error (x : 'a m) (ok : 'a -> 'b m) (err : Err.t -> 'b m) : 'b m =
-  { run = fun ~reject ~accept e s ->
-    x.run e s 
-      ~reject:(fun a s ->
-        (err a).run ~reject ~accept e s
-      )
-      ~accept:(fun a s ->
-        (ok a).run ~reject ~accept e s
-      )
-  }
-
 (*
   -----------
   ENVIRONMENT
   -----------
 *)
 
-let read : Env.t m =
-  { run = fun ~reject:_ ~accept e s -> accept e s }
-
-let read_env : Value.env m =
-  { run = fun ~reject:_ ~accept e s -> accept e.env s }
-
-let[@inline always] local (f : Env.t -> Env.t) (x : 'a m) : 'a m =
-  { run = fun ~reject ~accept e s -> x.run ~reject ~accept (f e) s }
-
-let[@inline always] local_env (f : Value.env -> Value.env) : 'a m -> 'a m =
-  local (fun e -> { e with env = f e.env })
-
-let[@inline always] fetch (id : Lang.Ast.Ident.t) : Value.t option m =
-  { run = fun ~reject:_ ~accept e s -> accept (Value.Env.find id e.env) s }
-
 let[@inline always] with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : 'a m) : 'a m =
-  local_env (Value.Env.add id v) x
+  local (fun e -> { e with env = Value.Env.add id v e.env }) x
 
 let[@inline always] with_program_point (p : Lang.Ast.Program_point.t) (x : 'a m) : 'a m =
   local (fun e -> { e with time = Callstack.cons p e.time }) x
 
+let[@inline always] local_env (f : Value.env -> Value.env) (x : 'a m) : 'a m =
+  local (fun e -> { e with env = f e.env }) x
+
 let get_input (type a) (key : a Key.Stackkey.t) : Value.t m =
-  { run = fun ~reject:_ ~accept e s -> 
-    let v = e.feeder.get key in
+  { run = fun ~reject:_ ~accept s e -> 
+    let v = e.env.feeder.get key in
     match key with
     | I _ -> accept (Value.VInt v) s
     | B _ -> accept (Value.VBool v) s
@@ -158,12 +123,6 @@ let get_input (type a) (key : a Key.Stackkey.t) : Value.t m =
   STATE
   -----
 *)
-
-let get : State.t m =
-  { run = fun ~reject:_ ~accept _ s -> accept s s }
-
-let[@inline always] modify (f : State.t -> State.t) : unit m =
-  { run = fun ~reject:_ ~accept _ s -> accept () (f s) }
 
 let push_deferred_proof (symb : Value.symb) (work : Value.closure) : unit m =
   modify (fun s -> { s with pending_proofs = Pending_proofs.push symb work s.pending_proofs })
@@ -196,5 +155,5 @@ let[@inline always] run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embe
 *)
 
 let lookup (Value.VSymbol t : Value.symb) : Value.whnf option m =
-  { run = fun ~reject:_ ~accept _ s -> accept (Stack_map.find_opt t s.symbol_env) s }
+  { run = fun ~reject:_ ~accept s _ -> accept (Stack_map.find_opt t s.symbol_env) s }
 
