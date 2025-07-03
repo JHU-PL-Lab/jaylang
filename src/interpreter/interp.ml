@@ -19,7 +19,19 @@ open V
 
 module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
   (* State tracks step count *)
-  module State = Int 
+  (* module State = Int  *)
+  module State = struct
+    type t =
+      { step : int
+      ; n_inputs : int
+      ; rev_inputs : Interp_common.Input.t list }
+
+    let empty : t =
+      { step = 0
+      ; n_inputs = 0
+      ; rev_inputs = [] }
+  end
+
   let max_step = Int.(10 ** 6)
 
   module Err = struct
@@ -67,14 +79,23 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
   let incr_step : unit m =
     { run =
       fun ~reject ~accept s _ ->
-        let step = s + 1 in
+        let step = s.step + 1 in
         if step > max_step
-        then reject Reached_max_step step
-        else accept () step
+        then reject Reached_max_step { s with step }
+        else accept () { s with step }
     }
+
+  let log_input (input : Interp_common.Input.t) : unit m =
+    modify (fun s ->
+      { s with n_inputs = s.n_inputs + 1 ; rev_inputs = input :: s.rev_inputs }
+    )
+
+  let n_inputs : int m =
+    let%bind s = get in
+    return s.n_inputs
 end
 
-let eval_exp (type a) (e : a Expr.t) : a V.t =
+let eval_exp (type a) (e : a Expr.t) (feeder : Interp_common.Input_feeder.Using_stepkey.t) : a V.t =
   let module E = struct
     type value = a V.t
     type t = a Env.t
@@ -117,13 +138,19 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       using_env @@ fun env ->
       VFrozen { body ; env = lazy env }
     | EId -> return VId
-    (* inputs *) (* Consider: use an input stream to allow user to provide inputs *)
+    (* inputs *)
     | EPick_i () -> 
       let%bind () = assert_nondeterminism in
-      return (VInt 0)
+      let%bind n = n_inputs in
+      let i = feeder.get (Utils.Separate.I n) in
+      let%bind () = log_input (Interp_common.Input.I i) in
+      return (VInt i)
     | EPick_b () -> 
       let%bind () = assert_nondeterminism in
-      return (VBool false)
+      let%bind n = n_inputs in
+      let b = feeder.get (Utils.Separate.B n) in
+      let%bind () = log_input (Interp_common.Input.B b) in
+      return (VBool b)
     (* simple propogation *)
     | EVariant { label ; payload } ->
       let%bind payload = eval payload in
@@ -414,7 +441,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       return (VModule module_body)
   in
 
-  (run (eval e) 0 Read.empty)
+  (run (eval e) State.empty Read.empty)
   |> Tuple2.get1 (* discard resulting state *)
   |> function
     | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
@@ -424,5 +451,10 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | Error Unbound_variable Ident s -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
     | Error Reached_max_step -> Format.printf "REACHED MAX STEP\n"; VDiverge
 
-let eval_pgm (type a) (pgm : a Program.t) : a V.t =
-  eval_exp (EModule pgm)
+let eval_pgm 
+  (type a)
+  ?(feeder : Interp_common.Input_feeder.Using_stepkey.t = Interp_common.Input_feeder.Using_stepkey.zero)
+  (pgm : a Program.t) 
+  : a V.t 
+  =
+  eval_exp (EModule pgm) feeder
