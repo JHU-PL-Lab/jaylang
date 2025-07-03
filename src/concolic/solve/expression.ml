@@ -65,7 +65,7 @@ module Typed_binop = struct
     | And -> op ( && ) box_bool
     | Or -> op ( || ) box_bool
 
-  let equal (type a) (x : a t) (y : a t) : bool =
+  (* let equal (type a) (x : a t) (y : a t) : bool =
     match x, y with
     | Plus, Plus
     | Minus, Minus
@@ -81,7 +81,7 @@ module Typed_binop = struct
     | Not_equal, Not_equal
     | And, And
     | Or, Or -> true
-    | _ -> false
+    | _ -> false *)
 end
 
 type _ t =
