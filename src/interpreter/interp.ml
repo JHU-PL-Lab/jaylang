@@ -17,9 +17,13 @@ open Lang.Ast_tools.Exceptions
 module V = Lang.Value.Make (Lang.Value.Map_store) (Lang.Value.Lazy_cell) (Utils.Identity)
 open V
 
+(*
+  TODO: emit an input feeder using callstacks; this way the
+    interpreter can be used to translate input sequences to
+    callstack input feeders
+*)
+
 module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
-  (* State tracks step count *)
-  (* module State = Int  *)
   module State = struct
     type t =
       { step : int
@@ -35,35 +39,30 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
   let max_step = Int.(10 ** 6)
 
   module Err = struct
-    type t =
-      | Abort of string 
-      | Diverge 
-      | Type_mismatch
-      | Unbound_variable of Ident.t
-      | Reached_max_step
-    (* we might consider adding an Assert_false and Assume_false construct *)
+    (* Not putting state in the error because it's returned anyways *)
+    type t = unit Interp_common.Errors.Runtime.t
 
     let fail_on_nondeterminism_misuse (_ : State.t) : t =
-      Abort "Nondeterminism used when not allowed."
+      `XAbort ("Nondeterminism used when not allowed.", ())
 
     let fail_on_fetch (id : Ident.t) (_ : State.t) : t =
-      Unbound_variable id
+      `XUnbound_variable (id, ())
   end
 
   include Interp_common.Effects.Make (State) (Env) (Err)
 
   let abort (type a) (msg : string) : a m =
-    fail @@ Err.Abort msg
+    fail @@ `XAbort (msg, ())
 
   (* unit is needed to surmount the value restriction *)
   let diverge (type a) (() : unit) : a m =
-    fail Err.Diverge
+    fail @@ `XDiverge ()
 
   let type_mismatch (type a) (() : unit) : a m =
-    fail Err.Type_mismatch
+    fail @@ `XType_mismatch ("No type mismatch message today, sorry", ())
 
   let unbound_variable (type a) (id : Ident.t) : a m =
-    fail @@ Err.Unbound_variable id
+    fail @@ `XUnbound_variable (id, ())
 
   let list_map (f : 'a -> 'b m) (ls : 'a list) : 'b list m =
     List.fold_right ls ~init:(return []) ~f:(fun a acc_m ->
@@ -81,7 +80,7 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
       fun ~reject ~accept s _ ->
         let step = s.step + 1 in
         if step > max_step
-        then reject Reached_max_step { s with step }
+        then reject (`XReach_max_step ()) { s with step }
         else accept () { s with step }
     }
 
@@ -445,11 +444,11 @@ let eval_exp (type a) (e : a Expr.t) (feeder : Interp_common.Input_feeder.Using_
   |> Tuple2.get1 (* discard resulting state *)
   |> function
     | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
-    | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
-    | Error Abort msg -> Format.printf "FOUND ABORT %s\n" msg; VAbort
-    | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge
-    | Error Unbound_variable Ident s -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
-    | Error Reached_max_step -> Format.printf "REACHED MAX STEP\n"; VDiverge
+    | Error `XType_mismatch (_, ()) -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
+    | Error `XAbort (msg, ()) -> Format.printf "FOUND ABORT %s\n" msg; VAbort
+    | Error `XDiverge () -> Format.printf "DIVERGE\n"; VDiverge
+    | Error `XUnbound_variable (Ident s, ()) -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
+    | Error `XReach_max_step () -> Format.printf "REACHED MAX STEP\n"; VDiverge
 
 let eval_pgm 
   (type a)
