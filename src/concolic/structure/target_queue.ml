@@ -94,8 +94,8 @@ module DFS = struct
   let peek ({ q ; _ } : t) : Target.t option =
     opt_fst @@ Q.min q
 
-  let is_empty ({ q ; _ } : t) : bool =
-    Q.is_empty q
+  (* let is_empty ({ q ; _ } : t) : bool =
+    Q.is_empty q *)
 
   let remove ({ q ; _ } as x : t) (target : Target.t) : t =
     { x with q = Q.remove target q }
