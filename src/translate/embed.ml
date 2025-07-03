@@ -277,7 +277,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           fresh_abstraction "e_arrow_wrap" @@ fun e ->
             fresh_abstraction "x_arrow_wrap" @@ fun arg ->
               build @@
-                let%bind () = ignore (EDefer (check tau1 (EVar arg))) in
+                let%bind () = ignore (EDefer (check tau1 (EVar arg))) 
+                in
                 match dep with
                 | `Binding x ->
                   let%bind () = assign x @@ wrap tau1 (EVar arg) in
@@ -386,13 +387,13 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         { gen = lazy (
           build @@
             let%bind candidate = capture @@ gen tau in
-            return @@ EDefer (
-              EIf
-                { cond = apply (embed e_p) (EVar candidate)
-                ; true_body = EVar candidate
-                ; false_body = EDiverge ()
-                }
-            )
+            let%bind () = ignore @@ EDefer (EIf
+              { cond = apply (embed e_p) (EVar candidate)
+              ; true_body = EUnit
+              ; false_body = EDiverge ()
+              })
+            in
+            return (EVar candidate)
         )
         ; check = lazy (
           fresh_abstraction "e_ref_check" @@ fun e ->
@@ -486,7 +487,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                     ; check = lazy (fresh_abstraction "e_mu_check" @@ fun e -> with_beta (check tau (EVar e)))
                     ; wrap = lazy (fresh_abstraction "e_mu_wrap" @@ fun e -> with_beta (wrap tau (EVar e)))
                     }
-                  ))
+              ))
           )
         else (* limit recursive depth of generated members in this type *)
           let gend = Names.fresh_id ~suffix:"gend" () in
