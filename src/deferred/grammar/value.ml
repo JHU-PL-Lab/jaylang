@@ -40,7 +40,7 @@ type _ v =
   | VUntouchable : t -> 'a ok v
   | VSymbol : Callstack.t -> 'a symbol v
 
-and env = t Ident.Map.t
+and env = t Lang.Value.List_store.t
 
 and closure = { body : E.t ; env : env }
 
@@ -108,10 +108,8 @@ let matches (v : whnf) (p : Embedded.pattern) : [ `Matches | `Matches_with of t 
   | _ -> `No_match
 
 module Env = struct
+  include Lang.Value.List_store
   type t = env
-
-  let find id m = Map.find m id
-  let add id v m = Map.set m ~key:id ~data:v
 end
 
 let rec to_string : type a. a v -> string = function

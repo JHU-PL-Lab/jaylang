@@ -24,11 +24,11 @@ module Env = struct
   let empty : t =
     { time = Callstack.empty
     ; feeder = Feeder.zero
-    ; env = Lang.Ast.Ident.Map.empty }
+    ; env = Value.Env.empty }
 
   let fetch : Lang.Ast.Ident.t -> t -> Value.t option =
     fun id e ->
-      Value.Env.find id e.env
+      Value.Env.fetch id e.env
 end
 
 (*
@@ -104,7 +104,7 @@ let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
 let[@inline always] with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : 'a m) : 'a m =
   local (fun e -> { e with env = Value.Env.add id v e.env }) x
 
-let[@inline always] with_program_point (p : Lang.Ast.Program_point.t) (x : 'a m) : 'a m =
+let[@inline always][@specialise][@landmark] with_program_point (p : Lang.Ast.Program_point.t) (x : 'a m) : 'a m =
   local (fun e -> { e with time = Callstack.cons p e.time }) x
 
 let[@inline always] local_env (f : Value.env -> Value.env) (x : 'a m) : 'a m =
