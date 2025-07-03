@@ -17,41 +17,52 @@ open Lang.Ast_tools.Exceptions
 module V = Lang.Value.Make (Lang.Value.Map_store) (Lang.Value.Lazy_cell) (Utils.Identity)
 open V
 
+(*
+  TODO: emit an input feeder using callstacks; this way the
+    interpreter can be used to translate input sequences to
+    callstack input feeders
+*)
+
 module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
-  (* State tracks step count *)
-  module State = Int 
+  module State = struct
+    type t =
+      { step : int
+      ; n_inputs : int
+      ; rev_inputs : Interp_common.Input.t list }
+
+    let empty : t =
+      { step = 0
+      ; n_inputs = 0
+      ; rev_inputs = [] }
+  end
+
   let max_step = Int.(10 ** 6)
 
   module Err = struct
-    type t =
-      | Abort of string 
-      | Diverge 
-      | Type_mismatch
-      | Unbound_variable of Ident.t
-      | Reached_max_step
-    (* we might consider adding an Assert_false and Assume_false construct *)
+    (* Not putting state in the error because it's returned anyways *)
+    type t = unit Interp_common.Errors.Runtime.t
 
     let fail_on_nondeterminism_misuse (_ : State.t) : t =
-      Abort "Nondeterminism used when not allowed."
+      `XAbort ("Nondeterminism used when not allowed.", ())
 
     let fail_on_fetch (id : Ident.t) (_ : State.t) : t =
-      Unbound_variable id
+      `XUnbound_variable (id, ())
   end
 
   include Interp_common.Effects.Make (State) (Env) (Err)
 
   let abort (type a) (msg : string) : a m =
-    fail @@ Err.Abort msg
+    fail @@ `XAbort (msg, ())
 
   (* unit is needed to surmount the value restriction *)
   let diverge (type a) (() : unit) : a m =
-    fail Err.Diverge
+    fail @@ `XDiverge ()
 
   let type_mismatch (type a) (() : unit) : a m =
-    fail Err.Type_mismatch
+    fail @@ `XType_mismatch ("No type mismatch message today, sorry", ())
 
   let unbound_variable (type a) (id : Ident.t) : a m =
-    fail @@ Err.Unbound_variable id
+    fail @@ `XUnbound_variable (id, ())
 
   let list_map (f : 'a -> 'b m) (ls : 'a list) : 'b list m =
     List.fold_right ls ~init:(return []) ~f:(fun a acc_m ->
@@ -67,14 +78,23 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
   let incr_step : unit m =
     { run =
       fun ~reject ~accept s _ ->
-        let step = s + 1 in
+        let step = s.step + 1 in
         if step > max_step
-        then reject Reached_max_step step
-        else accept () step
+        then reject (`XReach_max_step ()) { s with step }
+        else accept () { s with step }
     }
+
+  let log_input (input : Interp_common.Input.t) : unit m =
+    modify (fun s ->
+      { s with n_inputs = s.n_inputs + 1 ; rev_inputs = input :: s.rev_inputs }
+    )
+
+  let n_inputs : int m =
+    let%bind s = get in
+    return s.n_inputs
 end
 
-let eval_exp (type a) (e : a Expr.t) : a V.t =
+let eval_exp (type a) (e : a Expr.t) (feeder : Interp_common.Input_feeder.Using_stepkey.t) : a V.t =
   let module E = struct
     type value = a V.t
     type t = a Env.t
@@ -117,13 +137,19 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       using_env @@ fun env ->
       VFrozen { body ; env = lazy env }
     | EId -> return VId
-    (* inputs *) (* Consider: use an input stream to allow user to provide inputs *)
+    (* inputs *)
     | EPick_i () -> 
       let%bind () = assert_nondeterminism in
-      return (VInt 0)
+      let%bind n = n_inputs in
+      let i = feeder.get (Utils.Separate.I n) in
+      let%bind () = log_input (Interp_common.Input.I i) in
+      return (VInt i)
     | EPick_b () -> 
       let%bind () = assert_nondeterminism in
-      return (VBool false)
+      let%bind n = n_inputs in
+      let b = feeder.get (Utils.Separate.B n) in
+      let%bind () = log_input (Interp_common.Input.B b) in
+      return (VBool b)
     (* simple propogation *)
     | EDefer e -> eval e (* deferred expressions are eagerly evaluated *)
     | EVariant { label ; payload } ->
@@ -415,15 +441,20 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       return (VModule module_body)
   in
 
-  (run (eval e) 0 Read.empty)
+  (run (eval e) State.empty Read.empty)
   |> Tuple2.get1 (* discard resulting state *)
   |> function
     | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
-    | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
-    | Error Abort msg -> Format.printf "FOUND ABORT %s\n" msg; VAbort
-    | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge
-    | Error Unbound_variable Ident s -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
-    | Error Reached_max_step -> Format.printf "REACHED MAX STEP\n"; VDiverge
+    | Error `XType_mismatch (_, ()) -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
+    | Error `XAbort (msg, ()) -> Format.printf "FOUND ABORT %s\n" msg; VAbort
+    | Error `XDiverge () -> Format.printf "DIVERGE\n"; VDiverge
+    | Error `XUnbound_variable (Ident s, ()) -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
+    | Error `XReach_max_step () -> Format.printf "REACHED MAX STEP\n"; VDiverge
 
-let eval_pgm (type a) (pgm : a Program.t) : a V.t =
-  eval_exp (EModule pgm)
+let eval_pgm 
+  (type a)
+  ?(feeder : Interp_common.Input_feeder.Using_stepkey.t = Interp_common.Input_feeder.Using_stepkey.zero)
+  (pgm : a Program.t) 
+  : a V.t 
+  =
+  eval_exp (EModule pgm) feeder

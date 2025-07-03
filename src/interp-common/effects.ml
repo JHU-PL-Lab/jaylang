@@ -33,7 +33,7 @@ end) = struct
     ------------
 
     CPS monad (mostly because it is an effecient way to error: just jump straight out instead
-    of pattern matching you're way out) with error, state, and environment.
+    of pattern matching your way out) with error, state, and environment.
 
     The error case returns state, too.
   *)
