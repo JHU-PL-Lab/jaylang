@@ -1,7 +1,9 @@
 
 let x = 0
 
-let _ = defer (assume false)
+let _ = defer 10
+
+let _ = defer (defer (assume false))
 
 let y = 1 + defer (assert false)
 

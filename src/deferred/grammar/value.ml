@@ -127,7 +127,7 @@ let rec to_string : type a. a v -> string = function
     Format.sprintf "Table (%s)\n"
       (String.concat ~sep:" ; " @@ List.map ~f:(fun (k, v) -> Format.sprintf "(%s, %s)" (to_string k) (to_string v)) alist) *)
   | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
-  | VSymbol _ -> "Callstack"
+  | VSymbol t -> Format.sprintf "T%s" (Timestamp.to_string t)
 
 (* we promise here that it's not just whnf but it actually contains _no_ symbols *)
 (* let rec subst (v : t) ~(f : Callstack.t -> whnf) : whnf =
