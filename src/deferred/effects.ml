@@ -4,7 +4,7 @@ open Interp_common
 
 (* monad to handle all of the effects *)
 
-module Feeder = Input_feeder.Using_stackkey
+module Feeder = Input_feeder.Make (Timekey)
 
 (*
   It can be a little confusing here because the thing we
@@ -17,13 +17,11 @@ module Env = struct
 
   (* stuff to read from *)
   type t =
-    { time   : Callstack.t
-    ; feeder : Feeder.t
+    { feeder : Feeder.t
     ; env    : Value.env }
 
   let empty : t =
-    { time = Callstack.empty
-    ; feeder = Feeder.zero
+    { feeder = Feeder.zero
     ; env = Value.Env.empty }
 
   let fetch : Lang.Ast.Ident.t -> t -> Value.t option =
@@ -56,10 +54,10 @@ end
 
 include Interp_common.Effects.Make (State) (Env) (struct
   include Err
-  let fail_on_nondeterminism_misuse (_ : State.t) : t =
-    XAbort ("Nondeterminism used when not allowed.", Callstack.empty) (* FIXME : use actual callstack *)
-  let fail_on_fetch (id : Lang.Ast.Ident.t) (_ : State.t) : t =
-    XUnboundVariable (id, Callstack.empty) (* FIXME : same here *)
+  let fail_on_nondeterminism_misuse (s : State.t) : t =
+    XAbort ("Nondeterminism used when not allowed.", s.time)
+  let fail_on_fetch (id : Lang.Ast.Ident.t) (s : State.t) : t =
+    XUnboundVariable (id, s.time)
 end)
 
 (*
@@ -80,19 +78,20 @@ let run_on_empty (x : 'a m) : ('a, Err.t) result * State.t =
   ------
 *)
 
-let fail_at_time (err : Callstack.t -> Err.t) : 'a m =
-  { run = fun ~reject ~accept:_ s e -> 
-    reject (err e.env.time) s
+let fail_at_time (err : Timestamp.t -> Err.t) : 'a m =
+  { run = fun ~reject ~accept:_ s _ -> 
+    let t = Timestamp.increment s.time in
+    reject (err t) s
   }
 
-let abort (msg : string) (p : Lang.Ast.Program_point.t) : 'a m =
-  fail_at_time (fun t -> Err.XAbort (msg, Callstack.cons p t))
+let abort (msg : string) : 'a m =
+  fail_at_time (fun t -> Err.XAbort (msg, t))
 
 let type_mismatch (msg : string) : 'a m =
   fail_at_time (fun t -> Err.XTypeMismatch (msg, t))
 
-let diverge (p : Lang.Ast.Program_point.t) : 'a m =
-  fail_at_time (fun t -> Err.XDiverge (Callstack.cons p t))
+let diverge : 'a m =
+  fail_at_time (fun t -> Err.XDiverge t)
 
 let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
   fail_at_time (fun t -> Err.XUnboundVariable (id, t))
@@ -106,13 +105,13 @@ let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
 let[@inline always] with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : 'a m) : 'a m =
   local (fun e -> { e with env = Value.Env.add id v e.env }) x
 
-let[@inline always][@specialise][@landmark] with_program_point (p : Lang.Ast.Program_point.t) (x : 'a m) : 'a m =
-  local (fun e -> { e with time = Callstack.cons p e.time }) x
+(* let[@inline always][@specialise][@landmark] with_program_point (p : Lang.Ast.Program_point.t) (x : 'a m) : 'a m =
+  local (fun e -> { e with time = Callstack.cons p e.time }) x *)
 
 let[@inline always] local_env (f : Value.env -> Value.env) (x : 'a m) : 'a m =
   local (fun e -> { e with env = f e.env }) x
 
-let get_input (type a) (key : a Key.Stackkey.t) : Value.t m =
+let get_input (type a) (key : a Timekey.t) : Value.t m =
   { run = fun ~reject:_ ~accept s e -> 
     let v = e.env.feeder.get key in
     match key with
@@ -144,12 +143,25 @@ let remove_greater_symbols (symb : Value.symb) : unit m =
     ; pending_proofs = Pending_proofs.cut symb s.pending_proofs }
   )
 
+let local_time (time : Timestamp.t) (x : 'a m) : 'a m =
+  let%bind s = get in
+  let t = s.time in
+  let%bind () = modify (fun s -> { s with time }) in
+  let%bind a = x in
+  let%bind () = modify (fun s -> { s with time = t }) in
+  return a
+
 let[@inline always] run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embedded.With_program_points.t -> 'a m) : 'a m =
   let%bind closure = pop_deferred_proof symb in
-  local (fun e ->
-    (* sets concrete environment and the timestamp *)
-    { e with env = closure.env ; time = Value.timestamp_of_symbol symb }
-  ) (f closure.body)
+  local_time (Value.timestamp_of_symbol symb) (
+    local (fun e -> { e with env = closure.env }) (f closure.body)
+  )
+
+let incr_time : unit m =
+  modify (fun s -> { s with time = Timestamp.increment s.time })
+
+let push_time : unit m =
+  modify (fun s -> { s with time = Timestamp.push s.time })
 
 (*
   ---------------
@@ -158,5 +170,5 @@ let[@inline always] run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embe
 *)
 
 let lookup (Value.VSymbol t : Value.symb) : Value.whnf option m =
-  { run = fun ~reject:_ ~accept s _ -> accept (Stack_map.find_opt t s.symbol_env) s }
+  { run = fun ~reject:_ ~accept s _ -> accept (Timestamp.Map.find_opt t s.symbol_env) s }
 

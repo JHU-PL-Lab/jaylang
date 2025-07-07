@@ -16,13 +16,21 @@ let increment = function
   | Timestamp Last i -> Timestamp (Last (i + 1))
   | Timestamp (hd :: tl) -> Timestamp (hd + 1 :: tl)
 
+let rec back_to_front (l : 'a Preface.Nonempty_list.t) : 'a Seq.t =
+  match l with
+  | Last x -> Seq.return x
+  | x :: xs -> Seq.append (back_to_front xs) (Seq.return x)
+
 let compare (Timestamp a) (Timestamp b) =
-  let rec back_to_front (l : 'a Preface.Nonempty_list.t) : 'a Seq.t =
-    match l with
-    | Last x -> Seq.return x
-    | x :: xs -> Seq.append (back_to_front xs) (Seq.return x)
-  in
   Seq.compare Int.compare (back_to_front a) (back_to_front b)
+
+let equal a b = compare a b = 0
+
+let to_string : t -> string = function
+  | Timestamp ls ->
+    Seq.fold_left (fun acc i ->
+      acc ^ "." ^ Int.to_string i
+      ) "" (back_to_front ls)
 
 module Map = Baby.W.Map.Make (struct
   type t = T.t
