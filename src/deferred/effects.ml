@@ -42,11 +42,13 @@ end
 *)
 module State = struct
   type t =
-    { symbol_env : Symbol_map.t
+    { time : Timestamp.t
+    ; symbol_env : Symbol_map.t
     ; pending_proofs : Pending_proofs.t } 
 
   let empty : t =
-    { symbol_env = Symbol_map.empty
+    { time = Timestamp.empty
+    ; symbol_env = Symbol_map.empty
     ; pending_proofs = Pending_proofs.empty }
 
   (* If we end up logging inputs, then I'll just add a label to the state and cons them there *)
@@ -137,7 +139,8 @@ let pop_deferred_proof (symb : Value.symb) : Value.closure m =
 
 let remove_greater_symbols (symb : Value.symb) : unit m =
   modify (fun s -> 
-    { symbol_env = Symbol_map.cut symb s.symbol_env
+    { s with
+      symbol_env = Symbol_map.cut symb s.symbol_env
     ; pending_proofs = Pending_proofs.cut symb s.pending_proofs }
   )
 

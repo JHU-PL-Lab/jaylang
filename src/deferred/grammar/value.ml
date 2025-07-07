@@ -1,7 +1,6 @@
 
 open Core
 open Lang.Ast
-open Interp_common
 
 module E = Embedded.With_program_points (* the expressions we work over *)
 
@@ -38,7 +37,7 @@ type _ v =
   | VId : 'a ok v
   | VFrozen : closure -> 'a ok v
   | VUntouchable : t -> 'a ok v
-  | VSymbol : Callstack.t -> 'a symbol v
+  | VSymbol : Timestamp.t -> 'a symbol v
 
 and env = t Lang.Value.List_store.t
 
@@ -82,7 +81,7 @@ let split (type a b) (v : a v) ~(whnf : whnf -> b) ~(symb : symb -> b) : b =
   | VSymbol _ as x -> symb x
 
 
-let timestamp_of_symbol (VSymbol t : symb) : Callstack.t =
+let timestamp_of_symbol (VSymbol t : symb) : Timestamp.t =
   t
 
 (* returns binding if there is a matching pattern *)
