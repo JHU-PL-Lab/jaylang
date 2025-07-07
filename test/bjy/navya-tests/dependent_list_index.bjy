@@ -1,0 +1,6 @@
+let index (dependent xs : list int | len(xs) > 0) (dependent i : int | i >= 0 && i < len(xs))
+    : int = 
+    match xs with 
+        | x :: _ when i == 0 -> xs
+        | _ :: xs' -> index xs' (i - 1)
+    end

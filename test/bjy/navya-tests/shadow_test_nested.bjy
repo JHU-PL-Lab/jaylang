@@ -1,0 +1,10 @@
+(* basic shadow test 2*)
+let x = 5 
+let nested_shadow_test : int = 
+    let x = 10 in 
+    let x = 15 in 
+    x (* should be 15*)
+    let _ = assert (x == 15)
+
+let _ = assert(x == 5)
+

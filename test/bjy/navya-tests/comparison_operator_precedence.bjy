@@ -1,0 +1,8 @@
+let p1 : bool = 5 + 3 == 8 
+let _ = assert(p1 == true)
+
+let p2 : bool = 5 == 3 + 2
+let _ = assert(p2 == true)
+
+let p3 : bool = 10 - 5 == 5
+let _ = assert (p3 == true)

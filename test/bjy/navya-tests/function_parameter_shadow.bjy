@@ -1,0 +1,5 @@
+(* shadowing with function parameters *)
+let outer_var = 100
+let shadow_param (outer_var : int) : int = outer_var + 1
+let shadow_result : int = shadow_param 50 
+let _ = assert (shadow_result == 51)
