@@ -1,0 +1,11 @@
+(* functions using division and modulus *)
+
+let div_mod_properties (a : int) (b: int | b > 0) : bool = 
+    let q = a /b in 
+    let r = a % b in 
+    a == b * q + r
+
+let _ = assert(div_mod_properties 10 2)
+let _ = assert(div_mod_properties -10 2)
+let _ = assert(div_mod_properties 20 (0 - 3) == false)
+
