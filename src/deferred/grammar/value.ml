@@ -129,10 +129,6 @@ let rec to_string : type a. a v -> string = function
   | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
   | VSymbol t -> Format.sprintf "T%s" (Timestamp.to_string t)
 
-(* we promise here that it's not just whnf but it actually contains _no_ symbols *)
-(* let rec subst (v : t) ~(f : Callstack.t -> whnf) : whnf =
-  failwith "unimplemented" *)
-
 module Error_msg = struct
   let project_non_record label v =
     Format.sprintf "Label %s not found in non-record/module `%s`" (RecordLabel.to_string label) (to_string v)
@@ -169,3 +165,26 @@ module Error_msg = struct
   let appl_non_table v =
     Format.sprintf "Use non-table `%s` as a table" (to_string v)
 end
+
+module Without_symbols = Lang.Value.Embedded (Utils.Identity)
+
+(* Values cannot be recursive, so this will terminate *)
+(* Don't worry about performance here. Just do as many substs as needed. *)
+let rec subst (v : t) ~(f : Timestamp.t -> whnf) : Without_symbols.t =
+  match v with
+  | VSymbol t -> subst (cast_up (f t)) ~f
+  (* Nothing to do *)
+  | VId -> VId
+  | VUnit -> VUnit
+  | VInt i -> VInt i
+  | VBool b -> VBool b
+  (* Homomorphic *)
+  | VVariant { label ; payload } -> VVariant { label ; payload = subst payload ~f }
+  | VRecord record_body -> VRecord (Map.map record_body ~f:(subst ~f))
+  | VModule module_body -> VModule (Map.map module_body ~f:(subst ~f))
+  | VUntouchable v -> VUntouchable (subst v ~f)
+  (* Expressions FIXME : subst into env and remove program points *)
+  | VFunClosure { param ; closure = { env = _ ; body = _ } } -> VFunClosure { param ; closure = { env = Without_symbols.Env.empty ; body = EUnit } }
+  | VFrozen _ -> VFrozen { env = Without_symbols.Env.empty ; body = EUnit }
+  (* Unhandled *)
+  (* | VTable _ -> failwith "unhandled" *)

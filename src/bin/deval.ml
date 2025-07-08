@@ -10,7 +10,7 @@ let deval =
   |> Lang.Ast.Embedded.With_program_points.t_of_expr
   |> Deferred.Main.deval
   |> function
-    | Ok v -> Format.printf "Your program evaluated to:\n%s\n" (Deferred.Value.to_string v)
+    | Ok v -> Format.printf "Your program evaluated to:\n%s\n" (Deferred.Value.Without_symbols.to_string v)
     | Error e -> Format.printf "ERROR: the deferred interpreter hit an error:\n%s\n" (Deferred.Err.to_string e)
 
 let () = 
