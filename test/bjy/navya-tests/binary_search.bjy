@@ -1,0 +1,15 @@
+let rec binary_search (dependent arr : list int) (dependent target : int) (dependent left : int | left >= 0) (dependent right : int | right >= left) : {result : int | result >= 0 - 1} = 
+    if left > right 
+    then 0 - 1 
+    else 
+        let mid = (left + right) / 2 un 
+        match arr with 
+        | [] -> 0 - 1 
+        | _ -> 
+            let mid_val = list_get arr mid in 
+            if mid_val == target 
+            then mid 
+            else if mid_val < target 
+            then binary_search arr target (mid + 1) right 
+            else binary_search arr target left (mid - 1)
+        end

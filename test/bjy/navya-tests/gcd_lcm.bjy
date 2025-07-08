@@ -1,0 +1,14 @@
+(* programs to find gcd and lcm *)
+
+let rec gcd (dependent a : int | a > 0) (dependent b : int | b > 0) : { x : int | x > 0 && x <= a && x <= b} = 
+    let rem = a % b in 
+    if rem == 0 
+    then b 
+    else gcd b rem 
+
+let lcm (dependent n : int | n > 0) (dependent m : int | m > 0) : {x:int | x >= n && x >= m} = 
+    n * m / gcd n m 
+
+let _ = assert( gcd 12 8 == 4)
+let _ = assert (gcd 17 13 == 1)
+let _ = assert (lcm 12 8 == 24)
