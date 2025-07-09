@@ -17,6 +17,39 @@ open Lang.Ast_tools.Exceptions
 module V = Lang.Value.Make (Lang.Value.Map_store) (Lang.Value.Lazy_cell) (Utils.Identity)
 open V
 
+module Feeder = Interp_common.Input_feeder.Using_stepkey
+
+module Input_log = struct
+  type t = (Interp_common.Input.t * Interp_common.Timestamp.t) list
+
+  let empty : t = []
+
+  let cons i t ls = (i, t) :: ls
+
+  let to_sequence : t -> Interp_common.Input.t list = fun t ->
+    List.map t ~f:Tuple2.get1
+    |> List.rev
+
+  let to_time_feeder : t -> Interp_common.Input_feeder.Using_timekey.t = fun t ->
+    let mt = Map.empty (module Interp_common.Timestamp) in
+    let m_ints, m_bools =
+      List.fold t ~init:(mt, mt) ~f:(fun (mi, mb) (input, t) ->
+        match input with
+        | Interp_common.Input.I i -> (Map.set mi ~key:t ~data:i, mb)
+        | Interp_common.Input.B b -> (mi, Map.set mb ~key:t ~data:b)
+      )
+    in
+    let get : type a. a Interp_common.Key.Timekey.t -> a = fun key ->
+      let a_opt : a option =
+        match key with
+        | I k -> Map.find m_ints k
+        | B k -> Map.find m_bools k
+      in
+      Option.value a_opt ~default:(Interp_common.Input_feeder.Using_timekey.zero.get key)
+    in
+    { get }
+end
+
 (*
   TODO: emit an input feeder using callstacks; this way the
     interpreter can be used to translate input sequences to
@@ -27,13 +60,15 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
   module State = struct
     type t =
       { step : int
+      ; time : Interp_common.Timestamp.t
       ; n_inputs : int
-      ; rev_inputs : Interp_common.Input.t list }
+      ; timed_inputs : Input_log.t }
 
     let empty : t =
       { step = 0
+      ; time = Interp_common.Timestamp.empty
       ; n_inputs = 0
-      ; rev_inputs = [] }
+      ; timed_inputs = Input_log.empty }
   end
 
   let max_step = Int.(10 ** 6)
@@ -51,17 +86,27 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
 
   include Interp_common.Effects.Make (State) (Env) (Err)
 
+  let incr_time : unit m =
+    modify (fun s -> { s with time = Interp_common.Timestamp.increment s.time })
+
+  let push_time : unit m =
+    modify (fun s -> { s with time = Interp_common.Timestamp.push s.time })
+
   let abort (type a) (msg : string) : a m =
+    let%bind () = incr_time in
     fail @@ `XAbort { msg ; body = () }
 
   (* unit is needed to surmount the value restriction *)
   let diverge (type a) (() : unit) : a m =
+    let%bind () = incr_time in
     fail @@ `XDiverge ()
 
   let type_mismatch (type a) (() : unit) : a m =
+    let%bind () = incr_time in
     fail @@ `XType_mismatch { msg = "No type mismatch message today, sorry" ; body = () }
 
   let unbound_variable (type a) (id : Ident.t) : a m =
+    let%bind () = incr_time in
     fail @@ `XUnbound_variable (id, ())
 
   let list_map (f : 'a -> 'b m) (ls : 'a list) : 'b list m =
@@ -86,15 +131,30 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
 
   let log_input (input : Interp_common.Input.t) : unit m =
     modify (fun s ->
-      { s with n_inputs = s.n_inputs + 1 ; rev_inputs = input :: s.rev_inputs }
+      { s with n_inputs = s.n_inputs + 1 ; timed_inputs = Input_log.cons input s.time s.timed_inputs }
     )
 
   let n_inputs : int m =
     let%bind s = get in
     return s.n_inputs
+
+  let with_time_snapback (x : 'a m) : 'a m =
+    let%bind s = get in
+    let%bind a = x in (* runs x with original time *)
+    let%bind () = modify (fun s' -> { s' with time = s.time }) in
+    return a
+
+  let get_input (type a) (fkey : int -> a Feeder.Stepkey.t) (pack : a -> Interp_common.Input.t) (feeder : Feeder.t) : a m =
+    let%bind () = assert_nondeterminism in
+    let%bind () = incr_time in
+    let%bind n = n_inputs in
+    let a = feeder.get (fkey n) in
+    let%bind () = log_input (pack a) in
+    let%bind () = incr_time in
+    return a
 end
 
-let eval_exp (type a) (e : a Expr.t) (feeder : Interp_common.Input_feeder.Using_stepkey.t) : a V.t =
+let eval_exp (type a) (e : a Expr.t) (feeder : Feeder.t) : a V.t * Input_log.t =
   let module E = struct
     type value = a V.t
     type t = a Env.t
@@ -139,19 +199,21 @@ let eval_exp (type a) (e : a Expr.t) (feeder : Interp_common.Input_feeder.Using_
     | EId -> return VId
     (* inputs *)
     | EPick_i () -> 
-      let%bind () = assert_nondeterminism in
-      let%bind n = n_inputs in
-      let i = feeder.get (Utils.Separate.I n) in
-      let%bind () = log_input (Interp_common.Input.I i) in
+      let%bind i = get_input (fun n -> Utils.Separate.I n) (fun i -> Interp_common.Input.I i) feeder in
       return (VInt i)
     | EPick_b () -> 
-      let%bind () = assert_nondeterminism in
-      let%bind n = n_inputs in
-      let b = feeder.get (Utils.Separate.B n) in
-      let%bind () = log_input (Interp_common.Input.B b) in
+      let%bind b = get_input (fun n -> Utils.Separate.B n) (fun b -> Interp_common.Input.B b) feeder in
       return (VBool b)
+    (* deferred expressions *)
+    | EDefer e -> (* eagerly evaluate, but still track time correctly *)
+      let%bind () = incr_time in
+      let%bind v = with_time_snapback (
+        let%bind () = push_time in
+        eval e
+      ) in
+      let%bind () = incr_time in
+      return v
     (* simple propogation *)
-    | EDefer e -> eval e (* deferred expressions are eagerly evaluated *)
     | EVariant { label ; payload } ->
       let%bind payload = eval payload in
       return (VVariant { label ; payload = payload })
@@ -442,19 +504,36 @@ let eval_exp (type a) (e : a Expr.t) (feeder : Interp_common.Input_feeder.Using_
   in
 
   (run (eval e) State.empty Read.empty)
-  |> Tuple2.get1 (* discard resulting state *)
-  |> function
+  |> Tuple2.map_both
+    ~f1:(function
     | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
-    | Error `XType_mismatch { msg = _ ; body = () } -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
-    | Error `XAbort  { msg ; body = () } -> Format.printf "FOUND ABORT %s\n" msg; VAbort
+    | Error `XType_mismatch { Interp_common.Errors.msg = _ ; body = () } -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
+    | Error `XAbort  { Interp_common.Errors.msg ; body = () } -> Format.printf "FOUND ABORT %s\n" msg; VAbort
     | Error `XDiverge () -> Format.printf "DIVERGE\n"; VDiverge
-    | Error `XUnbound_variable (Ident s, ()) -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
+    | Error `XUnbound_variable (Lang.Ast.Ident.Ident s, ()) -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
     | Error `XReach_max_step () -> Format.printf "REACHED MAX STEP\n"; VDiverge
+    ) ~f2:(fun s -> s.State.timed_inputs)
 
+(*
+  NOTE: I claim this is a stepkey here, but really it's just an integer key, where
+    the integer is ordering of inputs, so the first input is keyed by 0, the second
+    by 1, and so on. This makes it easy to get the feeder from a sequence.
+    It's bad overloading, though, and I should refactor when I have time.
+*)
 let eval_pgm 
   (type a)
   ?(feeder : Interp_common.Input_feeder.Using_stepkey.t = Interp_common.Input_feeder.Using_stepkey.zero)
   (pgm : a Program.t) 
-  : a V.t 
+  : a V.t
   =
-  eval_exp (EModule pgm) feeder
+  Tuple2.get1
+  @@ eval_exp (EModule pgm) feeder
+
+let eval_pgm_to_time_feeder
+  (type a)
+  ?(feeder : Interp_common.Input_feeder.Using_stepkey.t = Interp_common.Input_feeder.Using_stepkey.zero)
+  (pgm : a Program.t) 
+  : a V.t * Interp_common.Input_feeder.Using_timekey.t
+  =
+  let v, log = eval_exp (EModule pgm) feeder in
+  v, Input_log.to_time_feeder log

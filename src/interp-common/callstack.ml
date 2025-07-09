@@ -1,9 +1,13 @@
 
 open Core
 
-type t = 
-  | Callstack of Lang.Ast.Program_point.t list [@@unboxed]
-  [@@deriving equal, sexp]
+module T = struct
+  type t = 
+    | Callstack of Lang.Ast.Program_point.t list [@@unboxed]
+    [@@deriving equal, sexp]
+end
+
+include T
 
 (* Need to compare back to front because back is oldest *)
 (* Could be smart and not reverse, but then we're using stack space.
@@ -24,3 +28,8 @@ let cons p (Callstack cstack) = Callstack (p :: cstack)
 (* inefficient for now and uses fixed k  *)
 let k_cons : int -> t -> Lang.Ast.Program_point.t -> t = fun k (Callstack stack) callsite ->
   Callstack (List.take (callsite :: stack) k)
+
+include Comparator.Make (struct
+  include T
+  let compare = compare
+end)

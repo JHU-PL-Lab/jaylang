@@ -66,11 +66,11 @@ end)
   -------
 *)
 
-let run_on_empty (x : 'a m) : ('a, Err.t) result * State.t =
+let run_on_empty (x : 'a m) (feeder : Feeder.t) : ('a, Err.t) result * State.t =
   run
     x
     State.empty
-    { env = Env.empty ; det_depth = `Depth 0 }
+    { env = { Env.empty with feeder } ; det_depth = `Depth 0 }
 
 (*
   ------

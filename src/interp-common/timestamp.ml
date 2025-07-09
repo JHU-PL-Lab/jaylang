@@ -4,7 +4,7 @@ open Core
 module Time = struct
   type t =
     | Time of int [@@unboxed]
-    [@@deriving compare, equal]
+    [@@deriving compare, equal, sexp]
 
   let one = Time 1
   let plus_one (Time t) = Time (t + 1)
@@ -15,7 +15,7 @@ end
 module T = struct
   type t =
     | Timestamp of Time.t list [@@unboxed]
-    [@@deriving equal]
+    [@@deriving equal, sexp]
     (* for efficiency and library support, we use list instead of nonempty list *)
 end
 
@@ -37,3 +37,8 @@ let to_string : t -> string = function
     List.fold_left ls ~init:"" ~f:(fun acc t ->
       acc ^ "." ^ Time.to_string t
     )
+
+include Comparator.Make (struct
+  include T
+  let compare = compare
+end)
