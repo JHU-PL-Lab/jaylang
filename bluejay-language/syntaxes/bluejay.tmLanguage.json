@@ -37,7 +37,7 @@
       "patterns": [
         {
           "name": "keyword.other.bluejay",
-          "match": "\\b(if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and|mu)\\b"
+          "match": "\\b(if|then|else|match|with|end|let|rec|in|fun|val|sig|struct|of|dep|dependent|and|mu|defer)\\b"
         },
         {
           "name": "constant.language.boolean.bluejay",
