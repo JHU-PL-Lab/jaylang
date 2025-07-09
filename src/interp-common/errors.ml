@@ -7,9 +7,11 @@
   are typically handled only at the end of a run.
 *)
 
+type 'a with_message = { body : 'a ; msg : string }
+
 type 'a t =
-  [ `XAbort of string * 'a
-  | `XType_mismatch of string * 'a
+  [ `XAbort of 'a with_message
+  | `XType_mismatch of 'a with_message
   | `XUnbound_variable of Lang.Ast.Ident.t * 'a
   ]
 

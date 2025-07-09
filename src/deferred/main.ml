@@ -2,7 +2,7 @@
 open Core
 open Effects
 
-module E = Lang.Ast.Embedded.With_program_points
+module E = Lang.Ast.Embedded
 
 (* Eval may error (monadically) *)
 let rec eval (expr : E.t) : Value.t m =
@@ -14,26 +14,18 @@ let rec eval (expr : E.t) : Value.t m =
   | EVar id -> fetch id
   | EId -> return VId
   (* inputs *)
-  | EPick_i { data = () ; point = _ } -> 
+  | EPick_i () ->
     let%bind () = incr_time in
     let%bind s = get in
     let%bind x = get_input (Utils.Separate.I s.time) in 
     let%bind () = incr_time in
     return x
-    (* with_program_point point (
-      let%bind e = read_env in
-      get_input (Utils.Separate.I e.time)
-    ) *)
-  | EPick_b { data = () ; point = _ } ->
+  | EPick_b () ->
     let%bind () = incr_time in
     let%bind s = get in
     let%bind x = get_input (Utils.Separate.B s.time) in
     let%bind () = incr_time in
     return x
-    (* with_program_point point (
-      let%bind e = read_env in
-      get_input (Utils.Separate.B e.time)
-    ) *)
   (* operations *)
   | EBinop { left ; binop ; right } -> begin
     let%bind a = stern_eval left in
@@ -114,7 +106,7 @@ let rec eval (expr : E.t) : Value.t m =
   | EIgnore { ignored ; body } ->
     let%bind _ : Value.t = eval ignored in
     eval body
-  | EAppl { data = { func ; arg } ; point = _ } -> begin
+  | EAppl { func ; arg } -> begin
     match%bind stern_eval func with
     | VId -> eval arg
     | VFunClosure { param ; closure } ->
@@ -122,7 +114,7 @@ let rec eval (expr : E.t) : Value.t m =
       local_env (fun _ -> Env.add param v closure.env) (eval closure.body)
     | v -> type_mismatch @@ Error_msg.bad_appl v
   end
-  | EThaw { data = expr ; point = _ } -> begin
+  | EThaw expr -> begin
     match%bind stern_eval expr with
     | VFrozen closure ->
       local_env (fun _ -> closure.env) (eval closure.body)
@@ -159,17 +151,17 @@ let rec eval (expr : E.t) : Value.t m =
     let%bind v = eval e in
     return (VUntouchable v)
   (* deferal *)
-  | EDefer { data = body ; point = _ } ->
+  | EDefer body ->
     let%bind e = read_env in
     let%bind () = incr_time in
     let%bind s = get in
-    let symb = VSymbol (Timestamp.push s.time) in
+    let symb = VSymbol (Interp_common.Timestamp.push s.time) in
     let%bind () = push_deferred_proof symb { body ; env = e.env } in
     let%bind () = incr_time in
     return (cast_up symb)
   (* termination *)
-  | EDiverge { data = () ; point = _ } -> diverge
-  | EAbort { data = msg ; point = _ } -> abort msg
+  | EDiverge () -> diverge
+  | EAbort msg -> abort msg
   (* determinism stuff *)
   | EDet expr -> with_incr_depth (eval expr)
   | EEscapeDet expr -> with_escaped_det (eval expr)
@@ -194,10 +186,6 @@ and eval_to_err (expr : E.t) : (Value.t, Err.t) result m =
 
   But we don't want to clean up all symbols on every stern eval because we
   use the stern eval inside the relaxed eval. So stern can't be "full".
-
-  I'm also noticing that at some point we'll want to substitute the values in
-  for all the symbols when we return a final value. We don't make the necessary
-  substitutions ever in the current rules.
 *)
 (*
   Right now, I'm saying this may error (monadically) so that relaxed eval
@@ -211,26 +199,27 @@ and stern_eval (expr : E.t) : Value.whnf m =
   match%bind eval_to_err expr with
   | Error e -> begin
     match e with
-    | XAbort (_, t)
-    | XTypeMismatch (_, t)
-    | XDiverge t
-    | XUnboundVariable (_, t) ->
+    | `XAbort { msg = _ ; body = t }
+    | `XType_mismatch { msg = _ ; body = t }
+    | `XDiverge t
+    | `XUnbound_variable (_, t) ->
       let%bind () = remove_greater_symbols (VSymbol t) in
       fail e (* not sure what to do here. rules say this is fine, techincally *)
       (* May just continue to eval on error here. Not sure. Rules do say to do that though *)
+    | `XReach_max_step _ -> failwith "Unhandled reach max step in stern eval"
   end
   | Ok v -> begin
     Value.split v
       ~symb:(fun ((VSymbol t) as sym) ->
         let%bind s = get in
-        match Timestamp.Map.find_opt t s.symbol_env with
+        match Time_map.find_opt t s.symbol_env with
         | Some v -> return v
         | None -> 
           (* evaluate the deferred proof for this symbol *)
           (* if this fails, the greater symbols get removed, and this error propagates *)
           let%bind v = run_on_deferred_proof sym stern_eval in
           (* update the symbol environment to contain the result  *)
-          let%bind () = modify (fun s -> { s with symbol_env = Timestamp.Map.add t v s.symbol_env }) in
+          let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v s.symbol_env }) in
           return v
       )
       ~whnf:return (* may optionally choose to work on deferred proofs here *)
@@ -275,14 +264,14 @@ let rec loop (t : t3) : Value.whnf m =
 
 and clean_up_deferred (finish : Value.whnf m) : Value.whnf m =
   let%bind s = get in
-  match Timestamp.Map.choose_opt s.pending_proofs with
+  match Time_map.choose_opt s.pending_proofs with
   | None -> finish
   | Some (t, _) ->
     (* Do some cleanup by running this timestamp *)
     match%bind run_on_deferred_proof (VSymbol t) stern_eval_to_err with
     | Ok v' ->
       (* deferred proof evaluated. Put it into the map, and continue on looping *)
-      let%bind () = modify (fun s -> { s with symbol_env = Timestamp.Map.add t v' s.symbol_env }) in
+      let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
       clean_up_deferred finish
     | Error e -> clean_up_deferred (fail e)
 

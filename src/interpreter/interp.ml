@@ -43,7 +43,7 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
     type t = unit Interp_common.Errors.Runtime.t
 
     let fail_on_nondeterminism_misuse (_ : State.t) : t =
-      `XAbort ("Nondeterminism used when not allowed.", ())
+      `XAbort { msg = "Nondeterminism used when not allowed." ; body = () }
 
     let fail_on_fetch (id : Ident.t) (_ : State.t) : t =
       `XUnbound_variable (id, ())
@@ -52,14 +52,14 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
   include Interp_common.Effects.Make (State) (Env) (Err)
 
   let abort (type a) (msg : string) : a m =
-    fail @@ `XAbort (msg, ())
+    fail @@ `XAbort { msg ; body = () }
 
   (* unit is needed to surmount the value restriction *)
   let diverge (type a) (() : unit) : a m =
     fail @@ `XDiverge ()
 
   let type_mismatch (type a) (() : unit) : a m =
-    fail @@ `XType_mismatch ("No type mismatch message today, sorry", ())
+    fail @@ `XType_mismatch { msg = "No type mismatch message today, sorry" ; body = () }
 
   let unbound_variable (type a) (id : Ident.t) : a m =
     fail @@ `XUnbound_variable (id, ())
@@ -445,8 +445,8 @@ let eval_exp (type a) (e : a Expr.t) (feeder : Interp_common.Input_feeder.Using_
   |> Tuple2.get1 (* discard resulting state *)
   |> function
     | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
-    | Error `XType_mismatch (_, ()) -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
-    | Error `XAbort (msg, ()) -> Format.printf "FOUND ABORT %s\n" msg; VAbort
+    | Error `XType_mismatch { msg = _ ; body = () } -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
+    | Error `XAbort  { msg ; body = () } -> Format.printf "FOUND ABORT %s\n" msg; VAbort
     | Error `XDiverge () -> Format.printf "DIVERGE\n"; VDiverge
     | Error `XUnbound_variable (Ident s, ()) -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
     | Error `XReach_max_step () -> Format.printf "REACHED MAX STEP\n"; VDiverge

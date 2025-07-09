@@ -50,3 +50,8 @@ module Using_stackkey = struct
   module Stackkey = Key.Stackkey
   include Make (Stackkey)
 end
+
+module Using_timekey = struct
+  module Timekey = Key.Timekey
+  include Make (Timekey)
+end

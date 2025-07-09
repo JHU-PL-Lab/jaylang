@@ -25,3 +25,4 @@ end
 
 module Stepkey = Make (Int)
 module Stackkey = Make (Callstack)
+module Timekey = Make (Timestamp)

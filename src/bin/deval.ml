@@ -7,7 +7,6 @@ let deval =
   and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term in
   Translate.Convert.bjy_to_emb pgm ~do_wrap ~do_type_splay
   |> Lang.Ast_tools.Utils.pgm_to_module
-  |> Lang.Ast.Embedded.With_program_points.t_of_expr
   |> Deferred.Main.deval
   |> function
     | Ok v -> Format.printf "Your program evaluated to:\n%s\n" (Deferred.Value.Without_symbols.to_string v)

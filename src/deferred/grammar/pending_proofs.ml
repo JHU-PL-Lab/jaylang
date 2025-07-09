@@ -1,17 +1,17 @@
 
 open Core
 
-type t = Value.closure Timestamp.Map.t
+type t = Value.closure Time_map.t
 
-let empty : t = Timestamp.Map.empty
+let empty : t = Time_map.empty
 
 (* May want to raise an exception, just to check invariants, if the symbol is duplicate *)
 let push (Value.VSymbol t : Value.symb) (work : Value.closure) (m : t) : t =
-  Timestamp.Map.add t work m
+  Time_map.add t work m
 
 let pop (Value.VSymbol t : Value.symb) (m : t) : (Value.closure * t) option =
-  Option.map (Timestamp.Map.find_opt t m) ~f:(fun closure ->
-    closure, Timestamp.Map.remove t m
+  Option.map (Time_map.find_opt t m) ~f:(fun closure ->
+    closure, Time_map.remove t m
   )
 
 (*
@@ -19,4 +19,4 @@ let pop (Value.VSymbol t : Value.symb) (m : t) : (Value.closure * t) option =
 *)
 let cut (Value.VSymbol t : Value.symb) (m : t) : t =
   Tuple3.get1
-  @@ Timestamp.Map.split t m
+  @@ Time_map.split t m

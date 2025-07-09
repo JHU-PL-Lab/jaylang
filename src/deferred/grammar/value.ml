@@ -2,8 +2,6 @@
 open Core
 open Lang.Ast
 
-module E = Embedded.With_program_points (* the expressions we work over *)
-
 (* deferred values *)
 
 (* TODO: functor to allow concolic values *)
@@ -37,11 +35,11 @@ type _ v =
   | VId : 'a ok v
   | VFrozen : closure -> 'a ok v
   | VUntouchable : t -> 'a ok v
-  | VSymbol : Timestamp.t -> 'a symbol v
+  | VSymbol : Interp_common.Timestamp.t -> 'a symbol v
 
 and env = t Lang.Value.List_store.t
 
-and closure = { body : E.t ; env : env }
+and closure = { body : Embedded.t ; env : env }
 
 and t = [ `Ok | `Symbol ] v
 
@@ -81,7 +79,7 @@ let split (type a b) (v : a v) ~(whnf : whnf -> b) ~(symb : symb -> b) : b =
   | VSymbol _ as x -> symb x
 
 
-let timestamp_of_symbol (VSymbol t : symb) : Timestamp.t =
+let timestamp_of_symbol (VSymbol t : symb) : Interp_common.Timestamp.t =
   t
 
 (* returns binding if there is a matching pattern *)
@@ -127,7 +125,7 @@ let rec to_string : type a. a v -> string = function
     Format.sprintf "Table (%s)\n"
       (String.concat ~sep:" ; " @@ List.map ~f:(fun (k, v) -> Format.sprintf "(%s, %s)" (to_string k) (to_string v)) alist) *)
   | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
-  | VSymbol t -> Format.sprintf "T%s" (Timestamp.to_string t)
+  | VSymbol t -> Format.sprintf "T%s" (Interp_common.Timestamp.to_string t)
 
 module Error_msg = struct
   let project_non_record label v =
@@ -170,7 +168,7 @@ module Without_symbols = Lang.Value.Embedded (Utils.Identity)
 
 (* Values cannot be recursive, so this will terminate *)
 (* Don't worry about performance here. Just do as many substs as needed. *)
-let rec subst (v : t) ~(f : Timestamp.t -> whnf) : Without_symbols.t =
+let rec subst (v : t) ~(f : Interp_common.Timestamp.t -> whnf) : Without_symbols.t =
   match v with
   | VSymbol t -> subst (cast_up (f t)) ~f
   (* Nothing to do *)
@@ -183,8 +181,8 @@ let rec subst (v : t) ~(f : Timestamp.t -> whnf) : Without_symbols.t =
   | VRecord record_body -> VRecord (Map.map record_body ~f:(subst ~f))
   | VModule module_body -> VModule (Map.map module_body ~f:(subst ~f))
   | VUntouchable v -> VUntouchable (subst v ~f)
-  (* Expressions FIXME : subst into env and remove program points *)
-  | VFunClosure { param ; closure = { env = _ ; body = _ } } -> VFunClosure { param ; closure = { env = Without_symbols.Env.empty ; body = EUnit } }
-  | VFrozen _ -> VFrozen { env = Without_symbols.Env.empty ; body = EUnit }
+  (* Expressions FIXME : subst into env *)
+  | VFunClosure { param ; closure = { env = _ ; body } } -> VFunClosure { param ; closure = { env = Without_symbols.Env.empty ; body } }
+  | VFrozen { env = _ ; body } -> VFrozen { env = Without_symbols.Env.empty ; body }
   (* Unhandled *)
   (* | VTable _ -> failwith "unhandled" *)
