@@ -6,6 +6,7 @@
  (libraries
   core
   lang
+  interp_common
  )
  (synopsis "Program analysis on embedded-type programs")
  (inline_tests)

@@ -1,24 +1,12 @@
 
 open Core
 open Lang.Ast
+open Interp_common
 
-module Callstack = struct
-  module T = struct
-    type t = Program_point.t list [@@deriving compare, sexp]
-  end
+(* Fixed value for k-consing callstacks *)
+let k = 1
 
-  include T
-
-  let empty : t = []
-
-  let k = 1
-
-  (* inefficient for now and uses fixed k  *)
-  let k_cons : t -> Program_point.t -> t = fun stack callsite ->
-    List.take (callsite :: stack) k
-
-  module Map = Map.Make (T)
-end
+module Stack_map = Map.Make (Callstack)
 
 module Closure = struct
   type t = { body : Embedded.With_program_points.t ; callstack : Callstack.t }
@@ -360,9 +348,9 @@ and Store : sig
   (** [empty ()] is the empty store. It is suspended only to have a safe value
       in the recursive module cycle. *)
 end = struct
-  type t = Env.t Callstack.Map.t
+  type t = Env.t Stack_map.t
 
-  let compare = Callstack.Map.compare Env.compare
+  let compare = Stack_map.compare Env.compare
 
   let add callstack env store =
     Map.update store callstack ~f:(function
@@ -375,7 +363,7 @@ end = struct
     | Some env -> env
     | None -> failwith "Unhandled error: callstack does not map to any environment"
 
-  let empty () = Callstack.Map.empty
+  let empty () = Stack_map.empty
 end
 
 and M : sig 
@@ -503,7 +491,7 @@ end = struct
 
   let with_call : Program_point.t -> 'a m -> 'a m = fun point x ->
     fun s r ->
-      x s { r with callstack = Callstack.k_cons r.callstack point }
+      x s { r with callstack = Callstack.k_cons k r.callstack point }
 
   let ask_env : Env.t m =
     fun s r -> Ok [ r.env, s ]
