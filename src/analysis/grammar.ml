@@ -407,8 +407,8 @@ and M : sig
   val choose : 'a list -> 'a m
   (** [choose ls] chooses an element from [ls]. *)
 
-  val vanish : 'a m
-  (** [vanish] is nothing. It simulates divergence. *)
+  val disappear : 'a m
+  (** [disappear] is nothing. It simulates vanishing and stops all further computation on this vein. *)
 
   (*
     -----
@@ -511,11 +511,11 @@ end = struct
   let ask : (Env.t * Callstack.t) m =
     fun s r -> Ok [ (r.env, r.callstack), s ]
 
-  let vanish : 'a m =
+  let disappear : 'a m =
     fun _ _ -> Ok []
 
   (*
-    Log this expression as seen, and vanish if it had already been seen before.
+    Log this expression as seen, and disappear if it had already been seen before.
     We don't log values, but it would cause no (true) harm because the cache is like env.
     It just would cause some harm in efficiency because we woule be logging unnecessarily.
   *)
@@ -525,7 +525,7 @@ end = struct
     | _ -> (* handle non-values *)
       fun s r ->
         match Cache.put r.cache r.callstack expr r.env s with
-        | `Existed_already -> Ok [] (* equivalent to behavior of `vanish` above *)
+        | `Existed_already -> Ok [] (* equivalent to behavior of `disappear` above *)
         | `Added_to new_cache -> x s { r with cache = new_cache }
 end
 
