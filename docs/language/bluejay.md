@@ -13,7 +13,7 @@ Bluejay uses semantic types. The type system is not syntactic. Only explicitly t
 
 Remember: only explicitly typed statements are checked. All code is otherwise completely untyped.
 
-Programs are statement lists. Statements are let-expressions without the `in`. All valid statements are also valid as let-expressions by adding an `in`.
+**Programs are statement lists**. Statements are let-expressions without the `in`. All valid statements are also valid as let-expressions by adding an `in`.
 
 Bluejay's semantics are eager: expressions are evaluated as soon as possible.
 
@@ -84,7 +84,7 @@ The full feature list of Bluejay is the following.
 * `(x : tau1) -> tau2`, dependent function types, where `tau2` may use `x`.
 * `{ x : tau | pred }` or `{ tau | fun x -> pred }`, refinement types. `tau` is refined to only the members `x` that pass the predicate, i.e. the predicate `pred` evaluates to `true`.
 * `mu t. tau` where `tau` uses `t`. This is a recursive type, where `t` is bound to `tau`.
-* ```V_1 of tau_1 | ... | `V_n of tau_n``, variant types.
+* `` `V_1 of tau_1 | ... | `V_n of tau_n``, variant types.
 * ``((`V_1 of tau_1) -> tau_1') & ... & ((`V_n of tau_n) -> tau_n')``, function intersection types.
 * Any expression used in a place that expects a type must evaluate to a type.
 
@@ -281,6 +281,8 @@ let _ =
   end
 ```
 
+Bluejay does not have the `when` keyword to add conditions to patterns.
+
 ### Types
 
 #### Built-in types
@@ -292,8 +294,8 @@ unit          (* the terminal type whose only member is () *)
 type          (* type of types *)
 top           (* everything has type top *)
 bottom        (* nothing has type bottom *)
-singlet int   (* the type containing only int *)
-list bool     (* the type of lists of booleans )
+singlet t     (* the type containing only t for some type t *)
+list t        (* the type of lists of t for some type t *)
 ```
 
 `singlet` and `list` are first class: they do not need an argument applied where they are written.
