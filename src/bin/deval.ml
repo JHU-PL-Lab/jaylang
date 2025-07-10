@@ -1,6 +1,21 @@
 open Cmdliner
 open Cmdliner.Term.Syntax
 
+(*
+  Give input sequences to the deferred interpreter like this:
+
+    ./deval.exe ./filename.bjy --inputs '1 1 2 3 -100 true false 10 true'
+
+  It is important that the types are correct in the order of inputs. If in the
+  above, the 6th input the interpreter asks for is actually an int, then a default
+  integer will be given; the program will not break nor issue a warning because
+  the user gave `true` as the 6th input.
+
+  Carrying on from that, if the 7th input needed is indeed a boolean, then it
+  will be given `true` from the list; inputs carry on as normal after the type-failing
+  one.
+*)
+
 let deval =
   Cmd.v (Cmd.info "deval") @@
   let+ pgm = Lang.Parse.parse_bjy_file_from_argv 
