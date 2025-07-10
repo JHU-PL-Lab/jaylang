@@ -48,6 +48,10 @@ test-all:
 test-interp:
 	dune exec -- src-test/interp/test_interp.exe
 
+# run the deferred interpreter on dedicated deferred tests (both fast and slow)
+test-deferred:
+	dune exec -- src-test/deferred/test_deferred.exe
+
 # benchmark
 
 cbenchmark:

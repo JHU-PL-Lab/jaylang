@@ -1,6 +1,14 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let x = defer (2 + 3)
 
 let y = defer (x + 10)
 
 let z = y + 1
+
+let _ = assert (z == 16)

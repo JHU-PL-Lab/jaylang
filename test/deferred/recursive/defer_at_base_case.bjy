@@ -1,3 +1,9 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let id x = x
 
@@ -8,3 +14,5 @@ let rec f x =
 
 let n = 10000
 let result = f n
+
+let _ = assert (result == 7)

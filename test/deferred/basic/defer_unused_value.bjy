@@ -1,3 +1,9 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
 
 let x = defer 0
 

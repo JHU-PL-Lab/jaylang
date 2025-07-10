@@ -1,3 +1,9 @@
+(***
+  (
+    (speed Slow) ; a little slow while we don't hash cons most of the time
+    (typing Well_typed)
+  )
+*)
 
 let id x = x
 
@@ -21,3 +27,5 @@ let n = 1000 (* this is really slow! can we make it faster? *)
 *)
 
 let result = f n
+
+let _ = assert (result == 7)
