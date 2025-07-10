@@ -17,7 +17,7 @@ open Lang.Ast_tools.Exceptions
 module V = Lang.Value.Make (Lang.Value.Map_store) (Lang.Value.Lazy_cell) (Utils.Identity)
 open V
 
-module Feeder = Interp_common.Input_feeder.Using_stepkey
+module Feeder = Interp_common.Input_feeder.Using_indexkey
 
 module Input_log = struct
   type t = (Interp_common.Input.t * Interp_common.Timestamp.t) list
@@ -144,7 +144,7 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
     let%bind () = modify (fun s' -> { s' with time = s.time }) in
     return a
 
-  let get_input (type a) (fkey : int -> a Feeder.Stepkey.t) (pack : a -> Interp_common.Input.t) (feeder : Feeder.t) : a m =
+  let get_input (type a) (fkey : int -> a Feeder.Indexkey.t) (pack : a -> Interp_common.Input.t) (feeder : Feeder.t) : a m =
     let%bind () = assert_nondeterminism in
     let%bind () = incr_time in
     let%bind n = n_inputs in
@@ -514,15 +514,9 @@ let eval_exp (type a) (e : a Expr.t) (feeder : Feeder.t) : a V.t * Input_log.t =
     | Error `XReach_max_step () -> Format.printf "REACHED MAX STEP\n"; VVanish
     ) ~f2:(fun s -> s.State.timed_inputs)
 
-(*
-  NOTE: I claim this is a stepkey here, but really it's just an integer key, where
-    the integer is ordering of inputs, so the first input is keyed by 0, the second
-    by 1, and so on. This makes it easy to get the feeder from a sequence.
-    It's bad overloading, though, and I should refactor when I have time.
-*)
 let eval_pgm 
   (type a)
-  ?(feeder : Interp_common.Input_feeder.Using_stepkey.t = Interp_common.Input_feeder.Using_stepkey.zero)
+  ?(feeder : Interp_common.Input_feeder.Using_indexkey.t = Interp_common.Input_feeder.Using_indexkey.zero)
   (pgm : a Program.t) 
   : a V.t
   =
@@ -531,7 +525,7 @@ let eval_pgm
 
 let eval_pgm_to_time_feeder
   (type a)
-  ?(feeder : Interp_common.Input_feeder.Using_stepkey.t = Interp_common.Input_feeder.Using_stepkey.zero)
+  ?(feeder : Interp_common.Input_feeder.Using_indexkey.t = Interp_common.Input_feeder.Using_indexkey.zero)
   (pgm : a Program.t) 
   : a V.t * Interp_common.Input_feeder.Using_timekey.t
   =

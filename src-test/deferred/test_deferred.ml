@@ -26,7 +26,7 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
     let bjy = Parse.parse_single_pgm_string @@ In_channel.read_all testname in
     let emb = Translate.Convert.bjy_to_emb ~do_wrap:true ~do_type_splay:false bjy in
     let is_error =
-      match Main.deval (Lang.Ast_tools.Utils.pgm_to_module emb) with
+      match Main.deval emb with
       | Ok _
       | Error `XVanish _ -> false
       | Error _ -> true

@@ -10,6 +10,7 @@
   baby
   interp_common
   preface
+  interpreter
  )
  (synopsis "Deferred evaluator on embedded-type programs")
  (inline_tests)

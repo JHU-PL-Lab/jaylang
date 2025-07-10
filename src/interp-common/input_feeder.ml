@@ -1,4 +1,6 @@
 
+open Core
+
 module Make_type (K : Key.S) = struct
   type t = { get : 'a. 'a K.t -> 'a } [@@unboxed]
 
@@ -44,6 +46,30 @@ end
 module Using_stepkey = struct 
   module Stepkey = Key.Stepkey
   include Make (Stepkey)
+end
+
+module Using_indexkey = struct
+  module Indexkey = Key.Indexkey
+  include Make (Indexkey)
+
+  let of_sequence (ls : Input.t list) : t =
+    let mt = Int.Map.empty in
+    let m_ints, m_bools, _ =
+      List.fold ls ~init:(mt, mt, 0) ~f:(fun (mi, mb, n) input ->
+        match input with
+        | Input.I i -> (Map.set mi ~key:n ~data:i, mb, n + 1)
+        | Input.B b -> (mi, Map.set mb ~key:n ~data:b, n + 1)
+      )
+    in
+    let get : type a. a Key.Indexkey.t -> a = fun key ->
+      let a_opt : a option =
+        match key with
+        | I k -> Map.find m_ints k
+        | B k -> Map.find m_bools k
+      in
+      Option.value a_opt ~default:(zero.get key)
+    in
+    { get }
 end
 
 module Using_stackkey = struct

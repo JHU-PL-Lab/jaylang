@@ -280,9 +280,25 @@ and clean_up_deferred (finish : Value.whnf m) : Value.whnf m =
 (* TODO: need to differentiate between vanish and other errors *)
 let[@landmark] deval 
   ?(feeder : Interp_common.Input_feeder.Using_timekey.t = Interp_common.Input_feeder.Using_timekey.zero) 
-  (expr : E.t) 
+  (pgm : Lang.Ast.Embedded.pgm) 
   : (Value.Without_symbols.t, Err.t) result
   =
+  let expr = Lang.Ast_tools.Utils.pgm_to_module pgm in
   match run_on_empty (loop (Expr expr)) feeder with
   | Ok v, s -> Ok (Symbol_map.close_value (Value.cast_up v) s.symbol_env)
   | Error e, _ -> Error e
+
+let deval_with_input_sequence
+  (inputs : Interp_common.Input.t list)
+  (pgm : Lang.Ast.Embedded.pgm)
+  : (Value.Without_symbols.t, Err.t) result
+  =
+  match inputs with
+  | [] -> deval pgm
+  | _ ->
+    let _, feeder = 
+      Interpreter.Interp.eval_pgm_to_time_feeder 
+        ~feeder:(Interp_common.Input_feeder.Using_indexkey.of_sequence inputs)
+        pgm
+    in
+    deval ~feeder pgm

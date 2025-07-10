@@ -12,3 +12,5 @@
 include Utils.Pack.S with type 'a x := 'a
 
 val to_string : t -> string
+
+val parse_list : t list Cmdliner.Term.t
