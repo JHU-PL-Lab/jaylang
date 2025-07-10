@@ -296,9 +296,13 @@ let deval_with_input_sequence
   match inputs with
   | [] -> deval pgm
   | _ ->
+    (* Capture all output from interpreter (which translates the input sequence) *)
+    let oc_null = Out_channel.create "/dev/null" in
+    Format.set_formatter_out_channel oc_null;
     let _, feeder = 
       Interpreter.Interp.eval_pgm_to_time_feeder 
         ~feeder:(Interp_common.Input_feeder.Using_indexkey.of_sequence inputs)
         pgm
     in
+    Format.set_formatter_out_channel Out_channel.stdout;
     deval ~feeder pgm

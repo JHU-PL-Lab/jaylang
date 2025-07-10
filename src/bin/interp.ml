@@ -17,17 +17,23 @@ let interp =
   and+ mode = Arg.(value
     & opt (enum ["type-erased", `Type_erased; "bluejay", `Bluejay; "desugared", `Desugared; "embedded", `Embedded]) `Type_erased
     & info ["m"] ~doc:"Mode: bluejay, desugared, or embedded. Default is type-erased.")
+  and+ inputs = Interp_common.Input.parse_list
+  in
+  let feeder =
+    match inputs with
+    | [] -> None
+    | ls -> Some (Interp_common.Input_feeder.Using_indexkey.of_sequence ls)
   in
   match mode with
   | `Type_erased -> Core.Fn.const () @@
-    Interpreter.Interp.eval_pgm @@ Translate.Convert.bjy_to_erased pgm
+    Interpreter.Interp.eval_pgm ?feeder @@ Translate.Convert.bjy_to_erased pgm
   | `Bluejay -> Core.Fn.const () @@
-    Interpreter.Interp.eval_pgm pgm
+    Interpreter.Interp.eval_pgm ?feeder pgm
   | `Desugared -> Core.Fn.const () @@
     (* Type splaying not allowed if the program is being interpretted in desugared mode *)
-    Interpreter.Interp.eval_pgm @@ Translate.Convert.bjy_to_des pgm ~do_type_splay:false
+    Interpreter.Interp.eval_pgm ?feeder @@ Translate.Convert.bjy_to_des pgm ~do_type_splay:false
   | `Embedded -> Core.Fn.const () @@
-    Interpreter.Interp.eval_pgm @@ Translate.Convert.bjy_to_emb pgm ~do_wrap ~do_type_splay
+    Interpreter.Interp.eval_pgm ?feeder @@ Translate.Convert.bjy_to_emb pgm ~do_wrap ~do_type_splay
 
 let () = 
   exit @@ Cmd.eval interp
