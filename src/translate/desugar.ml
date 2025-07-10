@@ -112,7 +112,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       EIf
         { cond = desugar assume_expr
         ; true_body = EUnit
-        ; false_body = EDiverge ()
+        ; false_body = EVanish ()
         }
     (* Dependent records / modules *)
     | EModule stmts -> EModule (List.bind stmts ~f:desugar_statement)

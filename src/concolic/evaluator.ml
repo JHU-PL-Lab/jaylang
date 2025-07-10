@@ -208,7 +208,7 @@ let eval_exp
     end
     (* Failure cases *)
     | EAbort msg -> abort msg
-    | EDiverge () -> diverge
+    | EVanish () -> vanish
   in
 
   S.run (bind expr eval)

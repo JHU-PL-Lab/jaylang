@@ -25,7 +25,7 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
   module Err = struct
     type t =
       | Abort of string 
-      | Diverge 
+      | Vanish 
       | Type_mismatch
       | Unbound_variable of Ident.t
       | Reached_max_step
@@ -44,8 +44,8 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
     fail @@ Err.Abort msg
 
   (* unit is needed to surmount the value restriction *)
-  let diverge (type a) (() : unit) : a m =
-    fail Err.Diverge
+  let vanish (type a) (() : unit) : a m =
+    fail Err.Vanish
 
   let type_mismatch (type a) (() : unit) : a m =
     fail Err.Type_mismatch
@@ -106,7 +106,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | ETypeUnit -> return VTypeUnit
     | EType -> return VType
     | EAbort msg -> abort msg
-    | EDiverge () -> diverge ()
+    | EVanish () -> vanish ()
     | EFunction { param ; body } -> 
       using_env @@ fun env ->
       VFunClosure { param ; closure = { body ; env = lazy env } }
@@ -273,7 +273,7 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
       let%orzero (VBool b) = e_b in
       if b
       then return (VRecord RecordLabel.Map.empty)
-      else diverge ()
+      else vanish ()
     (* casing *)
     | EMatch { subject ; patterns } -> 
       let%bind v = eval subject in
@@ -420,9 +420,9 @@ let eval_exp (type a) (e : a Expr.t) : a V.t =
     | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
     | Error Type_mismatch -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
     | Error Abort msg -> Format.printf "FOUND ABORT %s\n" msg; VAbort
-    | Error Diverge -> Format.printf "DIVERGE\n"; VDiverge
+    | Error Vanish -> Format.printf "VANISH\n"; VVanish
     | Error Unbound_variable Ident s -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
-    | Error Reached_max_step -> Format.printf "REACHED MAX STEP\n"; VDiverge
+    | Error Reached_max_step -> Format.printf "REACHED MAX STEP\n"; VVanish
 
 let eval_pgm (type a) (pgm : a Program.t) : a V.t =
   eval_exp (EModule pgm)

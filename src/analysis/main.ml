@@ -151,7 +151,7 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
     | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
   end
   (* termination *)
-  | EDiverge _ -> disappear
+  | EVanish _ -> disappear
   | EAbort { data = msg ; point = _ } -> fail @@ Err.abort msg
   (* unhandled and currently ignored *)
   | EDet expr

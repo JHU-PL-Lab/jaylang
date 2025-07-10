@@ -108,7 +108,7 @@ end
 let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   let rec loop (e : Desugared.t) : bool =
     match e with
-    | (EInt _ | EBool _ | EPick_i () | EAbort _ | EDiverge
+    | (EInt _ | EBool _ | EPick_i () | EAbort _ | EVanish
       () | EType
     | ETypeInt | ETypeBool | ETypeTop | ETypeBottom | ETypeSingle | EUnit | ETypeUnit) -> false
     | EVar id' -> Ident.equal id id'
@@ -181,7 +181,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
 
     match expr with
     (* base cases *)
-    | (EInt _ | EBool _ | EVar _ | EPick_i () | EAbort _ | EDiverge () | EUnit) as e -> e
+    | (EInt _ | EBool _ | EVar _ | EPick_i () | EAbort _ | EVanish () | EUnit) as e -> e
     (* Simple propogation *)
     | EBinop { left ; binop ; right } ->
       EBinop { left = embed left ; binop ; right = embed right }
@@ -387,7 +387,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
             return @@ EIf
               { cond = apply (embed e_p) (EVar candidate)
               ; true_body = EVar candidate
-              ; false_body = EDiverge ()
+              ; false_body = EVanish ()
               }
         )
         ; check = lazy (
@@ -531,7 +531,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         }
     | ETypeBottom ->
       make_embedded_type
-        { gen = lazy (EDiverge ())
+        { gen = lazy (EVanish ())
         ; check = lazy (fresh_abstraction "e_top_check" @@ fun _ -> EAbort "Nothing is in bottom")
         ; wrap = lazy EId
         }
