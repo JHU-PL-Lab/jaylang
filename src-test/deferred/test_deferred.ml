@@ -28,7 +28,7 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
     let is_error =
       match Main.deval (Lang.Ast_tools.Utils.pgm_to_module emb) with
       | Ok _
-      | Error `XDiverge _ -> false
+      | Error `XVanish _ -> false
       | Error _ -> true
     in
     if is_error_expected 

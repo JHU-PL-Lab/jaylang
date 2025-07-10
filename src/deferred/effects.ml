@@ -90,8 +90,8 @@ let abort (msg : string) : 'a m =
 let type_mismatch (msg : string) : 'a m =
   fail_at_time (fun t -> `XType_mismatch { msg ; body = t })
 
-let diverge : 'a m =
-  fail_at_time (fun t -> `XDiverge t)
+let vanish : 'a m =
+  fail_at_time (fun t -> `XVanish t)
 
 let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
   fail_at_time (fun t -> `XUnbound_variable (id, t))

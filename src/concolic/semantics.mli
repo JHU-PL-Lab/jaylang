@@ -80,8 +80,8 @@ end
 module type S = sig
   type 'a m = 'a M.m 
 
-  val diverge : 'a m
-  (** [diverge] is a safe monadic exit. *)
+  val vanish : 'a m
+  (** [vanish] is a safe monadic exit. *)
 
   val incr_step : int m
   (** [incr_step] updates the state and quits if max step has been exceeded. *)

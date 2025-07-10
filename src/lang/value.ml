@@ -55,7 +55,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       | VModule : 'a t RecordLabel.Map.t -> 'a t
       | VTypeMismatch : 'a t
       | VAbort : 'a t (* this results from `EAbort` or `EAssert e` where e => false *)
-      | VDiverge : 'a t (* this results from `EDiverge` or `EAssume e` where e => false *)
+      | VVanish : 'a t (* this results from `EVanish` or `EAssume e` where e => false *)
       | VUnboundVariable : Ident.t -> 'a t
       (* embedded only *)
       | VId : 'a embedded_only t
@@ -185,7 +185,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
         | VUnboundVariable id1, VUnboundVariable id2 -> Ident.equal id1 id2
         | VTypeMismatch, VTypeMismatch
         | VAbort, VAbort
-        | VDiverge, VDiverge
+        | VVanish, VVanish
         | VId, VId 
         | VType, VType
         | VTypeInt, VTypeInt
@@ -234,7 +234,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
     | VTypeMismatch -> "Type_mismatch"
     | VUnboundVariable Ident v -> Format.sprintf "Unbound_variable %s" v
     | VAbort -> "Abort"
-    | VDiverge -> "Diverge"
+    | VVanish -> "Vanish"
     | VId -> "(fun x -> x)"
     | VFrozen _ -> "(Freeze <expr>)"
     | VTable { alist } -> 

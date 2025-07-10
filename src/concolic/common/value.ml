@@ -96,7 +96,7 @@ let rec equal (a : t) (b : t) : bool X.t =
   | VId, VId
   | VTypeMismatch, VTypeMismatch
   | VAbort, VAbort
-  | VDiverge, VDiverge
+  | VVanish, VVanish
   | VUnit, VUnit -> return true
   | _ -> never_equal (* they are structurally different and cannot be equal *)
 
@@ -231,7 +231,7 @@ and equal_closure bindings a b =
     | EPick_b (), EPick_b ()
     | EId, EId
     | EAbort _, EAbort _ (* ignore abort messages *)
-    | EDiverge (), EDiverge () -> return true
+    | EVanish (), EVanish () -> return true
     (* Not equal *)
     | _ -> never_equal
   in

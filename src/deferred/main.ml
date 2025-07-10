@@ -162,7 +162,7 @@ let rec eval (expr : E.t) : Value.t m =
     let%bind () = incr_time in
     return (cast_up symb)
   (* termination *)
-  | EDiverge () -> diverge
+  | EVanish () -> vanish
   | EAbort msg -> abort msg
   (* determinism stuff *)
   | EDet expr -> with_incr_depth (eval expr)
@@ -203,7 +203,7 @@ and stern_eval (expr : E.t) : Value.whnf m =
     match e with
     | `XAbort { msg = _ ; body = t }
     | `XType_mismatch { msg = _ ; body = t }
-    | `XDiverge t
+    | `XVanish t
     | `XUnbound_variable (_, t) ->
       let%bind () = remove_greater_symbols (VSymbol t) in
       fail e (* not sure what to do here. rules say this is fine, techincally *)
@@ -277,7 +277,7 @@ and clean_up_deferred (finish : Value.whnf m) : Value.whnf m =
       clean_up_deferred finish
     | Error e -> clean_up_deferred (fail e)
 
-(* TODO: need to differentiate between diverge and other errors *)
+(* TODO: need to differentiate between vanish and other errors *)
 let[@landmark] deval 
   ?(feeder : Interp_common.Input_feeder.Using_timekey.t = Interp_common.Input_feeder.Using_timekey.zero) 
   (expr : E.t) 

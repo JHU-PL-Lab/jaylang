@@ -54,7 +54,7 @@ end
 
 module type S = sig
   type 'a m = 'a M.m
-  val diverge : 'a m
+  val vanish : 'a m
   val incr_step : int m
   val hit_branch : bool Direction.t -> bool Expression.t -> unit m
   val hit_case : int Direction.t -> int Expression.t -> other_cases:int list -> unit m
@@ -72,7 +72,7 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
 
   open M
 
-  let diverge : 'a m =
+  let vanish : 'a m =
     let%bind s = get in
     fail @@ Status.Finished { pruned = Path.length s.path > max_depth || s.step > max_step }
 

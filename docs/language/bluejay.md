@@ -388,7 +388,7 @@ Variant types can be declared and used.
 let option a = `Some of a | `None of unit  (* variant type *)
 let some_42 : option int = `Some 42        (* value with the option type *)
 
-let some_or_diverge (x : option int) : int =
+let some_or_vanish (x : option int) : int =
   match x with
   | `Some i -> i
   | `None _ -> assume false
@@ -398,7 +398,7 @@ let some_or_diverge (x : option int) : int =
 They can also be defined in-place.
 
 ```ocaml
-let some_or_diverge (x : `Some of int | `None of unit) : int =
+let some_or_vanish (x : `Some of int | `None of unit) : int =
   match x with
   | `Some i -> i
   | `None _ -> assume false

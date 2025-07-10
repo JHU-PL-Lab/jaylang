@@ -97,9 +97,9 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
     fail @@ `XAbort { msg ; body = () }
 
   (* unit is needed to surmount the value restriction *)
-  let diverge (type a) (() : unit) : a m =
+  let vanish (type a) (() : unit) : a m =
     let%bind () = incr_time in
-    fail @@ `XDiverge ()
+    fail @@ `XVanish ()
 
   let type_mismatch (type a) (() : unit) : a m =
     let%bind () = incr_time in
@@ -186,7 +186,7 @@ let eval_exp (type a) (e : a Expr.t) (feeder : Feeder.t) : a V.t * Input_log.t =
     | ETypeUnit -> return VTypeUnit
     | EType -> return VType
     | EAbort msg -> abort msg
-    | EDiverge () -> diverge ()
+    | EVanish () -> vanish ()
     | EFunction { param ; body } -> 
       using_env @@ fun env ->
       VFunClosure { param ; closure = { body ; env = lazy env } }
@@ -362,7 +362,7 @@ let eval_exp (type a) (e : a Expr.t) (feeder : Feeder.t) : a V.t * Input_log.t =
       let%orzero (VBool b) = e_b in
       if b
       then return (VRecord RecordLabel.Map.empty)
-      else diverge ()
+      else vanish ()
     (* casing *)
     | EMatch { subject ; patterns } -> 
       let%bind v = eval subject in
@@ -509,9 +509,9 @@ let eval_exp (type a) (e : a Expr.t) (feeder : Feeder.t) : a V.t * Input_log.t =
     | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
     | Error `XType_mismatch { Interp_common.Errors.msg = _ ; body = () } -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
     | Error `XAbort  { Interp_common.Errors.msg ; body = () } -> Format.printf "FOUND ABORT %s\n" msg; VAbort
-    | Error `XDiverge () -> Format.printf "DIVERGE\n"; VDiverge
+    | Error `XVanish () -> Format.printf "VANISH\n"; VVanish
     | Error `XUnbound_variable (Lang.Ast.Ident.Ident s, ()) -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
-    | Error `XReach_max_step () -> Format.printf "REACHED MAX STEP\n"; VDiverge
+    | Error `XReach_max_step () -> Format.printf "REACHED MAX STEP\n"; VVanish
     ) ~f2:(fun s -> s.State.timed_inputs)
 
 (*

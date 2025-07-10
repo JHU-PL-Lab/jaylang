@@ -18,6 +18,6 @@ type 'a t =
 module Runtime = struct
   type nonrec 'a t =
     [ 'a t (* all the above errors *)
-    | `XDiverge of 'a 
+    | `XVanish of 'a 
     | `XReach_max_step of 'a ]
 end

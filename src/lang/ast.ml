@@ -245,7 +245,7 @@ module Expr = struct
       thaw
       inputs (int or bool)
       abort
-      diverge
+      vanish
   *)
   module Make (Cell : Utils.Comparable.S1) = struct
     type _ t =
@@ -282,7 +282,7 @@ module Expr = struct
       | EUntouchable : 'a t -> 'a embedded_only t
       (* these exist in the desugared and embedded languages *)
       | EAbort : string Cell.t -> 'a desugared_or_embedded t (* string is error message *)
-      | EDiverge : unit Cell.t -> 'a desugared_or_embedded t
+      | EVanish : unit Cell.t -> 'a desugared_or_embedded t
       (* only the desugared language *)
       | EGen : 'a t -> 'a desugared_only t (* Cannot be interpreted. Is only an intermediate step in translation *)
       (* these exist in the bluejay and desugared languages *)
@@ -361,7 +361,7 @@ module Expr = struct
       | EFunction _ -> 12      | EVariant _ -> 13  | EPick_b _ -> 14           | ECase _ -> 15
       | EFreeze _ -> 16        | EThaw _ -> 17     | EId -> 18                 | EIgnore _ -> 19
       | ETable -> 20           | ETblAppl _ -> 21  | EDet _ -> 22              | EEscapeDet _ -> 23
-      | EAbort _ -> 24         | EDiverge _ -> 25  | EType -> 26               | ETypeInt -> 27
+      | EAbort _ -> 24         | EVanish _ -> 25  | EType -> 26               | ETypeInt -> 27
       | ETypeBool -> 28        | ETypeTop -> 29    | ETypeBottom -> 30         | ETypeRecord _ -> 31
       | ETypeModule _ -> 32    | ETypeFun _ -> 33  | ETypeRefinement _ -> 34   | ETypeMu _ -> 35
       | ETypeVariant _ -> 36   | ELetTyped _ -> 37 | ETypeSingle -> 38         | ETypeList -> 39
@@ -430,7 +430,7 @@ module Expr = struct
           | EId, EId | ETable, ETable | EType, EType | ETypeInt, ETypeInt | ETypeBool, ETypeBool
           | ETypeTop, ETypeTop | ETypeBottom, ETypeBottom | ETypeList, ETypeList
           | ETypeSingle, ETypeSingle | EUnit, EUnit | ETypeUnit, ETypeUnit -> 0
-          | EDiverge c1, EDiverge c2
+          | EVanish c1, EVanish c2
           | EPick_i c1, EPick_i c2
           | EPick_b c1, EPick_b c2 -> Cell.compare Unit.compare c1 c2
           | EInt i, EInt j -> Int.compare i j
@@ -687,7 +687,7 @@ module Embedded = struct
       | EPick_i () -> EPick_i (Expr.Point_cell.make ())
       | EPick_b () -> EPick_b (Expr.Point_cell.make ())
       | EAbort msg -> EAbort (Expr.Point_cell.make msg)
-      | EDiverge () -> EDiverge (Expr.Point_cell.make ())
+      | EVanish () -> EVanish (Expr.Point_cell.make ())
       | EDefer e -> EDefer (Expr.Point_cell.make (t_of_expr e))
       | EAppl { func ; arg } -> 
         let func = t_of_expr func in
@@ -774,7 +774,7 @@ module Embedded = struct
       | ETable -> ETable
       | EUnit -> EUnit
       | EAbort msg -> EAbort msg
-      | EDiverge c -> EDiverge c
+      | EVanish c -> EVanish c
       (* replacement *)
       | EVar id -> begin
         match Map.find env id with
