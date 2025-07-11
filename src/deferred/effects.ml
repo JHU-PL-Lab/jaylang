@@ -54,6 +54,7 @@ end
 
 include Interp_common.Effects.Make (State) (Env) (struct
   include Err
+  (* FIXME: we'd like to filter the proofs at this point, so maybe we should allow this to update state *)
   let fail_on_nondeterminism_misuse (s : State.t) : t =
     `XAbort { msg = "Nondeterminism used when not allowed." ; body = s.time }
   let fail_on_fetch (id : Lang.Ast.Ident.t) (s : State.t) : t =
@@ -71,27 +72,6 @@ let run_on_empty (x : 'a m) (feeder : Feeder.t) : ('a, Err.t) result * State.t =
     x
     State.empty
     { env = { Env.empty with feeder } ; det_depth = `Depth 0 }
-
-(*
-  ------
-  RESULT
-  ------
-*)
-
-let fail_at_time (err : Timestamp.t -> Err.t) : 'a m =
-  { run = fun ~reject ~accept:_ s _ -> reject (err s.time) s }
-
-let abort (msg : string) : 'a m =
-  fail_at_time (fun t -> `XAbort { msg ; body = t })
-
-let type_mismatch (msg : string) : 'a m =
-  fail_at_time (fun t -> `XType_mismatch { msg ; body = t })
-
-let vanish : 'a m =
-  fail_at_time (fun t -> `XVanish t)
-
-let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
-  fail_at_time (fun t -> `XUnbound_variable (id, t))
 
 (*
   -----------
@@ -130,11 +110,11 @@ let pop_deferred_proof (symb : Value.symb) : Value.closure m =
     return closure
   | None -> failwith "no deferred proof for given symbol"
 
-let remove_greater_symbols (symb : Value.symb) : unit m =
+let remove_greater_symbols : unit m =
   modify (fun s -> 
     { s with
-      symbol_env = Symbol_map.cut symb s.symbol_env
-    ; pending_proofs = Pending_proofs.cut symb s.pending_proofs }
+      symbol_env = Symbol_map.cut (VSymbol s.time) s.symbol_env
+    ; pending_proofs = Pending_proofs.cut (VSymbol s.time) s.pending_proofs }
   )
 
 let local_time (time : Timestamp.t) (x : 'a m) : 'a m =
@@ -145,6 +125,9 @@ let local_time (time : Timestamp.t) (x : 'a m) : 'a m =
   let%bind () = modify (fun s -> { s with time = t }) in
   return a
 
+(*
+  TODO: filter the maps to only contain smaller symbols
+*)
 let[@inline always] run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embedded.t -> 'a m) : 'a m =
   let%bind closure = pop_deferred_proof symb in
   local_time (Value.timestamp_of_symbol symb) (
@@ -156,6 +139,29 @@ let incr_time : unit m =
 
 let push_time : unit m =
   modify (fun s -> { s with time = Timestamp.push s.time })
+
+(*
+  ------
+  RESULT
+  ------
+*)
+
+let fail_at_time (err : Timestamp.t -> Err.t) : 'a m =
+  let%bind () = remove_greater_symbols in
+  { run = fun ~reject ~accept:_ s _ -> reject (err s.time) s }
+
+(* timestamp payload on error is just for printing. It is not used in tracking at all *)
+let abort (msg : string) : 'a m =
+  fail_at_time (fun t -> `XAbort { msg ; body = t })
+
+let type_mismatch (msg : string) : 'a m =
+  fail_at_time (fun t -> `XType_mismatch { msg ; body = t })
+
+let vanish : 'a m =
+  fail_at_time (fun t -> `XVanish t)
+
+let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
+  fail_at_time (fun t -> `XUnbound_variable (id, t))
 
 (*
   ---------------

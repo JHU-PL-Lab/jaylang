@@ -49,6 +49,9 @@ type whnf = [ `Ok ] v
 (* Value symbol *)
 type symb = [ `Symbol ] v
 
+type any = [ `Ok | `Symbol ]
+type ok = [ `Ok ]
+
 (* Compiles to identity function and helps cast to the general value type *)
 let[@inline always] cast_up (type a) (v : a v) : t =
   match v with

@@ -169,22 +169,14 @@ let rec eval (expr : E.t) : Value.t m =
   | ETblAppl _ -> failwith "unhandled table operations in deferred evaluation"
 
 (*
-  I wish I had a contract that says this does not error.
+  I wish I had a contract that says this does not error monadically.
 *)
-and eval_to_err (expr : E.t) : (Value.t, Err.t) result m =
+and eval_to_res (expr : E.t) : Value.any Res.t m =
   handle_error 
     (eval expr)
-    (fun v -> return (Ok v))
-    (fun e -> return (Error e))
+    (fun v -> return (Res.V v))
+    (fun e -> return (Res.E e))
 
-(*
-  TODO: need to be able to stern eval with an error as the expression.
-    Obviously the math allows this, but I don't want to allow values as
-    expressions in the code, nor errors as values, so this isn't clean anymore.
-
-  But we don't want to clean up all symbols on every stern eval because we
-  use the stern eval inside the relaxed eval. So stern can't be "full".
-*)
 (*
   Right now, I'm saying this may error (monadically) so that relaxed eval
   gets error propagation.
@@ -192,86 +184,61 @@ and eval_to_err (expr : E.t) : (Value.t, Err.t) result m =
   have error propagation in itself (per the rules) but instead catches them.
 *)
 and stern_eval (expr : E.t) : Value.whnf m = 
-  let open Value in
-  (* We can handle the value rules by relaxed eval first *)
-  match%bind eval_to_err expr with
-  | Error e -> begin
-    match e with
-    | `XAbort { msg = _ ; body = t }
-    | `XType_mismatch { msg = _ ; body = t }
-    | `XVanish t
-    | `XUnbound_variable (_, t) ->
-      let%bind () = remove_greater_symbols (VSymbol t) in
-      fail e (* not sure what to do here. rules say this is fine, techincally *)
-      (* May just continue to eval on error here. Not sure. Rules do say to do that though *)
-    | `XReach_max_step _ -> failwith "Unhandled reach max step in stern eval"
-  end
-  | Ok v -> begin
-    Value.split v
-      ~symb:(fun ((VSymbol t) as sym) ->
-        let%bind s = get in
-        match Time_map.find_opt t s.symbol_env with
-        | Some v -> return v
-        | None -> 
-          (* evaluate the deferred proof for this symbol *)
-          (* if this fails, the greater symbols get removed, and this error propagates *)
-          let%bind v = run_on_deferred_proof sym stern_eval in
-          (* update the symbol environment to contain the result  *)
-          let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v s.symbol_env }) in
-          return v
-      )
-      ~whnf:return (* may optionally choose to work on deferred proofs here *)
-  end
+  let%bind v = eval expr in
+  Value.split v
+    ~symb:(fun ((VSymbol t) as sym) ->
+      let%bind s = get in
+      match Time_map.find_opt t s.symbol_env with
+      | Some v -> return v
+      | None -> 
+        (* evaluate the deferred proof for this symbol *)
+        (* if this fails, the greater symbols get removed, and this error propagates *)
+        let%bind v = run_on_deferred_proof sym stern_eval in
+        (* update the symbol environment to contain the result  *)
+        let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v s.symbol_env }) in
+        return v
+    )
+    ~whnf:return (* may optionally choose to work on deferred proofs here *)
 
-and stern_eval_to_err (expr : E.t) : (Value.whnf, Err.t) result m =
+(* Is not a monadic error *)
+and stern_eval_to_res (expr : E.t) : Value.ok Res.t m =
   handle_error 
     (stern_eval expr)
-    (fun v -> return (Ok v))
-    (fun e -> return (Error e))
+    (fun v -> return (Res.V v))
+    (fun e -> return (Res.E e))
 
 (*
-  The general idea is we need to stern eval until there are no more proofs to do.
-
-  Stern eval only turns it into whnf, but we need a full on value, not just one
-  that appears to be a value at first glance.
-
-  So what we can do is after a stern eval of the main thing, we can just chug along
-  on all deferred proofs in the same way, throwing away everything (because if its
-  value is needed, then it will be put in the store) and returning the main whnf
-  value. In the end, if we're being good, we can substitute all of the values through
-  for the symbols.
-
-  I'm currently not handling errors properly. They propagate when they shouldn't.
+  Does not monadically error.
 *)
-
-type t3 =
-  | Expr of E.t
-  | Value of Value.whnf
-  | Err of Err.t
-
-let rec loop (t : t3) : Value.whnf m =
-  match t with
-  | Expr expr -> begin
-    (* Working with an expression. Evaluate it sternly, and loop *)
-    match%bind stern_eval_to_err expr with
-    | Ok v -> loop (Value v)
-    | Error e -> loop (Err e)
-  end
-  | Value v -> clean_up_deferred (return v)
-  | Err e -> clean_up_deferred (fail e)
-
-and clean_up_deferred (finish : Value.whnf m) : Value.whnf m =
+let rec clean_up_deferred (final : Value.ok Res.t) : Value.ok Res.t m =
   let%bind s = get in
   match Time_map.choose_opt s.pending_proofs with
-  | None -> finish
-  | Some (t, _) ->
+  | None -> return final (* done! can finish with how we're told to finish *)
+  | Some (t, _) -> (* some cleanup to do, so do it, and then keep looping after that *)
     (* Do some cleanup by running this timestamp *)
-    match%bind run_on_deferred_proof (VSymbol t) stern_eval_to_err with
-    | Ok v' ->
-      (* deferred proof evaluated. Put it into the map, and continue on looping *)
+    match%bind run_on_deferred_proof (VSymbol t) stern_eval_to_res with
+    | V v' ->
+      (* deferred proof evaluated. Put it into the map, and continue on looping. It doesn't affect the final value *)
       let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
-      clean_up_deferred finish
-    | Error e -> clean_up_deferred (fail e)
+      clean_up_deferred final
+    | E e ->
+      (* deferred proof errored. This means the final value should be overwritten with this error *)
+      clean_up_deferred (Res.E e)
+
+(*
+  So the idea here is that we have a stern eval function that we call when
+  relaxed evalling, and it may monadically error. That is stern_eval above.
+ 
+  Then we also have a stern eval function that monadically may not error,
+  and it evaluates to a res. That is stern_eval_to_res above.
+
+  This is the one we use during the stern loop. We evaluate to a res, and
+  then we clean up the deferred proofs, eventually returning that res or
+  the earlier error that should override it.
+*)
+let begin_stern_loop (expr : E.t) : Value.ok Res.t m =
+  let%bind r = stern_eval_to_res expr in
+  clean_up_deferred r
 
 (* TODO: need to differentiate between vanish and other errors *)
 let[@landmark] deval 
@@ -280,9 +247,10 @@ let[@landmark] deval
   : (Value.Without_symbols.t, Err.t) result
   =
   let expr = Lang.Ast_tools.Utils.pgm_to_module pgm in
-  match run_on_empty (loop (Expr expr)) feeder with
-  | Ok v, s -> Ok (Symbol_map.close_value (Value.cast_up v) s.symbol_env)
-  | Error e, _ -> Error e
+  match run_on_empty (begin_stern_loop expr) feeder with
+  | Ok V v, s -> Ok (Symbol_map.close_value (Value.cast_up v) s.symbol_env)
+  | Ok E e, _ -> Error e
+  | _ -> failwith "impossible error propagated through the stern eval loop"
 
 let deval_with_input_sequence
   (inputs : Interp_common.Input.t list)
