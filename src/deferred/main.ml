@@ -168,20 +168,15 @@ let rec eval (expr : E.t) : Value.t m =
   | ETable
   | ETblAppl _ -> failwith "unhandled table operations in deferred evaluation"
 
-(*
-  I wish I had a contract that says this does not error monadically.
-*)
-and eval_to_res (expr : E.t) : Value.any Res.t m =
+and eval_to_res (expr : E.t) : Value.any Res.t s =
   handle_error 
     (eval expr)
     (fun v -> return (Res.V v))
     (fun e -> return (Res.E e))
 
 (*
-  Right now, I'm saying this may error (monadically) so that relaxed eval
-  gets error propagation.
-  However, I'm thinking that maybe it should not error because it doesn't
-  have error propagation in itself (per the rules) but instead catches them.
+  This stern eval may error monadically so that we get propagation of
+  errors in relaxed eval.
 *)
 and stern_eval (expr : E.t) : Value.whnf m = 
   let%bind v = eval expr in
@@ -201,7 +196,7 @@ and stern_eval (expr : E.t) : Value.whnf m =
     ~whnf:return (* may optionally choose to work on deferred proofs here *)
 
 (* Is not a monadic error *)
-and stern_eval_to_res (expr : E.t) : Value.ok Res.t m =
+and stern_eval_to_res (expr : E.t) : Value.ok Res.t s =
   handle_error 
     (stern_eval expr)
     (fun v -> return (Res.V v))
@@ -210,7 +205,7 @@ and stern_eval_to_res (expr : E.t) : Value.ok Res.t m =
 (*
   Does not monadically error.
 *)
-let rec clean_up_deferred (final : Value.ok Res.t) : Value.ok Res.t m =
+let rec clean_up_deferred (final : Value.ok Res.t) : Value.ok Res.t s =
   let%bind s = get in
   match Time_map.choose_opt s.pending_proofs with
   | None -> return final (* done! can finish with how we're told to finish *)
@@ -236,7 +231,7 @@ let rec clean_up_deferred (final : Value.ok Res.t) : Value.ok Res.t m =
   then we clean up the deferred proofs, eventually returning that res or
   the earlier error that should override it.
 *)
-let begin_stern_loop (expr : E.t) : Value.ok Res.t m =
+let begin_stern_loop (expr : E.t) : Value.ok Res.t s =
   let%bind r = stern_eval_to_res expr in
   clean_up_deferred r
 
@@ -248,9 +243,8 @@ let[@landmark] deval
   =
   let expr = Lang.Ast_tools.Utils.pgm_to_module pgm in
   match run_on_empty (begin_stern_loop expr) feeder with
-  | Ok V v, s -> Ok (Symbol_map.close_value (Value.cast_up v) s.symbol_env)
-  | Ok E e, _ -> Error e
-  | _ -> failwith "impossible error propagated through the stern eval loop"
+  | V v, s -> Ok (Symbol_map.close_value (Value.cast_up v) s.symbol_env)
+  | E e, _ -> Error e
 
 let deval_with_input_sequence
   (inputs : Interp_common.Input.t list)

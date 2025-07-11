@@ -27,6 +27,9 @@ end) = struct
       | `Depth i -> i = 0
   end
 
+  type empty_err
+  exception Impossible_monadic_error (* due to evaluating the body of a function whose argument type is uninhabited *)
+
   (* 
     ------------
     MONAD BASICS 
@@ -36,12 +39,14 @@ end) = struct
     of pattern matching your way out) with error, state, and environment.
 
     The error case returns state, too.
+
+    This is an indexed monad so that it can be parametrized to necessarily not error.
   *)
-  type 'a m = {
-    run : 'r. reject:(Err.t -> State.t -> 'r) -> accept:('a -> State.t -> 'r) -> State.t -> Read.t -> 'r
+  type ('a, 'e) t = {
+    run : 'r. reject:('e -> State.t -> 'r) -> accept:('a -> State.t -> 'r) -> State.t -> Read.t -> 'r
   } 
 
-  let[@inline always][@specialise] bind (x : 'a m) (f : 'a -> 'b m) : 'b m =
+  let[@inline always][@specialise] bind (x : ('a, 'e) t) (f : 'a -> ('b, 'e) t) : ('b, 'e) t =
     { run =
       fun ~reject ~accept s r ->
         x.run s r ~reject ~accept:(fun x s ->
@@ -49,24 +54,34 @@ end) = struct
         )
     }
 
-  let[@inline always][@specialise] return (a : 'a) : 'a m =
+  let[@inline always][@specialise] return (a : 'a) : ('a, 'e) t =
     { run = fun ~reject:_ ~accept s _ -> accept a s }
+
+  type 'a m = ('a, Err.t) t
+
+  type 'a s = ('a, empty_err) t (* s for "safe" *)
+
+  let allow_unsafe (x : 'a s) : ('a, 'e) t =
+    { run = fun ~reject:_ ~accept s r ->
+      x.run s r ~reject:(fun _ _ -> raise Impossible_monadic_error) ~accept
+    }
+
   (*
     -----------
     ENVIRONMENT
     -----------
   *)
-  let read : Read.t m =
+  let read : (Read.t, 'e) t =
     { run = fun ~reject:_ ~accept s r -> accept r s }
 
-  let read_env : Env.t m =
+  let read_env : (Env.t, 'e) t =
     let%bind { env ; _ } = read in
     return env
 
-  let[@inline always][@specialise] local_read (f : Read.t -> Read.t) (x : 'a m) : 'a m =
+  let[@inline always][@specialise] local_read (f : Read.t -> Read.t) (x : ('a, 'e) t) : ('a, 'e) t =
     { run = fun ~reject ~accept s r -> x.run ~reject ~accept s (f r) }
 
-  let[@inline always][@specialise] local (f : Env.t -> Env.t) (x : 'a m) : 'a m =
+  let[@inline always][@specialise] local (f : Env.t -> Env.t) (x : ('a, 'e) t) : ('a, 'e) t =
     local_read (fun r -> { r with env = f r.env }) x
   (*
     -----
@@ -74,10 +89,10 @@ end) = struct
     -----
   *)
 
-  let get : State.t m =
+  let get : (State.t, 'e) t =
     { run = fun ~reject:_ ~accept s _ -> accept s s }
 
-  let[@inline always][@specialise] modify (f : State.t -> State.t) : unit m =
+  let[@inline always][@specialise] modify (f : State.t -> State.t) : (unit, 'e) t =
     { run =
       fun ~reject:_ ~accept s _ ->
         accept () (f s)
@@ -96,7 +111,7 @@ end) = struct
     let%bind state = get in
     fail @@ f state
 
-  let[@inline always] handle_error (x : 'a m) (ok : 'a -> 'b m) (err : Err.t -> 'b m) : 'b m =
+  let[@inline always] handle_error (x : ('a, 'e1) t) (ok : 'a -> ('b, 'e2) t) (err : Err.t -> ('b, 'e2) t) : ('b, 'e2) t =
     { run = fun ~reject ~accept s e ->
       x.run s e 
         ~reject:(fun a s ->
@@ -116,13 +131,16 @@ end) = struct
   let run (x : 'a m) (init_state : State.t) (init_read : Read.t) : ('a, Err.t) result * State.t =
     x.run ~reject:(fun e s -> Error e, s) ~accept:(fun a s -> Ok a, s) init_state init_read
 
+  let run_safe (x : 'a s) (init_state : State.t) (init_read : Read.t) : 'a * State.t =
+    x.run ~reject:(fun _ _ -> raise Impossible_monadic_error) ~accept:(fun a s -> a, s) init_state init_read
+
   (*
     -----------------
     INTERPRETER STUFF
     -----------------
   *)
 
-  let[@inline always][@specialise] with_incr_depth (x : 'a m) : 'a m =
+  let[@inline always][@specialise] with_incr_depth (x : ('a, 'e) t) : ('a, 'e) t =
     local_read (fun r -> { r with det_depth =
       match r.det_depth with
       | `Escaped -> `Escaped

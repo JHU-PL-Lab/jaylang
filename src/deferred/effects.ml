@@ -67,8 +67,8 @@ end)
   -------
 *)
 
-let run_on_empty (x : 'a m) (feeder : Feeder.t) : ('a, Err.t) result * State.t =
-  run
+let run_on_empty (x : 'a s) (feeder : Feeder.t) : 'a * State.t =
+  run_safe
     x
     State.empty
     { env = { Env.empty with feeder } ; det_depth = `Depth 0 }
@@ -79,13 +79,13 @@ let run_on_empty (x : 'a m) (feeder : Feeder.t) : ('a, Err.t) result * State.t =
   -----------
 *)
 
-let[@inline always] with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : 'a m) : 'a m =
+let[@inline always] with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : ('a, 'e) t) : ('a, 'e) t =
   local (fun e -> { e with env = Value.Env.add id v e.env }) x
 
-let[@inline always] local_env (f : Value.env -> Value.env) (x : 'a m) : 'a m =
+let[@inline always] local_env (f : Value.env -> Value.env) (x : ('a, 'e) t) : ('a, 'e) t =
   local (fun e -> { e with env = f e.env }) x
 
-let get_input (type a) (key : a Feeder.Timekey.t) : Value.t m =
+let get_input (type a) (key : a Feeder.Timekey.t) : (Value.t, 'e) t =
   { run = fun ~reject:_ ~accept s e -> 
     let v = e.env.feeder.get key in
     match key with
@@ -99,25 +99,25 @@ let get_input (type a) (key : a Feeder.Timekey.t) : Value.t m =
   -----
 *)
 
-let push_deferred_proof (symb : Value.symb) (work : Value.closure) : unit m =
+let push_deferred_proof (symb : Value.symb) (work : Value.closure) : (unit, 'e) t =
   modify (fun s -> { s with pending_proofs = Pending_proofs.push symb work s.pending_proofs })
 
-let pop_deferred_proof (symb : Value.symb) : Value.closure m =
+let pop_deferred_proof (symb : Value.symb) : (Value.closure, 'e) t =
   let%bind s = get in
   match Pending_proofs.pop symb s.pending_proofs with
   | Some (closure, pending) ->
     let%bind () = modify (fun s -> { s with pending_proofs = pending }) in
     return closure
-  | None -> failwith "no deferred proof for given symbol"
+  | None -> failwith "no deferred proof for given symbol" (* only happens if there is an implementation bug *)
 
-let remove_greater_symbols : unit m =
+let remove_greater_symbols : (unit, 'e) t =
   modify (fun s -> 
     { s with
       symbol_env = Symbol_map.cut (VSymbol s.time) s.symbol_env
     ; pending_proofs = Pending_proofs.cut (VSymbol s.time) s.pending_proofs }
   )
 
-let local_time (time : Timestamp.t) (x : 'a m) : 'a m =
+let local_time (time : Timestamp.t) (x : ('a, 'e) t) : ('a, 'e) t =
   let%bind s = get in
   let t = s.time in
   let%bind () = modify (fun s -> { s with time }) in
@@ -128,7 +128,7 @@ let local_time (time : Timestamp.t) (x : 'a m) : 'a m =
 (*
   TODO: filter the maps to only contain smaller symbols
 *)
-let[@inline always] run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embedded.t -> 'a m) : 'a m =
+let[@inline always] run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embedded.t -> ('a, 'e) t) : ('a, 'e) t =
   let%bind closure = pop_deferred_proof symb in
   local_time (Value.timestamp_of_symbol symb) (
     local (fun e -> { e with env = closure.env }) (f closure.body)
