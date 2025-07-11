@@ -16,14 +16,12 @@ let rec eval (expr : E.t) : Value.t m =
   (* inputs *)
   | EPick_i () ->
     let%bind () = assert_nondeterminism in
-    let%bind () = incr_time in
     let%bind s = get in
     let%bind x = get_input (Utils.Separate.I s.time) in 
     let%bind () = incr_time in
     return x
   | EPick_b () ->
     let%bind () = assert_nondeterminism in
-    let%bind () = incr_time in
     let%bind s = get in
     let%bind x = get_input (Utils.Separate.B s.time) in
     let%bind () = incr_time in
@@ -48,7 +46,6 @@ let rec eval (expr : E.t) : Value.t m =
     | BAnd         , VBool b1 , VBool b2             -> return (VBool (b1 && b2))
     | BOr          , VBool b1 , VBool b2             -> return (VBool (b1 || b2))
     | _ -> type_mismatch @@ Error_msg.bad_binop a binop b
-      (* no natural way to increment time _after_ the error  *)
   end
   | ENot expr -> begin
     match%bind stern_eval expr with
@@ -152,10 +149,9 @@ let rec eval (expr : E.t) : Value.t m =
   | EUntouchable e ->
     let%bind v = eval e in
     return (VUntouchable v)
-  (* deferal *)
+  (* deferral *)
   | EDefer body ->
     let%bind e = read_env in
-    let%bind () = incr_time in
     let%bind s = get in
     let symb = VSymbol (Interp_common.Timestamp.push s.time) in
     let%bind () = push_deferred_proof symb { body ; env = e.env } in

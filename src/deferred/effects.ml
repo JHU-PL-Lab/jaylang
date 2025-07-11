@@ -79,10 +79,7 @@ let run_on_empty (x : 'a m) (feeder : Feeder.t) : ('a, Err.t) result * State.t =
 *)
 
 let fail_at_time (err : Timestamp.t -> Err.t) : 'a m =
-  { run = fun ~reject ~accept:_ s _ -> 
-    let t = Timestamp.increment s.time in
-    reject (err t) s
-  }
+  { run = fun ~reject ~accept:_ s _ -> reject (err s.time) s }
 
 let abort (msg : string) : 'a m =
   fail_at_time (fun t -> `XAbort { msg ; body = t })

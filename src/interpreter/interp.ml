@@ -93,20 +93,16 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
     modify (fun s -> { s with time = Interp_common.Timestamp.push s.time })
 
   let abort (type a) (msg : string) : a m =
-    let%bind () = incr_time in
     fail @@ `XAbort { msg ; body = () }
 
   (* unit is needed to surmount the value restriction *)
   let vanish (type a) (() : unit) : a m =
-    let%bind () = incr_time in
     fail @@ `XVanish ()
 
   let type_mismatch (type a) (() : unit) : a m =
-    let%bind () = incr_time in
     fail @@ `XType_mismatch { msg = "No type mismatch message today, sorry" ; body = () }
 
   let unbound_variable (type a) (id : Ident.t) : a m =
-    let%bind () = incr_time in
     fail @@ `XUnbound_variable (id, ())
 
   let list_map (f : 'a -> 'b m) (ls : 'a list) : 'b list m =
@@ -146,7 +142,6 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
 
   let get_input (type a) (fkey : int -> a Feeder.Indexkey.t) (pack : a -> Interp_common.Input.t) (feeder : Feeder.t) : a m =
     let%bind () = assert_nondeterminism in
-    let%bind () = incr_time in
     let%bind n = n_inputs in
     let a = feeder.get (fkey n) in
     let%bind () = log_input (pack a) in
@@ -206,7 +201,6 @@ let eval_exp (type a) (e : a Expr.t) (feeder : Feeder.t) : a V.t * Input_log.t =
       return (VBool b)
     (* deferred expressions *)
     | EDefer e -> (* eagerly evaluate, but still track time correctly *)
-      let%bind () = incr_time in
       let%bind v = with_time_snapback (
         let%bind () = push_time in
         eval e
