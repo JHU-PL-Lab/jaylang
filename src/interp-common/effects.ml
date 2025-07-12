@@ -27,8 +27,9 @@ end) = struct
       | `Depth i -> i = 0
   end
 
-  type empty_err
-  exception Impossible_monadic_error (* due to evaluating the body of a function whose argument type is uninhabited *)
+  type empty_err = private | (* uninhabited type *)
+  let absurd (type a) (e : empty_err) : a =
+    match e with _ -> . (* this function can never run *)
 
   (* 
     ------------
@@ -63,7 +64,7 @@ end) = struct
 
   let allow_unsafe (x : 'a s) : ('a, 'e) t =
     { run = fun ~reject:_ ~accept s r ->
-      x.run s r ~reject:(fun _ _ -> raise Impossible_monadic_error) ~accept
+      x.run s r ~reject:(fun e _ -> absurd e) ~accept
     }
 
   (*
@@ -132,7 +133,7 @@ end) = struct
     x.run ~reject:(fun e s -> Error e, s) ~accept:(fun a s -> Ok a, s) init_state init_read
 
   let run_safe (x : 'a s) (init_state : State.t) (init_read : Read.t) : 'a * State.t =
-    x.run ~reject:(fun _ _ -> raise Impossible_monadic_error) ~accept:(fun a s -> a, s) init_state init_read
+    x.run ~reject:(fun e _ -> absurd e) ~accept:(fun a s -> a, s) init_state init_read
 
   (*
     -----------------
