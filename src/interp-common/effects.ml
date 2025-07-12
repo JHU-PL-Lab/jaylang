@@ -62,9 +62,9 @@ end) = struct
 
   type 'a s = ('a, empty_err) t (* s for "safe" *)
 
-  let allow_unsafe (x : 'a s) : ('a, 'e) t =
+  let make_unsafe (x : 'a s) : ('a, 'e) t =
     { run = fun ~reject:_ ~accept s r ->
-      x.run s r ~reject:(fun e _ -> absurd e) ~accept
+      x.run s r ~reject:absurd ~accept
     }
 
   (*
@@ -133,7 +133,7 @@ end) = struct
     x.run ~reject:(fun e s -> Error e, s) ~accept:(fun a s -> Ok a, s) init_state init_read
 
   let run_safe (x : 'a s) (init_state : State.t) (init_read : Read.t) : 'a * State.t =
-    x.run ~reject:(fun e _ -> absurd e) ~accept:(fun a s -> a, s) init_state init_read
+    x.run ~reject:absurd ~accept:(fun a s -> a, s) init_state init_read
 
   (*
     -----------------
