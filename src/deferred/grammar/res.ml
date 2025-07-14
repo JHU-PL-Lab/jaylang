@@ -9,3 +9,7 @@
 type 'a t = 
   | V of 'a Value.v
   | E of Err.t
+
+type 'a r =
+  | Expr of Lang.Ast.Embedded.t
+  | Res of 'a t

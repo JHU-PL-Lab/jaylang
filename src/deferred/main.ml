@@ -164,6 +164,10 @@ let rec eval (expr : E.t) : Value.t m =
 (*
   This stern eval may error monadically so that we get propagation of
   errors in relaxed eval.
+
+  We have this because in practice, we don't want to clean up many deferred
+  proofs on stern evals. This one is very direct, and it does (most of the time)
+  the minimal amount of work to get to whnf.
 *)
 and stern_eval (expr : E.t) : Value.whnf m = 
   let%bind v = eval expr in
@@ -181,7 +185,19 @@ and stern_eval (expr : E.t) : Value.whnf m =
         let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v s.symbol_env }) in
         return v
     )
-    ~whnf:return (* may optionally choose to work on deferred proofs here *)
+    ~whnf:(fun v ->
+      (* optionally choose to work on a deferred proof here *)
+      let dice_roll = Interp_common.Rand.int 20 in
+      let%bind s = get in
+      if dice_roll = 0 && not (Time_map.is_empty s.pending_proofs) then
+        let (t, _) = Time_map.choose s.pending_proofs in
+        let%bind v' = run_on_deferred_proof (VSymbol t) stern_eval in
+        let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
+        return v
+      else 
+        (* chose not to work on a deferred proof, or there are no proofs to work on *)
+        return v
+    )
 
 (* 
   This does not monadically error.
