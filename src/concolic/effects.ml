@@ -30,10 +30,8 @@ module Read = struct
     Status.Found_abort (State.inputs s, "Nondeterminism used when not allowed."), s
   let fail_on_fetch (id : Ident.t) (s : State.t) : t * State.t =
     Status.Unbound_variable (State.inputs s, id), s
-  
-  (* FIXME: this needs options instead of default *)
-  let fail_on_max_step (step : int) (s : State.t) : t * State.t =
-    Status.Finished { pruned = Path.length s.path > Options.default.max_tree_depth || step > Options.default.global_max_step }, s
+  let fail_on_max_step (_step : int) (s : State.t) : t * State.t =
+    Status.Finished { pruned = true }, s
 end
 
 module M = struct
