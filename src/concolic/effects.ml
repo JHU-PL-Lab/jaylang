@@ -120,9 +120,6 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
       )
     )
 
-  (*
-    TODO: put this into interp_common effects
-  *)
   let get_input (type a) (key : a Input_feeder.Stepkey.t) : Value.t m =
     let v = input_feeder.get key in
     match key with

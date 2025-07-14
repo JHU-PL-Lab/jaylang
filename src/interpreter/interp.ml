@@ -50,12 +50,6 @@ module Input_log = struct
     { get }
 end
 
-(*
-  TODO: emit an input feeder using callstacks; this way the
-    interpreter can be used to translate input sequences to
-    callstack input feeders
-*)
-
 module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
   module State = struct
     type t =
