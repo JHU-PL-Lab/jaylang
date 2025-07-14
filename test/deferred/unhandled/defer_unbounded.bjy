@@ -1,7 +1,0 @@
-
-(* I don't have a timeout yet, so this test shouldn't stop *)
-let _ = defer (
-  (fun x -> x x) (fun x -> x x)
-)
-
-let x = assert false
