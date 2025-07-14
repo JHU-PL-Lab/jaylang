@@ -4,10 +4,12 @@ open Effects
 
 module E = Lang.Ast.Embedded
 
+let max_step = Int.(10 ** 6)
+
 (* Eval may error (monadically) *)
 let rec eval (expr : E.t) : Value.t m =
   let open Value in
-  let%bind () = incr_step in
+  let%bind () = incr_step ~max_step in
   match expr with
   | EUnit -> return VUnit
   | EInt i -> return (VInt i)
@@ -165,7 +167,7 @@ let rec eval (expr : E.t) : Value.t m =
 *)
 and stern_eval (expr : E.t) : Value.whnf m = 
   let%bind v = eval expr in
-  let%bind () = incr_step in
+  let%bind () = incr_step ~max_step in
   Value.split v
     ~symb:(fun ((VSymbol t) as sym) ->
       let%bind s = get in
@@ -222,8 +224,8 @@ let[@landmark] deval
   =
   let expr = Lang.Ast_tools.Utils.pgm_to_module pgm in
   match run_on_empty (begin_stern_loop expr) feeder with
-  | V v, s -> Ok (Symbol_map.close_value (Value.cast_up v) s.symbol_env)
-  | E e, _ -> Error e
+  | V v, state, _ -> Ok (Symbol_map.close_value (Value.cast_up v) state.symbol_env)
+  | E e, _, _ -> Error e
 
 let deval_with_input_sequence
   (inputs : Interp_common.Input.t list)

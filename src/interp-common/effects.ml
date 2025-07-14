@@ -9,27 +9,7 @@ module type ENV = sig
   val fetch : Ast.Ident.t -> t -> value option
 end
 
-module type STATE = sig
-  type t
-  val max_step : int
-end
-
-
-  (*
-    All interpreters will have some max step count because we 
-    don't want nontermination.
-
-    For efficiency, we build it into the monad instead of wrapping
-    it up with the state.
-  *)
-  module Step = struct
-    type t = Step of int [@@unboxed]
-    let zero = Step 0
-    let next (Step i) = Step (i + 1)
-    let to_int (Step i) = i
-  end
-
-module Make (State : STATE) (Env : ENV) (Err : sig
+module Make (State : T) (Env : ENV) (Err : sig
   type t
   val fail_on_nondeterminism_misuse : State.t -> t * State.t
   val fail_on_fetch : Ast.Ident.t -> State.t -> t * State.t
@@ -48,8 +28,6 @@ end) = struct
       | `Depth i -> i = 0
   end
 
-  let step_exceeds_max (Step.Step i) = i > State.max_step
-
   type empty_err = private | (* uninhabited type *)
   let absurd (type a) (e : empty_err) : a =
     match e with _ -> . (* this function can never run *)
@@ -67,6 +45,9 @@ end) = struct
     This monad is inspired by one created for Binary Analysis Platform out of CMU.
 
     This is an indexed monad so that it can be parametrized to necessarily not error.
+
+    All interpreters will have some max step count because we don't want nontermination.
+    For efficiency, we build it into the monad instead of wrapping it up with state.
   *)
   type ('a, 'e) t = {
     run : 'r. reject:('e -> State.t -> Step.t -> 'r) -> accept:('a -> State.t -> Step.t -> 'r) -> State.t -> Step.t -> Read.t -> 'r
@@ -156,11 +137,11 @@ end) = struct
   *)
 
   (* May prefer to pass in only init_env, but init_read gives more flexibility *)
-  let run (x : 'a m) (init_state : State.t) (init_read : Read.t) : ('a, Err.t) result * State.t =
-    x.run ~reject:(fun e state _ -> Error e, state) ~accept:(fun a state _ -> Ok a, state) init_state Step.zero init_read
+  let run (x : 'a m) (init_state : State.t) (init_read : Read.t) : ('a, Err.t) result * State.t * Step.t =
+    x.run ~reject:(fun e state step -> Error e, state, step) ~accept:(fun a state step -> Ok a, state, step) init_state Step.zero init_read
 
-  let run_safe (x : 'a s) (init_state : State.t) (init_read : Read.t) : 'a * State.t =
-    x.run ~reject:absurd ~accept:(fun a state _ -> a, state) init_state Step.zero init_read
+  let run_safe (x : 'a s) (init_state : State.t) (init_read : Read.t) : 'a * State.t * Step.t =
+    x.run ~reject:absurd ~accept:(fun a state step -> a, state, step) init_state Step.zero init_read
 
   (*
     -----------------
@@ -171,11 +152,12 @@ end) = struct
   let step : (Step.t, 'e) t =
     { run = fun ~reject:_ ~accept state step _ -> accept step state step }
 
-  let incr_step : unit m = { run =
+  let[@inline always] incr_step ~(max_step : int) : unit m = 
+    { run =
       fun ~reject ~accept state step _ ->
-        let step = Step.next step in
-        if step_exceeds_max step
-        then Tuple2.uncurry reject (Err.fail_on_max_step (Step.to_int step) state) step
+        let (Step step_n) as step = Step.next step in
+        if step_n > max_step
+        then Tuple2.uncurry reject (Err.fail_on_max_step step_n state) step
         else accept () state step
     }
 

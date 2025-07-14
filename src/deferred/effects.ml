@@ -54,8 +54,6 @@ module State = struct
     { s with
       symbol_env = Symbol_map.cut (VSymbol s.time) s.symbol_env
     ; pending_proofs = Pending_proofs.cut (VSymbol s.time) s.pending_proofs }
-
-  let max_step = Int.(10 ** 6)
 end
 
 include Interp_common.Effects.Make (State) (Env) (struct
@@ -77,7 +75,7 @@ end)
   -------
 *)
 
-let run_on_empty (x : 'a s) (feeder : Feeder.t) : 'a * State.t =
+let run_on_empty (x : 'a s) (feeder : Feeder.t) : 'a * State.t * Interp_common.Step.t =
   run_safe
     x
     State.empty

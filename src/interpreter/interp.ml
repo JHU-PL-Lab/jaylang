@@ -61,9 +61,9 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
       { time = Interp_common.Timestamp.empty
       ; n_inputs = 0
       ; timed_inputs = Input_log.empty }
-
-    let max_step = Int.(10 ** 6)
   end
+
+  let max_step = Int.(10 ** 6)
 
   module Err = struct
     (* Not putting state in the error because it's returned anyways *)
@@ -145,7 +145,7 @@ let eval_exp (type a) (e : a Expr.t) (feeder : Feeder.t) : a V.t * Input_log.t =
   let open CPS_Error_M (E) in
   let zero () = type_mismatch () in
   let rec eval (e : a Expr.t) : a V.t m =
-    let%bind () = incr_step in
+    let%bind () = incr_step ~max_step in
     match e with
     (* Determinism *)
     | EDet e -> with_incr_depth @@ eval e
@@ -484,15 +484,15 @@ let eval_exp (type a) (e : a Expr.t) (feeder : Feeder.t) : a V.t * Input_log.t =
   in
 
   (run (eval e) State.empty Read.empty)
-  |> Tuple2.map_both
-    ~f1:(function
+  |> fun (res, state, _) ->
+    (match res with
     | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
     | Error `XType_mismatch { Interp_common.Errors.msg = _ ; body = () } -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
     | Error `XAbort  { Interp_common.Errors.msg ; body = () } -> Format.printf "FOUND ABORT %s\n" msg; VAbort
     | Error `XVanish () -> Format.printf "VANISH\n"; VVanish
     | Error `XUnbound_variable (Lang.Ast.Ident.Ident s, ()) -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
     | Error `XReach_max_step () -> Format.printf "REACHED MAX STEP\n"; VVanish
-    ) ~f2:(fun s -> s.State.timed_inputs)
+    ), state.State.timed_inputs
 
 let eval_pgm 
   (type a)

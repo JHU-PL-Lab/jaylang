@@ -22,8 +22,6 @@ module State = struct
 
   let inputs ({ rev_inputs ; _ } : t) : Interp_common.Input.t list =
     List.rev rev_inputs
-
-  let max_step = Options.default.global_max_step (* FIXME: This should be from options instead of default *)
 end
 
 module Read = struct
@@ -59,6 +57,7 @@ end
 module type S = sig
   type 'a m = 'a M.m
   val vanish : 'a m
+  val incr_step : unit m
   val hit_branch : bool Direction.t -> bool Expression.t -> unit m
   val hit_case : int Direction.t -> int Expression.t -> other_cases:int list -> unit m
   val get_input : 'a Input_feeder.Stepkey.t -> Value.t m
@@ -74,6 +73,8 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
   type 'a m = 'a M.m
 
   open M
+
+  let incr_step : unit m = incr_step ~max_step (* comes from M *)
 
   let vanish : 'a m =
     let%bind Step n = step in
@@ -124,7 +125,7 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
 
   let run (x : 'a m) : Status.Eval.t * Target.t list =
     match run x State.empty Read.empty with
-    | Ok _, s ->
-      Status.Finished { pruned = Path.length s.path >= max_depth || 0 > max_step }, s.targets (* FIXME: this `0` should be the final step count *)
-    | Error e, s -> e, s.targets
+    | Ok _, state, Step step ->
+      Status.Finished { pruned = Path.length state.path >= max_depth || step > max_step }, state.targets
+    | Error e, state, _ -> e, state.targets
 end
