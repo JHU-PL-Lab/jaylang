@@ -28,10 +28,10 @@ end
 
 module Read = struct
   include Status.Eval
-  let fail_on_nondeterminism_misuse (s : State.t) : t =
-    Status.Found_abort (State.inputs s, "Nondeterminism used when not allowed.")
-  let fail_on_fetch (id : Ident.t) (s : State.t) : t =
-    Status.Unbound_variable (State.inputs s, id)
+  let fail_on_nondeterminism_misuse (s : State.t) : t * State.t =
+    Status.Found_abort (State.inputs s, "Nondeterminism used when not allowed."), s
+  let fail_on_fetch (id : Ident.t) (s : State.t) : t * State.t =
+    Status.Unbound_variable (State.inputs s, id), s
 end
 
 module M = struct

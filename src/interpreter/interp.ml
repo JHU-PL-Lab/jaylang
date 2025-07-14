@@ -77,11 +77,11 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
     (* Not putting state in the error because it's returned anyways *)
     type t = unit Interp_common.Errors.Runtime.t
 
-    let fail_on_nondeterminism_misuse (_ : State.t) : t =
-      `XAbort { msg = "Nondeterminism used when not allowed." ; body = () }
+    let fail_on_nondeterminism_misuse (s : State.t) : t * State.t =
+      `XAbort { msg = "Nondeterminism used when not allowed." ; body = () }, s
 
-    let fail_on_fetch (id : Ident.t) (_ : State.t) : t =
-      `XUnbound_variable (id, ())
+    let fail_on_fetch (id : Ident.t) (s : State.t) : t * State.t =
+      `XUnbound_variable (id, ()), s
   end
 
   include Interp_common.Effects.Make (State) (Env) (Err)

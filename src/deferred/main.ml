@@ -14,18 +14,8 @@ let rec eval (expr : E.t) : Value.t m =
   | EVar id -> fetch id
   | EId -> return VId
   (* inputs *)
-  | EPick_i () ->
-    let%bind () = assert_nondeterminism in
-    let%bind s = get in
-    let%bind x = get_input (Utils.Separate.I s.time) in 
-    let%bind () = incr_time in
-    return x
-  | EPick_b () ->
-    let%bind () = assert_nondeterminism in
-    let%bind s = get in
-    let%bind x = get_input (Utils.Separate.B s.time) in
-    let%bind () = incr_time in
-    return x
+  | EPick_i () -> get_input (fun time -> Utils.Separate.I time)
+  | EPick_b () -> get_input (fun time -> Utils.Separate.B time)
   (* operations *)
   | EBinop { left ; binop ; right } -> begin
     let%bind a = stern_eval left in
@@ -202,9 +192,7 @@ and stern_eval_to_res (expr : E.t) : Value.ok Res.t s =
     (fun v -> return (Res.V v))
     (fun e -> return (Res.E e))
 
-(*
-  Does not monadically error.
-*)
+(* Does not monadically error. *)
 let rec clean_up_deferred (final : Value.ok Res.t) : Value.ok Res.t s =
   let%bind s = get in
   match Time_map.choose_opt s.pending_proofs with
@@ -235,7 +223,7 @@ let begin_stern_loop (expr : E.t) : Value.ok Res.t s =
   let%bind r = stern_eval_to_res expr in
   clean_up_deferred r
 
-(* TODO: need to differentiate between vanish and other errors *)
+(* TODO: should probably differentiate between vanish and other errors *)
 let[@landmark] deval 
   ?(feeder : Interp_common.Input_feeder.Using_timekey.t = Interp_common.Input_feeder.Using_timekey.zero) 
   (pgm : Lang.Ast.Embedded.pgm) 

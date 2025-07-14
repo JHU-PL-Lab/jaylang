@@ -36,29 +36,34 @@ end
   Baby, on the other hand, offers an O(log n) cut operation, as opposed to
   O(m + log n) where m is the size of the resulting map, offered from Core.
 
-  This is why we use Baby in the maps in the grammar.
+  This is why we use Baby for the maps (see Time_map).
 *)
 module State = struct
   type t =
     { time : Timestamp.t
     ; symbol_env : Symbol_map.t
     ; pending_proofs : Pending_proofs.t } 
+  (* If we end up logging inputs, then I'll just add a label to the state and cons them there *)
 
   let empty : t =
     { time = Timestamp.empty
     ; symbol_env = Symbol_map.empty
     ; pending_proofs = Pending_proofs.empty }
 
-  (* If we end up logging inputs, then I'll just add a label to the state and cons them there *)
+  let remove_greater_symbols (s : t) : t =
+    { s with
+      symbol_env = Symbol_map.cut (VSymbol s.time) s.symbol_env
+    ; pending_proofs = Pending_proofs.cut (VSymbol s.time) s.pending_proofs }
 end
 
 include Interp_common.Effects.Make (State) (Env) (struct
   include Err
-  (* FIXME: we'd like to filter the proofs at this point, so maybe we should allow this to update state *)
-  let fail_on_nondeterminism_misuse (s : State.t) : t =
-    `XAbort { msg = "Nondeterminism used when not allowed." ; body = s.time }
-  let fail_on_fetch (id : Lang.Ast.Ident.t) (s : State.t) : t =
-    `XUnbound_variable (id, s.time)
+
+  let fail_on_nondeterminism_misuse (s : State.t) : t * State.t =
+    `XAbort { msg = "Nondeterminism used when not allowed." ; body = s.time }, State.remove_greater_symbols s
+
+  let fail_on_fetch (id : Lang.Ast.Ident.t) (s : State.t) : t * State.t =
+    `XUnbound_variable (id, s.time), State.remove_greater_symbols s
 end)
 
 (*
@@ -85,12 +90,16 @@ let[@inline always] with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : ('a,
 let[@inline always] local_env (f : Value.env -> Value.env) (x : ('a, 'e) t) : ('a, 'e) t =
   local (fun e -> { e with env = f e.env }) x
 
-let get_input (type a) (key : a Feeder.Timekey.t) : (Value.t, 'e) t =
+let get_input (type a) (make_key : Timestamp.t -> a Feeder.Timekey.t) : (Value.t, 'e) t =
+  let%bind () = assert_nondeterminism in
   { run = fun ~reject:_ ~accept s e -> 
-    let v = e.env.feeder.get key in
-    match key with
-    | I _ -> accept (Value.VInt v) s
-    | B _ -> accept (Value.VBool v) s
+    accept (
+      let key = make_key s.time in
+      let v = e.env.feeder.get key in
+      match key with
+      | I _ -> Value.VInt v
+      | B _ -> Value.VBool v
+    ) { s with time = Timestamp.increment s.time }
   }
 
 (*
@@ -111,11 +120,7 @@ let pop_deferred_proof (symb : Value.symb) : (Value.closure, 'e) t =
   | None -> failwith "no deferred proof for given symbol" (* only happens if there is an implementation bug *)
 
 let remove_greater_symbols : (unit, 'e) t =
-  modify (fun s -> 
-    { s with
-      symbol_env = Symbol_map.cut (VSymbol s.time) s.symbol_env
-    ; pending_proofs = Pending_proofs.cut (VSymbol s.time) s.pending_proofs }
-  )
+  modify State.remove_greater_symbols
 
 let local_time (time : Timestamp.t) (x : ('a, 'e) t) : ('a, 'e) t =
   let%bind s = get in
@@ -171,4 +176,3 @@ let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
 
 let lookup (Value.VSymbol t : Value.symb) : Value.whnf option m =
   { run = fun ~reject:_ ~accept s _ -> accept (Time_map.find_opt t s.symbol_env) s }
-

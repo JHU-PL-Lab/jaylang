@@ -11,8 +11,8 @@ end
 
 module Make (State : T) (Env : ENV) (Err : sig
   type t
-  val fail_on_nondeterminism_misuse : State.t -> t
-  val fail_on_fetch : Ast.Ident.t -> State.t -> t
+  val fail_on_nondeterminism_misuse : State.t -> t * State.t
+  val fail_on_fetch : Ast.Ident.t -> State.t -> t * State.t
 end) = struct
   module Read = struct
     type t = 
@@ -110,9 +110,8 @@ end) = struct
   let[@inline always][@specialise] fail (e : Err.t) : 'a m =
     { run = fun ~reject ~accept:_ s _ -> reject e s }
 
-  let fail_map (f : State.t -> Err.t) : 'a m = 
-    let%bind state = get in
-    fail @@ f state
+  let fail_map (f : State.t -> Err.t * State.t) : 'a m = 
+    { run = fun ~reject ~accept:_ s _ -> Tuple2.uncurry reject (f s) }
 
   let[@inline always] handle_error (x : ('a, 'e1) t) (ok : 'a -> ('b, 'e2) t) (err : Err.t -> ('b, 'e2) t) : ('b, 'e2) t =
     { run = fun ~reject ~accept s e ->
