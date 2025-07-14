@@ -9,10 +9,31 @@ module type ENV = sig
   val fetch : Ast.Ident.t -> t -> value option
 end
 
-module Make (State : T) (Env : ENV) (Err : sig
+module type STATE = sig
+  type t
+  val max_step : int
+end
+
+
+  (*
+    All interpreters will have some max step count because we 
+    don't want nontermination.
+
+    For efficiency, we build it into the monad instead of wrapping
+    it up with the state.
+  *)
+  module Step = struct
+    type t = Step of int [@@unboxed]
+    let zero = Step 0
+    let next (Step i) = Step (i + 1)
+    let to_int (Step i) = i
+  end
+
+module Make (State : STATE) (Env : ENV) (Err : sig
   type t
   val fail_on_nondeterminism_misuse : State.t -> t * State.t
   val fail_on_fetch : Ast.Ident.t -> State.t -> t * State.t
+  val fail_on_max_step : int -> State.t -> t * State.t
 end) = struct
   module Read = struct
     type t = 
@@ -26,6 +47,8 @@ end) = struct
       | `Escaped -> true
       | `Depth i -> i = 0
   end
+
+  let step_exceeds_max (Step.Step i) = i > State.max_step
 
   type empty_err = private | (* uninhabited type *)
   let absurd (type a) (e : empty_err) : a =
@@ -46,19 +69,19 @@ end) = struct
     This is an indexed monad so that it can be parametrized to necessarily not error.
   *)
   type ('a, 'e) t = {
-    run : 'r. reject:('e -> State.t -> 'r) -> accept:('a -> State.t -> 'r) -> State.t -> Read.t -> 'r
+    run : 'r. reject:('e -> State.t -> Step.t -> 'r) -> accept:('a -> State.t -> Step.t -> 'r) -> State.t -> Step.t -> Read.t -> 'r
   } 
 
   let[@inline always][@specialise] bind (x : ('a, 'e) t) (f : 'a -> ('b, 'e) t) : ('b, 'e) t =
     { run =
-      fun ~reject ~accept s r ->
-        x.run s r ~reject ~accept:(fun x s ->
-          (f x).run ~reject ~accept s r
+      fun ~reject ~accept state step r ->
+        x.run state step r ~reject ~accept:(fun x state step ->
+          (f x).run ~reject ~accept state step r
         )
     }
 
   let[@inline always][@specialise] return (a : 'a) : ('a, 'e) t =
-    { run = fun ~reject:_ ~accept s _ -> accept a s }
+    { run = fun ~reject:_ ~accept state step _ -> accept a state step }
 
   type 'a m = ('a, Err.t) t
 
@@ -74,18 +97,20 @@ end) = struct
     ENVIRONMENT
     -----------
   *)
+
   let read : (Read.t, 'e) t =
-    { run = fun ~reject:_ ~accept s r -> accept r s }
+    { run = fun ~reject:_ ~accept state step r -> accept r state step }
 
   let read_env : (Env.t, 'e) t =
     let%bind { env ; _ } = read in
     return env
 
   let[@inline always][@specialise] local_read (f : Read.t -> Read.t) (x : ('a, 'e) t) : ('a, 'e) t =
-    { run = fun ~reject ~accept s r -> x.run ~reject ~accept s (f r) }
+    { run = fun ~reject ~accept state step r -> x.run ~reject ~accept state step (f r) }
 
   let[@inline always][@specialise] local (f : Env.t -> Env.t) (x : ('a, 'e) t) : ('a, 'e) t =
     local_read (fun r -> { r with env = f r.env }) x
+
   (*
     -----
     STATE
@@ -93,12 +118,12 @@ end) = struct
   *)
 
   let get : (State.t, 'e) t =
-    { run = fun ~reject:_ ~accept s _ -> accept s s }
+    { run = fun ~reject:_ ~accept state step _ -> accept state state step }
 
   let[@inline always][@specialise] modify (f : State.t -> State.t) : (unit, 'e) t =
     { run =
-      fun ~reject:_ ~accept s _ ->
-        accept () (f s)
+      fun ~reject:_ ~accept state step _ ->
+        accept () (f state) step
     }
 
   (*
@@ -108,19 +133,19 @@ end) = struct
   *)
 
   let[@inline always][@specialise] fail (e : Err.t) : 'a m =
-    { run = fun ~reject ~accept:_ s _ -> reject e s }
+    { run = fun ~reject ~accept:_ state step _ -> reject e state step }
 
   let fail_map (f : State.t -> Err.t * State.t) : 'a m = 
-    { run = fun ~reject ~accept:_ s _ -> Tuple2.uncurry reject (f s) }
+    { run = fun ~reject ~accept:_ state step _ -> Tuple2.uncurry reject (f state) step }
 
   let[@inline always] handle_error (x : ('a, 'e1) t) (ok : 'a -> ('b, 'e2) t) (err : Err.t -> ('b, 'e2) t) : ('b, 'e2) t =
-    { run = fun ~reject ~accept s e ->
-      x.run s e 
-        ~reject:(fun a s ->
-          (err a).run ~reject ~accept s e
+    { run = fun ~reject ~accept state step e ->
+      x.run state step e 
+        ~reject:(fun a state step ->
+          (err a).run ~reject ~accept state step e 
         )
-        ~accept:(fun a s ->
-          (ok a).run ~reject ~accept s e
+        ~accept:(fun a state step ->
+          (ok a).run ~reject ~accept state step e
         )
   }
 
@@ -129,18 +154,31 @@ end) = struct
     ESCAPING THE MONAD
     ------------------
   *)
+
   (* May prefer to pass in only init_env, but init_read gives more flexibility *)
   let run (x : 'a m) (init_state : State.t) (init_read : Read.t) : ('a, Err.t) result * State.t =
-    x.run ~reject:(fun e s -> Error e, s) ~accept:(fun a s -> Ok a, s) init_state init_read
+    x.run ~reject:(fun e state _ -> Error e, state) ~accept:(fun a state _ -> Ok a, state) init_state Step.zero init_read
 
   let run_safe (x : 'a s) (init_state : State.t) (init_read : Read.t) : 'a * State.t =
-    x.run ~reject:absurd ~accept:(fun a s -> a, s) init_state init_read
+    x.run ~reject:absurd ~accept:(fun a state _ -> a, state) init_state Step.zero init_read
 
   (*
     -----------------
     INTERPRETER STUFF
     -----------------
   *)
+
+  let step : (Step.t, 'e) t =
+    { run = fun ~reject:_ ~accept state step _ -> accept step state step }
+
+  let incr_step : unit m = { run =
+      fun ~reject ~accept state step _ ->
+        let step = Step.next step in
+        if step_exceeds_max step
+        then Tuple2.uncurry reject (Err.fail_on_max_step (Step.to_int step) state) step
+        else accept () state step
+    }
+
 
   let[@inline always][@specialise] with_incr_depth (x : ('a, 'e) t) : ('a, 'e) t =
     local_read (fun r -> { r with det_depth =

@@ -68,6 +68,12 @@ module M : sig
 
   val type_mismatch : string -> 'a m
   (** [type_mismatch msg] ends interpretation in a monadic error with the given reason [msg]. *)
+
+  val step : Interp_common.Effects.Step.t m
+  (** [step] is the current step count. *)
+
+  val incr_step : unit m
+  (** [incr_step] updates the state and quits if max step has been exceeded. *)
 end
 
 module Consts : sig
@@ -82,9 +88,6 @@ module type S = sig
 
   val vanish : 'a m
   (** [vanish] is a safe monadic exit. *)
-
-  val incr_step : int m
-  (** [incr_step] updates the state and quits if max step has been exceeded. *)
 
   val hit_branch : bool Direction.t -> bool Expression.t -> unit m
   (** [hit_branch dir e] takes the given [dir] down a branch whose condition has expression [e]. *)

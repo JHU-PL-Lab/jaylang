@@ -11,19 +11,19 @@ end
 
 module State = struct
   type t =
-    { step : int
-    ; path : Path.t
+    { path : Path.t
     ; targets : Target.t list (* is a log in the semantics, but it's more efficient in state *)
     ; rev_inputs : Interp_common.Input.t list }
 
   let empty : t =
-    { step = 0
-    ; path = Path.empty
+    { path = Path.empty
     ; targets = []
     ; rev_inputs = [] }
 
   let inputs ({ rev_inputs ; _ } : t) : Interp_common.Input.t list =
     List.rev rev_inputs
+
+  let max_step = Options.default.global_max_step (* FIXME: This should be from options instead of default *)
 end
 
 module Read = struct
@@ -32,6 +32,10 @@ module Read = struct
     Status.Found_abort (State.inputs s, "Nondeterminism used when not allowed."), s
   let fail_on_fetch (id : Ident.t) (s : State.t) : t * State.t =
     Status.Unbound_variable (State.inputs s, id), s
+  
+  (* FIXME: this needs options instead of default *)
+  let fail_on_max_step (step : int) (s : State.t) : t * State.t =
+    Status.Finished { pruned = Path.length s.path > Options.default.max_tree_depth || step > Options.default.global_max_step }, s
 end
 
 module M = struct
@@ -55,7 +59,6 @@ end
 module type S = sig
   type 'a m = 'a M.m
   val vanish : 'a m
-  val incr_step : int m
   val hit_branch : bool Direction.t -> bool Expression.t -> unit m
   val hit_case : int Direction.t -> int Expression.t -> other_cases:int list -> unit m
   val get_input : 'a Input_feeder.Stepkey.t -> Value.t m
@@ -73,20 +76,9 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
   open M
 
   let vanish : 'a m =
-    let%bind s = get in
-    fail @@ Status.Finished { pruned = Path.length s.path > max_depth || s.step > max_step }
-
-  (* this is hardcoded to the structure of the monad for efficiency *)
-  let incr_step : int m =
-    { run =
-      fun ~reject ~accept s _ ->
-        let step = s.step + 1 in
-        if step > max_step
-        then reject 
-          (Status.Finished { pruned = Path.length s.path > max_depth || s.step > max_step })
-          { s with step }
-        else accept step { s with step }
-    }
+    let%bind Step n = step in
+    let%bind { path ; _ } = get in
+    fail @@ Status.Finished { pruned = Path.length path > max_depth || n > max_step } 
 
   let push_branch_and_tell (type a) (dir : a Direction.t) (e : a Expression.t) 
       (make_tape : a Claim.t -> Path.t -> Target.t list) : unit m =
@@ -133,6 +125,6 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
   let run (x : 'a m) : Status.Eval.t * Target.t list =
     match run x State.empty Read.empty with
     | Ok _, s ->
-      Status.Finished { pruned = Path.length s.path >= max_depth || s.step > max_step }, s.targets
+      Status.Finished { pruned = Path.length s.path >= max_depth || 0 > max_step }, s.targets (* FIXME: this `0` should be the final step count *)
     | Error e, s -> e, s.targets
 end

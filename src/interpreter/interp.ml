@@ -53,19 +53,17 @@ end
 module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
   module State = struct
     type t =
-      { step : int
-      ; time : Interp_common.Timestamp.t
+      { time : Interp_common.Timestamp.t
       ; n_inputs : int
       ; timed_inputs : Input_log.t }
 
     let empty : t =
-      { step = 0
-      ; time = Interp_common.Timestamp.empty
+      { time = Interp_common.Timestamp.empty
       ; n_inputs = 0
       ; timed_inputs = Input_log.empty }
-  end
 
-  let max_step = Int.(10 ** 6)
+    let max_step = Int.(10 ** 6)
+  end
 
   module Err = struct
     (* Not putting state in the error because it's returned anyways *)
@@ -76,6 +74,9 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
 
     let fail_on_fetch (id : Ident.t) (s : State.t) : t * State.t =
       `XUnbound_variable (id, ()), s
+
+    let fail_on_max_step (_step : int) (s : State.t) : t * State.t =
+      `XReach_max_step (), s
   end
 
   include Interp_common.Effects.Make (State) (Env) (Err)
@@ -109,15 +110,6 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
   let using_env (f : Env.t -> 'a) : 'a m =
     let%bind env = read_env in
     return (f env)
-
-  let incr_step : unit m =
-    { run =
-      fun ~reject ~accept s _ ->
-        let step = s.step + 1 in
-        if step > max_step
-        then reject (`XReach_max_step ()) { s with step }
-        else accept () { s with step }
-    }
 
   let log_input (input : Interp_common.Input.t) : unit m =
     modify (fun s ->

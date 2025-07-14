@@ -28,7 +28,8 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
     let is_error =
       match Main.deval emb with
       | Ok _
-      | Error `XVanish _ -> false
+      | Error `XVanish _
+      | Error `XReach_max_step _ -> false
       | Error _ -> true
     in
     if is_error_expected 

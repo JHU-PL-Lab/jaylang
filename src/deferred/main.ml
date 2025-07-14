@@ -7,6 +7,7 @@ module E = Lang.Ast.Embedded
 (* Eval may error (monadically) *)
 let rec eval (expr : E.t) : Value.t m =
   let open Value in
+  let%bind () = incr_step in
   match expr with
   | EUnit -> return VUnit
   | EInt i -> return (VInt i)
@@ -158,18 +159,13 @@ let rec eval (expr : E.t) : Value.t m =
   | ETable
   | ETblAppl _ -> failwith "unhandled table operations in deferred evaluation"
 
-and eval_to_res (expr : E.t) : Value.any Res.t s =
-  handle_error 
-    (eval expr)
-    (fun v -> return (Res.V v))
-    (fun e -> return (Res.E e))
-
 (*
   This stern eval may error monadically so that we get propagation of
   errors in relaxed eval.
 *)
 and stern_eval (expr : E.t) : Value.whnf m = 
   let%bind v = eval expr in
+  let%bind () = incr_step in
   Value.split v
     ~symb:(fun ((VSymbol t) as sym) ->
       let%bind s = get in
@@ -185,42 +181,37 @@ and stern_eval (expr : E.t) : Value.whnf m =
     )
     ~whnf:return (* may optionally choose to work on deferred proofs here *)
 
-(* Is not a monadic error *)
-and stern_eval_to_res (expr : E.t) : Value.ok Res.t s =
-  handle_error 
-    (stern_eval expr)
-    (fun v -> return (Res.V v))
-    (fun e -> return (Res.E e))
-
-(* Does not monadically error. *)
+(* 
+  This does not monadically error.
+  Any error is packed into Res, so there is no implicit error propagation.
+  This is helpful because we don't want errors propagating and messing with
+  our stern semantics.
+*)
 let rec clean_up_deferred (final : Value.ok Res.t) : Value.ok Res.t s =
   let%bind s = get in
   match Time_map.choose_opt s.pending_proofs with
   | None -> return final (* done! can finish with how we're told to finish *)
   | Some (t, _) -> (* some cleanup to do, so do it, and then keep looping after that *)
     (* Do some cleanup by running this timestamp *)
-    match%bind run_on_deferred_proof (VSymbol t) stern_eval_to_res with
-    | V v' ->
-      (* deferred proof evaluated. Put it into the map, and continue on looping. It doesn't affect the final value *)
-      let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
-      clean_up_deferred final
-    | E e ->
-      (* deferred proof errored. This means the final value should be overwritten with this error *)
-      clean_up_deferred (Res.E e)
+    handle_error (run_on_deferred_proof (VSymbol t) stern_eval)
+      (fun v' ->
+        (* deferred proof evaluated. Put it into the map, and continue on looping. It doesn't affect the final value *)
+        let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
+        clean_up_deferred final)
+      (function 
+        | (`XReach_max_step _) as e ->
+          (* ran out of steps running deferred proof. Give up totally and say so. *)
+          return (Res.E e)
+        | e ->
+          (* deferred proof errored. This means the final value should be overwritten with this new error *)
+          clean_up_deferred (Res.E e))
 
-(*
-  So the idea here is that we have a stern eval function that we call when
-  relaxed evalling, and it may monadically error. That is stern_eval above.
- 
-  Then we also have a stern eval function that monadically may not error,
-  and it evaluates to a res. That is stern_eval_to_res above.
-
-  This is the one we use during the stern loop. We evaluate to a res, and
-  then we clean up the deferred proofs, eventually returning that res or
-  the earlier error that should override it.
-*)
 let begin_stern_loop (expr : E.t) : Value.ok Res.t s =
-  let%bind r = stern_eval_to_res expr in
+  let%bind r =
+    handle_error (stern_eval expr)
+      (fun v -> return (Res.V v))
+      (fun e -> return (Res.E e))
+  in
   clean_up_deferred r
 
 (* TODO: should probably differentiate between vanish and other errors *)

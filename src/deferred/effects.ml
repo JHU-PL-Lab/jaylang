@@ -54,6 +54,8 @@ module State = struct
     { s with
       symbol_env = Symbol_map.cut (VSymbol s.time) s.symbol_env
     ; pending_proofs = Pending_proofs.cut (VSymbol s.time) s.pending_proofs }
+
+  let max_step = Int.(10 ** 6)
 end
 
 include Interp_common.Effects.Make (State) (Env) (struct
@@ -64,6 +66,9 @@ include Interp_common.Effects.Make (State) (Env) (struct
 
   let fail_on_fetch (id : Lang.Ast.Ident.t) (s : State.t) : t * State.t =
     `XUnbound_variable (id, s.time), State.remove_greater_symbols s
+
+  let fail_on_max_step (_step : int) (s : State.t) : t * State.t =
+    `XReach_max_step s.time, s
 end)
 
 (*
@@ -92,14 +97,14 @@ let[@inline always] local_env (f : Value.env -> Value.env) (x : ('a, 'e) t) : ('
 
 let get_input (type a) (make_key : Timestamp.t -> a Feeder.Timekey.t) : (Value.t, 'e) t =
   let%bind () = assert_nondeterminism in
-  { run = fun ~reject:_ ~accept s e -> 
+  { run = fun ~reject:_ ~accept state step e -> 
     accept (
-      let key = make_key s.time in
+      let key = make_key state.time in
       let v = e.env.feeder.get key in
       match key with
       | I _ -> Value.VInt v
       | B _ -> Value.VBool v
-    ) { s with time = Timestamp.increment s.time }
+    ) { state with time = Timestamp.increment state.time } step
   }
 
 (*
@@ -153,7 +158,7 @@ let push_time : unit m =
 
 let fail_at_time (err : Timestamp.t -> Err.t) : 'a m =
   let%bind () = remove_greater_symbols in
-  { run = fun ~reject ~accept:_ s _ -> reject (err s.time) s }
+  { run = fun ~reject ~accept:_ state step _ -> reject (err state.time) state step }
 
 (* timestamp payload on error is just for printing. It is not used in tracking at all *)
 let abort (msg : string) : 'a m =
@@ -175,4 +180,4 @@ let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
 *)
 
 let lookup (Value.VSymbol t : Value.symb) : Value.whnf option m =
-  { run = fun ~reject:_ ~accept s _ -> accept (Time_map.find_opt t s.symbol_env) s }
+  { run = fun ~reject:_ ~accept state step _ -> accept (Time_map.find_opt t state.symbol_env) state step }

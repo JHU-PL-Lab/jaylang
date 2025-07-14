@@ -20,7 +20,7 @@ let eval_exp
 
   let rec eval (expr : Embedded.t) : Value.t m =
     let open Value.M in (* puts the value constructors in scope *)
-    let%bind step = incr_step in
+    let%bind () = incr_step in
     match expr with
     (* Determinism *)
     | EDet e -> with_incr_depth @@ eval e
@@ -176,10 +176,12 @@ let eval_exp
     (* Inputs *)
     | EPick_i () ->
       let%bind () = assert_nondeterminism in
-      get_input (Utils.Separate.I step) (* Wish Stepkey.I was a valid path... *)
+      let%bind Step n = step in
+      get_input (Utils.Separate.I n) (* I wish Stepkey.I was a valid path... *)
     | EPick_b () ->
       let%bind () = assert_nondeterminism in
-      get_input (Utils.Separate.B step)
+      let%bind Step n = step in
+      get_input (Utils.Separate.B n)
     (* Tables -- includes some branching *)
     | ETable -> return (VTable { alist = [] })
     | ETblAppl { tbl ; gen ; arg } -> begin
