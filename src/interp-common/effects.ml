@@ -36,10 +36,12 @@ end) = struct
     MONAD BASICS 
     ------------
 
-    CPS monad (mostly because it is an effecient way to error: just jump straight out instead
+    CPS monad (mostly because it is an efficient way to error: just jump straight out instead
     of pattern matching your way out) with error, state, and environment.
 
     The error case returns state, too.
+
+    This monad is inspired by one created for Binary Analysis Platform out of CMU.
 
     This is an indexed monad so that it can be parametrized to necessarily not error.
   *)
