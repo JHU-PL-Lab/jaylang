@@ -234,7 +234,7 @@ let begin_stern_loop (expr : E.t) : Value.ok Res.t s =
 
 (* TODO: should probably differentiate between vanish and other errors *)
 let[@landmark] deval 
-  ?(feeder : Interp_common.Input_feeder.Using_timekey.t = Interp_common.Input_feeder.Using_timekey.zero) 
+  ?(feeder : Interp_common.Timestamp.t Interp_common.Input_feeder.t = Interp_common.Input_feeder.zero) 
   (pgm : Lang.Ast.Embedded.pgm) 
   : (Value.Without_symbols.t, Err.t) result
   =
@@ -256,7 +256,7 @@ let deval_with_input_sequence
     Format.set_formatter_out_channel oc_null;
     let _, feeder = 
       Interpreter.Interp.eval_pgm_to_time_feeder 
-        ~feeder:(Interp_common.Input_feeder.Using_indexkey.of_sequence inputs)
+        ~feeder:(Interp_common.Input_feeder.of_sequence inputs)
         pgm
     in
     Format.set_formatter_out_channel Out_channel.stdout;

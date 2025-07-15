@@ -17,7 +17,7 @@ open Lang.Ast_tools.Exceptions
 module V = Lang.Value.Make (Lang.Value.Map_store) (Lang.Value.Lazy_cell) (Utils.Identity)
 open V
 
-module Feeder = Interp_common.Input_feeder.Using_indexkey
+module Feeder = Interp_common.Input_feeder
 
 module Input_log = struct
   type t = (Interp_common.Input.t * Interp_common.Timestamp.t) list
@@ -30,7 +30,7 @@ module Input_log = struct
     List.map t ~f:Tuple2.get1
     |> List.rev
 
-  let to_time_feeder : t -> Interp_common.Input_feeder.Using_timekey.t = fun t ->
+  let to_time_feeder : t -> Interp_common.Timestamp.t Feeder.t = fun t ->
     let mt = Map.empty (module Interp_common.Timestamp) in
     let m_ints, m_bools =
       List.fold t ~init:(mt, mt) ~f:(fun (mi, mb) (input, t) ->
@@ -45,7 +45,7 @@ module Input_log = struct
         | I k -> Map.find m_ints k
         | B k -> Map.find m_bools k
       in
-      Option.value a_opt ~default:(Interp_common.Input_feeder.Using_timekey.zero.get key)
+      Option.value a_opt ~default:(Interp_common.Input_feeder.zero.get key)
     in
     { get }
 end
@@ -126,7 +126,7 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
     let%bind () = modify (fun s' -> { s' with time = s.time }) in
     return a
 
-  let get_input (type a) (fkey : int -> a Feeder.Indexkey.t) (pack : a -> Interp_common.Input.t) (feeder : Feeder.t) : a m =
+  let get_input (type a) (fkey : int -> a Interp_common.Key.Indexkey.t) (pack : a -> Interp_common.Input.t) (feeder : int Feeder.t) : a m =
     let%bind () = assert_nondeterminism in
     let%bind n = n_inputs in
     let a = feeder.get (fkey n) in
@@ -135,7 +135,7 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
     return a
 end
 
-let eval_exp (type a) (e : a Expr.t) (feeder : Feeder.t) : a V.t * Input_log.t =
+let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log.t =
   let module E = struct
     type value = a V.t
     type t = a Env.t
@@ -496,7 +496,7 @@ let eval_exp (type a) (e : a Expr.t) (feeder : Feeder.t) : a V.t * Input_log.t =
 
 let eval_pgm 
   (type a)
-  ?(feeder : Interp_common.Input_feeder.Using_indexkey.t = Interp_common.Input_feeder.Using_indexkey.zero)
+  ?(feeder : int Feeder.t = Interp_common.Input_feeder.zero)
   (pgm : a Program.t) 
   : a V.t
   =
@@ -505,9 +505,9 @@ let eval_pgm
 
 let eval_pgm_to_time_feeder
   (type a)
-  ?(feeder : Interp_common.Input_feeder.Using_indexkey.t = Interp_common.Input_feeder.Using_indexkey.zero)
+  ?(feeder : int Feeder.t = Interp_common.Input_feeder.zero)
   (pgm : a Program.t) 
-  : a V.t * Interp_common.Input_feeder.Using_timekey.t
+  : a V.t * Interp_common.Timestamp.t Feeder.t
   =
   let v, log = eval_exp (EModule pgm) feeder in
   v, Input_log.to_time_feeder log

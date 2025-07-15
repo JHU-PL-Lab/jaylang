@@ -14,7 +14,7 @@
     Z3_api -- the source of the model
 *)
 
-include module type of Interp_common.Input_feeder.Using_stepkey
+include module type of Interp_common.Input_feeder.Make (Interp_common.Step)
 
 module Make (Z : Z3_api.S) : sig
   val from_model_and_subs : Z.model -> Expression.Subst.t list -> t

@@ -22,7 +22,7 @@ let interp =
   let feeder =
     match inputs with
     | [] -> None
-    | ls -> Some (Interp_common.Input_feeder.Using_indexkey.of_sequence ls)
+    | ls -> Some (Interp_common.Input_feeder.of_sequence ls)
   in
   match mode with
   | `Type_erased -> Core.Fn.const () @@

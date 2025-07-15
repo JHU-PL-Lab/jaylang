@@ -58,7 +58,7 @@ module type S = sig
   val incr_step : unit m
   val hit_branch : bool Direction.t -> bool Expression.t -> unit m
   val hit_case : int Direction.t -> int Expression.t -> other_cases:int list -> unit m
-  val get_input : 'a Input_feeder.Stepkey.t -> Value.t m
+  val get_input : 'a Input_feeder.Key.t -> Value.t m
   val run : 'a m -> Status.Eval.t * Target.t list
 end
 
@@ -111,7 +111,7 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
       )
     )
 
-  let get_input (type a) (key : a Input_feeder.Stepkey.t) : Value.t m =
+  let get_input (type a) (key : a Input_feeder.Key.t) : Value.t m =
     let v = input_feeder.get key in
     match key with
     | I _ -> 

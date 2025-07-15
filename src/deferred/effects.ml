@@ -4,7 +4,7 @@ open Interp_common
 
 (* monad to handle all of the effects *)
 
-module Feeder = Input_feeder.Using_timekey
+module Feeder = Input_feeder.Make (Timestamp)
 
 (*
   It can be a little confusing here because the thing we
@@ -93,7 +93,7 @@ let[@inline always] with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : ('a,
 let[@inline always] local_env (f : Value.env -> Value.env) (x : ('a, 'e) t) : ('a, 'e) t =
   local (fun e -> { e with env = f e.env }) x
 
-let get_input (type a) (make_key : Timestamp.t -> a Feeder.Timekey.t) : (Value.t, 'e) t =
+let get_input (type a) (make_key : Timestamp.t -> a Feeder.Key.t) : (Value.t, 'e) t =
   let%bind () = assert_nondeterminism in
   { run = fun ~reject:_ ~accept state step e -> 
     accept (
@@ -135,6 +135,7 @@ let local_time (time : Timestamp.t) (x : ('a, 'e) t) : ('a, 'e) t =
 
 (*
   TODO: filter the maps to only contain smaller symbols
+    (and consider if that would even be needed in the implementation or is just a formal detail for induction)
 *)
 let[@inline always] run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embedded.t -> ('a, 'e) t) : ('a, 'e) t =
   let%bind closure = pop_deferred_proof symb in
