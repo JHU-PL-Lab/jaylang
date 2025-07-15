@@ -4,9 +4,6 @@
   This module interprets any language defined in this system.
   It uses GADTs and type constraints to define the interpreter
   for all languages in one function.
-
-  Note that all input clauses get the default `0` or `false`.
-  There is currently not support for custom inputs.
 *)
 
 open Core

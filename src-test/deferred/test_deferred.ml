@@ -34,9 +34,9 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
     in
     if is_error_expected 
     then (* any result okay because this run may or may not hit error *)
-      Alcotest.check Alcotest.pass "interp" () ()
+      Alcotest.check Alcotest.pass "deval" () ()
     else (* definitely should not have hit the error *)
-      Alcotest.check Alcotest.bool "interp" true (not is_error)
+      Alcotest.check Alcotest.bool "deval" true (not is_error)
 
 let root_dir = "test/deferred/"
 
