@@ -14,8 +14,8 @@ module Make () : S = struct
 
   let var_of_key (type a) (key : a Interp_common.Key.Stepkey.t) : a t =
     match key with
-    | I id -> int_var id
-    | B id -> bool_var id
+    | I Step id -> int_var id
+    | B Step id -> bool_var id
 
   let value_of_key model key =
     key

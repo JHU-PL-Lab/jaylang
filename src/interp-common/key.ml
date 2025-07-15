@@ -23,7 +23,7 @@ end) : S with type key = C.t = struct
     | B c -> Format.sprintf "bkey_$%s" (C.to_string c)
 end
 
-module Stepkey = Make (Int) (* steps until input*)
+module Stepkey = Make (Step) (* steps until input*)
 module Indexkey = Make (Int) (* index of input in sequence *)
 module Stackkey = Make (Callstack) (* callstack as of input *)
 module Timekey = Make (Timestamp) (* time (as invented for deferred semantics) at input *)

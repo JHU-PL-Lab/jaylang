@@ -156,8 +156,8 @@ let rec subst : type a b. a t -> b Key.t -> b Const.t -> a t =
     match e with
     | Key k' -> begin
       match k, k' with
-      | I ik, I ik' when ik = ik' -> Const c
-      | B bk, B bk' when bk = bk' -> Const c
+      | I ik, I ik' when Interp_common.Step.equal ik ik' -> Const c
+      | B bk, B bk' when Interp_common.Step.equal bk bk' -> Const c
       | _ -> e
     end
     | Const _ -> e

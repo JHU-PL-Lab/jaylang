@@ -6,11 +6,12 @@ include Interp_common.Input_feeder.Using_stepkey
 module Make (Z : Z3_api.S) = struct
   let from_model_and_subs (model : Z.model) (subs : Expression.Subst.t list) : t =
     let model_vars =
-      Int.Set.of_list
-      @@ Z.constrained_vars model
+      Z.constrained_vars model
+      |> List.map ~f:(fun n -> Interp_common.Step.Step n)
+      |> Interp_common.Step.Set.of_list
     in
     let sub_vars =
-      Int.Set.of_list
+      Interp_common.Step.Set.of_list
       @@ List.map subs ~f:(function
         | I (k, _) -> Stepkey.extract k
         | B (k, _) -> Stepkey.extract k
@@ -25,8 +26,8 @@ module Make (Z : Z3_api.S) = struct
         else if Set.mem sub_vars @@ Stepkey.extract key then
           List.find_map_exn subs ~f:(fun sub ->
             match sub, key with
-            | I (I k, i), I k' when k = k' -> Some (i : a)
-            | B (B k, b), B k' when k = k' -> Some (b : a)
+            | I (I k, i), I k' when Interp_common.Step.equal k k' -> Some (i : a)
+            | B (B k, b), B k' when Interp_common.Step.equal k k' -> Some (b : a)
             | _ -> None
           )
         else

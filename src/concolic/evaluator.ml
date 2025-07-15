@@ -176,11 +176,11 @@ let eval_exp
     (* Inputs *)
     | EPick_i () ->
       let%bind () = assert_nondeterminism in
-      let%bind Step n = step in
+      let%bind n = step in
       get_input (Utils.Separate.I n) (* I wish Stepkey.I was a valid path... *)
     | EPick_b () ->
       let%bind () = assert_nondeterminism in
-      let%bind Step n = step in
+      let%bind n = step in
       get_input (Utils.Separate.B n)
     (* Tables -- includes some branching *)
     | ETable -> return (VTable { alist = [] })
