@@ -42,18 +42,23 @@ module State = struct
   type t =
     { time : Timestamp.t
     ; symbol_env : Symbol_map.t
-    ; pending_proofs : Pending_proofs.t } 
+    ; pending_proofs : Pending_proofs.t 
+    ; n_stern_steps : Step.t } 
   (* If we end up logging inputs, then I'll just add a label to the state and cons them there *)
 
   let empty : t =
     { time = Timestamp.empty
     ; symbol_env = Symbol_map.empty
-    ; pending_proofs = Pending_proofs.empty }
+    ; pending_proofs = Pending_proofs.empty
+    ; n_stern_steps = Step.zero }
 
   let remove_greater_symbols (s : t) : t =
     { s with
       symbol_env = Symbol_map.cut (VSymbol s.time) s.symbol_env
     ; pending_proofs = Pending_proofs.cut (VSymbol s.time) s.pending_proofs }
+
+  let incr_stern_step (s : t) : t =
+    { s with n_stern_steps = Step.next s.n_stern_steps }
 end
 
 include Interp_common.Effects.Make (State) (Env) (struct
@@ -148,6 +153,22 @@ let incr_time : unit m =
 
 let push_time : unit m =
   modify (fun s -> { s with time = Timestamp.push s.time })
+
+(*
+  We must count stern steps instead of using total step count to
+  periodically decide to work on a deferred proof in case there is
+  some pattern to the step count during stern eval.
+
+  e.g. if we work on a deferred proof when step mod 10 is 0, but
+    the step count is always odd at stern eval (just due to the nature
+    of the program at hand), then we'd never work on a deferred proof.
+*)
+let incr_n_stern_steps : unit m =
+  modify State.incr_stern_step
+
+let should_work_on_deferred : bool m =
+  let%bind s = get in
+  return (Step.to_int s.n_stern_steps land 31 = 0) (* quick way to check is 0 mod 32 -- works on deferred proof every 32nd stern eval *)
 
 (*
   ------

@@ -172,6 +172,7 @@ let rec eval (expr : E.t) : Value.t m =
 and stern_eval (expr : E.t) : Value.whnf m = 
   let%bind v = eval expr in
   let%bind () = incr_step ~max_step in
+  let%bind () = incr_n_stern_steps in
   Value.split v
     ~symb:(fun ((VSymbol t) as sym) ->
       let%bind s = get in
@@ -187,9 +188,9 @@ and stern_eval (expr : E.t) : Value.whnf m =
     )
     ~whnf:(fun v ->
       (* optionally choose to work on a deferred proof here *)
-      let dice_roll = Interp_common.Rand.int 20 in
       let%bind s = get in
-      if dice_roll = 0 && not (Time_map.is_empty s.pending_proofs) then
+      let%bind b = should_work_on_deferred in
+      if b && not (Time_map.is_empty s.pending_proofs) then
         let (t, _) = Time_map.choose s.pending_proofs in
         let%bind v' = run_on_deferred_proof (VSymbol t) stern_eval in
         let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
