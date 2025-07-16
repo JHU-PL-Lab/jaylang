@@ -1,0 +1,23 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules First_class_types))
+    (speed Slow) ; pretty quick with type splaying, but I'll call it slow because it's a few tenths of a second
+    (typing Well_typed)
+    (flags "-s")
+  )
+*)
+
+(*
+  The module M depends just on a type, not on some other module.
+  OCaml would have to have an existential type `a` in the module
+  or pass in a whole module with just a type in it.
+*)
+let M (dependent a : type) : sig
+  val t = list a (* can be quickly checked as well typed with type splaying *)
+  val empty : t
+  val cons : a -> t -> t 
+end = struct
+  let t = list a
+  let empty = []
+  let cons a t = a :: t
+end
