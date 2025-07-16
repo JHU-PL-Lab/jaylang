@@ -136,15 +136,15 @@ module Binop = struct
     | BMinus -> "-"
     | BTimes -> "*"
     | BDivide -> "/"
-    | BModulus -> "mod"
-    | BEqual -> "="
+    | BModulus -> "%"
+    | BEqual -> "=="
     | BNeq -> "<>"
     | BLessThan -> "<"
     | BLeq -> "<="
     | BGreaterThan -> ">"
     | BGeq -> ">="
-    | BAnd -> "and"
-    | BOr -> "or"
+    | BAnd -> "&&"
+    | BOr -> "||"
 end
 
 exception InvalidComparison of string
