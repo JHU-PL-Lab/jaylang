@@ -15,7 +15,7 @@
     Expression -- ints and bools are stored with their expression
 *)
 
-module Concolic_value : Lang.Value.V with type 'a t = 'a * 'a Expression.t
+module Concolic_value : Utils.Equatable.P1 with type 'a t = 'a * 'a Expression.t
 (** [Concolic_value] has a type ['a t] to represent concolic values: values that
     are a pair of a concrete value ['a] and symbolic expression ['a Expression.t]. *)
 

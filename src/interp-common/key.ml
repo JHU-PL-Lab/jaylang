@@ -1,10 +1,7 @@
 
 type ('a, 'key) t = ('a, 'key) Utils.Separate.t
 
-module Make (K : sig
-  type t [@@deriving compare, equal]
-  val to_string : t -> string
-end) = struct
+module Make (K : Utils.Comparable.P) = struct
   type key = K.t
   include Utils.Separate.Make_with_compare (K)
 

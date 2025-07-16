@@ -45,10 +45,7 @@ let of_sequence (ls : Input.t list) : int t =
   in
   { get }
 
-module Make (K : sig
-  type t [@@deriving compare, equal]
-  val to_string : t -> string
-end) = struct
+module Make (K : Utils.Comparable.P) = struct
   type nonrec t = K.t t
 
   let zero : t = zero

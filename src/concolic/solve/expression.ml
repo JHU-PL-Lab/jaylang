@@ -166,10 +166,15 @@ let rec subst : type a b. a t -> b Key.t -> b Const.t -> a t =
 
 module Subst = Utils.Pack.Make (struct
   type 'a t = 'a Key.t * 'a
+
   let compare compare_a (k1, a1) (k2, a2) =
     match Key.compare k1 k2 with
     | 0 -> compare_a a1 a2
     | c -> c
+
+  let equal equal (k1, a1) (k2, a2) = 
+    Key.equal k1 k2
+    && equal a1 a2
 end)
 
 (*

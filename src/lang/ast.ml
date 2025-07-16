@@ -644,7 +644,7 @@ module Expr = struct
   include Made
 
   module Point_cell = struct
-    type 'a t = { data : 'a ; point : Program_point.t }[@@deriving compare]
+    type 'a t = { data : 'a ; point : Program_point.t }[@@deriving compare, equal]
     let make (data : 'a) : 'a t =
       { data ; point = Program_point.next () }
   end
