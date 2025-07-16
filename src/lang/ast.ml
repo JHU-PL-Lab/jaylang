@@ -638,6 +638,158 @@ module Expr = struct
             | `Continue_and_overwrite_bindings bindings -> compare_lists tl1 tl2 bindings ~f
       in
       compare Alist.empty x y
+
+      (*calculates operator precedence to determine where to place parens*)
+      let op_precedence : type a. a t -> int = function
+      | EInt _ -> 0
+      | EBool _ -> 0
+      | EUnit -> 0
+      | EVar _ -> 0
+      | EBinop { left=_ ; binop=binop ; right=_ } -> 
+        begin
+        match binop with
+        | BPlus -> 3 (*weakest*)
+        | BMinus -> 3 (*weakest*)
+        | BTimes -> 2 (*middle*)
+        | BDivide -> 2 (*middle*)
+        | BModulus -> 2 (*middle*)
+        | BEqual -> 4 (*strongest*)
+        | BNeq -> 4 (*strongest*)
+        | BLessThan -> 4 (*strongest*)
+        | BLeq -> 4 (*strongest*)
+        | BGreaterThan -> 4 (*strongest*)
+        | BGeq -> 4 (*strongest*)
+        | BAnd -> 5 (*weakest*)
+        | BOr -> 6 (*weakest*)
+        end
+      | EIf _ -> 7
+      | ELet _ -> 7
+      | EAppl _ -> 1
+      | EMatch _-> 7
+      | EProject _ -> 1
+      | ERecord _ -> 0
+      | EModule _ -> 0
+      | ENot _ -> 1
+      | EPick_i _ -> 0
+      | EFunction _ -> 1
+      | EVariant _ -> 1
+      | EDefer _ -> 1
+      | EPick_b _ -> 0
+      | ECase _ -> 7 (* simply sugar for nested conditionals *)
+      | EFreeze _ -> 1
+      | EThaw _ -> 1
+      | EId -> 0
+      | EIgnore _ -> 1 (* simply sugar for `let _ = ignored in body` but is more efficient *)
+      | ETable -> 0
+      | ETblAppl _ -> 1
+      | EDet _ -> 1
+      | EEscapeDet _ -> 1
+      | EIntensionalEqual _ -> 0
+      | EUntouchable _ -> 1
+      (* these exist in the desugared and embedded languages *)
+      | EAbort _ -> 1 (* string is error message *)
+      | EVanish _ -> 1
+      (* only the desugared language *)
+      | EGen _ -> 1 (* Cannot be interpreted. Is only an intermediate step in translation *)
+      (* these exist in the bluejay and desugared languages *)
+      | EType -> 0
+      | ETypeInt -> 0
+      | ETypeBool -> 0
+      | ETypeTop -> 0
+      | ETypeBottom -> 0
+      | ETypeUnit -> 0
+      | ETypeRecord _ -> 0
+      | ETypeModule _ -> 1
+      | ETypeFun _ -> 1
+      | ETypeRefinement _ -> 1
+      | ETypeMu _ -> 1
+      | ETypeVariant _ -> 1
+      | ELetTyped _ -> 7
+      | ETypeSingle -> 0
+      (* bluejay or type erased *)
+      | EList _ -> 0
+      | EListCons _ -> 1
+      | EAssert _ -> 1
+      | EAssume _ -> 1
+      | EMultiArgFunction _ -> 1
+      | ELetFun _ -> 7
+      | ELetFunRec _ -> 7
+      (* bluejay only *)
+      | ETypeList ->  0
+      | ETypeIntersect _ -> 1
+
+      let rec to_string : type a. a t -> string = function
+      | EInt v1 -> Format.sprintf "%d" v1
+      | EBool v1 -> Format.sprintf "%b" v1
+      | EUnit -> "()"
+      | EVar (Ident x) -> Format.sprintf "%s" x
+      | EBinop { left ; binop  ; right } -> (*if left >= binop, then parens around left*)
+      | EIf : { cond : 'a t ; true_body : 'a t ; false_body : 'a t } -> 'a t
+      | ELet : { var : Ident.t ; defn : 'a t ; body : 'a t } -> 'a t
+      | EAppl : 'a application Cell.t -> 'a t
+      | EMatch : { subject : 'a t ; patterns : ('a Pattern.t * 'a t) list } -> 'a t
+      | EProject : { record : 'a t ; label : RecordLabel.t } -> 'a t
+      | ERecord : 'a t RecordLabel.Map.t -> 'a t
+      | EModule : 'a statement list -> 'a t
+      | ENot e -> 
+        let eval = (to_string e) in 
+        if (op_precedence e) >= 1 then Format.sprintf "not (%s)" eval
+        else Format.sprintf "not %s" eval
+      | EPick_i : unit Cell.t -> 'a t (* is parsed as "input", but we can immediately make it pick_i *)
+      | EFunction : { param : Ident.t ; body : 'a t } -> 'a t (* note bluejay also has multi-arg function, which generalizes this *)
+      | EVariant : { label : VariantLabel.t ; payload : 'a t } -> 'a t
+      | EDefer e -> 
+        let eval = (to_string e) in (Format.sprintf "Defer (%s)" eval)
+      (* embedded only, so constrain 'a to only be `Embedded *)
+      | EPick_b : unit Cell.t -> 'a embedded_only t
+      | ECase : { subject : 'a t ; cases : (int * 'a t) list ; default : 'a t } -> 'a embedded_only t (* simply sugar for nested conditionals *)
+      | EFreeze e -> let eval = (to_string e) in (Format.sprintf "Freeze (%s)" eval)
+      | EThaw e -> let eval = (to_string e) in (Format.sprintf "Thaw (%s)" eval)
+      | EId : 'a embedded_only t
+      | EIgnore : { ignored : 'a t ; body : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in body` but is more efficient *)
+      | ETable -> "table»"
+      | ETblAppl : { tbl : 'a t ; gen : 'a t ; arg : 'a t } -> 'a embedded_only t
+      | EDet : 'a t -> 'a embedded_only t
+      | EEscapeDet : 'a t -> 'a embedded_only t
+      | EIntensionalEqual _ -> "=~~="
+      | EUntouchable : 'a t -> 'a embedded_only t
+      (* these exist in the desugared and embedded languages *)
+      | EAbort m -> Format.sprintf "abort»:%s" m  (* string is error message *)
+      | EVanish : unit Cell.t -> 'a desugared_or_embedded t
+      (* only the desugared language *)
+      | EGen -> "gen»" (* Cannot be interpreted. Is only an intermediate step in translation *)
+      (* these exist in the bluejay and desugared languages *)
+      | EType -> "type"
+      | ETypeInt -> "int"
+      | ETypeBool -> "bool"
+      | ETypeTop -> "top"
+      | ETypeBottom -> "bottom"
+      | ETypeUnit -> "unit"
+      | ETypeRecord : 'a t RecordLabel.Map.t -> 'a bluejay_or_desugared t
+      | ETypeModule : (RecordLabel.t * 'a t) list -> 'a bluejay_or_desugared t (* is a list because order matters *)
+      | ETypeFun : { domain : 'a t ; codomain : 'a t ; dep : [ `No | `Binding of Ident.t ] ; det : bool } -> 'a bluejay_or_desugared t
+      | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
+      | ETypeMu : { var : Ident.t ; params : Ident.t list ; body : 'a t } -> 'a bluejay_or_desugared t
+      | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
+      | ELetTyped : { typed_var : 'a typed_var ; defn : 'a t ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
+      | ETypeSingle : '"singlet"
+      (* bluejay or type erased *)
+      | EList : 'a t list -> 'a bluejay_or_type_erased t
+      | EListCons : 'a t * 'a t -> 'a bluejay_or_type_erased t
+      | EAssert e -> 
+        let eval = (to_string e) in 
+        if (op_precedence e) >= 1 then Format.sprintf "assert (%s)" eval
+        else Format.sprintf "assert %s" eval
+      | EAssume e -> 
+        let eval = (to_string e) in 
+        if (op_precedence e) >= 1 then Format.sprintf "assume (%s)" eval
+        else Format.sprintf "assume %s" eval
+      | EMultiArgFunction : { params : Ident.t list ; body : 'a t } -> 'a bluejay_or_type_erased t
+      | ELetFun : { func : 'a funsig ; body : 'a t } -> 'a bluejay_or_type_erased t
+      | ELetFunRec : { funcs : 'a funsig list ; body : 'a t } -> 'a bluejay_or_type_erased t
+      (* bluejay only *)
+      | ETypeList -> "list"
+      | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
   end
 
   module Made = Make (Utils.Identity)
