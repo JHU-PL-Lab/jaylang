@@ -11,11 +11,11 @@ module Error_msg = Lang.Value.Error_msg (Value)
   semantics. It just helps with correctness that way.
 *)
 let eval_exp 
-  (module S : Effects.S)
-  (expr : Embedded.t Effects.M.m) 
+  (consts : Effects.Consts.t)
+  (expr : Embedded.t) 
   : Status.Eval.t * Target.t list
   =
-  let open S in
+  let open Effects.Initialize (struct let c = consts end) in
   let open Effects.M in
 
   let rec eval (expr : Embedded.t) : Value.t m =
@@ -214,7 +214,7 @@ let eval_exp
     | EVanish () -> vanish
   in
 
-  S.run (bind expr eval)
+  run (eval expr)
 
 (*
   -------------------
@@ -250,11 +250,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
         match solve_result with
         | `Sat feeder -> begin
             let* () = pause () in
-            let module I = Effects.Initialize (struct
-              let c = Effects.Consts.{ target ; options = O.r ; input_feeder = feeder }
-            end)
-            in
-            let status, targets = eval_exp (module I) (Effects.M.return e) in
+            let status, targets = eval_exp { target ; options = O.r ; input_feeder = feeder } e in
             let t2 = Caml_unix.gettimeofday () in
             let _ : float = Utils.Safe_cell.map (fun t -> t +. (t2 -. t1)) global_runtime in
             match status with
@@ -275,23 +271,27 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
         else
           return Status.Exhausted_full_tree
 
+  (*
+    We don't bootstrap by running `step` with one empty target because we want
+    to run with all zeroes first. Just fencepost like this: run once, then start
+    stepping.
+  *)
   let eval : Embedded.t -> Status.Terminal.t P.t =
     fun e ->
       if not O.r.random then Interp_common.Rand.reset ();
       P.with_timeout O.r.global_timeout_sec @@ fun () ->
-      let module I = Effects.Initialize (struct
         let c =
           Effects.Consts.{ target = Target.make Path.empty
           ; options = O.r
           ; input_feeder = Input_feeder.zero }  
-      end) in
-      let t0 = Caml_unix.gettimeofday () in
-      let status, targets = eval_exp (module I) (Effects.M.return e) in
-      let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_runtime in
-      match status with
-      | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
-      | Finished { pruned } ->
-        step e ~has_pruned:pruned ~has_unknown:false (TQ.push_list empty_tq targets)
+        in
+        let t0 = Caml_unix.gettimeofday () in
+        let status, targets = eval_exp c e in
+        let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_runtime in
+        match status with
+        | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
+        | Finished { pruned } ->
+          step e ~has_pruned:pruned ~has_unknown:false (TQ.push_list empty_tq targets)
 end
 
 module F = Make (Solve.Default) (Pause.Lwt)
