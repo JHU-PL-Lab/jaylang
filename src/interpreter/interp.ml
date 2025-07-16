@@ -319,6 +319,7 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
     | EIf { cond ; true_body ; false_body } ->
       let%bind e_b = eval cond in
       let%orzero (VBool b) = e_b in
+      let%bind () = incr_time in
       if b
       then eval true_body
       else eval false_body
@@ -356,6 +357,7 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
     | ECase { subject ; cases ; default } -> begin
       let%bind v = eval subject in
       let%orzero VInt i = v in
+      let%bind () = incr_time in
       List.find_map cases ~f:(fun (case_i, body) ->
         Option.some_if (i = case_i) body
       )

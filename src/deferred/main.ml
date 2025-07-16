@@ -71,6 +71,7 @@ let rec eval (expr : E.t) : Value.t m =
   | EIf { cond ; true_body ; false_body } -> begin
     match%bind stern_eval cond with
     | VBool b ->
+      let%bind () = incr_time in
       let body = if b then true_body else false_body in
       eval body
     | v -> type_mismatch @@ Error_msg.cond_non_bool v
@@ -78,6 +79,7 @@ let rec eval (expr : E.t) : Value.t m =
   | ECase { subject ; cases ; default } -> begin
     match%bind stern_eval subject with
     | VInt i -> begin
+      let%bind () = incr_time in
       let body_opt = List.find_map cases ~f:(fun (i', body) -> if i = i' then Some body else None) in
       match body_opt with
       | Some body -> eval body
