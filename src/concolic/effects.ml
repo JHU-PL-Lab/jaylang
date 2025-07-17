@@ -24,7 +24,7 @@ module State = struct
     List.rev rev_inputs
 end
 
-module Read = struct
+module Err = struct
   include Status.Eval
   let fail_on_nondeterminism_misuse (s : State.t) : t * State.t =
     Status.Found_abort (State.inputs s, "Nondeterminism used when not allowed."), s
@@ -35,7 +35,7 @@ module Read = struct
 end
 
 module M = struct
-  include Interp_common.Effects.Make (State) (Value.Env) (Read)
+  include Interp_common.Effects.Make (State) (Value.Env) (Err)
 
   let abort (msg : string) : 'a m =
     let%bind s = get in
