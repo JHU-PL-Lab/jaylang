@@ -1,12 +1,13 @@
 let is_prime (n : int) : bool = 
-  let rec check_divisors (dependent i : int | i > 1 && i * i <= n) : bool = 
+  let rec check_divisors (i : int) : bool = 
     if i * i > n 
-      then true 
-      else if n % i == 0 
-      then false 
-      else check_divisors (i + 1)
-    in 
-  check_divisors 2 
+    then true 
+    else if n % i == 0 
+    then false 
+    else check_divisors (i + 1)
+  in 
+  if n <= 1 then false else check_divisors 2
+
 
 let rec count_primes_up_to (n : int) : { count : int | count >= 0 } =
   let rec count_helper (current : int) (acc : int) : int =
