@@ -1,15 +1,19 @@
-let rec binary_search arr target (dependent left : int | left >= 0) (dependent right : int | right >= left) : {result : int | result >= 0 - 1} = 
-  if left > right 
-  then 0 - 1 
-  else 
-    let mid = (left + right) / 2 un 
-    match arr with 
-    | [] -> 0 - 1 
-    | _ -> 
-      let mid_val = list_get arr mid in 
-      if mid_val == target 
-      then mid 
-      else if mid_val < target 
-      then binary_search arr target (mid + 1) right 
-      else binary_search arr target left (mid - 1)
-    end
+(* Safe list_get function with bounds checking *)
+let rec list_get (arr : list int) (dependent i : int | i >= 0 && i < list_length arr) : int =
+  match arr with
+  | [] -> 0  (* This branch should be unreachable if the type guard works *)
+  | x :: xs -> 
+    if i == 0 then x
+    else list_get xs (i - 1)
+  end
+
+(* Main binary search function *)
+let rec binary_search (arr : list int) (target : int) (dependent left : int | left >= 0) (dependent right : int | right >= left && right < list_length arr) : {result : int | result >= -1 && result < list_length arr} =
+  if left > right then -1 else
+    let mid = (left + right) / 2 in
+    let mid_val = list_get arr mid in
+    if mid_val == target then mid
+    else if mid_val < target then
+      binary_search arr target (mid + 1) right
+    else
+      binary_search arr target left (mid - 1)
