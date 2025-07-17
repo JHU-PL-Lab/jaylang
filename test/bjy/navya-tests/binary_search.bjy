@@ -8,10 +8,21 @@ let rec list_get (arr : list int) (dependent i : int | i >= 0 && i < list_length
   end
 
 (* Main binary search function *)
-let rec binary_search (arr : list int) (target : int) (dependent left : int | left >= 0) (dependent right : int | right >= left && right < list_length arr) : {result : int | result >= -1 && result < list_length arr} =
+let rec binary_search
+  (arr : list int)
+  (target : int)
+  (dependent left : int | left >= 0)
+  (dependent right : int | right >= left && right < list_length arr)
+  : {result : int | result >= -1 && result < list_length arr}
+=
   if left > right then -1 else
     let mid = (left + right) / 2 in
+
+    (* Type error occurs here:
+       'mid' is just an int, and there's no proof that mid < list_length arr.
+       But list_get requires that as a dependent constraint. *)
     let mid_val = list_get arr mid in
+
     if mid_val == target then mid
     else if mid_val < target then
       binary_search arr target (mid + 1) right
