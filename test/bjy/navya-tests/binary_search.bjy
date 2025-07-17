@@ -1,4 +1,4 @@
-let rec binary_search (dependent arr : list int) (dependent target : int) (dependent left : int | left >= 0) (dependent right : int | right >= left) : {result : int | result >= 0 - 1} = 
+let rec binary_search arr target (dependent left : int | left >= 0) (dependent right : int | right >= left) : {result : int | result >= 0 - 1} = 
   if left > right 
   then 0 - 1 
   else 
