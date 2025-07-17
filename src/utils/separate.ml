@@ -27,6 +27,9 @@ module type S = sig
   val bool_ : x -> bool t
 end
 
+let int_ : 'x -> (int, 'x) t = fun x -> I x
+let bool_ : 'x -> (bool, 'x) t = fun x -> B x
+
 let extract : type a. (a, 'x) t -> 'x = function
   | I x -> x
   | B x -> x
@@ -41,8 +44,8 @@ module Make (X : Core.T) : S with type x = X.t = struct
   type nonrec 'a t = ('a, X.t) t
   (** Separate [X.t] into an int [I] case and a bool [B] case. *)
 
-  let int_ : X.t -> int t = fun x -> I x
-  let bool_ : X.t -> bool t = fun x -> B x
+  let int_ = int_
+  let bool_ = bool_
   let extract = extract
   let extract_list = extract_list
 end

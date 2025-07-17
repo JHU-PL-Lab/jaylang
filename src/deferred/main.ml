@@ -17,8 +17,8 @@ let rec eval (expr : E.t) : Value.t m =
   | EVar id -> fetch id
   | EId -> return VId
   (* inputs *)
-  | EPick_i () -> get_input (fun time -> Utils.Separate.I time)
-  | EPick_b () -> get_input (fun time -> Utils.Separate.B time)
+  | EPick_i () -> get_input Interp_common.Key.Timekey.int_
+  | EPick_b () -> get_input Interp_common.Key.Timekey.bool_
   (* operations *)
   | EBinop { left ; binop ; right } -> begin
     let%bind a = stern_eval left in

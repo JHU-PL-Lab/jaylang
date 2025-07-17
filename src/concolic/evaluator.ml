@@ -174,8 +174,8 @@ let eval_exp
       | v -> type_mismatch @@ Error_msg.case_non_int v
     end
     (* Inputs *)
-    | EPick_i () -> get_input (fun step -> Utils.Separate.I step)
-    | EPick_b () -> get_input (fun step -> Utils.Separate.B step)
+    | EPick_i () -> get_input Interp_common.Key.Stepkey.int_
+    | EPick_b () -> get_input Interp_common.Key.Stepkey.bool_
     (* Tables -- includes some branching *)
     | ETable -> return (VTable { alist = [] })
     | ETblAppl { tbl ; gen ; arg } -> begin

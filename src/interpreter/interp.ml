@@ -177,10 +177,10 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
     | EId -> return VId
     (* inputs *)
     | EPick_i () -> 
-      let%bind i = get_input (fun n -> Utils.Separate.I n) (fun i -> Interp_common.Input.I i) feeder in
+      let%bind i = get_input Interp_common.Key.Indexkey.int_ (fun i -> Interp_common.Input.I i) feeder in
       return (VInt i)
     | EPick_b () -> 
-      let%bind b = get_input (fun n -> Utils.Separate.B n) (fun b -> Interp_common.Input.B b) feeder in
+      let%bind b = get_input Interp_common.Key.Indexkey.bool_ (fun b -> Interp_common.Input.B b) feeder in
       return (VBool b)
     (* deferred expressions *)
     | EDefer e -> (* eagerly evaluate, but still track time correctly *)
