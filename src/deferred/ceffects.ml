@@ -293,10 +293,10 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
     let v = input_feeder.get key in
     match key with
     | I _ -> 
-      let%bind () = modify (fun s -> { s with rev_inputs = I v :: s.rev_inputs }) in
+      let%bind () = modify (fun s -> { s with rev_inputs = I v :: s.rev_inputs ; time = Timestamp.increment s.time }) in
       return @@ V.VInt (v, Concolic.Expression.key key)
     | B _ ->
-      let%bind () = modify (fun s -> { s with rev_inputs = B v :: s.rev_inputs }) in
+      let%bind () = modify (fun s -> { s with rev_inputs = B v :: s.rev_inputs ; time = Timestamp.increment s.time }) in
       return @@ V.VBool (v, Concolic.Expression.key key)
 
   let run (x : 'a m) : Concolic.Status.Eval.t * Concolic.Target.t list =
