@@ -14,9 +14,22 @@ open Interp_common
 
 (* monad to handle all of the effects *)
 
-module Feeder = Interp_common.Input_feeder.Make (Timestamp)
+(* FIXME: should use time key *)
+module Feeder = Interp_common.Input_feeder.Make (Interp_common.Step)
 
 module V = Value.Make (Concolic.Value.Concolic_value)
+
+(*
+  FIXME: this is a total hack and should not be used even short term.
+*)
+let time_to_step (type a) (timekey : a Interp_common.Key.Timekey.t) : a Interp_common.Key.Stepkey.t =
+  match timekey with
+  | I t ->
+    let s = Interp_common.Step.Step (Hashtbl.hash t) in
+    Interp_common.Key.Stepkey.int_ s
+  | B t ->
+    let s = Interp_common.Step.Step (Hashtbl.hash t) in
+    Interp_common.Key.Stepkey.bool_ s
 
 module Env = struct
   type value = V.t
@@ -273,20 +286,18 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
     )
 
   (* FIXME: symbols use hash, not actual time (which should use some uid or perfect hash). *)
-  let get_input (type a) (make_key : Timestamp.t -> a Feeder.Key.t) : V.t m =
+  let get_input (type a) (make_key : Timestamp.t -> a Interp_common.Key.Timekey.t) : V.t m =
     let%bind () = assert_nondeterminism in
     let%bind state = get in
-    let key = make_key state.time in
+    let key = time_to_step (make_key state.time) in
     let v = input_feeder.get key in
     match key with
-    | I k -> 
+    | I _ -> 
       let%bind () = modify (fun s -> { s with rev_inputs = I v :: s.rev_inputs }) in
-      let k' = Interp_common.Step.Step (Hashtbl.hash k) in (* FIXME: total hack to use int keys *)
-      return @@ V.VInt (v, Concolic.Expression.key (Utils.Separate.I k'))
-    | B k ->
+      return @@ V.VInt (v, Concolic.Expression.key key)
+    | B _ ->
       let%bind () = modify (fun s -> { s with rev_inputs = B v :: s.rev_inputs }) in
-      let k' = Interp_common.Step.Step (Hashtbl.hash k) in (* FIXME: total hack to use int keys *)
-      return @@ V.VBool (v, Concolic.Expression.key (Utils.Separate.B k'))
+      return @@ V.VBool (v, Concolic.Expression.key key)
 
   let run (x : 'a m) : Concolic.Status.Eval.t * Concolic.Target.t list =
     match run x State.empty Read.empty with

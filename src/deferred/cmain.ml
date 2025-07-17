@@ -6,22 +6,7 @@ open Lang.Ast
 
 module V = Ceffects.V
 
-(*
-  TODO: 
-    - Need concolic effects to push branches and such.
-    - This will require composing the monads, probably 
-      manually as a first pass.
-    - I'll just steal the entire concolic monad and paste
-      it in with the deferred monad. Then add the calls
-      I need to track concolic stuff. And also handle expressions
-      accordingly. But I think it will be very easy.
-
-
-  Consts for concolic interp will need to allow a parametrized
-  input feeder. Input feeders are already parametrized, so that
-  won't be a big step, but it will be a mild annoyance.
-*)
-
+(* this should be abstracted *)
 type 'a res =  
   | V of 'a V.v
   | E of Ceffects.Err.t
@@ -284,3 +269,145 @@ let eval_exp
   in
 
   run (res_to_err (begin_stern_loop expr))
+
+(*
+  -------------------
+  BEGIN CONCOLIC EVAL   
+  -------------------
+
+  This section starts up and runs the concolic evaluator (see the eval_exp above)
+  repeatedly to hit all the branches.
+
+  This eval spans multiple interpretations, hitting a provably different
+  path on each interpretation.
+
+  NOTE: this is totally stolen from the eager concolic eval, just for this rough draft.
+*)
+
+let global_runtime = Utils.Safe_cell.create 0.0
+let global_solvetime = Utils.Safe_cell.create 0.0
+
+module Make (S : Concolic.Solve.S) (P : Concolic.Pause.S) (O : Concolic.Options.V) = struct
+  module TQ = Concolic.Target_queue.All
+
+  let empty_tq = Concolic.Options.Arrow.appl TQ.of_options O.r ()
+
+  (*
+    I should have a separate model-feeder module that takes any key that 
+    can map onto a symbol, and it roles with that.
+    But for now I hack and hash the timestamp into a "step".
+  *)
+
+  let rec step : Embedded.t -> has_pruned:bool -> has_unknown:bool -> TQ.t -> Concolic.Status.Terminal.t P.t =
+    fun e ~has_pruned ~has_unknown tq ->
+      let open P in
+      let* () = pause () in
+      let t0 = Caml_unix.gettimeofday () in
+      match TQ.peek tq with
+      | Some target -> begin
+        let tq = TQ.remove tq target in
+        let solve_result = S.solve (Concolic.Target.to_expressions target) in
+        let t1 = Caml_unix.gettimeofday () in
+        let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
+        match solve_result with
+        | `Sat feeder -> begin
+            let* () = pause () in
+            let status, targets = eval_exp { target ; options = O.r ; input_feeder = feeder } e in
+            let t2 = Caml_unix.gettimeofday () in
+            let _ : float = Utils.Safe_cell.map (fun t -> t +. (t2 -. t1)) global_runtime in
+            match status with
+            | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
+            | Finished { pruned } ->
+              let has_pruned = has_pruned || pruned in
+              step e ~has_pruned ~has_unknown (TQ.push_list tq targets)
+          end
+        | `Unknown -> let* () = pause () in step e ~has_pruned ~has_unknown:true tq
+        | `Unsat -> let* () = pause () in step e ~has_pruned ~has_unknown tq
+      end
+      | None ->
+        let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_solvetime in
+        if has_unknown then
+          return Concolic.Status.Unknown
+        else if has_pruned then
+          return Concolic.Status.Exhausted_pruned_tree
+        else
+          return Concolic.Status.Exhausted_full_tree
+
+  (*
+    We don't bootstrap by running `step` with one empty target because we want
+    to run with all zeroes first. Just fencepost like this: run once, then start
+    stepping.
+  *)
+  let eval : Embedded.t -> Concolic.Status.Terminal.t P.t =
+    fun e ->
+      if not O.r.random then Interp_common.Rand.reset ();
+      P.with_timeout O.r.global_timeout_sec @@ fun () ->
+        let c =
+          Ceffects.Consts.{ target = Concolic.Target.make Concolic.Path.empty
+          ; options = O.r
+          ; input_feeder = Interp_common.Input_feeder.zero }  
+        in
+        let t0 = Caml_unix.gettimeofday () in
+        let status, targets = eval_exp c e in
+        let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_runtime in
+        match status with
+        | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
+        | Finished { pruned } ->
+          step e ~has_pruned:pruned ~has_unknown:false (TQ.push_list empty_tq targets)
+end
+
+module F = Make (Concolic.Solve.Default) (Concolic.Pause.Lwt)
+
+let lwt_eval : (Embedded.t, Concolic.Status.Terminal.t Lwt.t) Concolic.Options.Arrow.t =
+  Concolic.Options.Arrow.make
+  @@ fun r e ->
+    let module E = F (struct let r = r end) in
+    E.eval e
+
+open Concolic.Options.Arrow
+
+let test_with_timeout : (Lang.Ast.Embedded.t, Concolic.Status.Terminal.t) Concolic.Options.Arrow.t =
+  lwt_eval
+  >>^ fun res_status ->
+    try Lwt_main.run res_status with
+    | Lwt_unix.Timeout -> Timeout
+
+
+let test_bjy =
+  Concolic.Options.Arrow.make
+  @@ fun r -> fun bjy -> fun ~do_wrap ~do_type_splay ->
+    let expr = Translate.Convert.bjy_to_emb bjy ~do_wrap ~do_type_splay |> Lang.Ast_tools.Utils.pgm_to_module in
+    let res = appl test_with_timeout r expr in
+    Format.printf "%s\n" (Concolic.Status.to_loud_string res);
+    res
+
+(*
+  -------------------
+  TESTING BY FILENAME
+  -------------------
+*)
+
+(* let test : Filename.t test = *)
+let test =
+  (fun s -> Lang.Parse.parse_single_pgm_string @@ In_channel.read_all s)
+  ^>> test_bjy
+
+(*
+  ------------------------------
+  TESTING FROM COMMAND LINE ARGS
+  ------------------------------
+*)
+
+let cdeval =
+  let open Cmdliner in
+  let open Cmdliner.Term.Syntax in
+  Cmd.v (Cmd.info "cdeval") @@
+  let+ concolic_args = Concolic.Options.cmd_arg_term
+  and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
+  and+ bjy_pgm = Lang.Parse.parse_bjy_file_from_argv in
+  Concolic.Options.Arrow.appl
+    test_bjy
+    concolic_args
+    bjy_pgm
+    ~do_wrap
+    ~do_type_splay
