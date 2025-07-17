@@ -243,7 +243,7 @@ let[@landmark] deval
   =
   let expr = Lang.Ast_tools.Utils.pgm_to_module pgm in
   match run_on_empty (begin_stern_loop expr) feeder with
-  | V v, state, _ -> Ok (Symbol_map.close_value (Value.cast_up v) state.symbol_env)
+  | V v, state, _ -> Ok (Value.subst (Value.cast_up v) ~f:(fun t -> Time_map.find t state.symbol_env))
   | E e, _, _ -> Error e
 
 let deval_with_input_sequence

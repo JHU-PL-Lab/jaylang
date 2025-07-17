@@ -96,10 +96,10 @@ module type S = sig
   (** [hit_case dir e] takes the given [dir] down a case whose condition has expression [e],
       and the integer cases *not* taken are in [other_cases]. *)
 
-  val get_input : 'a Interp_common.Key.Stepkey.t -> Value.t m
-  (** [get_input stepkey] is an input value from the input feeder using the [stepkey] to determine
-      the value. If ['a] is [int], then this is a [VInt] value, and if ['a] is [bool], then this
-      is a [VBool] value. *)
+  val get_input : (Interp_common.Step.t -> 'a Input_feeder.Key.t) -> Value.t m
+  (** [get_input make_key] is an input value from the input feeder using [make_key] to make
+      a key out of the current step and determine the value. If ['a] is [int], then this
+      is a [VInt] value, and if ['a] is [bool], then this is a [VBool] value. *)
 
   val run : 'a m -> Status.Eval.t * Target.t list
   (** [run m] is the result of running [m] with empty initial state and environment,

@@ -174,14 +174,8 @@ let eval_exp
       | v -> type_mismatch @@ Error_msg.case_non_int v
     end
     (* Inputs *)
-    | EPick_i () ->
-      let%bind () = assert_nondeterminism in
-      let%bind n = step in
-      get_input (Utils.Separate.I n) (* I wish Stepkey.I was a valid path... *)
-    | EPick_b () ->
-      let%bind () = assert_nondeterminism in
-      let%bind n = step in
-      get_input (Utils.Separate.B n)
+    | EPick_i () -> get_input (fun step -> Utils.Separate.I step)
+    | EPick_b () -> get_input (fun step -> Utils.Separate.B step)
     (* Tables -- includes some branching *)
     | ETable -> return (VTable { alist = [] })
     | ETblAppl { tbl ; gen ; arg } -> begin

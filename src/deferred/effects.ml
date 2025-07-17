@@ -41,21 +41,21 @@ end
 module State = struct
   type t =
     { time : Timestamp.t
-    ; symbol_env : Symbol_map.t
-    ; pending_proofs : Pending_proofs.t 
+    ; symbol_env : Value.Symbol_map.t
+    ; pending_proofs : Value.Pending_proofs.t 
     ; n_stern_steps : Step.t } 
   (* If we end up logging inputs, then I'll just add a label to the state and cons them there *)
 
   let empty : t =
     { time = Timestamp.empty
-    ; symbol_env = Symbol_map.empty
-    ; pending_proofs = Pending_proofs.empty
+    ; symbol_env = Value.Symbol_map.empty
+    ; pending_proofs = Value.Pending_proofs.empty
     ; n_stern_steps = Step.zero }
 
   let remove_greater_symbols (s : t) : t =
     { s with
-      symbol_env = Symbol_map.cut (VSymbol s.time) s.symbol_env
-    ; pending_proofs = Pending_proofs.cut (VSymbol s.time) s.pending_proofs }
+      symbol_env = Value.Symbol_map.cut (VSymbol s.time) s.symbol_env
+    ; pending_proofs = Value.Pending_proofs.cut (VSymbol s.time) s.pending_proofs }
 
   let incr_stern_step (s : t) : t =
     { s with n_stern_steps = Step.next s.n_stern_steps }
@@ -117,11 +117,11 @@ let get_input (type a) (make_key : Timestamp.t -> a Feeder.Key.t) : (Value.t, 'e
 *)
 
 let push_deferred_proof (symb : Value.symb) (work : Value.closure) : (unit, 'e) t =
-  modify (fun s -> { s with pending_proofs = Pending_proofs.push symb work s.pending_proofs })
+  modify (fun s -> { s with pending_proofs = Value.Pending_proofs.push symb work s.pending_proofs })
 
 let pop_deferred_proof (symb : Value.symb) : (Value.closure, 'e) t =
   let%bind s = get in
-  match Pending_proofs.pop symb s.pending_proofs with
+  match Value.Pending_proofs.pop symb s.pending_proofs with
   | Some (closure, pending) ->
     let%bind () = modify (fun s -> { s with pending_proofs = pending }) in
     return closure

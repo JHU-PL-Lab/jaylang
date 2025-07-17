@@ -170,12 +170,47 @@ module Make (V : Utils.Equatable.P1) = struct
       Format.sprintf "Use non-table `%s` as a table" (to_string v)
   end
 
-  module Without_symbols = Lang.Value.Embedded (Utils.Identity)
+  module Pending_proofs = struct
+    type t = closure Time_map.t
+
+    let empty : t = Time_map.empty
+
+    (* May want to raise an exception, just to check invariants, if the symbol is duplicate *)
+    let push (VSymbol t : symb) (work : closure) (m : t) : t =
+      Time_map.add t work m
+
+    let pop (VSymbol t : symb) (m : t) : (closure * t) option =
+      Option.map (Time_map.find_opt t m) ~f:(fun closure ->
+        closure, Time_map.remove t m
+      )
+
+    (*
+      Cuts off all symbols at least as big as [t].
+    *)
+    let cut (VSymbol t : symb) (m : t) : t =
+      Tuple3.get1
+      @@ Time_map.split t m
+  end
+
+  module Symbol_map = struct
+    type t = whnf Time_map.t
+
+    let empty : t = Time_map.empty
+
+    (*
+      Cuts off all symbols at least as big as [t].
+    *)
+    let cut (VSymbol t : symb) (m : t) : t =
+      Tuple3.get1
+      @@ Time_map.split t m
+  end
 
 end
 
 (* Standard implemention is with identity *)
 include Make (Utils.Identity)
+
+module Without_symbols = Lang.Value.Embedded (Utils.Identity)
 
 (* Values cannot be recursive, so this will terminate *)
 (* Don't worry about performance here. Just do as many substs as needed. *)
