@@ -6,7 +6,7 @@ let nested_shadow_test : int =
   x (* should be 15*)
   let _ = assert (x == 15)
 
-let _ = assert(x == 5)
+let _ = assert (x == 5)
 
 
 

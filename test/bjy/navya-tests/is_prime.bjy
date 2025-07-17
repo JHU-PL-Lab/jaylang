@@ -8,6 +8,6 @@ let is_prime (dependent n : int | n > 1): bool =
   in 
   check_divisors 2 
 
-let _ = assert(is_prime 17 == true)
-let _ = assert(is_prime 15 == false)
+let _ = assert (is_prime 17 == true)
+let _ = assert (is_prime 15 == false)
 

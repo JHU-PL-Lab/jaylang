@@ -9,6 +9,6 @@ let rec gcd (dependent a : int | a > 0) (dependent b : int | b > 0) : { x : int 
 let lcm (dependent n : int | n > 0) (dependent m : int | m > 0) : {x:int | x >= n && x >= m} = 
   n * m / gcd n m 
 
-let _ = assert( gcd 12 8 == 4)
+let _ = assert (gcd 12 8 == 4)
 let _ = assert (gcd 17 13 == 1)
 let _ = assert (lcm 12 8 == 24)

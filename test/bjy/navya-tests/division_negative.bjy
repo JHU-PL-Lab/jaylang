@@ -1,12 +1,12 @@
 let d1 : int = (0 - 10) / 3
-let _ = assert(d1 == -3)
+let _ = assert (d1 == -3)
 
 let d2 : int = 10 / (0 -3)
-let _ = assert(d2 == -3)
+let _ = assert (d2 == -3)
 
 let d3 : int = (0 - 10) / (0 - 3)
-let _ = assert(d3 == 3)
+let _ = assert (d3 == 3)
 
 let d4 : int = (0 - 15) / 5
-let _ = assert(d4 == -3)
+let _ = assert (d4 == -3)
 
