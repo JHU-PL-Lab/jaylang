@@ -34,7 +34,7 @@ let compare (Timestamp a) (Timestamp b) =
 
 let to_string : t -> string = function
   | Timestamp ls ->
-    List.fold_left ls ~init:"" ~f:(fun acc t ->
+    List.fold_left (List.rev ls) ~init:"" ~f:(fun acc t ->
       acc ^ "." ^ Time.to_string t
     )
 

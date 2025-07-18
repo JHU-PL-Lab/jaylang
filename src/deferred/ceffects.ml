@@ -60,7 +60,7 @@ module State = struct
     ; n_stern_steps : Step.t
     ; path : Concolic.Path.t
     ; targets : Concolic.Target.t list
-    ; rev_inputs : Interp_common.Input.t list } 
+    ; inputs : Interpreter.Interp.Input_log.t }
   (* If we end up logging inputs, then I'll just add a label to the state and cons them there *)
 
   let empty : t =
@@ -70,7 +70,7 @@ module State = struct
     ; n_stern_steps = Step.zero 
     ; path = Concolic.Path.empty
     ; targets = []
-    ; rev_inputs = [] }
+    ; inputs = [] }
 
   let remove_greater_symbols (s : t) : t =
     { s with
@@ -80,8 +80,9 @@ module State = struct
   let incr_stern_step (s : t) : t =
     { s with n_stern_steps = Step.next s.n_stern_steps }
 
-  let inputs ({ rev_inputs ; _ } : t) : Interp_common.Input.t list =
-    List.rev rev_inputs
+  let inputs ({ inputs ; _ } : t) : Interp_common.Input.t list =
+    List.sort inputs ~compare:(fun (_, t1) (_, t2) -> Interp_common.Timestamp.compare t1 t2)
+    |> List.map ~f:Tuple2.get1
 end
 
 module Err = struct
@@ -150,14 +151,19 @@ module M = struct
     return a
 
   (*
-    TODO: filter the maps to only contain smaller symbols
-      (and consider if that would even be needed in the implementation or is just a formal detail for induction)
+    TODO: make this filtering much better
   *)
   let[@inline always] run_on_deferred_proof (symb : V.symb) (f : Lang.Ast.Embedded.t -> ('a, 'e) t) : ('a, 'e) t =
     let%bind closure = pop_deferred_proof symb in
+    let%bind s = get in
+    let VSymbol t = symb in
+    let to_keep, _, to_add_back = Time_map.split t s.pending_proofs in
+    let%bind () = modify (fun s -> { s with pending_proofs = to_keep }) in
     local_time (V.timestamp_of_symbol symb) (
-      local (fun e -> { e with env = closure.env }) (f closure.body)
-    )
+      let%bind v = local (fun e -> { e with env = closure.env }) (f closure.body) in
+      let%bind () = modify (fun s -> { s with pending_proofs = Time_map.union (fun _ _ _ -> failwith "unexpected duplicate") s.pending_proofs to_add_back }) in
+      return v
+  )
 
   let incr_time : unit m =
     modify (fun s -> { s with time = Timestamp.increment s.time })
@@ -293,10 +299,10 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
     let v = input_feeder.get key in
     match key with
     | I _ -> 
-      let%bind () = modify (fun s -> { s with rev_inputs = I v :: s.rev_inputs ; time = Timestamp.increment s.time }) in
+      let%bind () = modify (fun s -> { s with inputs = (I v, state.time) :: s.inputs ; time = Timestamp.increment s.time }) in
       return @@ V.VInt (v, Concolic.Expression.key key)
     | B _ ->
-      let%bind () = modify (fun s -> { s with rev_inputs = B v :: s.rev_inputs ; time = Timestamp.increment s.time }) in
+      let%bind () = modify (fun s -> { s with inputs = (B v, state.time) :: s.inputs ; time = Timestamp.increment s.time }) in
       return @@ V.VBool (v, Concolic.Expression.key key)
 
   let run (x : 'a m) : Concolic.Status.Eval.t * Concolic.Target.t list =

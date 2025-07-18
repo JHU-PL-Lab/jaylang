@@ -139,13 +139,18 @@ let local_time (time : Timestamp.t) (x : ('a, 'e) t) : ('a, 'e) t =
   return a
 
 (*
-  TODO: filter the maps to only contain smaller symbols
-    (and consider if that would even be needed in the implementation or is just a formal detail for induction)
+  TODO: make this filtering much better
 *)
 let[@inline always] run_on_deferred_proof (symb : Value.symb) (f : Lang.Ast.Embedded.t -> ('a, 'e) t) : ('a, 'e) t =
   let%bind closure = pop_deferred_proof symb in
+  let%bind s = get in
+  let VSymbol t = symb in
+  let to_keep, _, to_add_back = Time_map.split t s.pending_proofs in
+  let%bind () = modify (fun s -> { s with pending_proofs = to_keep }) in
   local_time (Value.timestamp_of_symbol symb) (
-    local (fun e -> { e with env = closure.env }) (f closure.body)
+    let%bind v = local (fun e -> { e with env = closure.env }) (f closure.body) in
+    let%bind () = modify (fun s -> { s with pending_proofs = Time_map.union (fun _ _ _ -> failwith "unexpected duplicate") s.pending_proofs to_add_back }) in
+    return v
   )
 
 let incr_time : unit m =

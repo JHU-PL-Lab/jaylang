@@ -89,6 +89,8 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
 
   (* unit is needed to surmount the value restriction *)
   let vanish (type a) (() : unit) : a m =
+    let%bind s = get in
+    Format.printf "Vanishing at time %s\n" (Interp_common.Timestamp.to_string s.time);
     fail @@ `XVanish ()
 
   let type_mismatch (type a) (() : unit) : a m =

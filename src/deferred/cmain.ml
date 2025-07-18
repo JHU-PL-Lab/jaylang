@@ -187,7 +187,7 @@ let eval_exp
     | EVanish () -> vanish
     | EAbort msg -> abort msg
     (* determinism stuff *)
-    | EDet expr -> with_incr_depth (eval expr)
+    | EDet expr -> with_incr_depth (eval expr) (* TODO: this should need to be propagated into deferred expressions! *)
     | EEscapeDet expr -> with_escaped_det (eval expr)
     (* unhandled and currently aborting -- okay to ignore for now because these are uncommon *)
     | EIntensionalEqual _ -> failwith "unhandled intensional equality in deferred evaluation"
@@ -205,12 +205,13 @@ let eval_exp
   and stern_eval (expr : Embedded.t) : V.whnf m = 
     let%bind v = eval expr in
     let%bind () = incr_step in
-    let%bind () = incr_n_stern_steps in
     V.split v
       ~symb:(fun ((VSymbol t) as sym) ->
         let%bind s = get in
         match Time_map.find_opt t s.symbol_env with
-        | Some v -> return v
+        | Some v -> 
+          let%bind () = incr_n_stern_steps in
+          return v
         | None -> 
           (* evaluate the deferred proof for this symbol *)
           (* if this fails, the greater symbols get removed, and this error propagates *)
@@ -221,6 +222,7 @@ let eval_exp
       )
       ~whnf:(fun v ->
         (* optionally choose to work on a deferred proof here *)
+        let%bind () = incr_n_stern_steps in
         let%bind s = get in
         let%bind b = should_work_on_deferred in
         if b && not (Time_map.is_empty s.pending_proofs) then

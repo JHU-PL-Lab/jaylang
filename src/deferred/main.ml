@@ -174,12 +174,13 @@ let rec eval (expr : E.t) : Value.t m =
 and stern_eval (expr : E.t) : Value.whnf m = 
   let%bind v = eval expr in
   let%bind () = incr_step ~max_step in
-  let%bind () = incr_n_stern_steps in
   Value.split v
     ~symb:(fun ((VSymbol t) as sym) ->
       let%bind s = get in
       match Time_map.find_opt t s.symbol_env with
-      | Some v -> return v
+      | Some v -> 
+        let%bind () = incr_n_stern_steps in
+        return v
       | None -> 
         (* evaluate the deferred proof for this symbol *)
         (* if this fails, the greater symbols get removed, and this error propagates *)
@@ -190,6 +191,7 @@ and stern_eval (expr : E.t) : Value.whnf m =
     )
     ~whnf:(fun v ->
       (* optionally choose to work on a deferred proof here *)
+      let%bind () = incr_n_stern_steps in
       let%bind s = get in
       let%bind b = should_work_on_deferred in
       if b && not (Time_map.is_empty s.pending_proofs) then
