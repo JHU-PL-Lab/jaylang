@@ -47,7 +47,7 @@ module State = struct
   (* If we end up logging inputs, then I'll just add a label to the state and cons them there *)
 
   let empty : t =
-    { time = Timestamp.empty
+    { time = Timestamp.initial
     ; symbol_env = Value.Symbol_map.empty
     ; pending_proofs = Value.Pending_proofs.empty
     ; n_stern_steps = Step.zero }

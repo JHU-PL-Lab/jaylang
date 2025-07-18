@@ -1,44 +1,43 @@
-
 open Core
 
-module Time = struct
-  type t =
-    | Time of int [@@unboxed]
-    [@@deriving compare, equal, sexp]
+module type S = sig
+  type t
+  val initial : t
+  val push : t -> t
+  val increment : t -> t
+  val equal : t -> t -> bool
+  val compare : t -> t -> int
+  val to_string : t -> string
 
-  let one = Time 1
-  let plus_one (Time t) = Time (t + 1)
-
-  let to_string (Time t) = Int.to_string t
+  type comparator_witness
+  val comparator : (t, comparator_witness) Comparator.t
 end
 
-module T = struct
-  type t =
-    | Timestamp of Time.t list [@@unboxed]
+module Simple : S = struct
+  module T = struct
+    type t =
+      | Timestamp of int list [@@unboxed]
     [@@deriving equal, sexp]
-    (* for efficiency and library support, we use list instead of nonempty list *)
+  end
+
+  include T
+  let initial = Timestamp [1]
+  let push (Timestamp xs) = Timestamp (1::xs)
+  let increment = function
+    | Timestamp (x::xs) -> Timestamp ((x+1)::xs)
+    | Timestamp [] -> failwith "Invariant broken: empty timestamp"
+  let compare (Timestamp xs1) (Timestamp xs2) =
+    List.compare compare (List.rev xs1) (List.rev xs2)
+  let to_string (Timestamp xs) =
+    List.fold_left (List.rev xs) ~init:"" ~f:(fun acc t ->
+        acc ^ "." ^ string_of_int t
+      )
+
+  include Comparator.Make (struct
+      include T
+      let compare = compare
+    end)
 end
 
-include T
-
-let empty = Timestamp [ Time.one ]
-
-let push (Timestamp ls) = Timestamp (Time.one :: ls)
-
-let increment = function
-  | Timestamp [] -> failwith "disallowed empty timestamp"
-  | Timestamp (hd :: tl) -> Timestamp (Time.plus_one hd :: tl)
-
-let compare (Timestamp a) (Timestamp b) =
-  List.compare Time.compare (List.rev a) (List.rev b)
-
-let to_string : t -> string = function
-  | Timestamp ls ->
-    List.fold_left (List.rev ls) ~init:"" ~f:(fun acc t ->
-      acc ^ "." ^ Time.to_string t
-    )
-
-include Comparator.Make (struct
-  include T
-  let compare = compare
-end)
+(* Select a default implementation *)
+include Simple

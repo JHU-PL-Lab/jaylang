@@ -1,9 +1,9 @@
 (**
-  Module [Interp].
+   Module [Interp].
 
-  This module interprets any language defined in this system.
-  It uses GADTs and type constraints to define the interpreter
-  for all languages in one function.
+   This module interprets any language defined in this system.
+   It uses GADTs and type constraints to define the interpreter
+   for all languages in one function.
 *)
 
 open Core
@@ -27,14 +27,15 @@ module Input_log = struct
     List.map t ~f:Tuple2.get1
     |> List.rev
 
-  let to_time_feeder : t -> Interp_common.Timestamp.t Feeder.t = fun t ->
+  let to_time_feeder : t -> Interp_common.Timestamp.t Feeder.t =
+    fun t ->
     let mt = Map.empty (module Interp_common.Timestamp) in
     let m_ints, m_bools =
       List.fold t ~init:(mt, mt) ~f:(fun (mi, mb) (input, t) ->
-        match input with
-        | Interp_common.Input.I i -> (Map.set mi ~key:t ~data:i, mb)
-        | Interp_common.Input.B b -> (mi, Map.set mb ~key:t ~data:b)
-      )
+          match input with
+          | Interp_common.Input.I i -> (Map.set mi ~key:t ~data:i, mb)
+          | Interp_common.Input.B b -> (mi, Map.set mb ~key:t ~data:b)
+        )
     in
     let get : type a. a Interp_common.Key.Timekey.t -> a = fun key ->
       let a_opt : a option =
@@ -54,8 +55,8 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
       ; n_inputs : int
       ; timed_inputs : Input_log.t }
 
-    let empty : t =
-      { time = Interp_common.Timestamp.empty
+    let initial : t =
+      { time = Interp_common.Timestamp.initial
       ; n_inputs = 0
       ; timed_inputs = Input_log.empty }
   end
@@ -101,10 +102,10 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
 
   let list_map (f : 'a -> 'b m) (ls : 'a list) : 'b list m =
     List.fold_right ls ~init:(return []) ~f:(fun a acc_m ->
-      let%bind acc = acc_m in
-      let%bind b = f a in
-      return (b :: acc)
-    )
+        let%bind acc = acc_m in
+        let%bind b = f a in
+        return (b :: acc)
+      )
 
   let using_env (f : Env.t -> 'a) : 'a m =
     let%bind env = read_env in
@@ -112,8 +113,8 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
 
   let log_input (input : Interp_common.Input.t) : unit m =
     modify (fun s ->
-      { s with n_inputs = s.n_inputs + 1 ; timed_inputs = Input_log.cons input s.time s.timed_inputs }
-    )
+        { s with n_inputs = s.n_inputs + 1 ; timed_inputs = Input_log.cons input s.time s.timed_inputs }
+      )
 
   let n_inputs : int m =
     let%bind s = get in
@@ -154,11 +155,11 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
     | EInt i -> return (VInt i)
     | EBool b -> return (VBool b)
     | EVar id -> begin
-      let%bind env = read_env in
-      match Env.fetch id env with
-      | None -> unbound_variable id
-      | Some v -> return v
-    end
+        let%bind env = read_env in
+        match Env.fetch id env with
+        | None -> unbound_variable id
+        | Some v -> return v
+      end
     | ETypeInt -> return VTypeInt
     | ETypeBool -> return VTypeBool
     | ETypeTop -> return VTypeTop
@@ -187,9 +188,9 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
     (* deferred expressions *)
     | EDefer e -> (* eagerly evaluate, but still track time correctly *)
       let%bind v = with_time_snapback (
-        let%bind () = push_time in
-        eval e
-      ) in
+          let%bind () = push_time in
+          eval e
+        ) in
       let%bind () = incr_time in
       return v
     (* simple propogation *)
@@ -202,31 +203,31 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
     | ETypeList -> return VTypeListFun
     | ETypeSingle -> return VTypeSingleFun
     | ETypeFun { domain ; codomain ; dep ; det } -> begin
-      let%bind domain = eval domain in
-      match dep with
-      | `Binding binding ->
-        using_env @@ fun env ->
-        VTypeDepFun { binding ; domain ; codomain = { body = codomain ; env = lazy env } ; det }
-      | `No ->
-        let%bind codomain = eval codomain in
-        return (VTypeFun { domain ; codomain ; det })
-    end
+        let%bind domain = eval domain in
+        match dep with
+        | `Binding binding ->
+          using_env @@ fun env ->
+          VTypeDepFun { binding ; domain ; codomain = { body = codomain ; env = lazy env } ; det }
+        | `No ->
+          let%bind codomain = eval codomain in
+          return (VTypeFun { domain ; codomain ; det })
+      end
     | ETypeRefinement { tau ; predicate } ->
       let%bind tau = eval tau in
       let%bind predicate = eval predicate in
       return (VTypeRefinement { tau ; predicate })
     | ETypeIntersect e_ls ->
       let%bind ls = list_map (fun (label, tau, tau') ->
-        let%bind vtau = eval tau in
-        let%bind vtau' = eval tau' in
-        return (label, vtau, vtau')
+          let%bind vtau = eval tau in
+          let%bind vtau' = eval tau' in
+          return (label, vtau, vtau')
         ) e_ls
       in
       return (VTypeIntersect ls)
     | ETypeVariant e_ls ->
       let%bind ls = list_map (fun (label, tau) ->
-        let%bind vtau = eval tau in
-        return (label, vtau)
+          let%bind vtau = eval tau in
+          return (label, vtau)
         ) e_ls
       in
       return (VTypeVariant ls)
@@ -252,24 +253,24 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
       return (VUntouchable v)
     (* bindings *)
     | EAppl { func ; arg } -> begin
-      let%bind vfunc = eval func in
-      let%bind arg = eval arg in
-      match vfunc with
-      | VFunClosure { param ; closure = { body ; env = lazy env } } ->
-        local (fun _ -> Env.add param arg env) (eval body)
-      | VId -> return arg
-      | VMultiArgFunClosure { params ; closure = { body ; env = lazy env }} -> begin
-        match params with
-        | [] -> type_mismatch ()
-        | [ param ] ->
+        let%bind vfunc = eval func in
+        let%bind arg = eval arg in
+        match vfunc with
+        | VFunClosure { param ; closure = { body ; env = lazy env } } ->
           local (fun _ -> Env.add param arg env) (eval body)
-        | param :: params ->
-          local (fun _ -> Env.add param arg env) (eval (EMultiArgFunction { params ; body }))
-        end
-      | VTypeSingleFun -> return (VTypeSingle arg)
-      | VTypeListFun -> return (VTypeList arg)
-      | _ -> type_mismatch ()
-    end
+        | VId -> return arg
+        | VMultiArgFunClosure { params ; closure = { body ; env = lazy env }} -> begin
+            match params with
+            | [] -> type_mismatch ()
+            | [ param ] ->
+              local (fun _ -> Env.add param arg env) (eval body)
+            | param :: params ->
+              local (fun _ -> Env.add param arg env) (eval (EMultiArgFunction { params ; body }))
+          end
+        | VTypeSingleFun -> return (VTypeSingle arg)
+        | VTypeListFun -> return (VTypeList arg)
+        | _ -> type_mismatch ()
+      end
     | ELet { var ; defn ; body } -> eval_let var ~defn ~body
     | ELetTyped { typed_var = { var ; _ } ; defn ; body ; _ } -> eval_let var ~defn ~body
     | EIgnore { ignored ; body } ->
@@ -284,32 +285,32 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
       local (fun _ -> force rec_env) (eval (Lang.Ast_tools.Utils.abstract_over_ids params (EVar var)))
     (* operations *)
     | EListCons (e_hd, e_tl) -> begin
-      let%bind hd = eval e_hd in
-      let%bind tl = eval e_tl in
-      let%orzero (VList ls) = tl in
-      return (VList (hd :: ls))
-    end
+        let%bind hd = eval e_hd in
+        let%bind tl = eval e_tl in
+        let%orzero (VList ls) = tl in
+        return (VList (hd :: ls))
+      end
     | EBinop { left ; binop ; right } -> begin
-      let%bind a = eval left in
-      let%bind b = eval right in
-      match binop, a, b with
-      | BPlus, VInt n1, VInt n2                 -> return (VInt (n1 + n2))
-      | BMinus, VInt n1, VInt n2                -> return (VInt (n1 - n2))
-      | BTimes, VInt n1, VInt n2                -> return (VInt (n1 * n2))
-      | BDivide, VInt n1, VInt n2 when n2 <> 0  -> return (VInt (n1 / n2))
-      | BModulus, VInt n1, VInt n2 when n2 <> 0 -> return (VInt (n1 % n2))
-      | BEqual, VInt n1, VInt n2                -> return (VBool (n1 = n2))
-      | BEqual, VBool b1, VBool b2              -> return (VBool Bool.(b1 = b2))
-      | BNeq, VInt n1, VInt n2                  -> return (VBool (n1 <> n2))
-      | BNeq, VBool b1, VBool b2                -> return (VBool Bool.(b1 <> b2))
-      | BLessThan, VInt n1, VInt n2             -> return (VBool (n1 < n2))
-      | BLeq, VInt n1, VInt n2                  -> return (VBool (n1 <= n2))
-      | BGreaterThan, VInt n1, VInt n2          -> return (VBool (n1 > n2))
-      | BGeq, VInt n1, VInt n2                  -> return (VBool (n1 >= n2))
-      | BAnd, VBool b1, VBool b2                -> return (VBool (b1 && b2))
-      | BOr, VBool b1, VBool b2                 -> return (VBool (b1 || b2))
-      | _ -> type_mismatch ()
-    end
+        let%bind a = eval left in
+        let%bind b = eval right in
+        match binop, a, b with
+        | BPlus, VInt n1, VInt n2                 -> return (VInt (n1 + n2))
+        | BMinus, VInt n1, VInt n2                -> return (VInt (n1 - n2))
+        | BTimes, VInt n1, VInt n2                -> return (VInt (n1 * n2))
+        | BDivide, VInt n1, VInt n2 when n2 <> 0  -> return (VInt (n1 / n2))
+        | BModulus, VInt n1, VInt n2 when n2 <> 0 -> return (VInt (n1 % n2))
+        | BEqual, VInt n1, VInt n2                -> return (VBool (n1 = n2))
+        | BEqual, VBool b1, VBool b2              -> return (VBool Bool.(b1 = b2))
+        | BNeq, VInt n1, VInt n2                  -> return (VBool (n1 <> n2))
+        | BNeq, VBool b1, VBool b2                -> return (VBool Bool.(b1 <> b2))
+        | BLessThan, VInt n1, VInt n2             -> return (VBool (n1 < n2))
+        | BLeq, VInt n1, VInt n2                  -> return (VBool (n1 <= n2))
+        | BGreaterThan, VInt n1, VInt n2          -> return (VBool (n1 > n2))
+        | BGeq, VInt n1, VInt n2                  -> return (VBool (n1 >= n2))
+        | BAnd, VBool b1, VBool b2                -> return (VBool (b1 && b2))
+        | BOr, VBool b1, VBool b2                 -> return (VBool (b1 || b2))
+        | _ -> type_mismatch ()
+      end
     | EIntensionalEqual { left ; right } ->
       let%bind vleft = eval left in
       let%bind vright = eval right in
@@ -348,103 +349,103 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
       let%bind v = eval subject in
       let%orzero Some (e, f) =
         List.find_map patterns ~f:(fun (pat, body) ->
-          match V.matches v pat with
-          | Some bindings -> Some (body, fun env ->
-            List.fold bindings ~init:env ~f:(fun acc (v_bind, id_bind) -> Env.add id_bind v_bind acc)
+            match V.matches v pat with
+            | Some bindings -> Some (body, fun env ->
+                List.fold bindings ~init:env ~f:(fun acc (v_bind, id_bind) -> Env.add id_bind v_bind acc)
+              )
+            | None -> None
           )
-          | None -> None
-        )
       in
       local f (eval e)
     | ECase { subject ; cases ; default } -> begin
-      let%bind v = eval subject in
-      let%orzero VInt i = v in
-      let%bind () = incr_time in
-      List.find_map cases ~f:(fun (case_i, body) ->
-        Option.some_if (i = case_i) body
-      )
-      |> function
+        let%bind v = eval subject in
+        let%orzero VInt i = v in
+        let%bind () = incr_time in
+        List.find_map cases ~f:(fun (case_i, body) ->
+            Option.some_if (i = case_i) body
+          )
+        |> function
         | Some body -> eval body
         | None -> eval default
-    end
+      end
     (* let funs *)
     | ELetFunRec { funcs ; body } -> begin
-      let%bind env = read_env in
-      let rec rec_env = lazy (
-        List.fold funcs ~init:env ~f:(fun acc fsig ->
-          let comps = Lang.Ast_tools.Funsig.to_components fsig in
-          match Lang.Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
-          | EFunction { param ; body } -> 
-            Env.add comps.func_id (VFunClosure { param ; closure = { body ; env = rec_env } }) acc
-          | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
+        let%bind env = read_env in
+        let rec rec_env = lazy (
+          List.fold funcs ~init:env ~f:(fun acc fsig ->
+              let comps = Lang.Ast_tools.Funsig.to_components fsig in
+              match Lang.Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
+              | EFunction { param ; body } -> 
+                Env.add comps.func_id (VFunClosure { param ; closure = { body ; env = rec_env } }) acc
+              | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
+            )
         )
-      )
-      in
-      local (fun _ -> force rec_env) (eval body)
-    end
+        in
+        local (fun _ -> force rec_env) (eval body)
+      end
     | ELetFun { func ; body = body' } -> begin
-      let comps = Lang.Ast_tools.Funsig.to_components func in
-      Lang.Ast_tools.Utils.abstract_over_ids comps.params comps.defn
-      |> function
+        let comps = Lang.Ast_tools.Funsig.to_components func in
+        Lang.Ast_tools.Utils.abstract_over_ids comps.params comps.defn
+        |> function
         | EFunction { param ; body } ->
           local (fun env ->
-            Env.add comps.func_id (VFunClosure { param ; closure = { body ; env = lazy env } }) env
-          ) (eval body')
+              Env.add comps.func_id (VFunClosure { param ; closure = { body ; env = lazy env } }) env
+            ) (eval body')
         | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
-    end
+      end
     (* tables *)
     | ETable -> return (VTable { alist = [] })
     | ETblAppl { tbl ; gen ; arg } -> begin
-      match%bind eval tbl with
-      | VTable mut_r -> begin
-        let%bind v = eval arg in
-        let%bind output_opt = 
-          List.fold mut_r.alist ~init:(return None) ~f:(fun acc_m (input, output) ->
-            match%bind acc_m with
-            | None when V.equal input v -> return (Some output)
-            | _ -> acc_m (* already found an output or doesn't match input, so go unchanged *)
-            )
-        in
-        match output_opt with
-        | Some output -> return output
-        | None ->
-          let%bind new_output = with_escaped_det @@ eval gen in
-          mut_r.alist <- (v, new_output) :: mut_r.alist;
-          return new_output
+        match%bind eval tbl with
+        | VTable mut_r -> begin
+            let%bind v = eval arg in
+            let%bind output_opt = 
+              List.fold mut_r.alist ~init:(return None) ~f:(fun acc_m (input, output) ->
+                  match%bind acc_m with
+                  | None when V.equal input v -> return (Some output)
+                  | _ -> acc_m (* already found an output or doesn't match input, so go unchanged *)
+                )
+            in
+            match output_opt with
+            | Some output -> return output
+            | None ->
+              let%bind new_output = with_escaped_det @@ eval gen in
+              mut_r.alist <- (v, new_output) :: mut_r.alist;
+              return new_output
+          end
+        | _ -> type_mismatch ()
       end
-      | _ -> type_mismatch ()
-    end
 
 
-    and eval_let (var : Ident.t) ~(defn : a Expr.t) ~(body : a Expr.t) : a V.t m =
-      let%bind v = eval defn in
-      local (Env.add var v) (eval body)
+  and eval_let (var : Ident.t) ~(defn : a Expr.t) ~(body : a Expr.t) : a V.t m =
+    let%bind v = eval defn in
+    local (Env.add var v) (eval body)
 
-    and eval_record_body (record_body : a Expr.t RecordLabel.Map.t) : a V.t RecordLabel.Map.t m =
-      Map.fold record_body ~init:(return RecordLabel.Map.empty) ~f:(fun ~key ~data:e acc_m ->
+  and eval_record_body (record_body : a Expr.t RecordLabel.Map.t) : a V.t RecordLabel.Map.t m =
+    Map.fold record_body ~init:(return RecordLabel.Map.empty) ~f:(fun ~key ~data:e acc_m ->
         let%bind acc = acc_m in
         let%bind v = eval e in
         return (Map.set acc ~key ~data:v)
       )
 
-    (* evaluates statement list to a module. This is a total pain for rec funs *)
-    and eval_stmt_list (stmts : a Expr.statement list) : a V.t m =
-      let%bind module_body =
-        let rec fold_stmts acc_m : a Expr.statement list -> a V.t RecordLabel.Map.t m = function
-          | [] -> acc_m
-          | SUntyped { var ; defn } :: tl ->
-            let%bind acc = acc_m in
-            let%bind v = eval defn in
-            local (Env.add var v) (
-              fold_stmts (return (Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v)) tl
-            )
-          | STyped { typed_var = { var ; _ } ; defn ; _ } :: tl ->
-            let%bind acc = acc_m in
-            let%bind v = eval defn in
-            local (Env.add var v) (
-              fold_stmts (return (Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v)) tl
-            )
-          | SFun fsig :: tl -> begin
+  (* evaluates statement list to a module. This is a total pain for rec funs *)
+  and eval_stmt_list (stmts : a Expr.statement list) : a V.t m =
+    let%bind module_body =
+      let rec fold_stmts acc_m : a Expr.statement list -> a V.t RecordLabel.Map.t m = function
+        | [] -> acc_m
+        | SUntyped { var ; defn } :: tl ->
+          let%bind acc = acc_m in
+          let%bind v = eval defn in
+          local (Env.add var v) (
+            fold_stmts (return (Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v)) tl
+          )
+        | STyped { typed_var = { var ; _ } ; defn ; _ } :: tl ->
+          let%bind acc = acc_m in
+          let%bind v = eval defn in
+          local (Env.add var v) (
+            fold_stmts (return (Map.set acc ~key:(RecordLabel.RecordLabel var) ~data:v)) tl
+          )
+        | SFun fsig :: tl -> begin
             let%bind acc = acc_m in
             let comps = Lang.Ast_tools.Funsig.to_components fsig in
             match Lang.Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
@@ -456,58 +457,58 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
               )
             | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
           end
-          | SFunRec fsigs :: tl ->
-            let%bind acc = acc_m in
-            let func_comps = List.map fsigs ~f:Lang.Ast_tools.Funsig.to_components in
-            let%bind env = read_env in
-            let rec rec_env = lazy (
-              List.fold func_comps ~init:env ~f:(fun acc comps ->
+        | SFunRec fsigs :: tl ->
+          let%bind acc = acc_m in
+          let func_comps = List.map fsigs ~f:Lang.Ast_tools.Funsig.to_components in
+          let%bind env = read_env in
+          let rec rec_env = lazy (
+            List.fold func_comps ~init:env ~f:(fun acc comps ->
                 match Lang.Ast_tools.Utils.abstract_over_ids comps.params comps.defn with
                 | EFunction { param ; body } -> 
                   let v = VFunClosure { param ; closure = { body ; env = rec_env } } in
                   Env.add comps.func_id v acc
                 | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
               )
-            ) in
-            let m =
-              List.fold func_comps ~init:acc ~f:(fun acc comps ->
+          ) in
+          let m =
+            List.fold func_comps ~init:acc ~f:(fun acc comps ->
                 Map.set acc ~key:(RecordLabel comps.func_id) ~data:(Obj.magic @@ (* FIXME *)
-                  Env.fetch comps.func_id (force rec_env)
-                  |> Option.value_exn
-                )
+                                                                    Env.fetch comps.func_id (force rec_env)
+                                                                    |> Option.value_exn
+                                                                   )
               )
-            in
-            local (fun _ -> force rec_env) (fold_stmts (return m) tl )
-        in
-        fold_stmts (return RecordLabel.Map.empty) stmts
+          in
+          local (fun _ -> force rec_env) (fold_stmts (return m) tl )
       in
-      return (VModule module_body)
+      fold_stmts (return RecordLabel.Map.empty) stmts
+    in
+    return (VModule module_body)
   in
 
-  (run (eval e) State.empty Read.empty)
+  (run (eval e) State.initial Read.empty)
   |> fun (res, state, _) ->
-    (match res with
-    | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
-    | Error `XType_mismatch { Interp_common.Errors.msg = _ ; body = () } -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
-    | Error `XAbort  { Interp_common.Errors.msg ; body = () } -> Format.printf "FOUND ABORT %s\n" msg; VAbort
-    | Error `XVanish () -> Format.printf "VANISH\n"; VVanish
-    | Error `XUnbound_variable (Lang.Ast.Ident.Ident s, ()) -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
-    | Error `XReach_max_step () -> Format.printf "REACHED MAX STEP\n"; VVanish
-    ), state.State.timed_inputs
+  (match res with
+   | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
+   | Error `XType_mismatch { Interp_common.Errors.msg = _ ; body = () } -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
+   | Error `XAbort  { Interp_common.Errors.msg ; body = () } -> Format.printf "FOUND ABORT %s\n" msg; VAbort
+   | Error `XVanish () -> Format.printf "VANISH\n"; VVanish
+   | Error `XUnbound_variable (Lang.Ast.Ident.Ident s, ()) -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
+   | Error `XReach_max_step () -> Format.printf "REACHED MAX STEP\n"; VVanish
+  ), state.State.timed_inputs
 
 let eval_pgm 
-  (type a)
-  ?(feeder : int Feeder.t = Interp_common.Input_feeder.zero)
-  (pgm : a Program.t) 
+    (type a)
+    ?(feeder : int Feeder.t = Interp_common.Input_feeder.zero)
+    (pgm : a Program.t) 
   : a V.t
   =
   Tuple2.get1
   @@ eval_exp (EModule pgm) feeder
 
 let eval_pgm_to_time_feeder
-  (type a)
-  ?(feeder : int Feeder.t = Interp_common.Input_feeder.zero)
-  (pgm : a Program.t) 
+    (type a)
+    ?(feeder : int Feeder.t = Interp_common.Input_feeder.zero)
+    (pgm : a Program.t) 
   : a V.t * Interp_common.Timestamp.t Feeder.t
   =
   let v, log = eval_exp (EModule pgm) feeder in
