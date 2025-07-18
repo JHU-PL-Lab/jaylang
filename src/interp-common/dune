@@ -5,6 +5,7 @@
  (public_name jay.interp_common)
  (libraries
   core
+  vector
   utils
   lang
   )

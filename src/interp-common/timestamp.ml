@@ -39,5 +39,60 @@ module Simple : S = struct
     end)
 end
 
+module PerfectHash : S = struct
+  type t = int [@@deriving equal, compare, sexp]
+
+  type entry = {
+    mutable pushed : int;
+    mutable incremented : int;
+    time : int list;
+  }
+
+  let invalid = -1 (* sentinel for uninitialized indices *)
+
+  let table : entry Vector.t =
+    (* Create vector *)
+    let v =
+      Vector.create
+        ~dummy:({pushed=invalid; incremented=invalid; time=[]})
+    in
+    (* Initialize first timestamp *)
+    Vector.push v {pushed=invalid; incremented=invalid; time=[1]};
+    v
+  ;;
+
+  let initial = 0 (* first timestamp is already initialized *)
+
+  let push (time : t) : t =
+    let entry = Vector.get table time in
+    if entry.pushed <> invalid then entry.pushed else begin
+      let entry' = {pushed=invalid; incremented=invalid; time=1::entry.time} in
+      let entry'_idx = Vector.length table in
+      Vector.push table entry';
+      entry.pushed <- entry'_idx;
+      entry'_idx
+    end
+
+  let increment (time : t) : t =
+    let entry = Vector.get table time in
+    if entry.incremented <> invalid then entry.incremented else begin
+      let time' = match entry.time with
+        | x::xs -> (x+1)::xs
+        | [] -> failwith "Invariant broken: empty time list"
+      in
+      let entry' = {pushed=invalid; incremented=invalid; time=time'} in
+      let entry'_idx = Vector.length table in
+      Vector.push table entry';
+      entry.incremented <- entry'_idx;
+      entry'_idx
+    end
+
+  let to_string (time : t) : string =
+    let entry = Vector.get table time in
+    String.concat ~sep:"." (List.map (List.rev entry.time) ~f:string_of_int)
+
+  include Comparator.Make(Int)
+end
+
 (* Select a default implementation *)
-include Simple
+include PerfectHash
