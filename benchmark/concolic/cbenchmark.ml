@@ -141,20 +141,21 @@ let cbench_args =
   let open Cmdliner.Term.Syntax in
   let open Cmdliner.Arg in
   let+ n_trials = value & opt int 50 & info ["trials"] ~doc:"Number of trials"
-  and+ dirs = value & opt (list ~sep:' ' dir) [ "test/bjy/oopsla-24-benchmarks-ill-typed" ] & info ["dirs"] ~doc:"Directories to benchmark" in
-  n_trials, dirs
+  and+ dirs = value & opt (list ~sep:' ' dir) [ "test/bjy/oopsla-24-benchmarks-ill-typed" ] & info ["dirs"] ~doc:"Directories to benchmark"
+  and+ mode = value & opt (enum ["eager", `Eager ; "deferred", `Deferred]) `Eager & info ["mode"] ~doc:"Mode: eager or deferred. Default is eager" in
+  n_trials, dirs, mode
 
 let run () =
   let open Cmdliner in
   let open Cmdliner.Term.Syntax in
   Cmd.v (Cmd.info "cbenchmark") @@
   let+ concolic_args = Concolic.Options.cmd_arg_term
-  and+ n_trials, dirs = cbench_args in
+  and+ n_trials, dirs, mode = cbench_args in
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
   let runtest pgm =
     Concolic.Options.Arrow.appl
-      Concolic.Driver.test_bjy
+      (match mode with `Eager -> Concolic.Driver.test_bjy | `Deferred -> Deferred.Cmain.test_bjy)
       concolic_args
       pgm
       ~do_wrap:true        (* always wrap during benchmarking *)

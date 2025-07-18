@@ -290,7 +290,7 @@ let global_runtime = Utils.Safe_cell.create 0.0
 let global_solvetime = Utils.Safe_cell.create 0.0
 
 module Make (S : Concolic.Solve.S) (P : Concolic.Pause.S) (O : Concolic.Options.V) = struct
-  module TQ = Concolic.Target_queue.All
+  module TQ = Concolic.Target_queue.BFS
 
   let empty_tq = Concolic.Options.Arrow.appl TQ.of_options O.r ()
 
