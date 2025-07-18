@@ -61,7 +61,6 @@ module State = struct
     ; path : Concolic.Path.t
     ; targets : Concolic.Target.t list
     ; inputs : Interpreter.Interp.Input_log.t }
-  (* If we end up logging inputs, then I'll just add a label to the state and cons them there *)
 
   let empty : t =
     { time = Timestamp.initial
@@ -142,13 +141,25 @@ module M = struct
   let remove_greater_symbols : (unit, 'e) t =
     modify State.remove_greater_symbols
 
+
+  (*
+    This is meant to be equivalent to
+
+      let%bind s = get in
+      let t = s.time in
+      let%bind () = modify (fun s -> { s with time }) in
+      let%bind a = x in
+      let%bind () = modify (fun s -> { s with time = t }) in
+      return a
+
+    I sure hope it is.
+  *)
   let local_time (time : Timestamp.t) (x : ('a, 'e) t) : ('a, 'e) t =
-    let%bind s = get in
-    let t = s.time in
-    let%bind () = modify (fun s -> { s with time }) in
-    let%bind a = x in
-    let%bind () = modify (fun s -> { s with time = t }) in
-    return a
+    { run = fun ~reject ~accept state step env ->
+      x.run ~reject ~accept:(fun a s step ->
+        accept a { s with time = state.time } step
+      ) { state with time } step env
+    }
 
   (*
     TODO: make this filtering much better
