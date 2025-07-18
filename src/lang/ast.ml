@@ -777,7 +777,8 @@ module Expr = struct
         Format.sprintf "%s.%s" record_eval label_eval
       | ERecord record -> 
         RecordLabel.record_body_to_string ~sep:"=" record to_string
-      | EModule _ -> failwith "TODO"
+      | EModule m -> 
+        "struct\n" ^ String.concat ~sep:"\n\n" (List.map m ~f:(statement_to_string)) ^ "\nend"
       | ENot e -> 
         ppp_ge e top (op_precedence e)
       | EPick_i _ -> "input_int"
@@ -883,6 +884,21 @@ module Expr = struct
       | ETypeIntersect ls -> 
         Format.sprintf "(%s)" 
         (String.concat ~sep:" && " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((``%s (%s)) -> %s)" s (to_string tau1) (to_string tau2)))
+
+      and statement_to_string : type a. a statement -> string = function
+      | SUntyped { var ; defn } -> 
+        Format.sprintf "let %s = %s" (Ident.to_string var) (to_string defn)
+      (* bluejay or desugared *)
+      | STyped { typed_var ; defn ; do_wrap ; do_check } -> 
+        let {var = Ident s; tau} = typed_var in
+        let statement = Format.sprintf "let %s:%s = %s" s (to_string tau) (to_string defn) in
+        if do_wrap && do_check then statement else statement ^ " (check/wrap failed)"
+      (* bluejay only *)
+      | SFun _ -> failwith "TODO"
+      | SFunRec _ -> failwith "TODO"
+      (* | SFun : 'a funsig -> 'a bluejay_or_type_erased statement
+      | SFunRec : 'a funsig list -> 'a bluejay_or_type_erased statement *)
+
   end
 
   module Made = Make (Utils.Identity)
