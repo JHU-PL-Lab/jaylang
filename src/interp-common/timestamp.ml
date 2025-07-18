@@ -29,9 +29,7 @@ module Simple : S = struct
   let compare (Timestamp xs1) (Timestamp xs2) =
     List.compare compare (List.rev xs1) (List.rev xs2)
   let to_string (Timestamp xs) =
-    List.fold_left (List.rev xs) ~init:"" ~f:(fun acc t ->
-        acc ^ "." ^ string_of_int t
-      )
+    String.concat ~sep:"." (List.map (List.rev xs) ~f:string_of_int)
 
   include Comparator.Make (struct
       include T
@@ -95,4 +93,4 @@ module PerfectHash : S = struct
 end
 
 (* Select a default implementation *)
-include PerfectHash
+include Simple

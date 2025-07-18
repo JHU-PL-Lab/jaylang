@@ -1,0 +1,13 @@
+
+(tests
+ (names test_deferred_concolic)
+ (modules test_deferred_concolic)
+ (libraries
+  utils
+  cmdliner
+  alcotest
+  alcotest-lwt
+  metadata
+  concolic
+  deferred)
+ )

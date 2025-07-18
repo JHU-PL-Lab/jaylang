@@ -52,6 +52,12 @@ test-interp:
 test-deferred:
 	dune exec -- src-test/deferred/test_deferred.exe
 
+test-cdeval:
+	dune exec -- src-test/deferred-concolic/test_deferred_concolic.exe -q
+
+test-cdeval-all:
+	dune exec -- src-test/deferred-concolic/test_deferred_concolic.exe
+
 # benchmark
 
 cbenchmark:
