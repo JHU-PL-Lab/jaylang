@@ -32,6 +32,7 @@
   psq
   preface
   moonpool
+  vector
   z3
   (ocaml-monadic
    (>= 0.4.1))
