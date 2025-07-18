@@ -8,6 +8,7 @@
   z3
   moonpool
   utils
+  smtml
   )
  (synopsis "Utils module for the Jaylang project")
  (inline_tests)
