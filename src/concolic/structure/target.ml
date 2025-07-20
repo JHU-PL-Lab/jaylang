@@ -12,7 +12,7 @@ let make (path : Path.t) : t =
   ; uniq_id = Utils.Counter.next uid
   ; path }
 
-let to_expressions ({ path ; _ } : t) : bool Expression.t list =
+let to_expressions ({ path ; _ } : t) : bool Formula.t list =
   Path.to_exprs path
 
 (*

@@ -42,7 +42,7 @@ val compare : t -> t -> int
     and hence only literal equality (of memory location) is sufficient
     for [compare a b] to be [0]. *)
 
-val to_expressions : t -> bool Expression.t list
+val to_expressions : t -> bool Formula.t list
 (** [to_expressions t] are the constraints to solve in order to realize [t]. *)
 
 val path_n : t -> int

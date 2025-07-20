@@ -56,8 +56,8 @@ module type S = sig
   type 'a m = 'a M.m
   val vanish : 'a m
   val incr_step : unit m
-  val hit_branch : bool Direction.t -> bool Expression.t -> unit m
-  val hit_case : int Direction.t -> int Expression.t -> other_cases:int list -> unit m
+  val hit_branch : bool Direction.t -> bool Formula.t -> unit m
+  val hit_case : int Direction.t -> int Formula.t -> other_cases:int list -> unit m
   val get_input : (Interp_common.Step.t -> 'a Input_feeder.Key.t) -> Value.t m
   val run : 'a m -> Status.Eval.t * Target.t list
 end
@@ -79,9 +79,9 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
     let%bind { path ; _ } = get in
     fail @@ Status.Finished { pruned = Path.length path > max_depth || n > max_step } 
 
-  let push_branch_and_tell (type a) (dir : a Direction.t) (e : a Expression.t) 
+  let push_branch_and_tell (type a) (dir : a Direction.t) (e : a Formula.t) 
       (make_tape : a Claim.t -> Path.t -> Target.t list) : unit m =
-    if Expression.is_const e then return () else
+    if Formula.is_const e then return () else
     let%bind s = get in
     let n = Path.length s.path in
     if n >= max_depth then return () else
@@ -91,14 +91,14 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
     then return ()
     else tell (make_tape claim s.path)
 
-  let hit_branch (dir : bool Direction.t) (e : bool Expression.t) : unit m =
+  let hit_branch (dir : bool Direction.t) (e : bool Formula.t) : unit m =
     push_branch_and_tell dir e (fun claim path ->
       [ Target.make
         (Path.cons (Claim.to_expression (Claim.flip claim)) path)
       ]
     )
 
-  let hit_case (dir : int Direction.t) (e : int Expression.t) ~(other_cases : int list) : unit m =
+  let hit_case (dir : int Direction.t) (e : int Formula.t) ~(other_cases : int list) : unit m =
     push_branch_and_tell dir e (fun _ path ->
       let other_dirs =
         match dir with
@@ -117,12 +117,12 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
     let key = make_key s in
     let v = input_feeder.get key in
     match key with
-    | I _ -> 
+    | I k -> 
       let%bind () = modify (fun s -> { s with rev_inputs = I v :: s.rev_inputs }) in
-      return @@ Value.M.VInt (v, Expression.key key)
-    | B _ ->
+      return @@ Value.M.VInt (v, Formula.symbol (Formula.Symbol.make_int k)) (* TODO: avoid this conversion, possibly *)
+    | B k ->
       let%bind () = modify (fun s -> { s with rev_inputs = B v :: s.rev_inputs }) in
-      return @@ Value.M.VBool (v, Expression.key key)
+      return @@ Value.M.VBool (v, Formula.symbol (Formula.Symbol.make_bool k))
 
   let run (x : 'a m) : Status.Eval.t * Target.t list =
     match run x State.empty Read.empty with

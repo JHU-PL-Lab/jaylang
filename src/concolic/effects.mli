@@ -89,10 +89,10 @@ module type S = sig
   val incr_step : unit m
   (** [incr_step] updates the state and quits if max step has been exceeded. *)
 
-  val hit_branch : bool Direction.t -> bool Expression.t -> unit m
+  val hit_branch : bool Direction.t -> bool Formula.t -> unit m
   (** [hit_branch dir e] takes the given [dir] down a branch whose condition has expression [e]. *)
 
-  val hit_case : int Direction.t -> int Expression.t -> other_cases:int list -> unit m
+  val hit_case : int Direction.t -> int Formula.t -> other_cases:int list -> unit m
   (** [hit_case dir e] takes the given [dir] down a case whose condition has expression [e],
       and the integer cases *not* taken are in [other_cases]. *)
 

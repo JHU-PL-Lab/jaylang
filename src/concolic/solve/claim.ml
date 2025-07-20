@@ -1,18 +1,18 @@
 
 open Core
 
-type 'a t = Equality of ('a Expression.t * 'a Direction.t) [@@unboxed]
+type 'a t = Equality of ('a Formula.t * 'a Direction.t) [@@unboxed]
 
-let to_expression (type a) (Equality (expr, dir) : a t) : bool Expression.t =
-  let eq_int a b = Expression.op a b Expression.Typed_binop.Equal_int in
+let to_expression (type a) (Equality (expr, dir) : a t) : bool Formula.t =
+  let eq_int a b = Formula.binop a b Formula.Typed_binop.Equal_int in
   match dir with
   | True_direction -> expr 
-  | False_direction -> Expression.not_ expr
-  | Case_int i -> eq_int expr (Expression.const_int i)
+  | False_direction -> Formula.not_ expr
+  | Case_int i -> eq_int expr (Formula.const_int i)
   | Case_default { not_in } ->
-    List.fold not_in ~init:Expression.true_ ~f:(fun acc i ->
-      let neq = Expression.op expr (Expression.const_int i) Expression.Typed_binop.Not_equal in
-      Expression.op acc neq Expression.Typed_binop.And
+    List.fold not_in ~init:(Formula.const_bool true) ~f:(fun acc i ->
+      let neq = Formula.binop expr (Formula.const_int i) Formula.Typed_binop.Not_equal in
+      Formula.binop acc neq Formula.Typed_binop.And
     )
 
 let flip (Equality (e, dir) : bool t) : bool t =

@@ -17,7 +17,7 @@ val global_solvetime : float Utils.Safe_cell.t
     on solving between interpretations. This inludes any management of
     symbolic constraints; it is not strictly the time spent using Z3 to solve. *)
 
-module Make : functor (_ : Solve.S) (P : Pause.S) (_ : Options.V) -> sig
+module Make : functor (_ : Solver.S) (P : Pause.S) (_ : Options.V) -> sig
   val eval : Lang.Ast.Embedded.t -> Status.Terminal.t P.t
   (** [eval pgm] is the result of concolic evaluation on [pgm]. *)
 end

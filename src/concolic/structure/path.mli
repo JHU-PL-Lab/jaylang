@@ -5,10 +5,10 @@ type t
 val empty : t
 (** [empty] is the empty path. *)
 
-val cons : bool Expression.t -> t -> t
+val cons : bool Formula.t -> t -> t
 (** [cons e p] is a path with [e] on the front of [p]. *)
 
-val to_exprs : t -> bool Expression.t list
+val to_exprs : t -> bool Formula.t list
 (** [to_exprs p] is all of the expressions in the path [p]. *)
 
 val length : t -> int

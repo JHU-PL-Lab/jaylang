@@ -52,7 +52,7 @@ module Compute (O : Options.V) = struct
     let run : t -> Compute_result.t =
       fun expr ->
         (* makes a new solver for this thread *)
-        let module E = Evaluator.Make (Solve.Make ()) (Pause.Id) (O) in
+        let module E = Evaluator.Make (Solver.Make ()) (Pause.Id) (O) in
         Pause.Id.run
         @@ E.eval expr
 

@@ -16,6 +16,8 @@
 
 include module type of Interp_common.Input_feeder.Make (Interp_common.Step)
 
+val of_model : Interp_common.Step.t Overlays.Typed_smt.model -> t
+
 module Make (Z : Z3_api.S) : sig
   val from_model_and_subs : Z.model -> Expression.Subst.t list -> t
   (** [from_model_and_subs model subs] is a feeder that satisfies the given [model], and

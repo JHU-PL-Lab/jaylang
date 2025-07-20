@@ -26,8 +26,8 @@ let eval_exp
     | EDet e -> with_incr_depth @@ eval e
     | EEscapeDet e -> with_escaped_det @@ eval e
     (* Ints and bools -- constant expressions *)
-    | EInt i -> return @@ VInt (i, Expression.const_int i)
-    | EBool b -> return @@ VBool (b, Expression.const_bool b)
+    | EInt i -> return @@ VInt (i, Formula.const_int i)
+    | EBool b -> return @@ VBool (b, Formula.const_bool b)
     (* Simple -- no different than interpreter *)
     | EDefer e -> eval e (* this concolic evaluator is eager *)
     | EUnit -> return VUnit
@@ -117,9 +117,9 @@ let eval_exp
       let%bind vleft = eval left in
       let%bind vright = eval right in
       let k f e1 e2 op =
-        return @@ f (Expression.op e1 e2 op)
+        return @@ f (Formula.binop e1 e2 op)
       in
-      let open Expression.Typed_binop in
+      let open Formula.Typed_binop in
       let v_int n = fun e -> VInt (n, e) in
       let v_bool b = fun e -> VBool (b, e) in
       match binop, vleft, vright with
@@ -141,7 +141,7 @@ let eval_exp
     end
     | ENot e_not_body -> begin
       match%bind eval e_not_body with
-      | VBool (b, e_b) -> return @@ VBool (not b, Expression.not_ e_b) 
+      | VBool (b, e_b) -> return @@ VBool (not b, Formula.not_ e_b) 
       | v -> type_mismatch @@ Error_msg.bad_not v
     end
     | EIntensionalEqual { left ; right } ->
@@ -225,7 +225,7 @@ let eval_exp
 let global_runtime = Utils.Safe_cell.create 0.0
 let global_solvetime = Utils.Safe_cell.create 0.0
 
-module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
+module Make (S : Solver.S) (P : Pause.S) (O : Options.V) = struct
   module TQ = Target_queue.All
 
   let empty_tq = Options.Arrow.appl TQ.of_options O.r ()
@@ -242,7 +242,8 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
         let t1 = Caml_unix.gettimeofday () in
         let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
         match solve_result with
-        | `Sat feeder -> begin
+        | Sat model -> begin
+            let feeder = Input_feeder.of_model model in
             let* () = pause () in
             let status, targets = eval_exp { target ; options = O.r ; input_feeder = feeder } e in
             let t2 = Caml_unix.gettimeofday () in
@@ -253,8 +254,8 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
               let has_pruned = has_pruned || pruned in
               step e ~has_pruned ~has_unknown (TQ.push_list tq targets)
           end
-        | `Unknown -> let* () = pause () in step e ~has_pruned ~has_unknown:true tq
-        | `Unsat -> let* () = pause () in step e ~has_pruned ~has_unknown tq
+        | Unknown -> let* () = pause () in step e ~has_pruned ~has_unknown:true tq
+        | Unsat -> let* () = pause () in step e ~has_pruned ~has_unknown tq
       end
       | None ->
         let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_solvetime in
@@ -288,7 +289,7 @@ module Make (S : Solve.S) (P : Pause.S) (O : Options.V) = struct
           step e ~has_pruned:pruned ~has_unknown:false (TQ.push_list empty_tq targets)
 end
 
-module F = Make (Solve.Default) (Pause.Lwt)
+module F = Make (Solver) (Pause.Lwt)
 
 let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
   Options.Arrow.make

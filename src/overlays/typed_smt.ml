@@ -1,4 +1,6 @@
 
+open Core
+
 module Typed_binop = struct
   type iii = int * int * int
   type iib = int * int * bool
@@ -26,162 +28,72 @@ module type KEY = sig
   val uid : t -> int
 end
 
-(*
-  I'll either want this parametrized by the key or allow all keys to map to
-  some symbol. I prefer the second as long as I can be sure that I don't use
-  a mix of keys to make expresions.
-*)
+module Symbol = struct
+  type ('a, 'k) t = ('a, string) Utils.Separate.t (* should be private *)
+
+  let make_int (k : 'k) (uid : 'k -> int) : (int, 'k) t =
+    I (string_of_int @@ uid k)
+
+  let make_bool (k : 'k) (uid : 'k -> int) : (bool, 'k) t =
+    B (string_of_int @@ uid k)
+end
+
+module Make_symbol (Key : KEY) = struct
+  type 'a t = ('a, Key.t) Symbol.t
+
+  let make_int (k : Key.t) : int t =
+    Symbol.make_int k Key.uid
+
+  let make_bool (k : Key.t) : bool t =
+    Symbol.make_bool k Key.uid
+end
 
 module type S = sig
-  module Key : KEY
-  module Symbol : Utils.Separate.S with type x = Key.t
+  type ('a, 'k) t
 
-  type 'a t (* expressions *)
-  (* type model *)
+  val equal : ('a, 'k) t -> ('a, 'k) t -> bool
 
-  (* val set_timeout : Core.Time_float.Span.t -> unit *)
-  (** [set_timeout t] sets the timeout for a single solve to [t]. *)
+  val const_int : int -> (int, 'k) t
+  val const_bool : bool -> (bool, 'k) t
 
-  (*
-    -------------
-    MAKE FORMULAS
-    -------------
-  *)
-  val box_int : int -> int t
-  (** [box_int i] is an expression for the constant int [i]. *)
+  val symbol : ('a, 'k) Symbol.t -> ('a, 'k) t
 
-  val box_bool : bool -> bool t
-  (** [box_bool b] is an expression for the constant int [b]. *)
+  val not_ : (bool, 'k) t -> (bool, 'k) t
 
-  val symbol : 'a Symbol.t -> 'a t
+  val binop : ('a, 'k) t -> ('a, 'k) t -> ('a * 'a * 'b) Typed_binop.t -> ('b, 'k) t
+
+  val is_const : ('a, 'k) t -> bool
+
+  val and_ : (bool, 'k) t list -> (bool, 'k) t
 
   (*
-    ------------------
-    VALUES OF FORMULAS 
-    ------------------
+    The mli won't expose these 
   *)
-
-  (* val value_of_expr : model -> 'a t -> 'a option *)
-  (** [value_of_expr model e] queries the [model] for the OCaml value
-      associated with [e]. *)
-
-  (* val constrained_vars : model -> int list *)
-  (** [constrained_vars model] is the list of identifiers in the model,
-      which all must have been arguments to [int_var] or [bool_var] previously. *)
-
-  (*
-    ----------------
-    COMBINE FORMULAS
-    ----------------
-  *)
-  val not_ : bool t -> bool t
-  val binop : 'a t -> 'a t -> ('a * 'a * 'b) Typed_binop.t -> 'b t
-
-  (*
-    ------------------
-    ASK ABOUT FORMULAS 
-    ------------------
-  *)
-
-  val is_const : 'a t -> bool
-
-  (*
-    -----
-    SOLVE
-    -----
-  *)
-  (* module Solve_status : sig
-    type t =
-      | Sat of model
-      | Unknown
-      | Unsat
+  module Private : sig
+    val smt_symbol : ('a, 'k) Symbol.t -> Smtml.Symbol.t
+    val smt_expr : ('a, 'k) t -> Smtml.Expr.t
   end
-
-  val empty_model : model
-  (** [empty_model] is the model of an empty solver. *)
-
-  val solve : bool t list -> Solve_status.t *)
-  (** [solve exprs] invokes the [Z3] solver for a solution to the [exprs]. *)
 end
 
-
-module Make (Key : KEY) (*: S with module Key = Key*) = struct
-  module Key = Key
-
-  module Symbol = Utils.Separate.Make (Key)
-
+module T : S = struct
   module S = Smtml
-  include Utils.Separate.Make (S.Expr)
-  
-  let box_int i = int_ @@ S.Expr.value (S.Value.Int i)
-  let box_bool b = bool_ @@ S.Expr.value (if b then S.Value.True else S.Value.False)
+  type ('a, 'k) t = S.Expr.t (* will need to be private *)
 
-  let symb_of_key k ty =
-    Key.uid k
-    |> string_of_int
-    |> S.Symbol.make ty
-    |> S.Expr.symbol
+  let equal = S.Expr.equal
 
-  let symbol (type a) (s : a Symbol.t) : a t =
+  let const_int (i : int) : (int, 'k) t = S.Expr.value (S.Value.Int i)
+  let const_bool (b : bool) : (bool, 'k) t = S.Expr.value (if b then S.Value.True else S.Value.False)
+
+  let symbol (type a) (s : (a, 'k) Symbol.t) : (a, 'k) t =
     match s with
-    | I k -> int_ @@ symb_of_key k S.Ty.Ty_int
-    | B k -> bool_ @@ symb_of_key k S.Ty.Ty_bool
+    | I k -> S.Expr.symbol @@ S.Symbol.make S.Ty.Ty_int k
+    | B k -> S.Expr.symbol @@ S.Symbol.make S.Ty.Ty_bool k
 
-  let not_ (B e : bool t) : bool t =
-    bool_ @@ S.Expr.Bool.not e
-
-  (* TODO: make sure division and modulus are like OCaml *)
-  let binop (type a b) (x : a t) (y : a t) (op : (a * a * b) Typed_binop.t) : b t =
-    match op, x, y with
-    | Plus,            I x, I y -> int_  @@ S.Expr.binop S.Ty.Ty_int  S.Ty.Binop.Add x y
-    | Minus,           I x, I y -> int_  @@ S.Expr.binop S.Ty.Ty_int  S.Ty.Binop.Sub x y
-    | Times,           I x, I y -> int_  @@ S.Expr.binop S.Ty.Ty_int  S.Ty.Binop.Mul x y
-    | Divide,          I x, I y -> int_  @@ S.Expr.binop S.Ty.Ty_int  S.Ty.Binop.Div x y (* TODO *)
-    | Modulus,         I x, I y -> int_  @@ S.Expr.binop S.Ty.Ty_int  S.Ty.Binop.Rem x y (* TODO *)
-    | Less_than,       I x, I y -> bool_ @@ S.Expr.relop S.Ty.Ty_int  S.Ty.Relop.Lt x y
-    | Less_than_eq,    I x, I y -> bool_ @@ S.Expr.relop S.Ty.Ty_int  S.Ty.Relop.Le x y
-    | Greater_than,    I x, I y -> bool_ @@ S.Expr.relop S.Ty.Ty_int  S.Ty.Relop.Gt x y
-    | Greater_than_eq, I x, I y -> bool_ @@ S.Expr.relop S.Ty.Ty_int  S.Ty.Relop.Ge x y
-    | Equal_int,       I x, I y -> bool_ @@ S.Expr.relop S.Ty.Ty_int  S.Ty.Relop.Eq x y
-    | Equal_bool,      B x, B y -> bool_ @@ S.Expr.relop S.Ty.Ty_bool S.Ty.Relop.Eq x y
-    | Not_equal,       I x, I y -> bool_ @@ S.Expr.relop S.Ty.Ty_int  S.Ty.Relop.Ne x y
-    | And,             B x, B y -> bool_ @@ S.Expr.binop S.Ty.Ty_bool S.Ty.Binop.And x y
-    | Or,              B x, B y -> bool_ @@ S.Expr.binop S.Ty.Ty_bool S.Ty.Binop.Or x y
-
-  let is_const (type a) (x : a t) : bool =
-    not (S.Expr.is_symbolic (extract x))
-end
-
-(*
-  Here, we rely on internal correctness, and externally, the types keep everything correct.
-*)
-module Without_boxing (Key : KEY) (*: S with module Key = Key*) = struct
-  module Key = Key
-
-  module Symbol = Utils.Separate.Make (Key)
-
-  module S = Smtml
-  type 'a t = S.Expr.t (* will need to be private *)
-  
-  let box_int (i : int) : int t = S.Expr.value (S.Value.Int i)
-  let box_bool (b : bool) : bool t = S.Expr.value (if b then S.Value.True else S.Value.False)
-
-  let symb_of_key k ty =
-    Key.uid k
-    |> string_of_int
-    |> S.Symbol.make ty
-    |> S.Expr.symbol
-
-  let symbol (type a) (s : a Symbol.t) : a t =
-    match s with
-    | I k -> symb_of_key k S.Ty.Ty_int
-    | B k -> symb_of_key k S.Ty.Ty_bool
-
-  let not_ (e : bool t) : bool t =
+  let not_ (e : (bool, 'k) t) : (bool, 'k) t =
     S.Expr.Bool.not e
 
   (* TODO: make sure division and modulus are like OCaml *)
-  let binop (type a b) (x : a t) (y : a t) (op : (a * a * b) Typed_binop.t) : b t =
+  let binop (type a b) (x : (a, 'k) t) (y : (a, 'k) t) (op : (a * a * b) Typed_binop.t) : (b, 'k) t =
     let f = 
       match op with
       | Plus            -> S.Expr.binop S.Ty.Ty_int  S.Ty.Binop.Add 
@@ -189,27 +101,110 @@ module Without_boxing (Key : KEY) (*: S with module Key = Key*) = struct
       | Times           -> S.Expr.binop S.Ty.Ty_int  S.Ty.Binop.Mul 
       | Divide          -> S.Expr.binop S.Ty.Ty_int  S.Ty.Binop.Div  (* TODO *)
       | Modulus         -> S.Expr.binop S.Ty.Ty_int  S.Ty.Binop.Rem  (* TODO *)
-      | Less_than       -> S.Expr.relop S.Ty.Ty_int  S.Ty.Relop.Lt
-      | Less_than_eq    -> S.Expr.relop S.Ty.Ty_int  S.Ty.Relop.Le
-      | Greater_than    -> S.Expr.relop S.Ty.Ty_int  S.Ty.Relop.Gt
-      | Greater_than_eq -> S.Expr.relop S.Ty.Ty_int  S.Ty.Relop.Ge
-      | Equal_int       -> S.Expr.relop S.Ty.Ty_int  S.Ty.Relop.Eq
+      | Less_than       -> S.Expr.relop S.Ty.Ty_bool S.Ty.Relop.Lt
+      | Less_than_eq    -> S.Expr.relop S.Ty.Ty_bool S.Ty.Relop.Le
+      | Greater_than    -> S.Expr.relop S.Ty.Ty_bool S.Ty.Relop.Gt
+      | Greater_than_eq -> S.Expr.relop S.Ty.Ty_bool S.Ty.Relop.Ge
+      | Equal_int       -> S.Expr.relop S.Ty.Ty_bool S.Ty.Relop.Eq
       | Equal_bool      -> S.Expr.relop S.Ty.Ty_bool S.Ty.Relop.Eq
-      | Not_equal       -> S.Expr.relop S.Ty.Ty_int  S.Ty.Relop.Ne
+      | Not_equal       -> S.Expr.relop S.Ty.Ty_bool S.Ty.Relop.Ne
       | And             -> S.Expr.binop S.Ty.Ty_bool S.Ty.Binop.And 
       | Or              -> S.Expr.binop S.Ty.Ty_bool S.Ty.Binop.Or
     in
     f x y
 
-  let is_const (type a) (x : a t) : bool =
+  let is_const (type a) (x : (a, 'k) t) : bool =
     not (S.Expr.is_symbolic x)
 
-  let and_ (exprs : bool t list) : bool t =
-    List.fold_left S.Expr.Bool.and_ (box_bool true) exprs
+  let and_ (exprs : (bool, 'k) t list) : (bool, 'k) t =
+    List.fold ~f:S.Expr.Bool.and_ ~init:(const_bool true) exprs
 
-  let z3_solver = S.Z3_mappings.Solver.make ()
+  module Private = struct
+    let smt_symbol : type a. (a, 'k) Symbol.t -> Smtml.Symbol.t = function
+      | I k -> Smtml.Symbol.make Smtml.Ty.Ty_int k
+      | B k -> Smtml.Symbol.make Smtml.Ty.Ty_bool k
 
-  (* TODO: get the model (and convert to a general model type?) *)
-  let solve_z3 (exprs : bool t list) : 'a =
-    S.Z3_mappings.Solver.check z3_solver ~assumptions:[ and_ exprs ]
+    let[@inline always] smt_expr x = x
+  end
+end
+
+include T
+
+module Model = struct
+  type 'k t = { value : 'a. ('a, 'k) Symbol.t -> 'a option }
+
+  (* FIXME: 'k shouldn't be possible here, I thought *)
+  let of_smt_model (model : Smtml.Model.t) : 'k t =
+    let value : type a. (a, 'k) Symbol.t -> a option = fun s ->
+      match Smtml.Model.evaluate model (Private.smt_symbol s) with
+      | Some v -> begin
+        match s, v with
+        | I _, Int i -> Some i
+        | B _, True -> Some true
+        | B _, False -> Some false
+        | _ -> failwith "Invariant failure: wrong type for symbol in model."
+      end
+      | None -> None
+    in
+    { value }
+end
+
+type 'k model = 'k Model.t
+
+type 'k solution =
+  | Sat of 'k model 
+  | Unknown
+  | Unsat
+
+module type SOLVER = sig
+  val solve : (bool, 'k) t list -> 'k solution
+end
+
+module type S1 = sig
+  module Key : KEY
+  module Symbol : sig
+    type 'a t = ('a, Key.t) Symbol.t
+    val make_int : Key.t -> int t
+    val make_bool : Key.t -> bool t
+  end
+  
+  type 'a t = ('a, Key.t) T.t
+end
+
+(*
+  Here, we rely on internal correctness, and externally the types will keep everything correct.
+*)
+module Make (Key : KEY) : S1 with module Key = Key = struct
+  module Key = Key
+  module Symbol = Make_symbol (Key)
+
+  type 'a t = ('a, Key.t) T.t
+end
+
+(*
+  Again, relying on internal correctness.
+*)
+module Z3 () : SOLVER = struct
+  let solver = Smtml.Z3_mappings.Solver.make ()
+
+  let solve (exprs : (bool, 'k) t list) : 'k solution =
+    let assumptions = [ Private.smt_expr @@ and_ exprs ] in
+    match Smtml.Z3_mappings.Solver.check solver ~assumptions with
+    | `Sat -> 
+      let model = Option.value_exn @@ Smtml.Z3_mappings.Solver.model solver in
+      let smt_model = Smtml.Z3_mappings.values_of_model model in
+      let value : type a. (a, 'k) Symbol.t -> a option = fun s ->
+        match Smtml.Model.evaluate smt_model (Private.smt_symbol s) with
+        | Some v -> begin
+          match s, v with
+          | I _, Int i -> Some i
+          | B _, True -> Some true
+          | B _, False -> Some false
+          | _ -> failwith "Invariant failure: wrong type for symbol in model."
+        end
+        | None -> None
+      in
+      Sat { value }
+    | `Unknown -> Unknown
+    | `Unsat -> Unsat
 end

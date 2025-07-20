@@ -15,7 +15,7 @@
     Direction
 *)
 
-type 'a t = Equality of ('a Expression.t * 'a Direction.t) [@@unboxed]
+type 'a t = Equality of ('a Formula.t * 'a Direction.t) [@@unboxed]
 (** ['a t] is an equality of a symbolic expression with a branch direction. *)
 
 val flip : bool t -> bool t
@@ -24,6 +24,6 @@ val flip : bool t -> bool t
 val direction : 'a t -> 'a Direction.t
 (** [direction claim] is the direction inside the [claim]. *)
 
-val to_expression : 'a t -> bool Expression.t
+val to_expression : 'a t -> bool Formula.t
 (** [to_expression claim] is an expression that actually equates the expression inside
     the [claim] with the direction. *)

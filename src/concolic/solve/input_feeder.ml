@@ -3,6 +3,23 @@ open Core
 
 include Interp_common.Input_feeder.Make (Interp_common.Step)
 
+let of_model (model : Interp_common.Step.t Overlays.Typed_smt.model) : t =
+  let get : type a. a Interp_common.Key.Stepkey.t -> a = function
+    | I k as key -> begin
+      let s = Formula.Symbol.make_int k in
+      match model.value s with
+      | Some i -> i
+      | None -> default.get key
+    end
+    | B k as key -> begin
+      let s = Formula.Symbol.make_bool k in
+      match model.value s with
+      | Some b -> b
+      | None -> default.get key
+    end
+  in
+  { get }
+
 module Make (Z : Z3_api.S) = struct
   let from_model_and_subs (model : Z.model) (subs : Expression.Subst.t list) : t =
     let model_vars =

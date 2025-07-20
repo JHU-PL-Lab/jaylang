@@ -1,15 +1,17 @@
 
 open Core
 
+module Smt = Overlays.Typed_smt
+
 module Concolic_value = struct
-  type 'a t = 'a * 'a Expression.t
+  type 'a t = 'a * 'a Formula.t
   let to_string f (v, _) = f v
 
-  let return_bool b = b, Expression.const_bool b
+  let return_bool b = b, Smt.const_bool b
 
   let equal eq (a, e_a) (b, e_b) =
     eq a b
-    && Expression.equal e_a e_b
+    && Smt.equal e_a e_b
 end
 
 include Lang.Value.Embedded (Concolic_value)
@@ -27,7 +29,7 @@ module X = struct
     This is because I'm tired of calling (&&) on the result, and a simple `and_bool` that
     modifies the state would be good.
   *)
-  include Preface.Make.Writer.Over_monad (Preface.Option.Monad) (Utils.List_monoid.Make (struct type t = bool Expression.t end))
+  include Preface.Make.Writer.Over_monad (Preface.Option.Monad) (Utils.List_monoid.Make (struct type t = bool Formula.t end))
   let bind x f = bind f x
 
   let never_equal : 'a t = None
@@ -65,10 +67,10 @@ let rec equal (a : t) (b : t) : bool X.t =
   match a, b with
   (* Equality of concolic expressions*)
   | VInt (i1, e1), VInt (i2, e2) -> 
-    let%bind () = tell [ Expression.op e1 e2 Expression.Typed_binop.Equal_int ] in
+    let%bind () = tell [ Smt.binop e1 e2 Smt.Typed_binop.Equal_int ] in
     return (i1 = i2)
   | VBool (b1, e1), VBool (b2, e2) ->
-    let%bind () = tell [ Expression.op e1 e2 Expression.Typed_binop.Equal_bool ] in
+    let%bind () = tell [ Smt.binop e1 e2 Smt.Typed_binop.Equal_bool ] in
     return Bool.(b1 = b2)
   (* Propogation of equality *)
   | VVariant r1, VVariant r2 ->
@@ -241,5 +243,5 @@ let equal a b =
   match X.run @@ equal a b with
   | Some (b, []) -> Concolic_value.return_bool b
   | Some (b, exprs) ->
-    b, List.reduce_exn exprs ~f:(fun x y -> Expression.op x y Expression.Typed_binop.And)
+    b, List.reduce_exn exprs ~f:(fun x y -> Smt.binop x y Smt.Typed_binop.And)
   | None -> Concolic_value.return_bool false
