@@ -1,0 +1,12 @@
+
+(tests
+ (names test_tools)
+ (modules test_tools)
+ (libraries
+  utils
+  cmdliner
+  alcotest
+  alcotest-lwt
+  metadata
+  concolic)
+ )

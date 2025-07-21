@@ -58,6 +58,9 @@ test-cdeval:
 test-cdeval-all:
 	dune exec -- src-test/deferred-concolic/test_deferred_concolic.exe
 
+test-tools:
+	dune exec -- src-test/tools/test_tools.exe
+
 # benchmark
 
 cbenchmark:
