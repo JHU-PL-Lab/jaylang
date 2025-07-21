@@ -761,16 +761,12 @@ module Expr = struct
           (*subject : 'a t ; patterns : ('a Pattern.t * 'a t) list*)
       | EMatch { subject ; patterns } -> 
         let subject_eval = to_string subject in
-        let rec patterns_eval patterns =
-          match patterns with
-          | [] -> ""
-          | hd::tl -> 
-            let p, hd_expr = hd in
-            let hd_eval = to_string hd_expr in
-            let p_eval = Pattern.to_string p in
-            Format.sprintf "| %s -> %s\n" p_eval hd_eval ^ patterns_eval tl
-          in 
-          Format.sprintf "match %s with \n%s" subject_eval (patterns_eval patterns)
+        let patterns_eval pattern =
+          let p, hd_expr = pattern in
+          let hd_eval = to_string hd_expr in
+          let p_eval = Pattern.to_string p in
+          Format.sprintf "%s -> %s" p_eval hd_eval in
+        Format.sprintf "match %s with " subject_eval ^ String.concat ~sep:"\n| " (List.map patterns ~f:(patterns_eval))
       | EProject { record ; label } ->
         let label_eval = RecordLabel.to_string label in
         let record_eval = to_string record in
@@ -877,8 +873,8 @@ module Expr = struct
         Format.sprintf "(fun %s -> %s)" params_eval (ppp_gt body top (op_precedence body))
       (* | ELetFun : { func : 'a funsig ; body : 'a t } -> 'a bluejay_or_type_erased t
       | ELetFunRec : { funcs : 'a funsig list ; body : 'a t } -> 'a bluejay_or_type_erased t *)
-      | ELetFun _ -> failwith "TODO"
-      | ELetFunRec _ -> failwith "TODO"
+      | ELetFun {func; body} -> Format.sprintf "let %s in %s" (funsig_to_string func) (to_string body)
+      | ELetFunRec {funcs; body} -> Format.sprintf "let %s in %s" (String.concat ~sep:"\nand " (List.map funcs ~f:(funsig_to_string))) (to_string body)
       (* bluejay only *)
       | ETypeList -> "list"
       | ETypeIntersect ls -> 
@@ -894,11 +890,23 @@ module Expr = struct
         let statement = Format.sprintf "let %s:%s = %s" s (to_string tau) (to_string defn) in
         if do_wrap && do_check then statement else statement ^ " (check/wrap failed)"
       (* bluejay only *)
-      | SFun _ -> failwith "TODO"
-      | SFunRec _ -> failwith "TODO"
-      (* | SFun : 'a funsig -> 'a bluejay_or_type_erased statement
-      | SFunRec : 'a funsig list -> 'a bluejay_or_type_erased statement *)
+      | SFun fsig -> "let " ^ funsig_to_string fsig
+      | SFunRec fsiglist -> "let rec " ^ String.concat ~sep:"\nand " (List.map fsiglist ~f:(funsig_to_string))
 
+      and funsig_to_string : type a. a funsig -> string = function
+      | FUntyped { func_id = Ident f ; params; defn } -> 
+        f ^ " " ^ String.concat ~sep:" " (List.map params ~f:(fun x -> let Ident s = x in s)) ^ " = " ^ to_string defn
+      | FTyped func -> 
+        let { type_vars ; func_id = Ident f ; params ; ret_type ; defn } = func in
+        let vars_eval = if List.length type_vars = 0 then "" else String.concat ~sep:" " (List.map type_vars ~f:(fun x -> 
+          let Ident s = x in s)) in
+        let params_eval = String.concat ~sep:" " (List.map params ~f:(fun x -> 
+          match x with 
+          | TVar {var = Ident s; tau} -> Format.sprintf "(%s : %s)" s (to_string tau)
+          | TVarDep {var = Ident s; tau} -> Format.sprintf "(dep» %s : %s)" s (to_string tau))) in
+        let ret_eval = to_string ret_type in
+        let defn_eval = to_string defn in
+        Format.sprintf "%s %s %s : %s = %s" f vars_eval params_eval ret_eval defn_eval
   end
 
   module Made = Make (Utils.Identity)
