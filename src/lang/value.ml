@@ -219,7 +219,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
     | VUnit -> "()"
     | VInt i -> V.to_string Int.to_string i
     | VBool b -> V.to_string Bool.to_string b
-    | VFunClosure { param = Ident s ; _ } -> Format.sprintf "(fun %s -> <expr>)" s
+    | VFunClosure { param = Ident s ; _ } -> Format.sprintf "(fun %s -> <expr>)" s 
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
     | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
     | VModule module_body -> 
@@ -230,7 +230,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
     | VAbort -> "Abort"
     | VVanish -> "Vanish"
     | VId -> "(fun x -> x)"
-    | VFrozen _ -> "(Freeze <expr>)"
+    | VFrozen _ -> Format.sprintf "(Freeze <expr)" 
     | VTable { alist } -> 
       Format.sprintf "Table (%s)\n"
         (String.concat ~sep:" ; " @@ List.map ~f:(fun (k, v) -> Format.sprintf "(%s, %s)" (to_string k) (to_string v)) alist)
@@ -246,7 +246,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
     | VTypeRecord record_body -> RecordLabel.record_body_to_string ~sep:":" record_body to_string
     | VTypeModule ls -> Format.sprintf "sig %s end" (String.concat ~sep:" " @@ List.map ls ~f:(fun (label, _) -> Format.sprintf "val %s : <expr>" (RecordLabel.to_string label)))
     | VTypeFun { domain ; codomain ; det } -> Format.sprintf "(%s %s %s)" (to_string domain) (if det then "-->" else "->") (to_string codomain)
-    | VTypeDepFun { binding = Ident s ; domain ; det ; _ } -> Format.sprintf "((%s : %s) %s <expr>)" s (if det then "-->" else "->") (to_string domain)
+    | VTypeDepFun { binding = Ident s ; domain ;  det ; _ } -> Format.sprintf "((%s : %s) %s <expr>)" s (if det then "-->" else "->") (to_string domain)
     | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (to_string tau) (to_string predicate)
     | VTypeSingleFun -> Format.sprintf "singlet"
     | VTypeSingle v -> Format.sprintf "(singlet (%s))" (to_string v)
