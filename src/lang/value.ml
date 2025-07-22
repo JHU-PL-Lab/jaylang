@@ -24,12 +24,16 @@ module type STORE = sig
   val empty : 'a t
   val add : Ident.t -> 'a -> 'a t -> 'a t
   val fetch : Ident.t -> 'a t -> 'a option
+
+  val mappings : 'a t -> (Ident.t * 'a) list
 end
 
 module type CELL = sig
   type 'a t
   val put : 'a -> 'a t
   val get : 'a t -> 'a
+
+  val to_string :('a -> string) -> 'a t -> string
 end
 
 (*
@@ -219,7 +223,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
     | VUnit -> "()"
     | VInt i -> V.to_string Int.to_string i
     | VBool b -> V.to_string Bool.to_string b
-    | VFunClosure { param = Ident s ; _ } -> Format.sprintf "(fun %s -> <expr>)" s 
+    | VFunClosure { param = Ident s ; closure } -> Format.sprintf "(fun %s -> %s)" s (closure_to_string closure)
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
     | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
     | VModule module_body -> 
@@ -230,13 +234,13 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
     | VAbort -> "Abort"
     | VVanish -> "Vanish"
     | VId -> "(fun x -> x)"
-    | VFrozen _ -> Format.sprintf "(Freeze <expr)" 
+    | VFrozen e -> Format.sprintf "(Freeze %s)" (closure_to_string e)
     | VTable { alist } -> 
       Format.sprintf "Table (%s)\n"
         (String.concat ~sep:" ; " @@ List.map ~f:(fun (k, v) -> Format.sprintf "(%s, %s)" (to_string k) (to_string v)) alist)
     | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
     | VList ls -> Format.sprintf "[ %s ]" (String.concat ~sep:" ; " @@ List.map ~f:to_string ls)
-    | VMultiArgFunClosure { params ; _ } -> Format.sprintf "(fun %s -> <expr>)" (String.concat ~sep:" ; " @@ List.map ~f:(fun (Ident s) -> s) params)
+    | VMultiArgFunClosure { params ; closure } -> Format.sprintf "(fun %s -> %s)" (String.concat ~sep:" ; " @@ List.map ~f:(fun (Ident s) -> s) params) (closure_to_string closure)
     | VType -> "type"
     | VTypeInt -> "int"
     | VTypeBool -> "bool"
@@ -244,9 +248,9 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
     | VTypeBottom -> "bottom"
     | VTypeUnit -> "unit"
     | VTypeRecord record_body -> RecordLabel.record_body_to_string ~sep:":" record_body to_string
-    | VTypeModule ls -> Format.sprintf "sig %s end" (String.concat ~sep:" " @@ List.map ls ~f:(fun (label, _) -> Format.sprintf "val %s : <expr>" (RecordLabel.to_string label)))
+    | VTypeModule ls -> Format.sprintf "sig %s end" (String.concat ~sep:" " @@ List.map ls ~f:(fun (label, body) -> Format.sprintf "val %s : %s" (RecordLabel.to_string label) (closure_to_string body)))
     | VTypeFun { domain ; codomain ; det } -> Format.sprintf "(%s %s %s)" (to_string domain) (if det then "-->" else "->") (to_string codomain)
-    | VTypeDepFun { binding = Ident s ; domain ;  det ; _ } -> Format.sprintf "((%s : %s) %s <expr>)" s (if det then "-->" else "->") (to_string domain)
+    | VTypeDepFun { binding = Ident s ; domain ;  det ; codomain } -> Format.sprintf "((%s : %s) %s %s)" s (if det then "-->" else "->") (to_string domain) (closure_to_string codomain)
     | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (to_string tau) (to_string predicate)
     | VTypeSingleFun -> Format.sprintf "singlet"
     | VTypeSingle v -> Format.sprintf "(singlet (%s))" (to_string v)
@@ -255,13 +259,22 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
     | VTypeIntersect ls ->
       Format.sprintf "(%s)"
         (String.concat ~sep:" && " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((``%s (%s)) -> %s)" s (to_string tau1) (to_string tau2)))
-    | VTypeMu { var = Ident s ; params ;  _ } -> 
-      Format.sprintf "(Mu %s. <expr>)"
-        (s ^ String.concat ~sep:" " @@ List.map params ~f:Ident.to_string)
+    | VTypeMu { var = Ident s ; params ; closure } -> 
+      Format.sprintf "(mu %s. %s)"
+        (s ^ String.concat ~sep:" " @@ List.map params ~f:Ident.to_string) (closure_to_string closure)
     | VTypeVariant ls ->
       Format.sprintf "(%s)"
         (String.concat ~sep: "| " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(`%s of %s)" s (to_string tau)))
 
+  and closure_to_string : type a. a closure -> string = fun c ->
+    let {body; env} = c in 
+    let env_to_string e =
+      String.concat ~sep:", " (List.map (Store.mappings e) ~f:(fun (Ident x, expr) -> 
+        let expr_eval = to_string expr in
+        Format.sprintf "(%s, %s)" x expr_eval)) in
+    let body_eval = Expr.to_string body in
+    let env_eval = Env_cell.to_string (env_to_string) env in
+    Format.sprintf "{%s ; %s}" body_eval env_eval
 end
 
 module Constrain (C : sig type constrain end) (Store : STORE) (Cell : CELL) (V : Utils.Equatable.P1) = struct
@@ -308,6 +321,9 @@ module List_store = struct
       | _ :: tl -> loop tl
     in
     loop env
+
+  let[@inline always] mappings (env : 'a t) : (Ident.t * 'a) list =
+    env
 end
 
 module Map_store = struct
@@ -322,12 +338,17 @@ module Map_store = struct
 
   let[@inline always] fetch (id : Ident.t) (env : 'a t) : 'a option =
     Map.find env id
+
+    let[@inline always] mappings (env : 'a t) : (Ident.t * 'a) list =
+      Map.to_alist env
 end
 
 module Lazy_cell = struct
   include Lazy
   let put a = lazy a
   let get x = force x
+
+  let to_string f x = if Lazy.is_val x then f (get x) else "lazy»"
 end
 
 (*

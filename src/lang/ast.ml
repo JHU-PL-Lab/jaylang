@@ -766,7 +766,7 @@ module Expr = struct
           let hd_eval = to_string hd_expr in
           let p_eval = Pattern.to_string p in
           Format.sprintf "%s -> %s" p_eval hd_eval in
-        Format.sprintf "match %s with " subject_eval ^ String.concat ~sep:"\n| " (List.map patterns ~f:(patterns_eval))
+        Format.sprintf "match %s with %s \nend" subject_eval (String.concat ~sep:"\n| " (List.map patterns ~f:(patterns_eval)))
       | EProject { record ; label } ->
         let label_eval = RecordLabel.to_string label in
         let record_eval = to_string record in
@@ -847,7 +847,7 @@ module Expr = struct
         let predicate_eval = to_string predicate in
         Format.sprintf "{%s |%s}" tau_eval predicate_eval
       | ETypeMu { var = Ident s ; params ; body } -> 
-        Format.sprintf "(Mu %s. %s)" (s ^ String.concat ~sep:" " @@ List.map params ~f:Ident.to_string) (to_string body)
+        Format.sprintf "(mu %s. %s)" (s ^ String.concat ~sep:" " @@ List.map params ~f:Ident.to_string) (to_string body)
       | ETypeVariant variant_list -> 
         Format.sprintf "(%s)"
           (String.concat ~sep: "| " @@ List.map variant_list ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(`%s of %s)" s (to_string tau)))
