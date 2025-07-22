@@ -1,0 +1,16 @@
+(include_subdirs unqualified)
+
+(library
+ (name concolic_common)
+ (public_name jay.concolic_common)
+ (libraries
+  core
+  utils
+  overlays
+  lang
+  )
+ (synopsis "Common concolic constructs for the Jaylang project")
+ (inline_tests)
+ (instrumentation
+  (backend landmarks))
+ (preprocess (pps ppx_compare ppx_sexp_conv ocaml-monadic landmarks-ppx --auto)))
