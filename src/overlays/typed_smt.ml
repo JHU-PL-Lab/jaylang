@@ -18,7 +18,7 @@ module Binop = struct
     | Greater_than_eq : iib t
     | Equal : ('a * 'a * bool) t
     | Not_equal : ('a * 'a * bool) t
-    | And : bbb t
+    (* | And : bbb t *)
     | Or : bbb t
 
   let to_arithmetic (type a b) (binop : (a * a * b) t) : a -> a -> b =
@@ -34,7 +34,7 @@ module Binop = struct
     | Greater_than_eq -> ( >= )
     | Equal -> Poly.( = )
     | Not_equal -> Poly.( <> )
-    | And -> ( && )
+    (* | And -> ( && ) *)
     | Or -> ( || )
 
   (* let equal (type a)(x : a t) (y : a t) : bool =
@@ -97,19 +97,43 @@ module type S = sig
 
   val not_ : (bool, 'k) t -> (bool, 'k) t
 
-  val binop : ('a, 'k) t -> ('a, 'k) t -> ('a * 'a * 'b) Binop.t -> ('b, 'k) t
+  val binop : ('a * 'a * 'b) Binop.t -> ('a, 'k) t -> ('a, 'k) t -> ('b, 'k) t
 
   val is_const : ('a, 'k) t -> bool
 
   val and_ : (bool, 'k) t list -> (bool, 'k) t
+end
 
-  (*
-    The mli won't expose these 
-  *)
-  (* module Private : sig
-    val smt_symbol : ('a, 'k) Symbol.t -> Smtml.Symbol.t
-    val smt_expr : ('a, 'k) t -> Smtml.Expr.t
-  end *)
+module Model = struct
+  type 'k t = { value : 'a. ('a, 'k) Symbol.t -> 'a option }
+
+  (* FIXME: 'k shouldn't be possible here, I thought *)
+  (* let of_z3_model (model : Z3.Model.model) : 'k t =
+    let value : type a. (a, 'k) Symbol.t -> a option = fun s ->
+      match Smtml.Model.evaluate model (Private.smt_symbol s) with
+      | Some v -> begin
+        match s, v with
+        | I _, Int i -> Some i
+        | B _, True -> Some true
+        | B _, False -> Some false
+        | _ -> failwith "Invariant failure: wrong type for symbol in model."
+      end
+      | None -> None
+    in
+    { value } *)
+end
+
+type 'k model = 'k Model.t
+
+type 'k solution =
+  | Sat of 'k model 
+  | Unknown
+  | Unsat
+
+module type SOLVABLE = sig
+  include S
+
+  val solve : (bool, 'k) t list -> 'k solution
 end
 
 module type CONTEXT = sig
@@ -117,14 +141,12 @@ module type CONTEXT = sig
 end
 
 (*
-  I'd like to have an smt interface that is my own expressions,
-  not just Z3. This one makes Z3.
+  Z3 expressions using some context.
 
-  This needs a context, but I don't want that (or the overhead
-  Z3 comes with to make expressions), so I'll write my own
-  type that builds the expression trees and can translate to this.
+  We will often like to avoid the context, so I have my own
+  homebrewed expressions further below that are functional.
 *)
-module Make_Z3 (C : CONTEXT) (*: S*) = struct
+module Make_Z3 (C : CONTEXT) : SOLVEABLE = struct
   (* I'm relying on internal correctness, and the types are phantom *)
   type ('a, 'k) t = Z3.Expr.expr (* will need to be private *)
 
@@ -165,7 +187,7 @@ module Make_Z3 (C : CONTEXT) (*: S*) = struct
     | Greater_than_eq -> Z3.Arithmetic.mk_ge ctx
     | Equal           -> Z3.Boolean.mk_eq ctx
     | Not_equal       -> fun a b -> not_ (Z3.Boolean.mk_eq ctx a b)
-    | And             -> list_curry @@ Z3.Boolean.mk_and ctx
+    (* | And             -> list_curry @@ Z3.Boolean.mk_and ctx *)
     | Or              -> list_curry @@ Z3.Boolean.mk_or ctx
     (* OCaml division and modulus differ from Z3, so we need some extra encoding *)
     | Divide -> fun x y ->
@@ -187,17 +209,14 @@ module Make_Z3 (C : CONTEXT) (*: S*) = struct
   let and_ (exprs : (bool, 'k) t list) : (bool, 'k) t =
     Z3.Boolean.mk_and ctx exprs
 
-  module Private = struct
-    (* let smt_symbol : type a. (a, 'k) Symbol.t -> Smtml.Symbol.t = function
-      | I k -> Smtml.Symbol.make Smtml.Ty.Ty_int k
-      | B k -> Smtml.Symbol.make Smtml.Ty.Ty_bool k *)
+  let solve (_exprs : (bool, 'k) t list) : 'k solution =
+    failwith "todo"
 
-    let[@inline always] z3_expr x = x
-  end
 end
 
 (*
-  Home brewed expressions with simplification.
+  Home brewed expressions with some simplification.
+
   These require no context and are functional, so they
   are the default interface that everything should use.
 *)
@@ -207,11 +226,14 @@ module T = struct
     | Const_bool : bool -> (bool, 'k) t
     | Key : ('a, 'k) Symbol.t -> ('a, 'k) t
     | Not : (bool, 'k) t -> (bool, 'k) t
+    | And : (bool, 'k) t list -> (bool, 'k) t
     | Binop : ('a * 'a * 'b) Binop.t * ('a, 'k) t * ('a, 'k) t -> ('b, 'k) t
 
   (* Polymorphic equality is good enough here because keys just use ints
     underneath. I would only write structural equality anyways. *)
-  let equal = Core.Poly.equal
+  let equal a b = 
+    Core.phys_equal a b
+    || Core.Poly.equal a b
 
   let const_int i = Const_int i
   let const_bool b = Const_bool b
@@ -222,17 +244,6 @@ module T = struct
 
   let rec binop : type a b. (a * a * b) Binop.t -> (a, 'k) t -> (a, 'k) t -> (b, 'k) t = fun op x y ->
     match op with
-    | And -> begin
-        match x, y with
-        | Const_bool true, e -> e
-        | e, Const_bool true -> e
-        | Const_bool false, _ -> Const_bool false
-        | _, Const_bool false -> Const_bool false
-        | e1, e2 when equal e1 (Not e2) -> Const_bool false
-        | e1, e2 when equal (Not e1) e2 -> Const_bool false
-        | e1, e2 when equal e1 e2 -> e1
-        | e1, e2 -> Binop (And, e1, e2)
-      end
     | Or -> begin
         match x, y with
         | Const_bool true, _ -> Const_bool true
@@ -309,55 +320,44 @@ module T = struct
     match e with
     | Const_bool b -> Const_bool (not b)
     | Not e' -> e'
-    | Binop (Or, e1, e2) -> binop And (not_ e1) (not_ e2) (* t's easier to work with "and" later *)
+    | Binop (Or, e1, e2) -> and_ [ not_ e1 ; not_ e2 ] (* t's easier to work with "and" later *)
     | _ -> Not e
 
   (* Consider here checking if any is the negation of another *)
-  let and_ (e_ls : (bool, 'k) t list) : (bool, 'k) t =
-    List.fold e_ls ~init:true_ ~f:(binop And)
+  and and_ (e_ls : (bool, 'k) t list) : (bool, 'k) t =
+    match e_ls with
+    | [] -> true_ (* vacuous truth *)
+    | [ e ] -> e
+    | hd :: tl ->
+      match hd with
+      | Const_bool true -> and_ tl
+      | Const_bool false -> false_
+      | And e_ls' -> and_ (e_ls' @ tl)
+      | e -> 
+        match and_ tl with
+        | Const_bool false -> false_
+        | Const_bool true -> e
+        | And tl_exprs when List.exists tl_exprs ~f:(equal (not_ e)) -> false_
+        | And tl_exprs when List.exists tl_exprs ~f:(equal e) -> And tl_exprs
+        | And tl_exprs -> And (e :: tl_exprs)
+        | other when equal other (not_ e) -> false_
+        | other when equal other e -> e
+        | other -> And [ e ; other ]
 end
 
 include T
 
 module Transform (X : S) = struct
   let rec transform : type a. (a, 'k) t -> (a, 'k) X.t = fun e ->
-    failwith "todo"
-
-
+    match e with
+    | Const_int i -> X.const_int i
+    | Const_bool b -> X.const_bool b
+    | Key s -> X.symbol s
+    | Not e' -> X.not_ (transform e')
+    | And e_ls -> X.and_ (List.map e_ls ~f:transform)
+    | Binop (op, e1, e2) -> X.binop (transform e1) (transform e2) op
 end
-
-(* include T *)
-
-module Model = struct
-  type 'k t = { value : 'a. ('a, 'k) Symbol.t -> 'a option }
-
-  (* FIXME: 'k shouldn't be possible here, I thought *)
-  (* let of_z3_model (model : Z3.Model.model) : 'k t =
-    let value : type a. (a, 'k) Symbol.t -> a option = fun s ->
-      match Smtml.Model.evaluate model (Private.smt_symbol s) with
-      | Some v -> begin
-        match s, v with
-        | I _, Int i -> Some i
-        | B _, True -> Some true
-        | B _, False -> Some false
-        | _ -> failwith "Invariant failure: wrong type for symbol in model."
-      end
-      | None -> None
-    in
-    { value } *)
-end
-
-type 'k model = 'k Model.t
-
-type 'k solution =
-  | Sat of 'k model 
-  | Unknown
-  | Unsat
-
-module type SOLVER = sig
-  val solve : (bool, 'k) t list -> 'k solution
-end
-
+(* 
 module type S1 = sig
   module Key : KEY
   module Symbol : sig
@@ -377,7 +377,7 @@ module Make (Key : KEY) : S1 with module Key = Key = struct
   module Symbol = Make_symbol (Key)
 
   type 'a t = ('a, Key.t) T.t
-end
+end *)
 
 (*
   BIG PROBLEM: this cannot support parallelism.
@@ -392,7 +392,7 @@ end
   That is, pull expressions out of concolic and make them
   more general, like this.
 *)
-module Make_solver (Mappings : Smtml.Mappings.S) () : SOLVER = struct
+(* module Make_solver (Mappings : Smtml.Mappings.S) () : SOLVER = struct
   let solver = Mappings.Solver.make () 
 
   let solve (exprs : (bool, 'k) t list) : 'k solution =
@@ -419,4 +419,4 @@ end
 
 module Z3 = Make_solver (Smtml.Z3_mappings)
 module Alt_ergo = Make_solver (Smtml.Altergo_mappings) (* Way slower than Z3 *)
-module Cvc5 = Make_solver (Smtml.Cvc5_mappings) (* Not installed yet *)
+module Cvc5 = Make_solver (Smtml.Cvc5_mappings) Not installed yet *)
