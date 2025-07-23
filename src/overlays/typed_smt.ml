@@ -189,7 +189,7 @@ module Make_Z3 (C : CONTEXT) : SOLVABLE = struct
           (binop Minus div one)
       )
     | Modulus -> fun x y ->
-      binop Minus x (binop Times x (binop Divide x y))
+      binop Minus x (binop Times y (binop Divide x y))
 
   let is_const (type a) (x : (a, 'k) t) : bool =
     Z3.Expr.is_const x
@@ -209,11 +209,9 @@ module Make_Z3 (C : CONTEXT) : SOLVABLE = struct
     | L_TRUE -> true
     | L_UNDEF -> failwith "Invariant failure: unboxing non-bool into bool."
 
-  (* TODO: is `eval` necessary? *)
   let a_of_expr z3_model expr unbox_expr =
     let open Option.Let_syntax in
     Z3.Model.get_const_interp_e z3_model expr
-    >>= fun e -> Z3.Model.eval z3_model e false
     >>| unbox_expr
 
   let solve (exprs : (bool, 'k) t list) : 'k solution =
@@ -341,7 +339,7 @@ module T = struct
     match e with
     | Const_bool b -> Const_bool (not b)
     | Not e' -> e'
-    | Binop (Or, e1, e2) -> and_ [ not_ e1 ; not_ e2 ] (* t's easier to work with "and" later *)
+    | Binop (Or, e1, e2) -> and_ [ not_ e1 ; not_ e2 ] (* it's easier to work with "and" later *)
     | _ -> Not e
 
   (* Consider here checking if any is the negation of another *)

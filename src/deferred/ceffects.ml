@@ -19,16 +19,23 @@ module Feeder = Interp_common.Input_feeder.Make (Interp_common.Step)
 
 module V = Value.Make (Concolic.Value.Concolic_value)
 
+let two_to_thirty = Int.(2 ** 30)
+
 (*
   FIXME: this is a total hack and should not be used even short term.
 *)
 let time_to_step (type a) (timekey : a Interp_common.Key.Timekey.t) : a Interp_common.Key.Stepkey.t =
+  let put_in_range x =
+    if x >= two_to_thirty (* Z3 int keys are only defined on non-negative values less than 2^30 *)
+    then x mod two_to_thirty (* hashes are always non-neg, so no need to check sign *)
+    else x
+  in
   match timekey with
   | I t ->
-    let s = Interp_common.Step.Step (Hashtbl.hash t) in
+    let s = Interp_common.Step.Step (put_in_range @@ Hashtbl.hash t) in
     Interp_common.Key.Stepkey.int_ s
   | B t ->
-    let s = Interp_common.Step.Step (Hashtbl.hash t) in
+    let s = Interp_common.Step.Step (put_in_range @@ Hashtbl.hash t) in
     Interp_common.Key.Stepkey.bool_ s
 
 module Env = struct
