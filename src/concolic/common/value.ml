@@ -58,7 +58,6 @@ module X = struct
     |> function
       | Core.List.Or_unequal_lengths.Ok b -> b
       | Unequal_lengths -> never_equal
-
 end
 
 let rec equal (a : t) (b : t) : bool X.t =
@@ -241,6 +240,5 @@ and equal_closure bindings a b =
 
 let equal a b =
   match X.run @@ equal a b with
-  | Some (b, []) -> Concolic_value.return_bool b
   | Some (b, exprs) -> b, Smt.and_ exprs
   | None -> Concolic_value.return_bool false
