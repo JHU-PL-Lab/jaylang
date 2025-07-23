@@ -18,7 +18,6 @@ module Binop = struct
     | Greater_than_eq : iib t
     | Equal : ('a * 'a * bool) t
     | Not_equal : ('a * 'a * bool) t
-    (* | And : bbb t *)
     | Or : bbb t
 
   let to_arithmetic (type a b) (binop : (a * a * b) t) : a -> a -> b =
@@ -34,7 +33,6 @@ module Binop = struct
     | Greater_than_eq -> ( >= )
     | Equal -> Poly.( = )
     | Not_equal -> Poly.( <> )
-    (* | And -> ( && ) *)
     | Or -> ( || )
 
   (* let equal (type a)(x : a t) (y : a t) : bool =
@@ -178,7 +176,6 @@ module Make_Z3 (C : CONTEXT) : SOLVABLE = struct
     | Greater_than_eq -> Z3.Arithmetic.mk_ge ctx
     | Equal           -> Z3.Boolean.mk_eq ctx
     | Not_equal       -> fun a b -> not_ (Z3.Boolean.mk_eq ctx a b)
-    (* | And             -> list_curry @@ Z3.Boolean.mk_and ctx *)
     | Or              -> list_curry @@ Z3.Boolean.mk_or ctx
     (* OCaml division and modulus differ from Z3, so we need some extra encoding *)
     | Divide -> fun x y ->

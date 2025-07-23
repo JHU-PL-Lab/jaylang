@@ -246,8 +246,8 @@ module type S = sig
   type 'a m = 'a M.m
   val vanish : 'a m
   val incr_step : unit m
-  val hit_branch : bool Concolic.Direction.t -> bool Concolic.Expression.t -> unit m
-  val hit_case : int Concolic.Direction.t -> int Concolic.Expression.t -> other_cases:int list -> unit m
+  val hit_branch : bool Concolic.Direction.t -> bool Concolic.Formula.t -> unit m
+  val hit_case : int Concolic.Direction.t -> int Concolic.Formula.t -> other_cases:int list -> unit m
   val get_input : 'a Feeder.Key.t -> V.whnf m
   val run : 'a m -> Concolic.Status.Eval.t * Concolic.Target.t list
 end
@@ -270,9 +270,9 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
       Concolic.Status.Finished { pruned = Concolic.Path.length s.path > max_depth || n > max_step } 
     )
 
-  let push_branch_and_tell (type a) (dir : a Concolic.Direction.t) (e : a Concolic.Expression.t) 
+  let push_branch_and_tell (type a) (dir : a Concolic.Direction.t) (e : a Concolic.Formula.t) 
       (make_tape : a Concolic.Claim.t -> Concolic.Path.t -> Concolic.Target.t list) : unit m =
-    if Concolic.Expression.is_const e then return () else
+    if Concolic.Formula.is_const e then return () else
     let%bind s = get in
     let n = Concolic.Path.length s.path in
     if n >= max_depth then return () else
@@ -282,14 +282,14 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
     then return ()
     else tell (make_tape claim s.path)
 
-  let hit_branch (dir : bool Concolic.Direction.t) (e : bool Concolic.Expression.t) : unit m =
+  let hit_branch (dir : bool Concolic.Direction.t) (e : bool Concolic.Formula.t) : unit m =
     push_branch_and_tell dir e (fun claim path ->
       [ Concolic.Target.make
         (Concolic.Path.cons (Concolic.Claim.to_expression (Concolic.Claim.flip claim)) path)
       ]
     )
 
-  let hit_case (dir : int Concolic.Direction.t) (e : int Concolic.Expression.t) ~(other_cases : int list) : unit m =
+  let hit_case (dir : int Concolic.Direction.t) (e : int Concolic.Formula.t) ~(other_cases : int list) : unit m =
     push_branch_and_tell dir e (fun _ path ->
       let other_dirs =
         match dir with
@@ -309,12 +309,12 @@ module Initialize (C : sig val c : Consts.t end) (*: S*) = struct
     let key = time_to_step (make_key state.time) in
     let v = input_feeder.get key in
     match key with
-    | I _ -> 
+    | I k -> 
       let%bind () = modify (fun s -> { s with inputs = (I v, state.time) :: s.inputs ; time = Timestamp.increment s.time }) in
-      return @@ V.VInt (v, Concolic.Expression.key key)
-    | B _ ->
+      return @@ V.VInt (v, Concolic.Formula.symbol (Concolic.Formula.Symbol.make_int k))
+    | B k ->
       let%bind () = modify (fun s -> { s with inputs = (B v, state.time) :: s.inputs ; time = Timestamp.increment s.time }) in
-      return @@ V.VBool (v, Concolic.Expression.key key)
+      return @@ V.VBool (v, Concolic.Formula.symbol (Concolic.Formula.Symbol.make_bool k))
 
   let run (x : 'a m) : Concolic.Status.Eval.t * Concolic.Target.t list =
     match run x State.empty Read.empty with

@@ -30,8 +30,8 @@ let eval_exp
     let%bind () = incr_step in
     match expr with
     | EUnit -> return VUnit
-    | EInt i -> return @@ VInt (i, Concolic.Expression.const_int i)
-    | EBool b -> return @@ VBool (b, Concolic.Expression.const_bool b)
+    | EInt i -> return @@ VInt (i, Concolic.Formula.const_int i)
+    | EBool b -> return @@ VBool (b, Concolic.Formula.const_bool b)
     | EVar id -> fetch id
     | EId -> return VId
     (* inputs *)
@@ -42,9 +42,9 @@ let eval_exp
       let%bind vleft = stern_eval left in
       let%bind vright = stern_eval right in
       let k f e1 e2 op =
-        return @@ f (Concolic.Expression.op e1 e2 op)
+        return @@ f (Concolic.Formula.binop op e1 e2)
       in
-      let open Concolic.Expression.Typed_binop in
+      let open Concolic.Formula.Binop in
       let v_int n = fun e -> VInt (n, e) in
       let v_bool b = fun e -> VBool (b, e) in
       match binop, vleft, vright with
@@ -53,20 +53,20 @@ let eval_exp
       | BTimes       , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_int (n1 * n2)) e1 e2 Times
       | BDivide      , VInt (n1, e1)  , VInt (n2, e2) when n2 <> 0 -> k (v_int (n1 / n2)) e1 e2 Divide
       | BModulus     , VInt (n1, e1)  , VInt (n2, e2) when n2 <> 0 -> k (v_int (n1 mod n2)) e1 e2 Modulus
-      | BEqual       , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 = n2)) e1 e2 Equal_int
-      | BEqual       , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool Bool.(b1 = b2)) e1 e2 Equal_bool
+      | BEqual       , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 = n2)) e1 e2 Equal
+      | BEqual       , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool Bool.(b1 = b2)) e1 e2 Equal
       | BNeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 <> n2)) e1 e2 Not_equal
       | BLessThan    , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 < n2)) e1 e2 Less_than
       | BLeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 <= n2)) e1 e2 Less_than_eq
       | BGreaterThan , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 > n2)) e1 e2 Greater_than
       | BGeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 >= n2)) e1 e2 Greater_than_eq
-      | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 && b2)) e1 e2 And
-      | BOr          , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 || b2)) e1 e2 And
+      | BOr          , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 || b2)) e1 e2 Or
+      | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> return @@ VBool (b1 && b2, Concolic.Formula.and_ [ e1 ; e2 ])
       | _ -> type_mismatch @@ Error_msg.bad_binop vleft binop vright
     end
     | ENot expr -> begin
       match%bind stern_eval expr with
-      | VBool (b, e_b) -> return @@ VBool (not b, Concolic.Expression.not_ e_b)
+      | VBool (b, e_b) -> return @@ VBool (not b, Concolic.Formula.not_ e_b)
       | v -> type_mismatch @@ Error_msg.bad_not v
     end
     | EProject { record ; label } -> begin
@@ -289,7 +289,7 @@ let eval_exp
 let global_runtime = Utils.Safe_cell.create 0.0
 let global_solvetime = Utils.Safe_cell.create 0.0
 
-module Make (S : Concolic.Solve.S) (P : Concolic.Pause.S) (O : Concolic.Options.V) = struct
+module Make (S : Concolic.Solver.S) (P : Concolic.Pause.S) (O : Concolic.Options.V) = struct
   module TQ = Concolic.Target_queue.BFS
 
   let empty_tq = Concolic.Options.Arrow.appl TQ.of_options O.r ()
@@ -312,7 +312,8 @@ module Make (S : Concolic.Solve.S) (P : Concolic.Pause.S) (O : Concolic.Options.
         let t1 = Caml_unix.gettimeofday () in
         let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
         match solve_result with
-        | `Sat feeder -> begin
+        | Sat model -> begin
+            let feeder = Concolic.Input_feeder.of_model model in
             let* () = pause () in
             let status, targets = eval_exp { target ; options = O.r ; input_feeder = feeder } e in
             let t2 = Caml_unix.gettimeofday () in
@@ -323,8 +324,8 @@ module Make (S : Concolic.Solve.S) (P : Concolic.Pause.S) (O : Concolic.Options.
               let has_pruned = has_pruned || pruned in
               step e ~has_pruned ~has_unknown (TQ.push_list tq targets)
           end
-        | `Unknown -> let* () = pause () in step e ~has_pruned ~has_unknown:true tq
-        | `Unsat -> let* () = pause () in step e ~has_pruned ~has_unknown tq
+        | Unknown -> let* () = pause () in step e ~has_pruned ~has_unknown:true tq
+        | Unsat -> let* () = pause () in step e ~has_pruned ~has_unknown tq
       end
       | None ->
         let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_solvetime in
@@ -358,7 +359,7 @@ module Make (S : Concolic.Solve.S) (P : Concolic.Pause.S) (O : Concolic.Options.
           step e ~has_pruned:pruned ~has_unknown:false (TQ.push_list empty_tq targets)
 end
 
-module F = Make (Concolic.Solve.Default) (Concolic.Pause.Lwt)
+module F = Make (Concolic.Solver) (Concolic.Pause.Lwt)
 
 let lwt_eval : (Embedded.t, Concolic.Status.Terminal.t Lwt.t) Concolic.Options.Arrow.t =
   Concolic.Options.Arrow.make
