@@ -107,20 +107,8 @@ end
 module Model = struct
   type 'k t = { value : 'a. ('a, 'k) Symbol.t -> 'a option }
 
-  (* FIXME: 'k shouldn't be possible here, I thought *)
-  (* let of_z3_model (model : Z3.Model.model) : 'k t =
-    let value : type a. (a, 'k) Symbol.t -> a option = fun s ->
-      match Smtml.Model.evaluate model (Private.smt_symbol s) with
-      | Some v -> begin
-        match s, v with
-        | I _, Int i -> Some i
-        | B _, True -> Some true
-        | B _, False -> Some false
-        | _ -> failwith "Invariant failure: wrong type for symbol in model."
-      end
-      | None -> None
-    in
-    { value } *)
+  let empty : 'k t =
+    { value = fun _ -> None }
 end
 
 type 'k model = 'k Model.t
@@ -145,8 +133,11 @@ end
 
   We will often like to avoid the context, so I have my own
   homebrewed expressions further below that are functional.
+
+  TODO: does this need to be generative, or is it fine to share contexts
+    amongst functor applications?
 *)
-module Make_Z3 (C : CONTEXT) : SOLVEABLE = struct
+module Make_Z3 (C : CONTEXT) : SOLVABLE = struct
   (* I'm relying on internal correctness, and the types are phantom *)
   type ('a, 'k) t = Z3.Expr.expr (* will need to be private *)
 
@@ -193,7 +184,7 @@ module Make_Z3 (C : CONTEXT) : SOLVEABLE = struct
     | Divide -> fun x y ->
       let div = Z3.Arithmetic.mk_div ctx x y in
       Z3.Boolean.mk_ite ctx
-        (binop Or (divides y x) (binop Less_than_eq one x))
+        (binop Or (divides y x) (binop Less_than_eq zero x))
         div
         (Z3.Boolean.mk_ite ctx
           (binop Less_than_eq zero y)
@@ -209,9 +200,37 @@ module Make_Z3 (C : CONTEXT) : SOLVEABLE = struct
   let and_ (exprs : (bool, 'k) t list) : (bool, 'k) t =
     Z3.Boolean.mk_and ctx exprs
 
-  let solve (_exprs : (bool, 'k) t list) : 'k solution =
-    failwith "todo"
+  let solver = Z3.Solver.mk_simple_solver ctx
 
+  let unbox_int_expr e =
+    Big_int_Z.int_of_big_int
+    @@ Z3.Arithmetic.Integer.get_big_int e
+
+  let unbox_bool_expr e =
+    match Z3.Boolean.get_bool_value e with
+    | L_FALSE -> false
+    | L_TRUE -> true
+    | L_UNDEF -> failwith "Invariant failure: unboxing non-bool into bool."
+
+  (* TODO: is `eval` necessary? *)
+  let a_of_expr z3_model expr unbox_expr =
+    let open Option.Let_syntax in
+    Z3.Model.get_const_interp_e z3_model expr
+    >>= fun e -> Z3.Model.eval z3_model e false
+    >>| unbox_expr
+
+  let solve (exprs : (bool, 'k) t list) : 'k solution =
+    match Z3.Solver.check solver [ and_ exprs ] with
+    | Z3.Solver.SATISFIABLE ->
+      let model = Option.value_exn @@ Z3.Solver.get_model solver in
+      let value : type a. (a, 'k) Symbol.t -> a option = fun s ->
+        match s with
+        | I _ -> a_of_expr model (symbol s) unbox_int_expr
+        | B _ -> a_of_expr model (symbol s) unbox_bool_expr
+      in
+      Sat { value }
+    | UNKNOWN -> Unknown
+    | UNSATISFIABLE -> Unsat
 end
 
 (*
@@ -241,6 +260,11 @@ module T = struct
 
   let true_ = Const_bool true
   let false_ = Const_bool false
+
+  let is_const (type a) (x : (a, 'k) t) : bool =
+    match x with
+    | Const_int _ | Const_bool _ -> true
+    | Key _ | Not _ | And _ | Binop _ -> false
 
   let rec binop : type a b. (a * a * b) Binop.t -> (a, 'k) t -> (a, 'k) t -> (b, 'k) t = fun op x y ->
     match op with
@@ -355,68 +379,15 @@ module Transform (X : S) = struct
     | Key s -> X.symbol s
     | Not e' -> X.not_ (transform e')
     | And e_ls -> X.and_ (List.map e_ls ~f:transform)
-    | Binop (op, e1, e2) -> X.binop (transform e1) (transform e2) op
-end
-(* 
-module type S1 = sig
-  module Key : KEY
-  module Symbol : sig
-    type 'a t = ('a, Key.t) Symbol.t
-    val make_int : Key.t -> int t
-    val make_bool : Key.t -> bool t
-  end
-  
-  type 'a t = ('a, Key.t) T.t
+    | Binop (op, e1, e2) -> X.binop op (transform e1) (transform e2)
 end
 
 (*
-  Here, we rely on internal correctness, and externally the types will keep everything correct.
+  TODO: add simplification as a preprocess.
 *)
-module Make (Key : KEY) : S1 with module Key = Key = struct
-  module Key = Key
-  module Symbol = Make_symbol (Key)
-
-  type 'a t = ('a, Key.t) T.t
-end *)
-
-(*
-  BIG PROBLEM: this cannot support parallelism.
-    Smtml just isn't set up for it: it only ever works
-    with one Z3 context.
-
-  So I need to back off from this representation, but I
-  just make use of better representations here to refactor
-  my current Z3-specific stuff into a respresentation a
-  bit like this one.
-
-  That is, pull expressions out of concolic and make them
-  more general, like this.
-*)
-(* module Make_solver (Mappings : Smtml.Mappings.S) () : SOLVER = struct
-  let solver = Mappings.Solver.make () 
+module Solve (X : SOLVABLE) = struct
+  module M = Transform (X)
 
   let solve (exprs : (bool, 'k) t list) : 'k solution =
-    let assumptions = [ Private.smt_expr @@ and_ exprs ] in
-    match Mappings.Solver.check solver ~assumptions with
-    | `Sat -> 
-      let model = Option.value_exn @@ Mappings.Solver.model solver in
-      let smt_model = Mappings.values_of_model model in
-      let value : type a. (a, 'k) Symbol.t -> a option = fun s ->
-        match Smtml.Model.evaluate smt_model (Private.smt_symbol s) with
-        | Some v -> begin
-          match s, v with
-          | I _, Int i -> Some i
-          | B _, True -> Some true
-          | B _, False -> Some false
-          | _ -> failwith "Invariant failure: wrong type for symbol in model."
-        end
-        | None -> None
-      in
-      Sat { value }
-    | `Unknown -> Unknown
-    | `Unsat -> Unsat
+    X.solve @@ List.map exprs ~f:M.transform
 end
-
-module Z3 = Make_solver (Smtml.Z3_mappings)
-module Alt_ergo = Make_solver (Smtml.Altergo_mappings) (* Way slower than Z3 *)
-module Cvc5 = Make_solver (Smtml.Cvc5_mappings) Not installed yet *)

@@ -1,9 +1,9 @@
 
-open Core
-
 include Interp_common.Input_feeder.Make (Interp_common.Step)
 
-let of_model (model : Interp_common.Step.t Overlays.Typed_smt.model) : t =
+let of_model m = Interp_common.Input_feeder.of_smt_model m ~uid:Interp_common.Step.to_int
+
+(* let of_model (model : Interp_common.Step.t Overlays.Typed_smt.model) : t =
   let get : type a. a Interp_common.Key.Stepkey.t -> a = function
     | I k as key -> begin
       let s = Formula.Symbol.make_int k in
@@ -52,4 +52,4 @@ module Make (Z : Z3_api.S) = struct
       in
       f
   }
-end
+end *)

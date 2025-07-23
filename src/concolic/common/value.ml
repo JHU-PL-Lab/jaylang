@@ -67,10 +67,10 @@ let rec equal (a : t) (b : t) : bool X.t =
   match a, b with
   (* Equality of concolic expressions*)
   | VInt (i1, e1), VInt (i2, e2) -> 
-    let%bind () = tell [ Smt.binop e1 e2 Smt.Typed_binop.Equal_int ] in
+    let%bind () = tell [ Smt.binop Smt.Binop.Equal e1 e2 ] in
     return (i1 = i2)
   | VBool (b1, e1), VBool (b2, e2) ->
-    let%bind () = tell [ Smt.binop e1 e2 Smt.Typed_binop.Equal_bool ] in
+    let%bind () = tell [ Smt.binop Smt.Binop.Equal e1 e2 ] in
     return Bool.(b1 = b2)
   (* Propogation of equality *)
   | VVariant r1, VVariant r2 ->
@@ -242,6 +242,5 @@ and equal_closure bindings a b =
 let equal a b =
   match X.run @@ equal a b with
   | Some (b, []) -> Concolic_value.return_bool b
-  | Some (b, exprs) ->
-    b, List.reduce_exn exprs ~f:(fun x y -> Smt.binop x y Smt.Typed_binop.And)
+  | Some (b, exprs) -> b, Smt.and_ exprs
   | None -> Concolic_value.return_bool false
