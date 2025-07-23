@@ -225,7 +225,8 @@ and equal_closure bindings a b =
     | EDet e1, EDet e2
     | EEscapeDet e1, EEscapeDet e2
     | ENot e1, ENot e2
-    | EUntouchable e1, EUntouchable e2 -> eq e1 e2
+    | EUntouchable e1, EUntouchable e2
+    | EDefer e1, EDefer e2 -> eq e1 e2
     (* Intensional equality *)
     | ETable, ETable
     | EPick_i (), EPick_i ()
