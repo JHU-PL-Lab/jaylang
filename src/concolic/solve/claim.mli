@@ -11,7 +11,6 @@
     strictly a claim about that program point.
 
   Dependencies:
-    Expression
     Direction
 *)
 

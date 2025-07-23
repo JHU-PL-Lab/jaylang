@@ -5,4 +5,6 @@ end
 
 module Make () = Overlays.Typed_smt.Solve (Overlays.Typed_smt.Make_Z3 (struct let ctx = Z3.mk_context [] end))
 
-include Make ()
+module Default = Make ()
+
+include Default

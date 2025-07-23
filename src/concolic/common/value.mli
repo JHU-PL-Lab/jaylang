@@ -12,7 +12,7 @@
     symbolic expression.
 
   Dependencies:
-    Expression -- ints and bools are stored with their expression
+    Formula -- ints and bools are stored with their symbolic formula
 *)
 
 module Concolic_value : Utils.Equatable.P1 with type 'a t = 'a * 'a Formula.t

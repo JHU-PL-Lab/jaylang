@@ -289,7 +289,7 @@ module Make (S : Solver.S) (P : Pause.S) (O : Options.V) = struct
           step e ~has_pruned:pruned ~has_unknown:false (TQ.push_list empty_tq targets)
 end
 
-module F = Make (Solver) (Pause.Lwt)
+module F = Make (Solver.Default) (Pause.Lwt)
 
 let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
   Options.Arrow.make

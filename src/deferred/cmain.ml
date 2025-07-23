@@ -359,7 +359,7 @@ module Make (S : Concolic.Solver.S) (P : Concolic.Pause.S) (O : Concolic.Options
           step e ~has_pruned:pruned ~has_unknown:false (TQ.push_list empty_tq targets)
 end
 
-module F = Make (Concolic.Solver) (Concolic.Pause.Lwt)
+module F = Make (Concolic.Solver.Default) (Concolic.Pause.Lwt)
 
 let lwt_eval : (Embedded.t, Concolic.Status.Terminal.t Lwt.t) Concolic.Options.Arrow.t =
   Concolic.Options.Arrow.make
@@ -390,7 +390,6 @@ let test_bjy =
   -------------------
 *)
 
-(* let test : Filename.t test = *)
 let test =
   (fun s -> Lang.Parse.parse_single_pgm_string @@ In_channel.read_all s)
   ^>> test_bjy
