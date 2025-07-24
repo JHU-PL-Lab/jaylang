@@ -710,7 +710,7 @@ module Expr = struct
       | ETypeFun _ -> 1
       | ETypeRefinement _ -> 1
       | ETypeMu _ -> 11
-      | ETypeVariant _ -> 1
+      | ETypeVariant _ -> 12
       | ELetTyped _ -> 13
       | ETypeSingle -> 0
       (* bluejay or type erased *)
@@ -763,7 +763,7 @@ module Expr = struct
         let subject_eval = to_string subject in
         let patterns_eval pattern =
           let p, hd_expr = pattern in
-          let hd_eval = to_string hd_expr in
+          let hd_eval = ppp_ge hd_expr top (op_precedence hd_expr) in
           let p_eval = Pattern.to_string p in
           Format.sprintf "%s -> %s" p_eval hd_eval in
         Format.sprintf "match %s with \n| %s \nend" subject_eval (String.concat ~sep:"\n| " (List.map patterns ~f:(patterns_eval)))
@@ -847,10 +847,10 @@ module Expr = struct
         let predicate_eval = to_string predicate in
         Format.sprintf "{%s |%s}" tau_eval predicate_eval
       | ETypeMu { var = Ident s ; params ; body } -> 
-        Format.sprintf "(mu %s. %s)" (s ^ String.concat ~sep:" " @@ List.map params ~f:Ident.to_string) (to_string body)
+        Format.sprintf "mu %s. %s" (s ^ String.concat ~sep:" " @@ List.map params ~f:Ident.to_string) (to_string body)
       | ETypeVariant variant_list -> 
-        Format.sprintf "(%s)"
-          (String.concat ~sep: "| " @@ List.map variant_list ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(`%s of %s)" s (to_string tau)))
+        Format.sprintf "| %s"
+          (String.concat ~sep: "\n| " @@ List.map variant_list ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "`%s of %s" s (to_string tau)))
       | ELetTyped { typed_var ; defn ; body ; do_wrap ; do_check } -> 
         let {var = Ident s; tau} = typed_var in
         let statement = Format.sprintf "let %s:%s=%s in %s" s (to_string tau) (to_string defn) (ppp_gt body top (op_precedence body)) in
@@ -899,12 +899,12 @@ module Expr = struct
         f ^ " " ^ String.concat ~sep:" " (List.map params ~f:(fun x -> let Ident s = x in s)) ^ " = " ^ to_string defn
       | FTyped func -> 
         let { type_vars ; func_id = Ident f ; params ; ret_type ; defn } = func in
-        let vars_eval = if List.length type_vars = 0 then "" else String.concat ~sep:" " (List.map type_vars ~f:(fun x -> 
-          let Ident s = x in s)) in
+        let vars_eval = if List.length type_vars = 0 then "" else Format.sprintf "(type %s)" (String.concat ~sep:" " (List.map type_vars ~f:(fun x -> 
+          let Ident s = x in s))) in
         let params_eval = String.concat ~sep:" " (List.map params ~f:(fun x -> 
           match x with 
           | TVar {var = Ident s; tau} -> Format.sprintf "(%s : %s)" s (to_string tau)
-          | TVarDep {var = Ident s; tau} -> Format.sprintf "(dep» %s : %s)" s (to_string tau))) in
+          | TVarDep {var = Ident s; tau} -> Format.sprintf "(dep %s : %s)" s (to_string tau))) in
         let ret_eval = to_string ret_type in
         let defn_eval = to_string defn in
         Format.sprintf "%s %s %s : %s = %s" f vars_eval params_eval ret_eval defn_eval
