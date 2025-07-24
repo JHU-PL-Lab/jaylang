@@ -1,0 +1,12 @@
+
+(executable
+ (name sandbox)
+ (modules sandbox)
+ (libraries
+  utils
+  cmdliner
+  metadata
+  concolic)
+ (promote
+  (until-clean)
+  (into "../..")))
