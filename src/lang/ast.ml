@@ -673,7 +673,7 @@ module Expr = struct
       | ELet _ -> 13
       | EAppl _ -> 1
       | EMatch _-> 12
-      | EProject _ -> 1
+      | EProject _ -> 0
       | ERecord _ -> 0
       | EModule _ -> 0
       | ENot _ -> 7
@@ -769,14 +769,14 @@ module Expr = struct
         Format.sprintf "match %s with \n| %s \nend" subject_eval (String.concat ~sep:"\n| " (List.map patterns ~f:(patterns_eval)))
       | EProject { record ; label } ->
         let label_eval = RecordLabel.to_string label in
-        let record_eval = to_string record in
+        let record_eval = ppp_gt record top (op_precedence record) in
         Format.sprintf "%s.%s" record_eval label_eval
       | ERecord record -> 
         RecordLabel.record_body_to_string ~sep:"=" record to_string
       | EModule m -> 
         "struct\n" ^ String.concat ~sep:"\n\n" (List.map m ~f:(statement_to_string)) ^ "\nend"
       | ENot e -> 
-        ppp_ge e top (op_precedence e)
+        Format.sprintf "not %s" (ppp_ge e top (op_precedence e))
       | EPick_i _ -> "input_int"
          (* is parsed as "input", but we can immediately make it pick_i *)
       | EFunction { param ; body } -> (* note bluejay also has multi-arg function, which generalizes this *)
@@ -847,7 +847,7 @@ module Expr = struct
         let predicate_eval = to_string predicate in
         Format.sprintf "{%s |%s}" tau_eval predicate_eval
       | ETypeMu { var = Ident s ; params ; body } -> 
-        Format.sprintf "mu %s. %s" (s ^ String.concat ~sep:" " @@ List.map params ~f:Ident.to_string) (to_string body)
+        Format.sprintf "mu %s. %s" (s ^ " " ^ String.concat ~sep:" " @@ List.map params ~f:Ident.to_string) (to_string body)
       | ETypeVariant variant_list -> 
         Format.sprintf "| %s"
           (String.concat ~sep: "\n| " @@ List.map variant_list ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "`%s of %s" s (to_string tau)))
@@ -859,10 +859,10 @@ module Expr = struct
       (* bluejay or type erased *)
       | EList list -> 
         let rec list_to_str = function
-        | [] -> "[]"
-        | hd::[] -> Format.sprintf "[%s]" (to_string hd)
-        | hd::tl -> Format.sprintf "[%s; %s]" (to_string hd) (list_to_str tl)
-        in list_to_str list
+        | [] -> ""
+        | hd::[] -> Format.sprintf "%s" (to_string hd)
+        | hd::tl -> Format.sprintf "%s; %s" (to_string hd) (list_to_str tl)
+        in Format.sprintf "[%s]" (list_to_str list)
       | EListCons (hd, tl)-> 
         Format.sprintf "%s::%s" (ppp_gt hd top (op_precedence hd)) (ppp_gt tl top (op_precedence tl))
       | EAssert e -> 
