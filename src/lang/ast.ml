@@ -803,7 +803,7 @@ module Expr = struct
         Format.sprintf "freeze» %s" (ppp_ge e top (op_precedence e))
       | EThaw c -> 
         Format.sprintf "thaw» %s" (Cell.to_string (fun e -> ppp_ge e top (op_precedence e)) c)
-      | EId -> "(fun x -> x)"
+      | EId -> "fun x -> x"
       | EIgnore { ignored ; body } -> (* simply sugar for `let _ = ignored in body` but is more efficient *)
         let ignored_eval = to_string ignored in
         let body_eval = ppp_gt body top (op_precedence body) in
@@ -879,8 +879,8 @@ module Expr = struct
       (* bluejay only *)
       | ETypeList -> "list"
       | ETypeIntersect ls -> 
-        Format.sprintf "(%s)" 
-        (String.concat ~sep:" && " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((``%s (%s)) -> %s)" s (to_string tau1) (to_string tau2)))
+        Format.sprintf "%s" 
+        (String.concat ~sep:" & " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((`%s of %s) -> %s)" s (to_string tau1) (to_string tau2)))
 
       and statement_to_string : type a. a statement -> string = function
       | SUntyped { var ; defn } -> 
