@@ -212,9 +212,9 @@ module Pattern = struct
     | _ -> `GT
 
   let to_string : type a. a t -> string = function
-    | PAny -> "any"
+    | PAny -> "_"
     | PVariable Ident s -> Format.sprintf "%s" s
-    | PVariant { variant_label  = VariantLabel Ident s ; _ } -> Format.sprintf "`%s" s
+    | PVariant { variant_label  = VariantLabel Ident s ; payload_id = Ident q } -> Format.sprintf "`%s %s" s q
     | PUntouchable Ident s -> Format.sprintf "Untouchable %s" s
     | PEmptyList -> "[]"
     | PDestructList { hd_id = Ident hd ; tl_id = Ident tl } -> Format.sprintf "%s :: %s" hd tl
@@ -755,7 +755,7 @@ module Expr = struct
       | EAppl (cell) -> 
         Cell.to_string (fun {func; arg} ->
            let func_eval = ppp_gt func top (op_precedence func) in
-           let arg_eval = ppp_gt arg top (op_precedence arg) in
+           let arg_eval = ppp_ge arg top (op_precedence arg) in
            Format.sprintf "%s %s" func_eval arg_eval 
           ) cell
           (*subject : 'a t ; patterns : ('a Pattern.t * 'a t) list*)
@@ -766,7 +766,7 @@ module Expr = struct
           let hd_eval = to_string hd_expr in
           let p_eval = Pattern.to_string p in
           Format.sprintf "%s -> %s" p_eval hd_eval in
-        Format.sprintf "match %s with %s \nend" subject_eval (String.concat ~sep:"\n| " (List.map patterns ~f:(patterns_eval)))
+        Format.sprintf "match %s with \n| %s \nend" subject_eval (String.concat ~sep:"\n| " (List.map patterns ~f:(patterns_eval)))
       | EProject { record ; label } ->
         let label_eval = RecordLabel.to_string label in
         let record_eval = to_string record in
@@ -859,7 +859,8 @@ module Expr = struct
       (* bluejay or type erased *)
       | EList list -> 
         let rec list_to_str = function
-        | [] -> ""
+        | [] -> "[]"
+        | hd::[] -> Format.sprintf "[%s]" (to_string hd)
         | hd::tl -> Format.sprintf "[%s; %s]" (to_string hd) (list_to_str tl)
         in list_to_str list
       | EListCons (hd, tl)-> 
@@ -869,12 +870,12 @@ module Expr = struct
       | EAssume e -> 
         Format.sprintf "assume %s" (ppp_ge e top (op_precedence e))
       | EMultiArgFunction { params ; body } -> 
-        let params_eval = (String.concat ~sep:" ; " @@ List.map ~f:(fun (Ident s) -> s) params) in
+        let params_eval = (String.concat ~sep:" " @@ List.map ~f:(fun (Ident s) -> s) params) in
         Format.sprintf "(fun %s -> %s)" params_eval (ppp_gt body top (op_precedence body))
       (* | ELetFun : { func : 'a funsig ; body : 'a t } -> 'a bluejay_or_type_erased t
       | ELetFunRec : { funcs : 'a funsig list ; body : 'a t } -> 'a bluejay_or_type_erased t *)
       | ELetFun {func; body} -> Format.sprintf "let %s in %s" (funsig_to_string func) (to_string body)
-      | ELetFunRec {funcs; body} -> Format.sprintf "let %s in %s" (String.concat ~sep:"\nand " (List.map funcs ~f:(funsig_to_string))) (to_string body)
+      | ELetFunRec {funcs; body} -> Format.sprintf "let rec %s in %s" (String.concat ~sep:"\nand " (List.map funcs ~f:(funsig_to_string))) (to_string body)
       (* bluejay only *)
       | ETypeList -> "list"
       | ETypeIntersect ls -> 
@@ -954,7 +955,7 @@ module Embedded = struct
       | EVar id -> EVar id
       | EId -> EId
       | ETable -> ETable
-      | EUnit -> EUnit
+      | EUnit -> EUnit 
       (* add program points *)
       | EPick_i () -> EPick_i (Expr.Point_cell.make ())
       | EPick_b () -> EPick_b (Expr.Point_cell.make ())
