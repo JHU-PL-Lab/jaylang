@@ -367,7 +367,7 @@ module Expr = struct
       | EFunction _ -> 12      | EVariant _ -> 13  | EPick_b _ -> 14           | ECase _ -> 15
       | EFreeze _ -> 16        | EThaw _ -> 17     | EId -> 18                 | EIgnore _ -> 19
       | ETable -> 20           | ETblAppl _ -> 21  | EDet _ -> 22              | EEscapeDet _ -> 23
-      | EAbort _ -> 24         | EVanish _ -> 25  | EType -> 26               | ETypeInt -> 27
+      | EAbort _ -> 24         | EVanish _ -> 25   | EType -> 26               | ETypeInt -> 27
       | ETypeBool -> 28        | ETypeTop -> 29    | ETypeBottom -> 30         | ETypeRecord _ -> 31
       | ETypeModule _ -> 32    | ETypeFun _ -> 33  | ETypeRefinement _ -> 34   | ETypeMu _ -> 35
       | ETypeVariant _ -> 36   | ELetTyped _ -> 37 | ETypeSingle -> 38         | ETypeList -> 39
@@ -563,7 +563,8 @@ module Expr = struct
                   compare bindings r1.body r2.body
                 | `Unequal_lengths x -> x
               end
-            | _ -> raise @@ InvalidComparison "Impossible comparison of expressions"
+            | _ ->
+              raise @@ InvalidComparison (Printf.sprintf "Impossible comparison of expressions with ranks %d and %d" (to_rank a) (to_rank b))
 
       and compare_application : type a. Alist.t -> a application -> a application -> int =
         fun bindings a1 a2 ->
