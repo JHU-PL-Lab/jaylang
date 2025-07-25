@@ -15,16 +15,16 @@
 
 type 'k t
 
-val make : 'k Concolic_common.Path.t -> 'k t
-(** [make path] is a target that conforms to the given [path] constraints.
-    It has a fresh, unique identifier that is used for comparison. *)
+val empty : 'k t
+
+val cons : (bool, 'k) Overlays.Typed_smt.t -> 'k t -> 'k t
 
 val compare : 'k t -> 'k t -> int
 (** [compare a b] uses the unique identifiers in [a] and [b] to compare,
     and hence only literal equality (of memory location) is sufficient
     for [compare a b] to be [0]. *)
 
-val path : 'k t -> 'k Concolic_common.Path.t
+(* val path : 'k t -> 'k Concolic_common.Path.t *)
 
 val to_expressions : 'k t -> (bool, 'k) Overlays.Typed_smt.t list
 (** [to_expressions t] are the constraints to solve in order to realize [t]. *)

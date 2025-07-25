@@ -1,6 +1,6 @@
 
 open Core
-open Concolic_common
+(* open Concolic_common *)
 
 (* we can safely use this when making because it's promised that we never make a target twice *)
 let uid = Utils.Counter.create ()
@@ -8,18 +8,29 @@ let uid = Utils.Counter.create ()
 type 'k t =
   { path_n : int
   ; uniq_id : int
-  ; path : 'k Path.t }
+  ; exprs : (bool, 'k) Overlays.Typed_smt.t list }
 
-let make (path : 'k Path.t) : 'k t =
-  { path_n = Path.length path
+let initial_id = Utils.Counter.next uid
+
+let empty : 'k t =
+  { path_n = 0
+  ; uniq_id = initial_id
+  ; exprs = [] }
+
+let cons (expr : (bool, 'k) Overlays.Typed_smt.t) (target : 'k t) : 'k t =
+  { path_n = target.path_n + 1
   ; uniq_id = Utils.Counter.next uid
-  ; path }
+  ; exprs = expr :: target.exprs }
 
-let path { path ; _ } = path
+(* let make (exprs : (bool, 'k) Overlays.Typed_smt.t list) : 'k t =
+  { path_n = List.length exprs
+  ; uniq_id = Utils.Counter.next uid
+  ; exprs }
 
-let to_expressions ({ path ; _ } : 'k t) : (bool, 'k) Overlays.Typed_smt.t list =
-  Path.to_dirs path
-  |> List.map ~f:Direction.to_expression
+let path { path ; _ } = path *)
+
+let to_expressions ({ exprs ; _ } : 'k t) : (bool, 'k) Overlays.Typed_smt.t list =
+  exprs
 
 (*
   SUPER IMPORTANT NOTE:

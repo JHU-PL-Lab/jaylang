@@ -32,8 +32,8 @@ let eager_eval
     | EDet e -> with_incr_depth @@ eval e
     | EEscapeDet e -> with_escaped_det @@ eval e
     (* Ints and bools -- constant expressions *)
-    | EInt i -> return @@ VInt (i, Formula.const_int i)
-    | EBool b -> return @@ VBool (b, Formula.const_bool b)
+    | EInt i -> return @@ VInt (i, Overlays.Typed_smt.const_int i)
+    | EBool b -> return @@ VBool (b, Overlays.Typed_smt.const_bool b)
     (* Simple -- no different than interpreter *)
     | EDefer e -> eval e (* this concolic evaluator is eager *)
     | EUnit -> return VUnit
@@ -123,9 +123,9 @@ let eager_eval
       let%bind vleft = eval left in
       let%bind vright = eval right in
       let k f e1 e2 op =
-        return @@ f (Formula.binop op e1 e2)
+        return @@ f (Overlays.Typed_smt.binop op e1 e2)
       in
-      let open Formula.Binop in
+      let open Overlays.Typed_smt.Binop in
       let v_int n = fun e -> VInt (n, e) in
       let v_bool b = fun e -> VBool (b, e) in
       match binop, vleft, vright with
@@ -142,12 +142,12 @@ let eager_eval
       | BGreaterThan , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 > n2)) e1 e2 Greater_than
       | BGeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 >= n2)) e1 e2 Greater_than_eq
       | BOr          , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 || b2)) e1 e2 Or
-      | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> return @@ VBool (b1 && b2, Formula.and_ [ e1 ; e2 ])
+      | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> return @@ VBool (b1 && b2, Overlays.Typed_smt.and_ [ e1 ; e2 ])
       | _ -> type_mismatch @@ Error_msg.bad_binop vleft binop vright
     end
     | ENot e_not_body -> begin
       match%bind eval e_not_body with
-      | VBool (b, e_b) -> return @@ VBool (not b, Formula.not_ e_b) 
+      | VBool (b, e_b) -> return @@ VBool (not b, Overlays.Typed_smt.not_ e_b) 
       | v -> type_mismatch @@ Error_msg.bad_not v
     end
     | EIntensionalEqual { left ; right } ->
@@ -235,39 +235,39 @@ module Make (S : Overlays.Typed_smt.SOLVABLE) (P : Pause.S) (K : Overlays.Typed_
   module X = Target_queue.Make (K)
   module TQ = X.All
 
-  (* TODO: have an smt module to handle this stuff *)
+  (* TODO: have an smt module to handle this stuff instead of inside overlays *)
   module Solve = Overlays.Typed_smt.Solve (S)
 
   let empty_tq = Options.Arrow.appl TQ.of_options O.r ()
 
-  (*
-    TODO: stop at max depth 
-  *)
   let make_targets (target : 'k Target.t) (final_path : 'k Path.t) : 'k Target.t list =
-    let prefix, stem = List.split_n (Path.to_dirs final_path) (Target.path_n target) in
-    List.fold stem ~init:([], List.map prefix ~f:Direction.to_expression) ~f:(fun (acc_targets, acc_exprs) dir ->
-      List.map (Direction.negations dir) ~f:(fun e -> Target.make (e :: acc_exprs)) (* TODO: allow make target of exprs *)
-      @ acc_targets
-      , Direction.to_expression dir :: acc_exprs
-    )
-    |> fst
+    let stem = List.drop (Path.to_dirs final_path) (Target.path_n target) in
+    List.fold_until stem ~init:([], target) ~f:(fun (acc, target) dir ->
+      if Target.path_n target > O.r.max_tree_depth
+      then Stop acc
+      else Continue (
+        List.map (Direction.negations dir) ~f:(fun e -> Target.cons e target)
+        @ acc
+        , Target.cons (Direction.to_expression dir) target
+      )
+    ) ~finish:fst
 
-  let rec step : Embedded.t -> has_pruned:bool -> has_unknown:bool -> TQ.t -> Status.Terminal.t P.t =
-    fun e ~has_pruned ~has_unknown tq ->
+  let rec step : Embedded.t -> K.t eval -> has_pruned:bool -> has_unknown:bool -> TQ.t -> Status.Terminal.t P.t =
+    fun e eval ~has_pruned ~has_unknown tq ->
       let open P in
       let* () = pause () in
       let t0 = Caml_unix.gettimeofday () in
       match TQ.peek tq with
       | Some target -> begin
         let tq = TQ.remove tq target in
-        let solve_result = S.solve (Target.to_expressions target) in
+        let solve_result = Solve.solve (Target.to_expressions target) in
         let t1 = Caml_unix.gettimeofday () in
         let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
         match solve_result with
         | Sat model -> begin
-            let feeder = Input_feeder.of_model model in
+            let feeder = Interp_common.Input_feeder.of_smt_model model ~uid:K.uid in
             let* () = pause () in
-            let status, path = eager_eval e feeder ~max_step:(Step O.r.global_max_step) in
+            let status, path = eval e feeder ~max_step:(Step O.r.global_max_step) in
             let t2 = Caml_unix.gettimeofday () in
             let _ : float = Utils.Safe_cell.map (fun t -> t +. (t2 -. t1)) global_runtime in
             match status with
@@ -279,10 +279,10 @@ module Make (S : Overlays.Typed_smt.SOLVABLE) (P : Pause.S) (K : Overlays.Typed_
                 || Path.length path > O.r.max_tree_depth
               in
               let targets = make_targets target path in
-              step e ~has_pruned ~has_unknown (TQ.push_list tq targets)
+              step e eval ~has_pruned ~has_unknown (TQ.push_list tq targets)
           end
-        | Unknown -> let* () = pause () in step e ~has_pruned ~has_unknown:true tq
-        | Unsat -> let* () = pause () in step e ~has_pruned ~has_unknown tq
+        | Unknown -> let* () = pause () in step e eval ~has_pruned ~has_unknown:true tq
+        | Unsat -> let* () = pause () in step e eval ~has_pruned ~has_unknown tq
       end
       | None ->
         let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_solvetime in
@@ -298,12 +298,12 @@ module Make (S : Overlays.Typed_smt.SOLVABLE) (P : Pause.S) (K : Overlays.Typed_
     target because we want the first run to use the `zero` input feeder.
     But there's probably a better way to get this done.
   *)
-  let eval : Embedded.t -> Status.Terminal.t P.t =
-    fun e ->
+  let eval : Embedded.t -> K.t eval -> Status.Terminal.t P.t =
+    fun e eval ->
       if not O.r.random then Interp_common.Rand.reset ();
       P.with_timeout O.r.global_timeout_sec @@ fun () ->
         let t0 = Caml_unix.gettimeofday () in
-        let status, path = eager_eval e Input_feeder.zero ~max_step:(Step O.r.global_max_step) in
+        let status, path = eval e Interp_common.Input_feeder.zero ~max_step:(Step O.r.global_max_step) in
         let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_runtime in
         match status with
         | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
@@ -312,14 +312,15 @@ module Make (S : Overlays.Typed_smt.SOLVABLE) (P : Pause.S) (K : Overlays.Typed_
             Interp_common.Step.to_int final_step > O.r.global_max_step 
             || Path.length path > O.r.max_tree_depth
           in
-          let targets = make_targets (Target.make Path.empty) path in
-          step e ~has_pruned ~has_unknown:false (TQ.push_list empty_tq targets)
+          let targets = make_targets Target.empty path in
+          step e eval ~has_pruned ~has_unknown:false (TQ.push_list empty_tq targets)
 end
 
-module F = Make (Overlays.Typed_smt.Default) (Pause.Lwt)
+module F = Make (Overlays.Typed_smt.Make_Z3 ()) (Pause.Lwt) (Interp_common.Step)
 
+(* Uses eager evaluator *)
 let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
   Options.Arrow.make
   @@ fun r e ->
     let module E = F (struct let r = r end) in
-    E.eval e
+    E.eval e eager_eval

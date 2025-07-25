@@ -19,10 +19,10 @@ open Concolic_common
   MONAD BASICS 
   ------------
 *)
+
 type 'a m
 val bind : 'a m -> ('a -> 'b m) -> 'b m
 val return : 'a -> 'a m
-
 
 (*
   -------------
@@ -73,6 +73,6 @@ val incr_step : max_step:Interp_common.Step.t -> unit m
 
 val push_branch : Interp_common.Step.t Direction.t -> unit m
 
-val get_input : (Interp_common.Step.t -> 'a Input_feeder.Key.t) -> Input_feeder.t -> Value.t m
+val get_input : (Interp_common.Step.t -> 'a Interp_common.Key.Stepkey.t) -> Interp_common.Step.t Interp_common.Input_feeder.t -> Value.t m
 
 val run : 'a m -> Status.Eval.t * Interp_common.Step.t Path.t

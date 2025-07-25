@@ -53,9 +53,9 @@ module Compute (O : Options.V) = struct
     let run : t -> Compute_result.t =
       fun expr ->
         (* makes a new solver for this thread *)
-        let module E = Evaluator.Make (Solver.Make ()) (Pause.Id) (O) in
+        let module E = Evaluator.Make (Overlays.Typed_smt.Make_Z3 ()) (Pause.Id) (Interp_common.Step) (O) in
         Pause.Id.run
-        @@ E.eval expr
+        @@ E.eval expr Evaluator.eager_eval
 
     let run_with_internal_timeout : t -> Compute_result.t =
       fun expr ->

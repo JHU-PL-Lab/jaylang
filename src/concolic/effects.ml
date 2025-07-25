@@ -1,22 +1,23 @@
 
 open Core
 open Lang.Ast
+open Interp_common
 open Concolic_common
 
-type k = Interp_common.Step.t
+type k = Step.t
 
-module Feeder = Interp_common.Input_feeder.Make (Interp_common.Step)
+module Feeder = Input_feeder.Make (Step)
 
 module State = struct
   type t =
     { path : k Path.t
-    ; rev_inputs : Interp_common.Input.t list }
+    ; rev_inputs : Input.t list }
 
   let empty : t =
     { path = Path.empty
     ; rev_inputs = [] }
 
-  let inputs ({ rev_inputs ; _ } : t) : Interp_common.Input.t list =
+  let inputs ({ rev_inputs ; _ } : t) : Input.t list =
     List.rev rev_inputs
 end
 
@@ -51,7 +52,9 @@ let push_branch (dir : k Direction.t) : unit m =
   then return ()
   else modify (fun s -> { s with path = Path.cons dir s.path })
 
-let get_input (type a) (make_key : Interp_common.Step.t -> a Feeder.Key.t) (feeder : Input_feeder.t) : Value.t m =
+module Step_symbol = Overlays.Typed_smt.Make_symbol (Step)
+
+let get_input (type a) (make_key : Step.t -> a Feeder.Key.t) (feeder : Step.t Input_feeder.t) : Value.t m =
   let%bind () = assert_nondeterminism in
   let%bind s = step in
   let key = make_key s in
@@ -59,10 +62,10 @@ let get_input (type a) (make_key : Interp_common.Step.t -> a Feeder.Key.t) (feed
   match key with
   | I k -> 
     let%bind () = modify (fun s -> { s with rev_inputs = I v :: s.rev_inputs }) in
-    return @@ Value.M.VInt (v, Formula.symbol (Formula.Symbol.make_int k)) (* TODO: avoid this conversion, possibly *)
+    return @@ Value.M.VInt (v, Overlays.Typed_smt.symbol (Step_symbol.make_int k))
   | B k ->
     let%bind () = modify (fun s -> { s with rev_inputs = B v :: s.rev_inputs }) in
-    return @@ Value.M.VBool (v, Formula.symbol (Formula.Symbol.make_bool k))
+    return @@ Value.M.VBool (v, Overlays.Typed_smt.symbol (Step_symbol.make_bool k))
 
 let run (x : 'a m) : Status.Eval.t * k Path.t =
   match run x State.empty Read.empty with
