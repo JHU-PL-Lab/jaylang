@@ -746,7 +746,7 @@ module Expr = struct
       | EVar (Ident x) -> Format.sprintf "%s" x
       | EBinop { left ; binop  ; right } -> (*if left > binop, then parens around left*)
         let left_eval = ppp_gt left top (op_precedence left) in
-        let right_eval = ppp_gt right top (op_precedence right) in
+        let right_eval = ppp_ge right top (op_precedence right) in
         left_eval ^ (Binop.to_string binop) ^ right_eval
       | EIf { cond ; true_body  ; false_body } ->
         let cond_eval = to_string cond in
@@ -909,7 +909,7 @@ module Expr = struct
         let params_eval = String.concat ~sep:" " (List.map params ~f:(fun x -> 
           match x with 
           | TVar {var = Ident s; tau} -> Format.sprintf "(%s : %s)" s (to_string tau)
-          | TVarDep {var = Ident s; tau} -> Format.sprintf "(dep %s : %s)" s (to_string tau))) in
+          | TVarDep {var = Ident s; tau} -> Format.sprintf "(dependent %s : %s)" s (to_string tau))) in
         let ret_eval = to_string ret_type in
         let defn_eval = to_string defn in
         Format.sprintf "%s %s %s : %s = %s" f vars_eval params_eval ret_eval defn_eval
