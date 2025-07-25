@@ -96,7 +96,7 @@ module RecordLabel = struct
   let record_body_to_string ?(sep : string = "=") m f =
     Core.Map.to_alist m
     |> List.map ~f:(fun (l, x) -> Format.sprintf "%s %s %s" (to_string l) sep (f x))
-    |> fun ls -> "{ " ^ String.concat ~sep:" ; " ls ^ " }"
+    |> fun ls -> if List.length ls = 0 then "{:}" else "{ " ^ String.concat ~sep:" ; " ls ^ " }"
 end
 
 module VariantLabel = struct
