@@ -502,6 +502,11 @@ module Expr = struct
             | EDefer e1, EDefer e2 -> Cell.compare cmp e1 e2
             | EGen e1, EGen e2 -> cmp e1 e2
             | ETypeRecord m1, ETypeRecord m2 -> RecordLabel.Map.compare cmp m1 m2
+            | ETypeModule m1, ETypeModule m2 ->
+              List.compare
+                (fun (a1,b1) (a2,b2) ->
+                  let- () = RecordLabel.compare a1 a2 in cmp b1 b2
+                ) m1 m2
             | ETypeFun r1, ETypeFun r2 -> begin
                 let- () = cmp r1.domain r2.domain in
                 let- () = Bool.compare r1.det r2.det in
