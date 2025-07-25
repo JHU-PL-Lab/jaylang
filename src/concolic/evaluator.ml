@@ -231,10 +231,8 @@ let eager_eval
 let global_runtime = Utils.Safe_cell.create 0.0
 let global_solvetime = Utils.Safe_cell.create 0.0
 
-module Make (S : Overlays.Typed_smt.SOLVABLE) (P : Pause.S) (K : Overlays.Typed_smt.KEY) (O : Options.V) = struct
-  module X = Target_queue.Make (K)
-  module TQ = X.All
-
+module Make (K : Overlays.Typed_smt.KEY) (TQ : Target_queue.Make(K).S)
+  (S : Overlays.Typed_smt.SOLVABLE) (P : Pause.S) (O : Options.V) = struct
   (* TODO: have an smt module to handle this stuff instead of inside overlays *)
   module Solve = Overlays.Typed_smt.Solve (S)
 
@@ -316,7 +314,8 @@ module Make (S : Overlays.Typed_smt.SOLVABLE) (P : Pause.S) (K : Overlays.Typed_
           step e eval ~has_pruned ~has_unknown:false (TQ.push_list empty_tq targets)
 end
 
-module F = Make (Overlays.Typed_smt.Make_Z3 ()) (Pause.Lwt) (Interp_common.Step)
+module TQ_Made = Target_queue.Make (Interp_common.Step)
+module F = Make (Interp_common.Step) (TQ_Made.All) (Overlays.Typed_smt.Make_Z3 ()) (Pause.Lwt)
 
 (* Uses eager evaluator *)
 let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =

@@ -1,5 +1,6 @@
 
 open Core
+open Concolic_common
 
 module Report_row (* : Latex_table.ROW *) = struct
   module Trial = struct
@@ -10,7 +11,7 @@ module Report_row (* : Latex_table.ROW *) = struct
 
   type t =
     { testname          : Filename.t
-    ; test_result       : Concolic.Status.Terminal.t
+    ; test_result       : Status.Terminal.t
     ; time_to_interpret : Time_float.Span.t
     ; time_to_solve     : Time_float.Span.t
     ; total_time        : Time_float.Span.t
@@ -53,7 +54,7 @@ module Report_row (* : Latex_table.ROW *) = struct
           )
     )
 
-  let of_testname (n_trials : int) (runtest : Lang.Ast.Bluejay.pgm -> Concolic.Status.Terminal.t) (testname : Filename.t) : t list =
+  let of_testname (n_trials : int) (runtest : Lang.Ast.Bluejay.pgm -> Status.Terminal.t) (testname : Filename.t) : t list =
     assert (n_trials > 0);
     let metadata = Metadata.of_bjy_file testname in
     let test_one (n : int) : t =
@@ -85,7 +86,7 @@ module Report_row (* : Latex_table.ROW *) = struct
         trials
         ~init:{
           testname
-          ; test_result = Concolic.Status.Exhausted_pruned_tree (* just arbitrary initial result *)
+          ; test_result = Status.Exhausted_pruned_tree (* just arbitrary initial result *)
           ; time_to_interpret = Time_float.Span.of_sec 0.0
           ; time_to_solve = Time_float.Span.of_sec 0.0
           ; total_time = Time_float.Span.of_sec 0.0
@@ -112,7 +113,7 @@ end
 module Result_table = struct
   type t = Report_row.t Latex_tbl.t
 
-  let of_dirs ?(avg_only : bool = true) (n_trials : int) (dirs : Filename.t list) (runtest : Lang.Ast.Bluejay.pgm -> Concolic.Status.Terminal.t) : t =
+  let of_dirs ?(avg_only : bool = true) (n_trials : int) (dirs : Filename.t list) (runtest : Lang.Ast.Bluejay.pgm -> Status.Terminal.t) : t =
     let open List.Let_syntax in
     { row_module = (module Report_row)
     ; rows =
@@ -149,12 +150,12 @@ let run () =
   let open Cmdliner in
   let open Cmdliner.Term.Syntax in
   Cmd.v (Cmd.info "cbenchmark") @@
-  let+ concolic_args = Concolic.Options.cmd_arg_term
+  let+ concolic_args = Options.cmd_arg_term
   and+ n_trials, dirs, mode = cbench_args in
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
   let runtest pgm =
-    Concolic.Options.Arrow.appl
+    Options.Arrow.appl
       (match mode with `Eager -> Concolic.Driver.test_bjy | `Deferred -> Deferred.Cmain.test_bjy)
       concolic_args
       pgm

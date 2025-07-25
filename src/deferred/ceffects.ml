@@ -16,10 +16,11 @@ open Concolic_common
 
 type k = Interp_common.Timestamp.t
 
-module Feeder = Interp_common.Input_feeder.Make (Interp_common.Timestamp)
+module Feeder = Input_feeder.Make (Timestamp)
 
-(* TODO: this needs to be parametrized by key type *)
-module V = Value.Make (Concolic.Value.Concolic_value)
+module CV = Concolic.Value.Make (Timestamp)
+
+module V = Value.Make (CV.Concolic_value)
 
 module Env = struct
   type value = V.t
@@ -137,7 +138,8 @@ let local_time (time : Timestamp.t) (x : ('a, 'e) t) : ('a, 'e) t =
   }
 
 (*
-  TODO: make this filtering much better
+  TODO: make this filtering much better. We currently actually split the map and union in back,
+    but we should be able to add some filters on it that just pretend to split the map.
 *)
 let[@inline always] run_on_deferred_proof (symb : V.symb) (f : Lang.Ast.Embedded.t -> ('a, 'e) t) : ('a, 'e) t =
   let%bind closure = pop_deferred_proof symb in
@@ -211,22 +213,20 @@ let push_branch (dir : k Direction.t) : unit m =
   then return ()
   else modify (fun s -> { s with path = Path.cons dir s.path })
 
-let get_input (type a) 
-  (make_key : Timestamp.t -> a Key.Timekey.t) 
-  (feeder : Timestamp.t Input_feeder.t) 
-  : Value.t m
-  =
+module Time_symbol = Overlays.Typed_smt.Make_symbol (Timestamp)
+
+let get_input (type a) (make_key : Timestamp.t -> a Key.Timekey.t) (feeder : Timestamp.t Input_feeder.t) : V.t m =
   let%bind () = assert_nondeterminism in
-  let%bind s = step in
-  let key = make_key s in
+  let%bind state = get in
+  let key = make_key state.time in
   let v = feeder.get key in
   match key with
   | I k -> 
-    let%bind () = modify (fun s -> { s with rev_inputs = I v :: s.rev_inputs }) in
-    return @@ V.VInt (v, Formula.symbol (Concolic.Formula.Symbol.make_int k))
+    let%bind () = modify (fun s -> { s with inputs = (I v, s.time) :: s.inputs ; time = Timestamp.increment s.time }) in
+    return @@ V.VInt (v, Overlays.Typed_smt.symbol (Time_symbol.make_int k))
   | B k ->
-    let%bind () = modify (fun s -> { s with rev_inputs = B v :: s.rev_inputs }) in
-    return @@ V.VBool (v, Formula.symbol (Concolic.Formula.Symbol.make_bool k))
+    let%bind () = modify (fun s -> { s with inputs = (B v, s.time) :: s.inputs ; time = Timestamp.increment s.time }) in
+    return @@ V.VBool (v, Overlays.Typed_smt.symbol (Time_symbol.make_bool k))
 
 let run (x : 'a m) : Status.Eval.t * k Path.t =
   match run x State.empty Read.empty with

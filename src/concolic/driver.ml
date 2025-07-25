@@ -50,10 +50,13 @@ module Compute (O : Options.V) = struct
   module Work = struct
     type t = Lang.Ast.Embedded.t
 
+    module TQ_Made = Target_queue.Make (Interp_common.Step)
+    module Eval (S : Overlays.Typed_smt.SOLVABLE) = Evaluator.Make (Interp_common.Step) (TQ_Made.All) (S) (Pause.Id) (O)
+
     let run : t -> Compute_result.t =
       fun expr ->
         (* makes a new solver for this thread *)
-        let module E = Evaluator.Make (Overlays.Typed_smt.Make_Z3 ()) (Pause.Id) (Interp_common.Step) (O) in
+        let module E = Eval (Overlays.Typed_smt.Make_Z3 ()) in
         Pause.Id.run
         @@ E.eval expr Evaluator.eager_eval
 

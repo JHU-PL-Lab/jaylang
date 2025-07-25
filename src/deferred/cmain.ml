@@ -3,6 +3,7 @@
 
 open Core
 open Lang.Ast
+open Concolic_common
 
 module V = Ceffects.V
 
@@ -11,40 +12,36 @@ type 'a res =
   | V of 'a V.v
   | E of Ceffects.Err.t
 
-let res_to_err (type a) (x : a res Ceffects.M.s) : a V.v Ceffects.M.m =
-  Ceffects.M.bind (Ceffects.M.make_unsafe x) (function
-    | V v -> Ceffects.M.return v
-    | E e -> Ceffects.M.fail e
+let res_to_err (type a) (x : a res Ceffects.s) : a V.v Ceffects.m =
+  Ceffects.bind (Ceffects.make_unsafe x) (function
+    | V v -> Ceffects.return v
+    | E e -> Ceffects.fail e
   )
 
-let eval_exp 
-  (consts : Ceffects.Consts.t)
-  (expr : Embedded.t) 
-  : Concolic.Status.Eval.t * Concolic.Target.t list
-  =
-  let open Ceffects.M in
-  let open Ceffects.Initialize (struct let c = consts end) in
+let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
+  fun expr input_feeder ~max_step ->
+  let open Ceffects in
 
   let rec eval (expr : Embedded.t) : V.t m =
     let open V in
-    let%bind () = incr_step in
+    let%bind () = incr_step ~max_step in
     match expr with
     | EUnit -> return VUnit
-    | EInt i -> return @@ VInt (i, Concolic.Formula.const_int i)
-    | EBool b -> return @@ VBool (b, Concolic.Formula.const_bool b)
+    | EInt i -> return @@ VInt (i, Overlays.Typed_smt.const_int i)
+    | EBool b -> return @@ VBool (b, Overlays.Typed_smt.const_bool b)
     | EVar id -> fetch id
     | EId -> return VId
     (* inputs *)
-    | EPick_i () -> get_input Interp_common.Key.Timekey.int_
-    | EPick_b () -> get_input Interp_common.Key.Timekey.bool_
+    | EPick_i () -> get_input Interp_common.Key.Timekey.int_ input_feeder
+    | EPick_b () -> get_input Interp_common.Key.Timekey.bool_ input_feeder
     (* operations *)
     | EBinop { left ; binop ; right } -> begin
       let%bind vleft = stern_eval left in
       let%bind vright = stern_eval right in
       let k f e1 e2 op =
-        return @@ f (Concolic.Formula.binop op e1 e2)
+        return @@ f (Overlays.Typed_smt.binop op e1 e2)
       in
-      let open Concolic.Formula.Binop in
+      let open Overlays.Typed_smt.Binop in
       let v_int n = fun e -> VInt (n, e) in
       let v_bool b = fun e -> VBool (b, e) in
       match binop, vleft, vright with
@@ -61,12 +58,12 @@ let eval_exp
       | BGreaterThan , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 > n2)) e1 e2 Greater_than
       | BGeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 >= n2)) e1 e2 Greater_than_eq
       | BOr          , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 || b2)) e1 e2 Or
-      | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> return @@ VBool (b1 && b2, Concolic.Formula.and_ [ e1 ; e2 ])
+      | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> return @@ VBool (b1 && b2, Overlays.Typed_smt.and_ [ e1 ; e2 ])
       | _ -> type_mismatch @@ Error_msg.bad_binop vleft binop vright
     end
     | ENot expr -> begin
       match%bind stern_eval expr with
-      | VBool (b, e_b) -> return @@ VBool (not b, Concolic.Formula.not_ e_b)
+      | VBool (b, e_b) -> return @@ VBool (not b, Overlays.Typed_smt.not_ e_b)
       | v -> type_mismatch @@ Error_msg.bad_not v
     end
     | EProject { record ; label } -> begin
@@ -97,7 +94,7 @@ let eval_exp
       | VBool (b, e_b) ->
         let%bind () = incr_time in
         let body = if b then true_body else false_body in
-        let%bind () = hit_branch (Concolic.Direction.of_bool b) e_b in
+        let%bind () = push_branch (Direction.Bool_direction (b, e_b)) in
         eval body
       | v -> type_mismatch @@ Error_msg.cond_non_bool v
     end
@@ -109,11 +106,11 @@ let eval_exp
         let body_opt = List.find_map cases ~f:(fun (i', body) -> if i = i' then Some body else None) in
         match body_opt with
         | Some body -> 
-          let other_cases = List.filter int_cases ~f:((<>) i) in
-          let%bind () = hit_case (Concolic.Direction.of_int i) e_i ~other_cases in
+          let not_in = List.filter int_cases ~f:((<>) i) in
+          let%bind () = push_branch (Direction.Int_direction { dir = Case_int i ; expr = e_i ; not_in }) in
           eval body
         | None -> 
-          let%bind () = hit_case (Concolic.Direction.Case_default { not_in = int_cases }) e_i ~other_cases:int_cases in
+          let%bind () = push_branch (Direction.Int_direction { dir = Case_default ; expr = e_i ; not_in = int_cases }) in
           eval default
       end
       | v -> type_mismatch @@ Error_msg.case_non_int v
@@ -204,7 +201,7 @@ let eval_exp
   *)
   and stern_eval (expr : Embedded.t) : V.whnf m = 
     let%bind v = eval expr in
-    let%bind () = incr_step in
+    let%bind () = incr_step ~max_step in
     V.split v
       ~symb:(fun ((VSymbol t) as sym) ->
         let%bind s = get in
@@ -272,116 +269,32 @@ let eval_exp
 
   run (res_to_err (begin_stern_loop expr))
 
-(*
-  -------------------
-  BEGIN CONCOLIC EVAL   
-  -------------------
+module TQ = Concolic.Target_queue.Make (Interp_common.Timestamp)
+module F = Concolic.Evaluator.Make (Interp_common.Timestamp) (TQ.BFS) (Overlays.Typed_smt.Make_Z3 ()) (Concolic.Pause.Lwt)
 
-  This section starts up and runs the concolic evaluator (see the eval_exp above)
-  repeatedly to hit all the branches.
-
-  This eval spans multiple interpretations, hitting a provably different
-  path on each interpretation.
-
-  NOTE: this is totally stolen from the eager concolic eval, just for this rough draft.
-*)
-
-let global_runtime = Utils.Safe_cell.create 0.0
-let global_solvetime = Utils.Safe_cell.create 0.0
-
-module Make (S : Concolic.Solver.S) (P : Concolic.Pause.S) (O : Concolic.Options.V) = struct
-  module TQ = Concolic.Target_queue.BFS
-
-  let empty_tq = Concolic.Options.Arrow.appl TQ.of_options O.r ()
-
-  (*
-    I should have a separate model-feeder module that takes any key that 
-    can map onto a symbol, and it roles with that.
-    But for now I hack and hash the timestamp into a "step".
-  *)
-
-  let rec step : Embedded.t -> has_pruned:bool -> has_unknown:bool -> TQ.t -> Concolic.Status.Terminal.t P.t =
-    fun e ~has_pruned ~has_unknown tq ->
-      let open P in
-      let* () = pause () in
-      let t0 = Caml_unix.gettimeofday () in
-      match TQ.peek tq with
-      | Some target -> begin
-        let tq = TQ.remove tq target in
-        let solve_result = S.solve (Concolic.Target.to_expressions target) in
-        let t1 = Caml_unix.gettimeofday () in
-        let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
-        match solve_result with
-        | Sat model -> begin
-            let feeder = Concolic.Input_feeder.of_model model in
-            let* () = pause () in
-            let status, targets = eval_exp { target ; options = O.r ; input_feeder = feeder } e in
-            let t2 = Caml_unix.gettimeofday () in
-            let _ : float = Utils.Safe_cell.map (fun t -> t +. (t2 -. t1)) global_runtime in
-            match status with
-            | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
-            | Finished { pruned } ->
-              let has_pruned = has_pruned || pruned in
-              step e ~has_pruned ~has_unknown (TQ.push_list tq targets)
-          end
-        | Unknown -> let* () = pause () in step e ~has_pruned ~has_unknown:true tq
-        | Unsat -> let* () = pause () in step e ~has_pruned ~has_unknown tq
-      end
-      | None ->
-        let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_solvetime in
-        if has_unknown then
-          return Concolic.Status.Unknown
-        else if has_pruned then
-          return Concolic.Status.Exhausted_pruned_tree
-        else
-          return Concolic.Status.Exhausted_full_tree
-
-  (*
-    We don't bootstrap by running `step` with one empty target because we want
-    to run with all zeroes first. Just fencepost like this: run once, then start
-    stepping.
-  *)
-  let eval : Embedded.t -> Concolic.Status.Terminal.t P.t =
-    fun e ->
-      if not O.r.random then Interp_common.Rand.reset ();
-      P.with_timeout O.r.global_timeout_sec @@ fun () ->
-        let c =
-          Ceffects.Consts.{ target = Concolic.Target.make Concolic.Path.empty
-          ; options = O.r
-          ; input_feeder = Interp_common.Input_feeder.zero }  
-        in
-        let t0 = Caml_unix.gettimeofday () in
-        let status, targets = eval_exp c e in
-        let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_runtime in
-        match status with
-        | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
-        | Finished { pruned } ->
-          step e ~has_pruned:pruned ~has_unknown:false (TQ.push_list empty_tq targets)
-end
-
-module F = Make (Concolic.Solver.Default) (Concolic.Pause.Lwt)
-
-let lwt_eval : (Embedded.t, Concolic.Status.Terminal.t Lwt.t) Concolic.Options.Arrow.t =
-  Concolic.Options.Arrow.make
+let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
+  Options.Arrow.make
   @@ fun r e ->
     let module E = F (struct let r = r end) in
-    E.eval e
+    E.eval e eval_exp
 
-open Concolic.Options.Arrow
+(*
+  TODO: the following should be done using Concolic.Driver
+*)
+open Options.Arrow
 
-let test_with_timeout : (Lang.Ast.Embedded.t, Concolic.Status.Terminal.t) Concolic.Options.Arrow.t =
+let test_with_timeout : (Lang.Ast.Embedded.t, Status.Terminal.t) Options.Arrow.t =
   lwt_eval
   >>^ fun res_status ->
     try Lwt_main.run res_status with
     | Lwt_unix.Timeout -> Timeout
 
-
 let test_bjy =
-  Concolic.Options.Arrow.make
+  Options.Arrow.make
   @@ fun r -> fun bjy -> fun ~do_wrap ~do_type_splay ->
     let expr = Translate.Convert.bjy_to_emb bjy ~do_wrap ~do_type_splay |> Lang.Ast_tools.Utils.pgm_to_module in
     let res = appl test_with_timeout r expr in
-    Format.printf "%s\n" (Concolic.Status.to_loud_string res);
+    Format.printf "%s\n" (Status.to_loud_string res);
     res
 
 (*
@@ -404,10 +317,10 @@ let cdeval =
   let open Cmdliner in
   let open Cmdliner.Term.Syntax in
   Cmd.v (Cmd.info "cdeval") @@
-  let+ concolic_args = Concolic.Options.cmd_arg_term
+  let+ concolic_args = Options.cmd_arg_term
   and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
   and+ bjy_pgm = Lang.Parse.parse_bjy_file_from_argv in
-  Concolic.Options.Arrow.appl
+  Options.Arrow.appl
     test_bjy
     concolic_args
     bjy_pgm
