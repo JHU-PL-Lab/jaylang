@@ -3,6 +3,7 @@ open Core
 open Lang.Parse
 
 open Lang.Ast.Expr
+open Lang.Ast_tools.Utils
 
 let () =
   let filename = (Sys.get_argv ()).(1) in
@@ -17,3 +18,5 @@ let () =
   print_endline pp_ast1;
   print_endline "\n\nPass 2:";
   print_endline pp_ast2;
+  print_endline "\n\nAST 1 <=>? AST 2:";
+  print_endline (string_of_int (Lang.Ast.Expr.compare Lang.Ast.Ident.compare (pgm_to_module ast1) (pgm_to_module ast2)));
