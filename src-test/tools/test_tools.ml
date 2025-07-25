@@ -5,12 +5,15 @@ open Utils
 open Lang.Parse
 
 open Lang.Ast.Expr
-(* 
-open Lang.Ast_tools.Utils *)
+
+open Lang.Ast_tools.Utils
 
 let make_pp_test_from_filename (testname : Filename.t) : unit Alcotest.test_case = 
+  print_endline testname;
   let ast1 = parse_program (In_channel.create testname) in
   let pp_ast1 = String.concat ~sep:"\n\n" (List.map ast1 ~f:(statement_to_string)) in
+
+  let _ = print_endline pp_ast1 in
 
   let ast2 = parse_single_pgm_string pp_ast1 in
   let pp_ast2 = String.concat ~sep:"\n\n" (List.map ast2 ~f:(statement_to_string)) in
@@ -18,8 +21,8 @@ let make_pp_test_from_filename (testname : Filename.t) : unit Alcotest.test_case
   let _ = if String.equal testname "test/bjy/post-oopsla-ill-typed/set_functor1.bjy" then print_endline (pp_ast1 ^ "\n" ^ pp_ast2) else () in
 
   Alcotest.test_case testname `Quick (fun () ->
-    Alcotest.(check string) "pp_compare" pp_ast1 pp_ast2)
-    (* Alcotest.(check int) "ast_compare" 0 (compare (Lang.Ast.Ident.compare) (pgm_to_module ast1) (pgm_to_module ast2))) *)
+    Alcotest.(check string) "pp_compare" pp_ast1 pp_ast2;
+    Alcotest.(check int) "ast_compare" 0 (compare (Lang.Ast.Ident.compare) (pgm_to_module ast1) (pgm_to_module ast2)))
 
 let root_dir = "test/bjy/"
 

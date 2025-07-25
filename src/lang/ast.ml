@@ -792,7 +792,6 @@ module Expr = struct
         Format.sprintf "defer %s" (ppp_ge e top (op_precedence e))) cell
       (* embedded only, so constrain 'a to only be `Embedded *)
       | EPick_b _ -> "input_bool"
-      (*subject : 'a t ; cases : (int * 'a t) list ; default : 'a t } -> 'a embedded_only t*)
       | ECase { subject; cases ; default } -> (* simply sugar for nested conditionals *)
         let subject_eval = to_string subject in
         let cases_eval = String.concat ~sep:"\n| " 
@@ -837,8 +836,8 @@ module Expr = struct
         @@ List.map ls ~f:(fun (label, expr) -> Format.sprintf "val %s : %s" (RecordLabel.to_string label) (to_string expr)))
       | ETypeFun { domain ; codomain ; dep ; det } -> 
         let arg1 = match dep with 
-        | `Binding Ident s -> "(" ^ s ^ ":" ^ (to_string domain) ^ ")" 
-        | `No -> to_string domain in
+        | `Binding Ident s -> Format.sprintf "(%s : %s)" s (ppp_ge domain top (op_precedence domain))
+        | `No -> Format.sprintf "%s" (ppp_ge domain top (op_precedence domain)) in
         let arg2 = if det then "-->" else "->" in
         let arg3 = to_string codomain in
         Format.sprintf "%s %s %s" arg1 arg2 arg3
@@ -853,7 +852,7 @@ module Expr = struct
           (String.concat ~sep: "\n| " @@ List.map variant_list ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "`%s of %s" s (to_string tau)))
       | ELetTyped { typed_var ; defn ; body ; do_wrap ; do_check } -> 
         let {var = Ident s; tau} = typed_var in
-        let statement = Format.sprintf "let %s:%s=%s in %s" s (to_string tau) (to_string defn) (ppp_gt body top (op_precedence body)) in
+        let statement = Format.sprintf "let %s : %s = %s in %s" s (to_string tau) (to_string defn) (ppp_gt body top (op_precedence body)) in
         if do_wrap && do_check then statement else statement ^ " (check/wrap failed)"
       | ETypeSingle -> "singlet"
       (* bluejay or type erased *)
