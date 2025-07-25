@@ -1,19 +1,25 @@
 
+open Core
+open Concolic_common
+
 (* we can safely use this when making because it's promised that we never make a target twice *)
 let uid = Utils.Counter.create ()
 
-type t =
+type 'k t =
   { path_n : int
   ; uniq_id : int
-  ; path : Path.t }
+  ; path : 'k Path.t }
 
-let make (path : Path.t) : t =
+let make (path : 'k Path.t) : 'k t =
   { path_n = Path.length path
   ; uniq_id = Utils.Counter.next uid
   ; path }
 
-let to_expressions ({ path ; _ } : t) : bool Formula.t list =
-  Path.to_exprs path
+let path { path ; _ } = path
+
+let to_expressions ({ path ; _ } : 'k t) : (bool, 'k) Overlays.Typed_smt.t list =
+  Path.to_dirs path
+  |> List.map ~f:Direction.to_expression
 
 (*
   SUPER IMPORTANT NOTE:
@@ -26,8 +32,8 @@ let to_expressions ({ path ; _ } : t) : bool Formula.t list =
   * If only equality were needed, we would use `a == b`, as it
     does the same.
 *)
-let compare (a : t) (b : t) : int =
+let compare (a : 'k t) (b : 'k t) : int =
   Int.compare a.uniq_id b.uniq_id
 
-let path_n ({ path_n ; _ } : t) : int =
+let path_n ({ path_n ; _ } : 'k t) : int =
   path_n

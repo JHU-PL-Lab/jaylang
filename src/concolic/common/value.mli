@@ -15,6 +15,8 @@
     Formula -- ints and bools are stored with their symbolic formula
 *)
 
+(* TODO: either parametrize or Make with a key *)
+
 module Concolic_value : Utils.Equatable.P1 with type 'a t = 'a * 'a Formula.t
 (** [Concolic_value] has a type ['a t] to represent concolic values: values that
     are a pair of a concrete value ['a] and symbolic expression ['a Formula.t]. *)

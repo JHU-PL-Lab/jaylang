@@ -81,11 +81,7 @@ module type SOLVABLE = sig
   val solve : (bool, 'k) t list -> 'k solution
 end
 
-module type CONTEXT = sig
-  val ctx : Z3.context
-end
-
-module Make_Z3 (_ : CONTEXT) : SOLVABLE
+module Make_Z3 () : SOLVABLE
 
 module T : S
 

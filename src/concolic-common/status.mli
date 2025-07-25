@@ -31,7 +31,7 @@ type _ t =
   | Timeout : 'a terminal t
 
   (* result from a single run *)
-  | Finished : { pruned : bool } -> 'a eval t
+  | Finished : { final_step : Interp_common.Step.t } -> 'a eval t
 
 val is_terminal : 'a t -> bool
 (** [is_terminal status] is true if and only if the [status] indicates the end

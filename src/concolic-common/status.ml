@@ -17,7 +17,7 @@ type _ t =
   | Timeout : 'a terminal t
 
   (* result from a single run *)
-  | Finished : { pruned : bool } -> 'a eval t
+  | Finished : { final_step : Interp_common.Step.t } -> 'a eval t
 
 let is_terminal (type a) (x : a t) : bool =
   match x with

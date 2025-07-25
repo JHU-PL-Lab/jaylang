@@ -1,6 +1,7 @@
 
 open Core
-open Options.Arrow.Infix (* expose infix operators *)
+open Concolic_common
+open Concolic_common.Options.Arrow.Infix (* expose infix operators *)
 
 type 'a test = ('a, do_wrap:bool -> do_type_splay:bool -> Status.Terminal.t) Options.Arrow.t
 

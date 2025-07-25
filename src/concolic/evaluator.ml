@@ -2,25 +2,31 @@
 open Core
 open Lang.Ast
 open Expr
+open Concolic_common
 
 module Error_msg = Lang.Value.Error_msg (Value)
+
+(*
+  Evaluates an expression to a concolic path.
+*)
+type 'k eval = Embedded.t -> 'k Interp_common.Input_feeder.t -> max_step:Interp_common.Step.t -> Status.Eval.t * 'k Path.t
 
 (*
   It's likely a good idea to use real OCaml state and effects to get
   performance, but for this pass, we use a monad to encode the concolic
   semantics. It just helps with correctness that way.
 *)
-let eval_exp 
-  (consts : Effects.Consts.t)
+let eager_eval 
   (expr : Embedded.t) 
-  : Status.Eval.t * Target.t list
+  (input_feeder : Interp_common.Step.t Interp_common.Input_feeder.t)
+  ~(max_step : Interp_common.Step.t)
+  : Status.Eval.t * Interp_common.Step.t Path.t
   =
-  let open Effects.Initialize (struct let c = consts end) in
-  let open Effects.M in
+  let open Effects in
 
   let rec eval (expr : Embedded.t) : Value.t m =
     let open Value.M in (* puts the value constructors in scope *)
-    let%bind () = incr_step in
+    let%bind () = incr_step ~max_step in
     match expr with
     (* Determinism *)
     | EDet e -> with_incr_depth @@ eval e
@@ -153,7 +159,7 @@ let eval_exp
       match%bind eval cond with
       | VBool (b, e) ->
         let body = if b then true_body else false_body in
-        let%bind () = hit_branch (Direction.of_bool b) e in
+        let%bind () = push_branch (Direction.Bool_direction (b, e)) in
         eval body
       | v -> type_mismatch @@ Error_msg.cond_non_bool v
     end
@@ -164,18 +170,18 @@ let eval_exp
         let body_opt = List.find_map cases ~f:(fun (i', body) -> if i = i' then Some body else None) in
         match body_opt with
         | Some body -> (* found a matching case *)
-          let other_cases = List.filter int_cases ~f:((<>) i) in
-          let%bind () = hit_case (Direction.of_int i) e ~other_cases in
+          let not_in = List.filter int_cases ~f:((<>) i) in
+          let%bind () = push_branch (Direction.Int_direction { dir = Case_int i ; expr = e ; not_in }) in
           eval body
         | None -> (* no matching case, so take default case *)
-          let%bind () = hit_case (Direction.Case_default { not_in = int_cases }) e ~other_cases:int_cases in
+          let%bind () = push_branch (Direction.Int_direction { dir = Case_default ; expr = e ; not_in = int_cases }) in
           eval default
       end
       | v -> type_mismatch @@ Error_msg.case_non_int v
     end
     (* Inputs *)
-    | EPick_i () -> get_input Interp_common.Key.Stepkey.int_
-    | EPick_b () -> get_input Interp_common.Key.Stepkey.bool_
+    | EPick_i () -> get_input Interp_common.Key.Stepkey.int_ input_feeder
+    | EPick_b () -> get_input Interp_common.Key.Stepkey.bool_ input_feeder
     (* Tables -- includes some branching *)
     | ETable -> return (VTable { alist = [] })
     | ETblAppl { tbl ; gen ; arg } -> begin
@@ -187,7 +193,7 @@ let eval_exp
             match%bind acc_m with
             | None -> 
               let (b, e) = Value.equal input v in
-              let%bind () = hit_branch (Direction.of_bool b) e in
+              let%bind () = push_branch (Direction.Bool_direction (b, e)) in
               if b
               then return (Some output)
               else return None
@@ -225,10 +231,26 @@ let eval_exp
 let global_runtime = Utils.Safe_cell.create 0.0
 let global_solvetime = Utils.Safe_cell.create 0.0
 
-module Make (S : Solver.S) (P : Pause.S) (O : Options.V) = struct
-  module TQ = Target_queue.All
+module Make (S : Overlays.Typed_smt.SOLVABLE) (P : Pause.S) (K : Overlays.Typed_smt.KEY) (O : Options.V) = struct
+  module X = Target_queue.Make (K)
+  module TQ = X.All
+
+  (* TODO: have an smt module to handle this stuff *)
+  module Solve = Overlays.Typed_smt.Solve (S)
 
   let empty_tq = Options.Arrow.appl TQ.of_options O.r ()
+
+  (*
+    TODO: stop at max depth 
+  *)
+  let make_targets (target : 'k Target.t) (final_path : 'k Path.t) : 'k Target.t list =
+    let prefix, stem = List.split_n (Path.to_dirs final_path) (Target.path_n target) in
+    List.fold stem ~init:([], List.map prefix ~f:Direction.to_expression) ~f:(fun (acc_targets, acc_exprs) dir ->
+      List.map (Direction.negations dir) ~f:(fun e -> Target.make (e :: acc_exprs)) (* TODO: allow make target of exprs *)
+      @ acc_targets
+      , Direction.to_expression dir :: acc_exprs
+    )
+    |> fst
 
   let rec step : Embedded.t -> has_pruned:bool -> has_unknown:bool -> TQ.t -> Status.Terminal.t P.t =
     fun e ~has_pruned ~has_unknown tq ->
@@ -245,13 +267,18 @@ module Make (S : Solver.S) (P : Pause.S) (O : Options.V) = struct
         | Sat model -> begin
             let feeder = Input_feeder.of_model model in
             let* () = pause () in
-            let status, targets = eval_exp { target ; options = O.r ; input_feeder = feeder } e in
+            let status, path = eager_eval e feeder ~max_step:(Step O.r.global_max_step) in
             let t2 = Caml_unix.gettimeofday () in
             let _ : float = Utils.Safe_cell.map (fun t -> t +. (t2 -. t1)) global_runtime in
             match status with
             | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
-            | Finished { pruned } ->
-              let has_pruned = has_pruned || pruned in
+            | Finished { final_step } ->
+              let has_pruned = 
+                has_pruned 
+                || Interp_common.Step.to_int final_step > O.r.global_max_step 
+                || Path.length path > O.r.max_tree_depth
+              in
+              let targets = make_targets target path in
               step e ~has_pruned ~has_unknown (TQ.push_list tq targets)
           end
         | Unknown -> let* () = pause () in step e ~has_pruned ~has_unknown:true tq
@@ -267,29 +294,29 @@ module Make (S : Solver.S) (P : Pause.S) (O : Options.V) = struct
           return Status.Exhausted_full_tree
 
   (*
-    We don't bootstrap by running `step` with one empty target because we want
-    to run with all zeroes first. Just fencepost like this: run once, then start
-    stepping.
+    We don't bootstrap using `step` with a target queue that has just the empty
+    target because we want the first run to use the `zero` input feeder.
+    But there's probably a better way to get this done.
   *)
   let eval : Embedded.t -> Status.Terminal.t P.t =
     fun e ->
       if not O.r.random then Interp_common.Rand.reset ();
       P.with_timeout O.r.global_timeout_sec @@ fun () ->
-        let c =
-          Effects.Consts.{ target = Target.make Path.empty
-          ; options = O.r
-          ; input_feeder = Input_feeder.zero }  
-        in
         let t0 = Caml_unix.gettimeofday () in
-        let status, targets = eval_exp c e in
+        let status, path = eager_eval e Input_feeder.zero ~max_step:(Step O.r.global_max_step) in
         let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_runtime in
         match status with
         | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
-        | Finished { pruned } ->
-          step e ~has_pruned:pruned ~has_unknown:false (TQ.push_list empty_tq targets)
+        | Finished { final_step } ->
+          let has_pruned = 
+            Interp_common.Step.to_int final_step > O.r.global_max_step 
+            || Path.length path > O.r.max_tree_depth
+          in
+          let targets = make_targets (Target.make Path.empty) path in
+          step e ~has_pruned ~has_unknown:false (TQ.push_list empty_tq targets)
 end
 
-module F = Make (Solver.Default) (Pause.Lwt)
+module F = Make (Overlays.Typed_smt.Default) (Pause.Lwt)
 
 let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
   Options.Arrow.make

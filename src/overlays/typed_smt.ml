@@ -131,11 +131,8 @@ end
 
   We will often like to avoid the context, so I have my own
   homebrewed expressions further below that are functional.
-
-  TODO: does this need to be generative, or is it fine to share contexts
-    amongst functor applications?
 *)
-module Make_Z3 (C : CONTEXT) : SOLVABLE = struct
+module Make_Z3_of_context (C : CONTEXT) : SOLVABLE = struct
   (* I'm relying on internal correctness, and the types are phantom *)
   type ('a, 'k) t = Z3.Expr.expr (* will need to be private *)
 
@@ -227,6 +224,8 @@ module Make_Z3 (C : CONTEXT) : SOLVABLE = struct
     | UNKNOWN -> Unknown
     | UNSATISFIABLE -> Unsat
 end
+
+module Make_Z3 () = Make_Z3_of_context (struct let ctx = Z3.mk_context [] end)
 
 (*
   Home brewed expressions with some simplification.

@@ -152,11 +152,11 @@ end) = struct
   let step : (Step.t, 'e) t =
     { run = fun ~reject:_ ~accept state step _ -> accept step state step }
 
-  let[@inline always] incr_step ~(max_step : int) : unit m = 
+  let[@inline always] incr_step ~(max_step : Step.t) : unit m = 
     { run =
       fun ~reject ~accept state step _ ->
         let (Step step_n) as step = Step.next step in
-        if step_n > max_step
+        if step_n > Step.to_int max_step
         then Tuple2.uncurry reject (Err.fail_on_max_step step_n state) step
         else accept () state step
     }
