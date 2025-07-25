@@ -783,7 +783,7 @@ module Expr = struct
         "struct\n" ^ String.concat ~sep:"\n\n" (List.map m ~f:(statement_to_string)) ^ "\nend"
       | ENot e -> 
         Format.sprintf "not %s" (ppp_ge e top (op_precedence e))
-      | EPick_i _ -> "input_int"
+      | EPick_i _ -> "input"
          (* is parsed as "input", but we can immediately make it pick_i *)
       | EFunction { param ; body } -> (* note bluejay also has multi-arg function, which generalizes this *)
         let param_eval = Ident.to_string param in
@@ -797,7 +797,7 @@ module Expr = struct
         Cell.to_string(fun e ->
         Format.sprintf "defer %s" (ppp_ge e top (op_precedence e))) cell
       (* embedded only, so constrain 'a to only be `Embedded *)
-      | EPick_b _ -> "input_bool"
+      | EPick_b _ -> "input"
       | ECase { subject; cases ; default } -> (* simply sugar for nested conditionals *)
         let subject_eval = to_string subject in
         let cases_eval = String.concat ~sep:"\n| " 
