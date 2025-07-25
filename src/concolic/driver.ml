@@ -74,6 +74,9 @@ end
   ----------------
 *)
 
+(*
+  TODO: have this (or the work inside Compute functor) take an evaluation function.
+*)
 let test_bjy : Lang.Ast.Bluejay.pgm test =
   Options.Arrow.make
   @@ fun r -> fun bjy -> fun ~do_wrap ~do_type_splay ->

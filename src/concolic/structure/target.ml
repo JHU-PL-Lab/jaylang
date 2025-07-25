@@ -1,6 +1,5 @@
 
 open Core
-(* open Concolic_common *)
 
 (* we can safely use this when making because it's promised that we never make a target twice *)
 let uid = Utils.Counter.create ()
@@ -21,13 +20,6 @@ let cons (expr : (bool, 'k) Overlays.Typed_smt.t) (target : 'k t) : 'k t =
   { path_n = target.path_n + 1
   ; uniq_id = Utils.Counter.next uid
   ; exprs = expr :: target.exprs }
-
-(* let make (exprs : (bool, 'k) Overlays.Typed_smt.t list) : 'k t =
-  { path_n = List.length exprs
-  ; uniq_id = Utils.Counter.next uid
-  ; exprs }
-
-let path { path ; _ } = path *)
 
 let to_expressions ({ exprs ; _ } : 'k t) : (bool, 'k) Overlays.Typed_smt.t list =
   exprs

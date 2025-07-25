@@ -10,9 +10,6 @@
     Thus, we take the Embedded values and say that ints and bools are
     stored as concolic values, i.e. a concrete value paired with a
     symbolic expression.
-
-  Dependencies:
-    Formula -- ints and bools are stored with their symbolic formula
 *)
 
 module Make (K : Overlays.Typed_smt.KEY) : sig

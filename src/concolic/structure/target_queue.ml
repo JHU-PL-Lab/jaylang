@@ -2,6 +2,12 @@
 open Core
 open Concolic_common
 
+(*
+  TODO: is it possible to have K.t be a type parameter?
+    It seems no because then 'k is unbound in Psq.Make
+    while trying to turn the Target.t type constructor into
+    some 0-arity type.
+*)
 module Make (K : Overlays.Typed_smt.KEY) = struct
   type k = K.t
 
@@ -26,7 +32,6 @@ module Make (K : Overlays.Typed_smt.KEY) = struct
 
     Also note that targets are compared using the order they are created.
   *)
-  (* FIXME: Target has a higher order type, so we need to fix the type parameter with a functor *)
   module Q = Psq.Make (KTarget) (Int) (* functional priority search queue *)
 
   module Uniform = struct

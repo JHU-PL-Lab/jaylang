@@ -1,16 +1,3 @@
-(**
-  File: semantics.mli
-  Purpose: encapsulate concolic semantics into a monad
-
-  Detailed description:
-    The concolic semantics need state, error, environment, and logging.
-    These are most efficiently composed into a CPS monad, as well.
-    The benefit of the monad is that it contains all of the semantics
-    specific to concolic evaluation.
-    The downside is that performance is worse than using built-in effects
-    and state from OCaml. The tradeoff for now is worth it: we have good
-    separation of logic and follow the documented semantics closely.
-*)
 
 open Concolic_common
 

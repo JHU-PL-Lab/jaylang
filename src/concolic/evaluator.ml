@@ -295,6 +295,8 @@ module Make (K : Overlays.Typed_smt.KEY) (TQ : Target_queue.Make(K).S)
     We don't bootstrap using `step` with a target queue that has just the empty
     target because we want the first run to use the `zero` input feeder.
     But there's probably a better way to get this done.
+
+    TODO: this should use the Options arrow instead of passing values in via a functor.
   *)
   let eval : Embedded.t -> K.t eval -> Status.Terminal.t P.t =
     fun e eval ->

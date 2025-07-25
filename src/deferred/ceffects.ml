@@ -5,7 +5,10 @@
 *)
 
 (*
-  Deferred effects
+  Deferred effects.
+
+  TODO: extract the common deferred effects and allow it to
+    be instrumented with the concolic-specific effects.
 *)
 
 open Core
