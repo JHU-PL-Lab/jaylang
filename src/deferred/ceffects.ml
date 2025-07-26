@@ -211,12 +211,12 @@ let vanish : 'a m =
 
 let push_branch (dir : k Direction.t) : unit m =
   if match dir with
-    | Bool_direction (_, expr) -> Overlays.Typed_smt.is_const expr
-    | Int_direction { expr ; _ } -> Overlays.Typed_smt.is_const expr
+    | Bool_direction (_, expr) -> Smt.Formula.is_const expr
+    | Int_direction { expr ; _ } -> Smt.Formula.is_const expr
   then return ()
   else modify (fun s -> { s with path = Path.cons dir s.path })
 
-module Time_symbol = Overlays.Typed_smt.Make_symbol (Timestamp)
+module Time_symbol = Smt.Symbol.Make (Timestamp)
 
 let get_input (type a) (make_key : Timestamp.t -> a Key.Timekey.t) (feeder : Timestamp.t Input_feeder.t) : V.t m =
   let%bind () = assert_nondeterminism in
@@ -226,10 +226,10 @@ let get_input (type a) (make_key : Timestamp.t -> a Key.Timekey.t) (feeder : Tim
   match key with
   | I k -> 
     let%bind () = modify (fun s -> { s with inputs = (I v, s.time) :: s.inputs ; time = Timestamp.increment s.time }) in
-    return @@ V.VInt (v, Overlays.Typed_smt.symbol (Time_symbol.make_int k))
+    return @@ V.VInt (v, Smt.Formula.symbol (Time_symbol.make_int k))
   | B k ->
     let%bind () = modify (fun s -> { s with inputs = (B v, s.time) :: s.inputs ; time = Timestamp.increment s.time }) in
-    return @@ V.VBool (v, Overlays.Typed_smt.symbol (Time_symbol.make_bool k))
+    return @@ V.VBool (v, Smt.Formula.symbol (Time_symbol.make_bool k))
 
 let run (x : 'a m) : Status.Eval.t * k Path.t =
   match run x State.empty Read.empty with

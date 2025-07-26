@@ -7,7 +7,7 @@ let uid = Utils.Counter.create ()
 type 'k t =
   { path_n : int
   ; uniq_id : int
-  ; exprs : (bool, 'k) Overlays.Typed_smt.t list }
+  ; exprs : (bool, 'k) Smt.Formula.t list }
 
 let initial_id = Utils.Counter.next uid
 
@@ -16,12 +16,12 @@ let empty : 'k t =
   ; uniq_id = initial_id
   ; exprs = [] }
 
-let cons (expr : (bool, 'k) Overlays.Typed_smt.t) (target : 'k t) : 'k t =
+let cons (expr : (bool, 'k) Smt.Formula.t) (target : 'k t) : 'k t =
   { path_n = target.path_n + 1
   ; uniq_id = Utils.Counter.next uid
   ; exprs = expr :: target.exprs }
 
-let to_expressions ({ exprs ; _ } : 'k t) : (bool, 'k) Overlays.Typed_smt.t list =
+let to_expressions ({ exprs ; _ } : 'k t) : (bool, 'k) Smt.Formula.t list =
   exprs
 
 (*

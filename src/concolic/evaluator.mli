@@ -23,8 +23,8 @@ type 'k eval = Lang.Ast.Embedded.t -> 'k Interp_common.Input_feeder.t ->
 (* One single run of the concolic evaluator, sans loop *)
 val eager_eval : Interp_common.Step.t eval
 
-module Make : functor (K : Overlays.Typed_smt.KEY) (_ : Target_queue.Make(K).S)
-  (_ : Overlays.Typed_smt.SOLVABLE) (P : Pause.S) (_ : Concolic_common.Options.V) -> sig
+module Make : functor (K : Smt.Symbol.KEY) (_ : Target_queue.Make(K).S)
+  (_ : Smt.Formula.SOLVABLE) (P : Pause.S) (_ : Concolic_common.Options.V) -> sig
   val eval : Lang.Ast.Embedded.t -> K.t eval -> Concolic_common.Status.Terminal.t P.t
   (** [eval pgm] is the result of concolic evaluation on [pgm]. *)
 end

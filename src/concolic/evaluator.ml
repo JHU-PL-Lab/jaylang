@@ -32,8 +32,8 @@ let eager_eval
     | EDet e -> with_incr_depth @@ eval e
     | EEscapeDet e -> with_escaped_det @@ eval e
     (* Ints and bools -- constant expressions *)
-    | EInt i -> return @@ VInt (i, Overlays.Typed_smt.const_int i)
-    | EBool b -> return @@ VBool (b, Overlays.Typed_smt.const_bool b)
+    | EInt i -> return @@ VInt (i, Smt.Formula.const_int i)
+    | EBool b -> return @@ VBool (b, Smt.Formula.const_bool b)
     (* Simple -- no different than interpreter *)
     | EDefer e -> eval e (* this concolic evaluator is eager *)
     | EUnit -> return VUnit
@@ -123,9 +123,9 @@ let eager_eval
       let%bind vleft = eval left in
       let%bind vright = eval right in
       let k f e1 e2 op =
-        return @@ f (Overlays.Typed_smt.binop op e1 e2)
+        return @@ f (Smt.Formula.binop op e1 e2)
       in
-      let open Overlays.Typed_smt.Binop in
+      let open Smt.Binop in
       let v_int n = fun e -> VInt (n, e) in
       let v_bool b = fun e -> VBool (b, e) in
       match binop, vleft, vright with
@@ -142,12 +142,12 @@ let eager_eval
       | BGreaterThan , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 > n2)) e1 e2 Greater_than
       | BGeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 >= n2)) e1 e2 Greater_than_eq
       | BOr          , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 || b2)) e1 e2 Or
-      | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> return @@ VBool (b1 && b2, Overlays.Typed_smt.and_ [ e1 ; e2 ])
+      | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> return @@ VBool (b1 && b2, Smt.Formula.and_ [ e1 ; e2 ])
       | _ -> type_mismatch @@ Error_msg.bad_binop vleft binop vright
     end
     | ENot e_not_body -> begin
       match%bind eval e_not_body with
-      | VBool (b, e_b) -> return @@ VBool (not b, Overlays.Typed_smt.not_ e_b) 
+      | VBool (b, e_b) -> return @@ VBool (not b, Smt.Formula.not_ e_b) 
       | v -> type_mismatch @@ Error_msg.bad_not v
     end
     | EIntensionalEqual { left ; right } ->
@@ -217,24 +217,17 @@ let eager_eval
   run (eval expr)
 
 (*
-  -------------------
-  BEGIN CONCOLIC EVAL   
-  -------------------
-
-  This section starts up and runs the concolic evaluator (see the eval_exp above)
-  repeatedly to hit all the branches.
-
-  This eval spans multiple interpretations, hitting a provably different
-  path on each interpretation.
+  -------------
+  CONCOLIC LOOP
+  -------------
 *)
 
 let global_runtime = Utils.Safe_cell.create 0.0
 let global_solvetime = Utils.Safe_cell.create 0.0
 
-module Make (K : Overlays.Typed_smt.KEY) (TQ : Target_queue.Make(K).S)
-  (S : Overlays.Typed_smt.SOLVABLE) (P : Pause.S) (O : Options.V) = struct
-  (* TODO: have an smt module to handle this stuff instead of inside overlays *)
-  module Solve = Overlays.Typed_smt.Solve (S)
+module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S)
+  (S : Smt.Formula.SOLVABLE) (P : Pause.S) (O : Options.V) = struct
+  module Solve = Smt.Formula.Make_solver (S)
 
   let empty_tq = Options.Arrow.appl TQ.of_options O.r ()
 
@@ -317,7 +310,7 @@ module Make (K : Overlays.Typed_smt.KEY) (TQ : Target_queue.Make(K).S)
 end
 
 module TQ_Made = Target_queue.Make (Interp_common.Step)
-module F = Make (Interp_common.Step) (TQ_Made.All) (Overlays.Typed_smt.Make_Z3 ()) (Pause.Lwt)
+module F = Make (Interp_common.Step) (TQ_Made.All) (Overlays.Typed_z3.Default) (Pause.Lwt)
 
 (* Uses eager evaluator *)
 let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =

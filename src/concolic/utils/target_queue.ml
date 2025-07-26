@@ -8,7 +8,7 @@ open Concolic_common
     while trying to turn the Target.t type constructor into
     some 0-arity type.
 *)
-module Make (K : Overlays.Typed_smt.KEY) = struct
+module Make (K : Smt.Symbol.KEY) = struct
   type k = K.t
 
   module KTarget = struct

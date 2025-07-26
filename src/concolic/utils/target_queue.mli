@@ -15,7 +15,7 @@
 
 open Concolic_common
 
-module Make (K : Overlays.Typed_smt.KEY) : sig
+module Make (K : Smt.Symbol.KEY) : sig
   module type S = sig
     type t
     val of_options : (unit, t) Options.Arrow.t

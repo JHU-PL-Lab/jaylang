@@ -6,9 +6,10 @@
  (libraries
   core
   utils
-  overlays
+  ; overlays
   interp_common
   lang
+  smt
   )
  (synopsis "Common concolic constructs for the Jaylang project")
  (inline_tests)

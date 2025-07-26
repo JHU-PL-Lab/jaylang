@@ -51,12 +51,12 @@ module Compute (O : Options.V) = struct
     type t = Lang.Ast.Embedded.t
 
     module TQ_Made = Target_queue.Make (Interp_common.Step)
-    module Eval (S : Overlays.Typed_smt.SOLVABLE) = Evaluator.Make (Interp_common.Step) (TQ_Made.All) (S) (Pause.Id) (O)
+    module Eval (S : Smt.Formula.SOLVABLE) = Evaluator.Make (Interp_common.Step) (TQ_Made.All) (S) (Pause.Id) (O)
 
     let run : t -> Compute_result.t =
       fun expr ->
         (* makes a new solver for this thread *)
-        let module E = Eval (Overlays.Typed_smt.Make_Z3 ()) in
+        let module E = Eval (Overlays.Typed_z3.Make ()) in
         Pause.Id.run
         @@ E.eval expr Evaluator.eager_eval
 

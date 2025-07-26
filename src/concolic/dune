@@ -16,6 +16,7 @@
   overlays
   cmdliner
   concolic_common
+  smt
  )
  (synopsis "Concolic evaluator on embedded-type programs")
  (inline_tests)

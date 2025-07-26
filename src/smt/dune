@@ -1,16 +1,14 @@
 
 (library
- (name overlays)
- (public_name jay.overlays)
+ (name smt)
+ (public_name jay.smt)
  (libraries
   core
   preface
   z3
-  moonpool
   utils
-  smt
   )
- (synopsis "Library overlays for the Jaylang project")
+ (synopsis "SMT module for the Jaylang project")
  (inline_tests)
  (instrumentation
   (backend landmarks))

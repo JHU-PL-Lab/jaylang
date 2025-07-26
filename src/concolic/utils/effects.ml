@@ -47,12 +47,12 @@ let vanish : 'a m =
 
 let push_branch (dir : k Direction.t) : unit m =
   if match dir with
-    | Bool_direction (_, expr) -> Overlays.Typed_smt.is_const expr
-    | Int_direction { expr ; _ } -> Overlays.Typed_smt.is_const expr
+    | Bool_direction (_, expr) -> Smt.Formula.is_const expr
+    | Int_direction { expr ; _ } -> Smt.Formula.is_const expr
   then return ()
   else modify (fun s -> { s with path = Path.cons dir s.path })
 
-module Step_symbol = Overlays.Typed_smt.Make_symbol (Step)
+module Step_symbol = Smt.Symbol.Make (Step)
 
 let get_input (type a) (make_key : Step.t -> a Feeder.Key.t) (feeder : Step.t Input_feeder.t) : Value.t m =
   let%bind () = assert_nondeterminism in
@@ -62,10 +62,10 @@ let get_input (type a) (make_key : Step.t -> a Feeder.Key.t) (feeder : Step.t In
   match key with
   | I k -> 
     let%bind () = modify (fun s -> { s with rev_inputs = I v :: s.rev_inputs }) in
-    return @@ Value.M.VInt (v, Overlays.Typed_smt.symbol (Step_symbol.make_int k))
+    return @@ Value.M.VInt (v, Smt.Formula.symbol (Step_symbol.make_int k))
   | B k ->
     let%bind () = modify (fun s -> { s with rev_inputs = B v :: s.rev_inputs }) in
-    return @@ Value.M.VBool (v, Overlays.Typed_smt.symbol (Step_symbol.make_bool k))
+    return @@ Value.M.VBool (v, Smt.Formula.symbol (Step_symbol.make_bool k))
 
 let run (x : 'a m) : Status.Eval.t * k Path.t =
   match run x State.empty Read.empty with

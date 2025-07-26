@@ -1,18 +1,16 @@
 
 open Core
 
-module Smt = Overlays.Typed_smt
-
-module Make (K : Smt.KEY) = struct
+module Make (K : Smt.Symbol.KEY) = struct
   module Concolic_value = struct
-    type 'a t = 'a * ('a, K.t) Smt.t
+    type 'a t = 'a * ('a, K.t) Smt.Formula.t
     let to_string f (v, _) = f v
 
-    let return_bool b = b, Smt.const_bool b
+    let return_bool b = b, Smt.Formula.const_bool b
 
     let equal eq (a, e_a) (b, e_b) =
       eq a b
-      && Smt.equal e_a e_b
+      && Smt.Formula.equal e_a e_b
   end
 
   include Lang.Value.Embedded (Concolic_value)
@@ -30,7 +28,7 @@ module Make (K : Smt.KEY) = struct
       This is because I'm tired of calling (&&) on the result, and a simple `and_bool` that
       modifies the state would be good.
     *)
-    include Preface.Make.Writer.Over_monad (Preface.Option.Monad) (Utils.List_monoid.Make (struct type t = (bool, K.t) Smt.t end))
+    include Preface.Make.Writer.Over_monad (Preface.Option.Monad) (Utils.List_monoid.Make (struct type t = (bool, K.t) Smt.Formula.t end))
     let bind x f = bind f x
 
     let never_equal : 'a t = None
@@ -67,10 +65,10 @@ module Make (K : Smt.KEY) = struct
     match a, b with
     (* Equality of concolic expressions*)
     | VInt (i1, e1), VInt (i2, e2) -> 
-      let%bind () = tell [ Smt.binop Smt.Binop.Equal e1 e2 ] in
+      let%bind () = tell [ Smt.Formula.binop Smt.Binop.Equal e1 e2 ] in
       return (i1 = i2)
     | VBool (b1, e1), VBool (b2, e2) ->
-      let%bind () = tell [ Smt.binop Smt.Binop.Equal e1 e2 ] in
+      let%bind () = tell [ Smt.Formula.binop Smt.Binop.Equal e1 e2 ] in
       return Bool.(b1 = b2)
     (* Propogation of equality *)
     | VVariant r1, VVariant r2 ->
@@ -242,7 +240,7 @@ module Make (K : Smt.KEY) = struct
 
   let equal a b =
     match X.run @@ equal a b with
-    | Some (b, exprs) -> b, Smt.and_ exprs
+    | Some (b, exprs) -> b, Smt.Formula.and_ exprs
     | None -> Concolic_value.return_bool false
 end
 

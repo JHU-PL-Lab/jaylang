@@ -17,14 +17,14 @@ type 'k t
 
 val empty : 'k t
 
-val cons : (bool, 'k) Overlays.Typed_smt.t -> 'k t -> 'k t
+val cons : (bool, 'k) Smt.Formula.t -> 'k t -> 'k t
 
 val compare : 'k t -> 'k t -> int
 (** [compare a b] uses the unique identifiers in [a] and [b] to compare,
     and hence only literal equality (of memory location) is sufficient
     for [compare a b] to be [0]. *)
 
-val to_expressions : 'k t -> (bool, 'k) Overlays.Typed_smt.t list
+val to_expressions : 'k t -> (bool, 'k) Smt.Formula.t list
 (** [to_expressions t] are the constraints to solve in order to realize [t]. *)
 
 val path_n : 'k t -> int

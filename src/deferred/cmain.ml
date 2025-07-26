@@ -27,8 +27,8 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
     let%bind () = incr_step ~max_step in
     match expr with
     | EUnit -> return VUnit
-    | EInt i -> return @@ VInt (i, Overlays.Typed_smt.const_int i)
-    | EBool b -> return @@ VBool (b, Overlays.Typed_smt.const_bool b)
+    | EInt i -> return @@ VInt (i, Smt.Formula.const_int i)
+    | EBool b -> return @@ VBool (b, Smt.Formula.const_bool b)
     | EVar id -> fetch id
     | EId -> return VId
     (* inputs *)
@@ -39,9 +39,9 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
       let%bind vleft = stern_eval left in
       let%bind vright = stern_eval right in
       let k f e1 e2 op =
-        return @@ f (Overlays.Typed_smt.binop op e1 e2)
+        return @@ f (Smt.Formula.binop op e1 e2)
       in
-      let open Overlays.Typed_smt.Binop in
+      let open Smt.Binop in
       let v_int n = fun e -> VInt (n, e) in
       let v_bool b = fun e -> VBool (b, e) in
       match binop, vleft, vright with
@@ -58,12 +58,12 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
       | BGreaterThan , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 > n2)) e1 e2 Greater_than
       | BGeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 >= n2)) e1 e2 Greater_than_eq
       | BOr          , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 || b2)) e1 e2 Or
-      | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> return @@ VBool (b1 && b2, Overlays.Typed_smt.and_ [ e1 ; e2 ])
+      | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> return @@ VBool (b1 && b2, Smt.Formula.and_ [ e1 ; e2 ])
       | _ -> type_mismatch @@ Error_msg.bad_binop vleft binop vright
     end
     | ENot expr -> begin
       match%bind stern_eval expr with
-      | VBool (b, e_b) -> return @@ VBool (not b, Overlays.Typed_smt.not_ e_b)
+      | VBool (b, e_b) -> return @@ VBool (not b, Smt.Formula.not_ e_b)
       | v -> type_mismatch @@ Error_msg.bad_not v
     end
     | EProject { record ; label } -> begin
@@ -102,7 +102,7 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
       let int_cases = List.map cases ~f:Tuple2.get1 in
       match%bind stern_eval subject with
       | VInt (i, e_i) -> begin
-        let%bind () = incr_time in
+        let%bind () = incr_time in (* TODO: we should be able to delete this *)
         let body_opt = List.find_map cases ~f:(fun (i', body) -> if i = i' then Some body else None) in
         match body_opt with
         | Some body -> 
@@ -270,7 +270,7 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
   run (res_to_err (begin_stern_loop expr))
 
 module TQ = Concolic.Target_queue.Make (Interp_common.Timestamp)
-module F = Concolic.Evaluator.Make (Interp_common.Timestamp) (TQ.BFS) (Overlays.Typed_smt.Make_Z3 ()) (Concolic.Pause.Lwt)
+module F = Concolic.Evaluator.Make (Interp_common.Timestamp) (TQ.BFS) (Overlays.Typed_z3.Default) (Concolic.Pause.Lwt)
 
 let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
   Options.Arrow.make

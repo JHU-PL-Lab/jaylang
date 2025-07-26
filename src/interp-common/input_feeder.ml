@@ -22,12 +22,12 @@ let default : 'key t =
 (*
   Uses default as backup when key is undefined in the model.
 *)
-let of_smt_model (model : 'k Overlays.Typed_smt.model) ~(uid : 'k -> int) : 'k t =
+let of_smt_model (model : 'k Smt.Model.t) ~(uid : 'k -> int) : 'k t =
   let get (type a) (key : (a, 'k) Key.t) : a =
-    let s : (a, 'k) Overlays.Typed_smt.Symbol.t = 
+    let s : (a, 'k) Smt.Symbol.t = 
       match key with
-      | I k -> Overlays.Typed_smt.Symbol.make_int k uid
-      | B k -> Overlays.Typed_smt.Symbol.make_bool k uid
+      | I k -> Smt.Symbol.make_int k uid
+      | B k -> Smt.Symbol.make_bool k uid
     in
     match model.value s with
     | Some v -> v

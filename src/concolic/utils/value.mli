@@ -12,8 +12,8 @@
     symbolic expression.
 *)
 
-module Make (K : Overlays.Typed_smt.KEY) : sig
-  module Concolic_value : Utils.Equatable.P1 with type 'a t = 'a * ('a, K.t) Overlays.Typed_smt.t
+module Make (K : Smt.Symbol.KEY) : sig
+  module Concolic_value : Utils.Equatable.P1 with type 'a t = 'a * ('a, K.t) Smt.Formula.t
   (** [Concolic_value] has a type ['a t] to represent concolic values: values that
       are a pair of a concrete value ['a] and symbolic expression keyed by the provided key. *)
 
