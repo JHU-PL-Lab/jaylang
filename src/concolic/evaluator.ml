@@ -243,8 +243,11 @@ module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S)
       )
     ) ~finish:fst
 
-  let rec step : Embedded.t -> K.t eval -> has_pruned:bool -> has_unknown:bool -> TQ.t -> Status.Terminal.t P.t =
-    fun e eval ~has_pruned ~has_unknown tq ->
+  (*
+    Falls back on all-zero input feeder on first run and default feeder after that.
+  *)
+  let rec c_loop : Embedded.t -> K.t eval -> TQ.t -> run_num:int -> Status.Terminal.t P.t =
+    fun e eval tq ~run_num ->
       let open P in
       let* () = pause () in
       let t0 = Caml_unix.gettimeofday () in
@@ -254,59 +257,46 @@ module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S)
         let solve_result = Solve.solve (Target.to_expressions target) in
         let t1 = Caml_unix.gettimeofday () in
         let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
+        let* () = pause () in
         match solve_result with
         | Sat model -> begin
-            let feeder = Interp_common.Input_feeder.of_smt_model model ~uid:K.uid in
-            let* () = pause () in
+            let feeder = 
+              Interp_common.Input_feeder.of_smt_model 
+                model 
+                ~uid:K.uid 
+                ~fallback_feeder:(if run_num = 0 then Interp_common.Input_feeder.zero else Interp_common.Input_feeder.default)
+            in
             let status, path = eval e feeder ~max_step:(Step O.r.global_max_step) in
             let t2 = Caml_unix.gettimeofday () in
             let _ : float = Utils.Safe_cell.map (fun t -> t +. (t2 -. t1)) global_runtime in
             match status with
             | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
             | Finished { final_step } ->
-              let has_pruned = 
-                has_pruned 
-                || Interp_common.Step.to_int final_step > O.r.global_max_step 
+              let was_pruned = 
+                Interp_common.Step.to_int final_step > O.r.global_max_step 
                 || Path.length path > O.r.max_tree_depth
               in
               let targets = make_targets target path in
-              step e eval ~has_pruned ~has_unknown (TQ.push_list tq targets)
+              let* a = c_loop e eval (TQ.push_list tq targets) ~run_num:(run_num + 1) in
+              if was_pruned
+              then return (Status.min Exhausted_pruned_tree a)
+              else return a
           end
-        | Unknown -> let* () = pause () in step e eval ~has_pruned ~has_unknown:true tq
-        | Unsat -> let* () = pause () in step e eval ~has_pruned ~has_unknown tq
+        | Unknown -> let* a = c_loop e eval tq ~run_num:(run_num + 1) in return (Status.min Unknown a)
+        | Unsat -> c_loop e eval tq ~run_num:(run_num + 1)
       end
       | None ->
         let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_solvetime in
-        if has_unknown then
-          return Status.Unknown
-        else if has_pruned then
-          return Status.Exhausted_pruned_tree
-        else
-          return Status.Exhausted_full_tree
+        return Status.Exhausted_full_tree
 
   (*
-    We don't bootstrap using `step` with a target queue that has just the empty
-    target because we want the first run to use the `zero` input feeder.
-    But there's probably a better way to get this done.
-
     TODO: this should use the Options arrow instead of passing values in via a functor.
   *)
   let eval : Embedded.t -> K.t eval -> Status.Terminal.t P.t =
     fun e eval ->
       if not O.r.random then Interp_common.Rand.reset ();
       P.with_timeout O.r.global_timeout_sec @@ fun () ->
-        let t0 = Caml_unix.gettimeofday () in
-        let status, path = eval e Interp_common.Input_feeder.zero ~max_step:(Step O.r.global_max_step) in
-        let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_runtime in
-        match status with
-        | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
-        | Finished { final_step } ->
-          let has_pruned = 
-            Interp_common.Step.to_int final_step > O.r.global_max_step 
-            || Path.length path > O.r.max_tree_depth
-          in
-          let targets = make_targets Target.empty path in
-          step e eval ~has_pruned ~has_unknown:false (TQ.push_list empty_tq targets)
+        c_loop e eval (TQ.push_list empty_tq [ Target.empty ]) ~run_num:0
 end
 
 module TQ_Made = Target_queue.Make (Interp_common.Step)
