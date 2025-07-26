@@ -26,5 +26,5 @@
   utils
   )
  (preprocess
-  (pps ocaml-monadic ppx_sexp_conv ppx_compare ppx_hash))
+  (pps ocaml-monadic ppx_variants_conv ppx_sexp_conv ppx_compare ppx_hash))
 )

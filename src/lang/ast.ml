@@ -167,25 +167,11 @@ module Pattern = struct
     (* only Bluejay *)
     | PEmptyList : 'a bluejay_or_type_erased t
     | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_or_type_erased t
-
-  let to_rank : type a. a t -> int = function
-    | PAny -> 0
-    | PVariable _ -> 1
-    | PVariant _ -> 2
-    | PUntouchable _ -> 3
-    | PEmptyList -> 4
-    | PDestructList _ -> 5
-    | PInt -> 6
-    | PBool -> 7
-    | PType -> 8
-    | PRecord -> 9
-    | PModule -> 10
-    | PFun -> 11
-    | PUnit -> 12
+    [@@deriving variants]
 
   let cmp : type a. a t -> a t -> [ `LT | `GT | `Eq of (Ident.t * Ident.t) list ] =
     fun a b ->
-      match Int.compare (to_rank a) (to_rank b) with
+      match Int.compare (Variants.to_rank a) (Variants.to_rank b) with
       | 0 -> begin
         match a, b with
         | PAny, PAny -> `Eq []
@@ -353,7 +339,7 @@ module Expr = struct
       | SFun fs -> [ func_id_of_funsig fs ]
       | SFunRec fss -> List.map fss ~f:func_id_of_funsig
 
-    (* Completely arbitrary rank. PPX libs can't do this automatically on a GADT. *)
+    (* Completely arbitrary rank. PPX libs can't do this with mutually recursive types, apparently. *)
     let to_rank : type a. a t -> int = function
       | EInt _ -> 0            | EBool _ -> 1      | EVar _ -> 2               | EBinop _ -> 3
       | EIf _ -> 4             | ELet _ -> 5       | EAppl _ -> 6              | EMatch _ -> 7

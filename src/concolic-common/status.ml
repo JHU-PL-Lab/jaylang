@@ -11,13 +11,19 @@ type _ t =
   | Unbound_variable : Interp_common.Input.t list * Lang.Ast.Ident.t -> 'a t
 
   (* result from entire concolic evaluation *)
-  | Exhausted_full_tree : 'a terminal t
-  | Exhausted_pruned_tree : 'a terminal t
-  | Unknown : 'a terminal t (* due to solver timeout, but continued otherwise with no error found *)
   | Timeout : 'a terminal t
+  | Unknown : 'a terminal t (* due to solver timeout, but continued otherwise with no error found *)
+  | Exhausted_pruned_tree : 'a terminal t
+  | Exhausted_full_tree : 'a terminal t
 
   (* result from a single run *)
   | Finished : { final_step : Interp_common.Step.t } -> 'a eval t
+  [@@deriving variants]
+
+let min (type a) (x : a t) (y : a t) : a t =
+  if Variants.to_rank x < Variants.to_rank y
+  then x
+  else y
 
 let is_terminal (type a) (x : a t) : bool =
   match x with

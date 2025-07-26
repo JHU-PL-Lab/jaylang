@@ -226,7 +226,7 @@ let global_runtime = Utils.Safe_cell.create 0.0
 let global_solvetime = Utils.Safe_cell.create 0.0
 
 module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S)
-  (S : Smt.Formula.SOLVABLE) (P : Pause.S) (O : Options.V) = struct
+  (S : Smt.Formula.SOLVABLE) (P : Pause.S)(O : Options.V) = struct
   module Solve = Smt.Formula.Make_solver (S)
 
   let empty_tq = Options.Arrow.appl TQ.of_options O.r ()
