@@ -244,7 +244,7 @@ module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S)
     ) ~finish:fst
 
   (*
-    Falls back on all-zero input feeder on first run and default feeder after that.
+    Falls back on all-zero input feeder on first run and default (random) feeder after that.
   *)
   let rec c_loop : Embedded.t -> K.t eval -> TQ.t -> run_num:int -> Status.Terminal.t P.t =
     fun e eval tq ~run_num ->
