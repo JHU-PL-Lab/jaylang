@@ -270,13 +270,10 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
   run (res_to_err (begin_stern_loop expr))
 
 module TQ = Concolic.Target_queue.Make (Interp_common.Timestamp)
-module F = Concolic.Evaluator.Make (Interp_common.Timestamp) (TQ.BFS) (Overlays.Typed_z3.Default) (Concolic.Pause.Lwt)
+module M = Concolic.Evaluator.Make (Interp_common.Timestamp) (TQ.BFS) (Overlays.Typed_z3.Default) (Concolic.Pause.Lwt)
 
-let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
-  Options.Arrow.make
-  @@ fun r e ->
-    let module E = F (struct let r = r end) in
-    E.eval e eval_exp
+let deferred_c_loop : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
+  M.c_loop eval_exp
 
 (*
   TODO: the following should be done using Concolic.Driver
@@ -284,7 +281,7 @@ let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
 open Options.Arrow
 
 let test_with_timeout : (Lang.Ast.Embedded.t, Status.Terminal.t) Options.Arrow.t =
-  lwt_eval
+  deferred_c_loop
   >>^ fun res_status ->
     try Lwt_main.run res_status with
     | Lwt_unix.Timeout -> Timeout

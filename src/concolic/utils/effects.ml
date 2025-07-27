@@ -27,8 +27,8 @@ module Err = struct
     Status.Found_abort (State.inputs s, "Nondeterminism used when not allowed."), s
   let fail_on_fetch (id : Ident.t) (s : State.t) : t * State.t =
     Status.Unbound_variable (State.inputs s, id), s
-  let fail_on_max_step (step : int) (s : State.t) : t * State.t =
-    Status.Finished { final_step = Step step }, s
+  let fail_on_max_step (_step : int) (s : State.t) : t * State.t =
+    Status.Reached_max_step, s
 end
 
 include Interp_common.Effects.Make (State) (Value.Env) (Err)
@@ -42,8 +42,7 @@ let type_mismatch (msg : string) : 'a m =
   fail (Status.Type_mismatch (State.inputs s, msg))
 
 let vanish : 'a m =
-  let%bind final_step = step in
-  fail @@ Status.Finished { final_step }
+  fail Status.Finished
 
 let push_branch (dir : k Direction.t) : unit m =
   if match dir with
@@ -69,6 +68,6 @@ let get_input (type a) (make_key : Step.t -> a Feeder.Key.t) (feeder : Step.t In
 
 let run (x : 'a m) : Status.Eval.t * k Path.t =
   match run x State.empty Read.empty with
-  | Ok _, state, final_step ->
-    Status.Finished { final_step }, state.path
+  | Ok _, state, _ ->
+    Status.Finished, state.path
   | Error e, state, _ -> e, state.path

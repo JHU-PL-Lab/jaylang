@@ -32,7 +32,8 @@ type _ t =
   | Exhausted_full_tree : 'a terminal t
 
   (* result from a single run *)
-  | Finished : { final_step : Interp_common.Step.t } -> 'a eval t
+  | Reached_max_step : 'a eval t
+  | Finished : 'a eval t
 
 val min : 'a t -> 'a t -> 'a t
 (** [min x y] is the minimum of [x] and [y] as is defined by the ordering: the

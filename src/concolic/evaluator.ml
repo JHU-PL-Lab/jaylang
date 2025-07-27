@@ -225,86 +225,84 @@ let eager_eval
 let global_runtime = Utils.Safe_cell.create 0.0
 let global_solvetime = Utils.Safe_cell.create 0.0
 
-module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S)
-  (S : Smt.Formula.SOLVABLE) (P : Pause.S)(O : Options.V) = struct
+let make_targets (target : 'k Target.t) (final_path : 'k Path.t) ~(max_tree_depth : int) : 'k Target.t list =
+  let stem = List.drop (Path.to_dirs final_path) (Target.path_n target) in
+  List.fold_until stem ~init:([], target) ~f:(fun (acc, target) dir ->
+    if Target.path_n target > max_tree_depth
+    then Stop acc
+    else Continue (
+      List.map (Direction.negations dir) ~f:(fun e -> Target.cons e target)
+      @ acc
+      , Target.cons (Direction.to_expression dir) target
+    )
+  ) ~finish:fst
+
+module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S) (S : Smt.Formula.SOLVABLE) (P : Pause.S) = struct
   module Solve = Smt.Formula.Make_solver (S)
 
-  let empty_tq = Options.Arrow.appl TQ.of_options O.r ()
-
-  let make_targets (target : 'k Target.t) (final_path : 'k Path.t) : 'k Target.t list =
-    let stem = List.drop (Path.to_dirs final_path) (Target.path_n target) in
-    List.fold_until stem ~init:([], target) ~f:(fun (acc, target) dir ->
-      if Target.path_n target > O.r.max_tree_depth
-      then Stop acc
-      else Continue (
-        List.map (Direction.negations dir) ~f:(fun e -> Target.cons e target)
-        @ acc
-        , Target.cons (Direction.to_expression dir) target
-      )
-    ) ~finish:fst
+  (* let empty_tq = Options.Arrow.appl TQ.of_options O.r () *)
 
   (*
     Falls back on all-zero input feeder on first run and default (random) feeder after that.
   *)
-  let rec c_loop : Embedded.t -> K.t eval -> TQ.t -> run_num:int -> Status.Terminal.t P.t =
-    fun e eval tq ~run_num ->
-      let open P in
-      let* () = pause () in
-      let t0 = Caml_unix.gettimeofday () in
-      match TQ.peek tq with
-      | Some target -> begin
-        let tq = TQ.remove tq target in
-        let solve_result = Solve.solve (Target.to_expressions target) in
-        let t1 = Caml_unix.gettimeofday () in
-        let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
+  let c_loop_body : Embedded.t -> K.t eval -> TQ.t -> run_num:int -> max_tree_depth:int -> max_step:Interp_common.Step.t -> Status.Terminal.t P.t =
+    fun e eval tq ~run_num ~max_tree_depth ~max_step ->
+      let rec loop tq ~run_num =
+        let open P in
         let* () = pause () in
-        match solve_result with
-        | Sat model -> begin
-            let feeder = 
-              Interp_common.Input_feeder.of_smt_model 
-                model 
-                ~uid:K.uid 
-                ~fallback_feeder:(if run_num = 0 then Interp_common.Input_feeder.zero else Interp_common.Input_feeder.default)
-            in
-            let status, path = eval e feeder ~max_step:(Step O.r.global_max_step) in
-            let t2 = Caml_unix.gettimeofday () in
-            let _ : float = Utils.Safe_cell.map (fun t -> t +. (t2 -. t1)) global_runtime in
-            match status with
-            | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
-            | Finished { final_step } ->
-              let was_pruned = 
-                Interp_common.Step.to_int final_step > O.r.global_max_step 
-                || Path.length path > O.r.max_tree_depth
+        let t0 = Caml_unix.gettimeofday () in
+        match TQ.peek tq with
+        | Some target -> begin
+          let tq = TQ.remove tq target in
+          let solve_result = Solve.solve (Target.to_expressions target) in
+          let t1 = Caml_unix.gettimeofday () in
+          let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
+          let* () = pause () in
+          match solve_result with
+          | Sat model -> begin
+              let feeder = 
+                Interp_common.Input_feeder.of_smt_model 
+                  model 
+                  ~uid:K.uid 
+                  ~fallback_feeder:(if run_num = 0 then Interp_common.Input_feeder.zero else Interp_common.Input_feeder.default)
               in
-              let targets = make_targets target path in
-              let* a = c_loop e eval (TQ.push_list tq targets) ~run_num:(run_num + 1) in
-              if was_pruned
-              then return (Status.min Exhausted_pruned_tree a)
-              else return a
-          end
-        | Unknown -> let* a = c_loop e eval tq ~run_num:(run_num + 1) in return (Status.min Unknown a)
-        | Unsat -> c_loop e eval tq ~run_num:(run_num + 1)
-      end
-      | None ->
-        let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_solvetime in
-        return Status.Exhausted_full_tree
+              let status, path = eval e feeder ~max_step in
+              let t2 = Caml_unix.gettimeofday () in
+              let _ : float = Utils.Safe_cell.map (fun t -> t +. (t2 -. t1)) global_runtime in
+              let k ~was_pruned = 
+                let targets = make_targets target path ~max_tree_depth in
+                let* a = loop (TQ.push_list tq targets) ~run_num:(run_num + 1) in
+                if was_pruned
+                then return (Status.min Exhausted_pruned_tree a)
+                else return a
+              in
+              match status with
+              | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
+              | Finished -> k ~was_pruned:(Path.length path > max_tree_depth)
+              | Reached_max_step -> k ~was_pruned:true
+            end
+          | Unknown -> let* a = loop tq ~run_num:(run_num + 1) in return (Status.min Unknown a)
+          | Unsat -> loop tq ~run_num:(run_num + 1)
+        end
+        | None ->
+          let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_solvetime in
+          return Status.Exhausted_full_tree
+        in
+      loop tq ~run_num
 
-  (*
-    TODO: this should use the Options arrow instead of passing values in via a functor.
-  *)
-  let eval : Embedded.t -> K.t eval -> Status.Terminal.t P.t =
-    fun e eval ->
-      if not O.r.random then Interp_common.Rand.reset ();
-      P.with_timeout O.r.global_timeout_sec @@ fun () ->
-        c_loop e eval (TQ.push_list empty_tq [ Target.empty ]) ~run_num:0
+  let c_loop : K.t eval -> (Embedded.t, Status.Terminal.t P.t) Options.Arrow.t =
+    fun eval ->
+    Options.Arrow.make
+    @@ fun r e ->
+      if not r.random then Interp_common.Rand.reset ();
+      P.with_timeout r.global_timeout_sec @@ fun () ->
+        let empty_tq = Options.Arrow.appl TQ.of_options r () in
+        c_loop_body e eval (TQ.push_list empty_tq [ Target.empty ]) 
+          ~run_num:0 ~max_tree_depth:r.max_tree_depth ~max_step:(Step r.global_max_step)
 end
 
 module TQ_Made = Target_queue.Make (Interp_common.Step)
-module F = Make (Interp_common.Step) (TQ_Made.All) (Overlays.Typed_z3.Default) (Pause.Lwt)
+module M = Make (Interp_common.Step) (TQ_Made.All) (Overlays.Typed_z3.Default) (Pause.Lwt)
 
-(* Uses eager evaluator *)
-let lwt_eval : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
-  Options.Arrow.make
-  @@ fun r e ->
-    let module E = F (struct let r = r end) in
-    E.eval e eager_eval
+let eager_c_loop : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
+  M.c_loop eager_eval 

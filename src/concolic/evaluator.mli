@@ -19,16 +19,19 @@ val global_solvetime : float Utils.Safe_cell.t
 
 type 'k eval = Lang.Ast.Embedded.t -> 'k Interp_common.Input_feeder.t -> 
   max_step:Interp_common.Step.t -> Concolic_common.Status.Eval.t * 'k Concolic_common.Path.t
+(** ['k eval] is the type of functions that concolically evaluate programs to a path
+    made of concolic formulas keyed by ['k]. *)
 
-(* One single run of the concolic evaluator, sans loop *)
 val eager_eval : Interp_common.Step.t eval
+(** [eager_eval] is an eager concolic evaluator with standard eager semantics. *)
 
 module Make : functor (K : Smt.Symbol.KEY) (_ : Target_queue.Make(K).S)
-  (_ : Smt.Formula.SOLVABLE) (P : Pause.S) (_ : Concolic_common.Options.V) -> sig
-  val eval : Lang.Ast.Embedded.t -> K.t eval -> Concolic_common.Status.Terminal.t P.t
-  (** [eval pgm] is the result of concolic evaluation on [pgm]. *)
+  (_ : Smt.Formula.SOLVABLE) (P : Pause.S) -> sig
+  val c_loop : K.t eval -> (Lang.Ast.Embedded.t, Concolic_common.Status.Terminal.t P.t) Concolic_common.Options.Arrow.t
+  (** [c_loop eval pgm] is the result of concolic looping on [pgm] using the concolic
+      evaluation function [eval]. *)
 end
 
-val lwt_eval : (Lang.Ast.Embedded.t, Concolic_common.Status.Terminal.t Lwt.t) Concolic_common.Options.Arrow.t
-(** [lwt_eval pgm] is the result of concolic evaluation on [pgm] using the default
+val eager_c_loop : (Lang.Ast.Embedded.t, Concolic_common.Status.Terminal.t Lwt.t) Concolic_common.Options.Arrow.t
+(** [eager_c_loop pgm] is the result of concolic evaluation on [pgm] using the default
     global [Solve.S] module and eager evaluation. *)
