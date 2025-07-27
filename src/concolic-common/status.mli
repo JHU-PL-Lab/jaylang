@@ -43,11 +43,11 @@ val min : 'a t -> 'a t -> 'a t
 
 val is_terminal : 'a t -> bool
 (** [is_terminal status] is true if and only if the [status] indicates the end
-    of all concolic evaluation (e.g. that the entire path tree was exhausted). *)
+    of the concolic evaluation loop (e.g. that the entire path tree was exhausted). *)
 
 val is_error_found : 'a t -> bool
 (** [is_error_found status] is true if and only if the [status] indicates that
-    an error was positively found in the target program. *)
+    an error was found in the target program. *)
 
 val to_string : 'a t -> string
 (** [to_string status] is a nice string representation of the [status]. *)

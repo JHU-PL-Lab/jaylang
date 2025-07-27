@@ -240,8 +240,6 @@ let make_targets (target : 'k Target.t) (final_path : 'k Path.t) ~(max_tree_dept
 module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S) (S : Smt.Formula.SOLVABLE) (P : Pause.S) = struct
   module Solve = Smt.Formula.Make_solver (S)
 
-  (* let empty_tq = Options.Arrow.appl TQ.of_options O.r () *)
-
   (*
     Falls back on all-zero input feeder on first run and default (random) feeder after that.
   *)

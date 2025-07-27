@@ -7,9 +7,6 @@
     already-parsed Bluejay programs. The translator is run according
     to the [do_wrap] named argument, as well as with consideration for
     all of the provided optional arguments.
-
-  Dependencies:
-    Basically everything in the `concolic/` directory.
 *)
 
 

@@ -16,8 +16,11 @@
 type 'k t
 
 val empty : 'k t
+(** [empty] is the target with no formulas. i.e. it is unconstrained. *)
 
 val cons : (bool, 'k) Smt.Formula.t -> 'k t -> 'k t
+(** [cons formula t] is a new target, with a new unique id used for comparison,
+    made from pushing the [formula] to the given target [t]. *)
 
 val compare : 'k t -> 'k t -> int
 (** [compare a b] uses the unique identifiers in [a] and [b] to compare,
