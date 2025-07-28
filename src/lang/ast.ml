@@ -772,10 +772,12 @@ module Expr = struct
 
     let rec to_string : type a. a t -> string = fun e ->
       let top = op_precedence e in
-      (*puts parens on args for multi-arg constructors*)
+      (* Adds parentheses when the child has higher parse precedence than the
+         parent. *)
       let ppp_gt e p_top p_child =
         if p_child > p_top then "(" ^ (to_string e) ^ ")" else to_string e in
-      (*puts parens on args for single-arg constructors*)
+      (* Adds parentheses when the child has higher or equal parse precedence
+         when compared to the parent. *)
       let ppp_ge e p_top p_child =
         if p_child >= p_top then "(" ^ (to_string e) ^ ")" else to_string e in
       match e with
@@ -843,31 +845,32 @@ module Expr = struct
         let cases_eval = String.concat ~sep:"\n| "
           @@ (List.map ~f:(fun (num, case) -> Format.sprintf "%d -> %s" num (to_string case))) cases in
         let default_eval = Format.sprintf "\n| %s\n" (to_string default) in
-        Format.sprintf "case» %s of %s%s" subject_eval cases_eval default_eval
-      | EFreeze e -> (*what is a as a???*)
-        Format.sprintf "freeze» %s" (ppp_ge e top (op_precedence e))
+        Format.sprintf "#case %s of %s%s" subject_eval cases_eval default_eval
+      | EFreeze e ->
+        Format.sprintf "#freeze %s" (ppp_ge e top (op_precedence e))
       | EThaw c ->
         Format.sprintf "thaw» %s" (Cell.to_string (fun e -> ppp_ge e top (op_precedence e)) c)
       | EId -> "fun x -> x"
       | EIgnore { ignored ; body } -> (* simply sugar for `let _ = ignored in body` but is more efficient *)
         let ignored_eval = to_string ignored in
         let body_eval = ppp_gt body top (op_precedence body) in
-        Format.sprintf "let _ =%s in %s" ignored_eval body_eval
-      | ETable -> "table»"
+        Format.sprintf "#ignore %s in %s" ignored_eval body_eval
+      | ETable -> "#table"
       | ETblAppl { tbl ; gen ; arg } ->
-        Format.sprintf "table_appl» (%s, %s, %s)" (to_string tbl) (to_string gen) (to_string arg)
+        Format.sprintf "#table_appl (%s, %s, %s)" (to_string tbl) (to_string gen) (to_string arg)
       | EDet e ->
-        Format.sprintf "det» %s" (ppp_ge e top (op_precedence e))
+        Format.sprintf "#det %s" (ppp_ge e top (op_precedence e))
       | EEscapeDet e ->
-        Format.sprintf "escapeDet» %s" (ppp_ge e top (op_precedence e))
-      | EIntensionalEqual _ -> "=~~="
+        Format.sprintf "#escapeDet %s" (ppp_ge e top (op_precedence e))
+      | EIntensionalEqual { left; right } ->
+        Format.sprintf "#intensionalEqual %s %s" (ppp_ge left top (op_precedence e)) (ppp_ge right top (op_precedence e))
       | EUntouchable e ->
-        Format.sprintf "untouchable» %s" (ppp_ge e top (op_precedence e))
+        Format.sprintf "#untouchable %s" (ppp_ge e top (op_precedence e))
       (* these exist in the desugared and embedded languages *)
-      | EAbort m -> Format.sprintf "abort»:%s" (Cell.to_string (fun x ->x) m)  (* string is error message *)
-      | EVanish _ -> "vanish»"
+      | EAbort m -> Format.sprintf "#abort:%s" (Cell.to_string (fun x ->x) m)  (* string is error message *)
+      | EVanish _ -> "#vanish"
       (* only the desugared language *)
-      | EGen _ -> "gen»" (* Cannot be interpreted. Is only an intermediate step in translation *)
+      | EGen _ -> "#gen" (* Cannot be interpreted. Is only an intermediate step in translation *)
       (* these exist in the bluejay and desugared languages *)
       | EType -> "type"
       | ETypeInt -> "int"
@@ -917,8 +920,6 @@ module Expr = struct
       | EMultiArgFunction { params ; body } ->
         let params_eval = (String.concat ~sep:" " @@ List.map ~f:(fun (Ident s) -> s) params) in
         Format.sprintf "(fun %s -> %s)" params_eval (ppp_gt body top (op_precedence body))
-      (* | ELetFun : { func : 'a funsig ; body : 'a t } -> 'a bluejay_or_type_erased t
-         | ELetFunRec : { funcs : 'a funsig list ; body : 'a t } -> 'a bluejay_or_type_erased t *)
       | ELetFun {func; body} -> Format.sprintf "let %s in %s" (funsig_to_string func) (to_string body)
       | ELetFunRec {funcs; body} -> Format.sprintf "let rec %s in %s" (String.concat ~sep:"\nand " (List.map funcs ~f:(funsig_to_string))) (to_string body)
       (* bluejay only *)
