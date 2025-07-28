@@ -1252,6 +1252,25 @@ module Bluejay = struct
     | EModule stmt_ls -> is_deterministic_pgm stmt_ls
 end
 
+type _ language =
+  | BluejayLanguage : Bluejay.statement list language
+  | DesugaredLanguage : Desugared.statement list language
+  | EmbeddedLanguage : Embedded.statement list language
+;;
+
+type some_language =
+  | SomeLanguage : _ language -> some_language
+
+type some_program =
+  | SomeProgram : 'a language * 'a -> some_program
+
+let extension_to_language (ext : string) : some_language option =
+  match ext with
+  | ".bjy" -> Some (SomeLanguage BluejayLanguage)
+  | ".djy" -> Some (SomeLanguage DesugaredLanguage)
+  | ".ejy" -> Some (SomeLanguage EmbeddedLanguage)
+  | _ -> None
+
 module Parsing_tools = struct
   let empty_record = RecordLabel.Map.empty
 

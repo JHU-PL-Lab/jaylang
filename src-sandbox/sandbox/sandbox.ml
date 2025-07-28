@@ -1,6 +1,6 @@
 open Core
 
-open Lang.Parse
+open Lang.Parser.Bluejay
 
 open Lang.Ast.Expr
 open Lang.Ast_tools.Utils

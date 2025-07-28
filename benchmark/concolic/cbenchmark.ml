@@ -63,7 +63,7 @@ module Report_row (* : Latex_table.ROW *) = struct
       let t0 = Caml_unix.gettimeofday () in
       let source =
         In_channel.read_all testname
-        |> Lang.Parse.parse_single_pgm_string
+        |> Lang.Parser.Bluejay.parse_single_pgm_string
       in
       let test_result = runtest source in
       let t1 = Caml_unix.gettimeofday () in

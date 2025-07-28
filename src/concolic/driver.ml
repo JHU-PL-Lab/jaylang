@@ -15,8 +15,8 @@ type 'a test = ('a, do_wrap:bool -> do_type_splay:bool -> Status.Terminal.t) Opt
 let test_with_timeout : (Lang.Ast.Embedded.t, Status.Terminal.t) Options.Arrow.t =
   Evaluator.eager_c_loop
   >>^ fun res_status ->
-    try Lwt_main.run res_status with
-    | Lwt_unix.Timeout -> Timeout
+  try Lwt_main.run res_status with
+  | Lwt_unix.Timeout -> Timeout
 
 (*
   --------------------
@@ -27,10 +27,10 @@ let test_with_timeout : (Lang.Ast.Embedded.t, Status.Terminal.t) Options.Arrow.t
 module Compute (O : Options.V) = struct
   module Compute_result = struct
     include Preface.Make.Monoid.Via_combine_and_neutral (struct
-      type t = Status.Terminal.t
-      let neutral : t = Exhausted_full_tree
-      let combine : t -> t -> t =
-        fun a b ->
+        type t = Status.Terminal.t
+        let neutral : t = Exhausted_full_tree
+        let combine : t -> t -> t =
+          fun a b ->
           let open Status in
           match a, b with
           (* keep the message that says to quit *)
@@ -41,7 +41,7 @@ module Compute (O : Options.V) = struct
           | Unknown, _ | _, Unknown -> Unknown
           | Exhausted_pruned_tree, _ | _, Exhausted_pruned_tree -> Exhausted_pruned_tree
           | Exhausted_full_tree, Exhausted_full_tree -> Exhausted_full_tree
-    end)
+      end)
 
     let is_signal_to_quit : t -> bool = Status.is_error_found
     let timeout_res : t = Timeout
@@ -55,14 +55,14 @@ module Compute (O : Options.V) = struct
 
     let run : t -> Compute_result.t =
       fun expr ->
-        (* makes a new solver for this thread *)
-        let module E = Eval (Overlays.Typed_z3.Make ()) in
-        Pause.Id.run
-        @@ Options.Arrow.appl (E.c_loop Evaluator.eager_eval) O.r expr
+      (* makes a new solver for this thread *)
+      let module E = Eval (Overlays.Typed_z3.Make ()) in
+      Pause.Id.run
+      @@ Options.Arrow.appl (E.c_loop Evaluator.eager_eval) O.r expr
 
     let run_with_internal_timeout : t -> Compute_result.t =
       fun expr ->
-        Options.Arrow.appl test_with_timeout O.r expr
+      Options.Arrow.appl test_with_timeout O.r expr
   end
 
   let timeout_sec = O.r.global_timeout_sec
@@ -98,7 +98,7 @@ let test_bjy : Lang.Ast.Bluejay.pgm test =
 *)
 
 let test : Filename.t test =
-  (fun s -> Lang.Parse.parse_single_pgm_string @@ In_channel.read_all s)
+  (fun s -> Lang.Parser.Bluejay.parse_single_pgm_string @@ In_channel.read_all s)
   ^>> test_bjy
 
 (*
@@ -113,10 +113,13 @@ let ceval =
   Cmd.v (Cmd.info "ceval") @@
   let+ concolic_args = Options.cmd_arg_term
   and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
-  and+ bjy_pgm = Lang.Parse.parse_bjy_file_from_argv in
-  Options.Arrow.appl
-    test_bjy
-    concolic_args
-    bjy_pgm
-    ~do_wrap
-    ~do_type_splay
+  and+ pgm = Lang.Parser.parse_program_from_argv in
+  match pgm with
+  | Lang.Ast.SomeProgram (BluejayLanguage, bjy_pgm) ->
+    Options.Arrow.appl
+      test_bjy
+      concolic_args
+      bjy_pgm
+      ~do_wrap
+      ~do_type_splay
+  | _ -> failwith "TODO"

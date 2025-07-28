@@ -14,9 +14,9 @@ type 'a res =
 
 let res_to_err (type a) (x : a res Ceffects.s) : a V.v Ceffects.m =
   Ceffects.bind (Ceffects.make_unsafe x) (function
-    | V v -> Ceffects.return v
-    | E e -> Ceffects.fail e
-  )
+      | V v -> Ceffects.return v
+      | E e -> Ceffects.fail e
+    )
 
 let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
   fun expr input_feeder ~max_step ->
@@ -36,85 +36,85 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
     | EPick_b -> get_input Interp_common.Key.Timekey.bool_ input_feeder
     (* operations *)
     | EBinop { left ; binop ; right } -> begin
-      let%bind vleft = stern_eval left in
-      let%bind vright = stern_eval right in
-      let k f e1 e2 op =
-        return @@ f (Smt.Formula.binop op e1 e2)
-      in
-      let open Smt.Binop in
-      let v_int n = fun e -> VInt (n, e) in
-      let v_bool b = fun e -> VBool (b, e) in
-      match binop, vleft, vright with
-      | BPlus        , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_int (n1 + n2)) e1 e2 Plus
-      | BMinus       , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_int (n1 - n2)) e1 e2 Minus
-      | BTimes       , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_int (n1 * n2)) e1 e2 Times
-      | BDivide      , VInt (n1, e1)  , VInt (n2, e2) when n2 <> 0 -> k (v_int (n1 / n2)) e1 e2 Divide
-      | BModulus     , VInt (n1, e1)  , VInt (n2, e2) when n2 <> 0 -> k (v_int (n1 mod n2)) e1 e2 Modulus
-      | BEqual       , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 = n2)) e1 e2 Equal
-      | BEqual       , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool Bool.(b1 = b2)) e1 e2 Equal
-      | BNeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 <> n2)) e1 e2 Not_equal
-      | BLessThan    , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 < n2)) e1 e2 Less_than
-      | BLeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 <= n2)) e1 e2 Less_than_eq
-      | BGreaterThan , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 > n2)) e1 e2 Greater_than
-      | BGeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 >= n2)) e1 e2 Greater_than_eq
-      | BOr          , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 || b2)) e1 e2 Or
-      | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> return @@ VBool (b1 && b2, Smt.Formula.and_ [ e1 ; e2 ])
-      | _ -> type_mismatch @@ Error_msg.bad_binop vleft binop vright
-    end
-    | ENot expr -> begin
-      match%bind stern_eval expr with
-      | VBool (b, e_b) -> return @@ VBool (not b, Smt.Formula.not_ e_b)
-      | v -> type_mismatch @@ Error_msg.bad_not v
-    end
-    | EProject { record ; label } -> begin
-      match%bind stern_eval record with
-      | (VRecord body | VModule body) as v -> begin
-        match Map.find body label with
-        | Some v -> return (V.cast_up v)
-        | None -> type_mismatch @@ Error_msg.project_missing_label label v
+        let%bind vleft = stern_eval left in
+        let%bind vright = stern_eval right in
+        let k f e1 e2 op =
+          return @@ f (Smt.Formula.binop op e1 e2)
+        in
+        let open Smt.Binop in
+        let v_int n = fun e -> VInt (n, e) in
+        let v_bool b = fun e -> VBool (b, e) in
+        match binop, vleft, vright with
+        | BPlus        , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_int (n1 + n2)) e1 e2 Plus
+        | BMinus       , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_int (n1 - n2)) e1 e2 Minus
+        | BTimes       , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_int (n1 * n2)) e1 e2 Times
+        | BDivide      , VInt (n1, e1)  , VInt (n2, e2) when n2 <> 0 -> k (v_int (n1 / n2)) e1 e2 Divide
+        | BModulus     , VInt (n1, e1)  , VInt (n2, e2) when n2 <> 0 -> k (v_int (n1 mod n2)) e1 e2 Modulus
+        | BEqual       , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 = n2)) e1 e2 Equal
+        | BEqual       , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool Bool.(b1 = b2)) e1 e2 Equal
+        | BNeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 <> n2)) e1 e2 Not_equal
+        | BLessThan    , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 < n2)) e1 e2 Less_than
+        | BLeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 <= n2)) e1 e2 Less_than_eq
+        | BGreaterThan , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 > n2)) e1 e2 Greater_than
+        | BGeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 >= n2)) e1 e2 Greater_than_eq
+        | BOr          , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 || b2)) e1 e2 Or
+        | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> return @@ VBool (b1 && b2, Smt.Formula.and_ [ e1 ; e2 ])
+        | _ -> type_mismatch @@ Error_msg.bad_binop vleft binop vright
       end
-      | v -> type_mismatch @@ Error_msg.project_non_record label v
-    end
+    | ENot expr -> begin
+        match%bind stern_eval expr with
+        | VBool (b, e_b) -> return @@ VBool (not b, Smt.Formula.not_ e_b)
+        | v -> type_mismatch @@ Error_msg.bad_not v
+      end
+    | EProject { record ; label } -> begin
+        match%bind stern_eval record with
+        | (VRecord body | VModule body) as v -> begin
+            match Map.find body label with
+            | Some v -> return (V.cast_up v)
+            | None -> type_mismatch @@ Error_msg.project_missing_label label v
+          end
+        | v -> type_mismatch @@ Error_msg.project_non_record label v
+      end
     (* control flow / branches *)
     | EMatch { subject ; patterns  } -> begin
-      let%bind v = stern_eval subject in
-      match
-        List.find_map patterns ~f:(fun (pat, body) ->
-          match V.matches v pat with
-          | `Matches -> Some (body, fun x -> x)
-          | `Matches_with (v', id) -> Some (body, Env.add id v')
-          | `No_match -> None
-        )
-      with
-      | Some (e, f) -> local_env f (eval e)
-      | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v
-    end
-    | EIf { cond ; true_body ; false_body } -> begin
-      match%bind stern_eval cond with
-      | VBool (b, e_b) ->
-        let%bind () = incr_time in
-        let body = if b then true_body else false_body in
-        let%bind () = push_branch (Direction.Bool_direction (b, e_b)) in
-        eval body
-      | v -> type_mismatch @@ Error_msg.cond_non_bool v
-    end
-    | ECase { subject ; cases ; default } -> begin
-      let int_cases = List.map cases ~f:Tuple2.get1 in
-      match%bind stern_eval subject with
-      | VInt (i, e_i) -> begin
-        let%bind () = incr_time in (* TODO: we should be able to delete this *)
-        let body_opt = List.find_map cases ~f:(fun (i', body) -> if i = i' then Some body else None) in
-        match body_opt with
-        | Some body -> 
-          let not_in = List.filter int_cases ~f:((<>) i) in
-          let%bind () = push_branch (Direction.Int_direction { dir = Case_int i ; expr = e_i ; not_in }) in
-          eval body
-        | None -> 
-          let%bind () = push_branch (Direction.Int_direction { dir = Case_default ; expr = e_i ; not_in = int_cases }) in
-          eval default
+        let%bind v = stern_eval subject in
+        match
+          List.find_map patterns ~f:(fun (pat, body) ->
+              match V.matches v pat with
+              | `Matches -> Some (body, fun x -> x)
+              | `Matches_with (v', id) -> Some (body, Env.add id v')
+              | `No_match -> None
+            )
+        with
+        | Some (e, f) -> local_env f (eval e)
+        | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v
       end
-      | v -> type_mismatch @@ Error_msg.case_non_int v
-    end
+    | EIf { cond ; true_body ; false_body } -> begin
+        match%bind stern_eval cond with
+        | VBool (b, e_b) ->
+          let%bind () = incr_time in
+          let body = if b then true_body else false_body in
+          let%bind () = push_branch (Direction.Bool_direction (b, e_b)) in
+          eval body
+        | v -> type_mismatch @@ Error_msg.cond_non_bool v
+      end
+    | ECase { subject ; cases ; default } -> begin
+        let int_cases = List.map cases ~f:Tuple2.get1 in
+        match%bind stern_eval subject with
+        | VInt (i, e_i) -> begin
+            let%bind () = incr_time in (* TODO: we should be able to delete this *)
+            let body_opt = List.find_map cases ~f:(fun (i', body) -> if i = i' then Some body else None) in
+            match body_opt with
+            | Some body -> 
+              let not_in = List.filter int_cases ~f:((<>) i) in
+              let%bind () = push_branch (Direction.Int_direction { dir = Case_int i ; expr = e_i ; not_in }) in
+              eval body
+            | None -> 
+              let%bind () = push_branch (Direction.Int_direction { dir = Case_default ; expr = e_i ; not_in = int_cases }) in
+              eval default
+          end
+        | v -> type_mismatch @@ Error_msg.case_non_int v
+      end
     (* closures and applications *)
     | EFunction { param  ; body } ->
       let%bind { env ; _ } = read_env in
@@ -129,27 +129,27 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
       let%bind _ : V.t = eval ignored in
       eval body
     | EAppl { func ; arg } -> begin
-      match%bind stern_eval func with
-      | VId -> eval arg
-      | VFunClosure { param ; closure } ->
-        let%bind v = eval arg in 
-        local_env (fun _ -> Env.add param v closure.env) (eval closure.body)
-      | v -> type_mismatch @@ Error_msg.bad_appl v
-    end
+        match%bind stern_eval func with
+        | VId -> eval arg
+        | VFunClosure { param ; closure } ->
+          let%bind v = eval arg in 
+          local_env (fun _ -> Env.add param v closure.env) (eval closure.body)
+        | v -> type_mismatch @@ Error_msg.bad_appl v
+      end
     | EThaw expr -> begin
-      match%bind stern_eval expr with
-      | VFrozen closure ->
-        local_env (fun _ -> closure.env) (eval closure.body)
-      | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
-    end
+        match%bind stern_eval expr with
+        | VFrozen closure ->
+          local_env (fun _ -> closure.env) (eval closure.body)
+        | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
+      end
     (* modules, records, and variants  *)
     | ERecord label_map ->
       let%bind value_record_body =
         Map.fold label_map ~init:(return Lang.Ast.RecordLabel.Map.empty) ~f:(fun ~key ~data:e acc_m ->
-          let%bind acc = acc_m in
-          let%bind v = eval e in
-          return @@ Map.set acc ~key ~data:v
-        )
+            let%bind acc = acc_m in
+            let%bind v = eval e in
+            return @@ Map.set acc ~key ~data:v
+          )
       in
       return @@ VRecord value_record_body
     | EVariant { label ; payload } ->
@@ -204,33 +204,33 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
     let%bind () = incr_step ~max_step in
     V.split v
       ~symb:(fun ((VSymbol t) as sym) ->
-        let%bind s = get in
-        match Time_map.find_opt t s.symbol_env with
-        | Some v -> 
-          let%bind () = incr_n_stern_steps in
-          return v
-        | None -> 
-          (* evaluate the deferred proof for this symbol *)
-          (* if this fails, the greater symbols get removed, and this error propagates *)
-          let%bind v = run_on_deferred_proof sym stern_eval in
-          (* update the symbol environment to contain the result  *)
-          let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v s.symbol_env }) in
-          return v
-      )
+          let%bind s = get in
+          match Time_map.find_opt t s.symbol_env with
+          | Some v -> 
+            let%bind () = incr_n_stern_steps in
+            return v
+          | None -> 
+            (* evaluate the deferred proof for this symbol *)
+            (* if this fails, the greater symbols get removed, and this error propagates *)
+            let%bind v = run_on_deferred_proof sym stern_eval in
+            (* update the symbol environment to contain the result  *)
+            let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v s.symbol_env }) in
+            return v
+        )
       ~whnf:(fun v ->
-        (* optionally choose to work on a deferred proof here *)
-        let%bind () = incr_n_stern_steps in
-        let%bind s = get in
-        let%bind b = should_work_on_deferred in
-        if b && not (Time_map.is_empty s.pending_proofs) then
-          let (t, _) = Time_map.choose s.pending_proofs in
-          let%bind v' = run_on_deferred_proof (VSymbol t) stern_eval in
-          let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
-          return v
-        else 
-          (* chose not to work on a deferred proof, or there are no proofs to work on *)
-          return v
-      )
+          (* optionally choose to work on a deferred proof here *)
+          let%bind () = incr_n_stern_steps in
+          let%bind s = get in
+          let%bind b = should_work_on_deferred in
+          if b && not (Time_map.is_empty s.pending_proofs) then
+            let (t, _) = Time_map.choose s.pending_proofs in
+            let%bind v' = run_on_deferred_proof (VSymbol t) stern_eval in
+            let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
+            return v
+          else 
+            (* chose not to work on a deferred proof, or there are no proofs to work on *)
+            return v
+        )
 
   (* 
     This does not monadically error.
@@ -246,13 +246,13 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
       (* Do some cleanup by running this timestamp *)
       handle_error (run_on_deferred_proof (VSymbol t) stern_eval)
         (fun v' ->
-          (* deferred proof evaluated. Put it into the map, and continue on looping. It doesn't affect the final value *)
-          let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
-          clean_up_deferred final)
+           (* deferred proof evaluated. Put it into the map, and continue on looping. It doesn't affect the final value *)
+           let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
+           clean_up_deferred final)
         (function 
           (* | (Concolic.Status.Reach_max_step _) as e -> (* LOUD FIXME: need a status for reach max step, but each step will just re-throw, so this is result-like error propagation currently *)
-            (* ran out of steps running deferred proof. Give up totally and say so. *)
-            return (Res.E e) *)
+             (* ran out of steps running deferred proof. Give up totally and say so. *)
+             return (Res.E e) *)
           | e ->
             (* deferred proof errored. This means the final value should be overwritten with this new error *)
             clean_up_deferred (E e))
@@ -264,7 +264,7 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
         (fun e -> return (E e))
     in
     clean_up_deferred r
-  
+
   in
 
   run (res_to_err (begin_stern_loop expr))
@@ -283,8 +283,8 @@ open Options.Arrow
 let test_with_timeout : (Lang.Ast.Embedded.t, Status.Terminal.t) Options.Arrow.t =
   deferred_c_loop
   >>^ fun res_status ->
-    try Lwt_main.run res_status with
-    | Lwt_unix.Timeout -> Timeout
+  try Lwt_main.run res_status with
+  | Lwt_unix.Timeout -> Timeout
 
 let test_bjy =
   Options.Arrow.make
@@ -301,7 +301,7 @@ let test_bjy =
 *)
 
 let test =
-  (fun s -> Lang.Parse.parse_single_pgm_string @@ In_channel.read_all s)
+  (fun s -> Lang.Parser.Bluejay.parse_single_pgm_string @@ In_channel.read_all s)
   ^>> test_bjy
 
 (*
@@ -316,10 +316,13 @@ let cdeval =
   Cmd.v (Cmd.info "cdeval") @@
   let+ concolic_args = Options.cmd_arg_term
   and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
-  and+ bjy_pgm = Lang.Parse.parse_bjy_file_from_argv in
-  Options.Arrow.appl
-    test_bjy
-    concolic_args
-    bjy_pgm
-    ~do_wrap
-    ~do_type_splay
+  and+ pgm = Lang.Parser.parse_program_from_argv in
+  match pgm with
+  | Lang.Ast.SomeProgram (BluejayLanguage, bjy_pgm) ->
+    Options.Arrow.appl
+      test_bjy
+      concolic_args
+      bjy_pgm
+      ~do_wrap
+      ~do_type_splay
+  | _ -> failwith "TODO"

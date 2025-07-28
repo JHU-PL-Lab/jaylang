@@ -1,16 +1,14 @@
-
-
-(copy_files# parse-bluejay/*.{ml,mli})
-(copy_files parse-bluejay/*.{mll,mly})
+(copy_files# parsers/*.{ml,mli})
+(copy_files parsers/*.{mll,mly})
 
 (ocamllex
-  lexer
+  bluejayLexerDesc
 )
 
 (menhir
   (flags --explain)
   (modules
-    parser
+    bluejayParserDesc
   )
 )
 

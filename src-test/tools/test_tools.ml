@@ -2,7 +2,7 @@ open Core
 (* open Concolic *)
 open Utils
 
-open Lang.Parse
+open Lang.Parser.Bluejay
 
 open Lang.Ast.Expr
 
