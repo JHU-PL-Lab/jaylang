@@ -225,17 +225,17 @@ let eager_eval
 let global_runtime = Utils.Safe_cell.create 0.0
 let global_solvetime = Utils.Safe_cell.create 0.0
 
-let make_targets (target : 'k Target.t) (final_path : 'k Path.t) ~(max_tree_depth : int) : 'k Target.t list =
+let make_targets (target : 'k Target.t) (final_path : 'k Path.t) ~(max_tree_depth : int) : 'k Target.t list * [ `Pruned of bool ] =
   let stem = List.drop (Path.to_dirs final_path) (Target.path_n target) in
   List.fold_until stem ~init:([], target) ~f:(fun (acc, target) dir ->
     if Target.path_n target > max_tree_depth
-    then Stop acc
+    then Stop (acc, `Pruned true)
     else Continue (
       List.map (Direction.negations dir) ~f:(fun e -> Target.cons e target)
       @ acc
       , Target.cons (Direction.to_expression dir) target
     )
-  ) ~finish:fst
+  ) ~finish:(fun (acc, _) -> acc, `Pruned false)
 
 module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S) (S : Smt.Formula.SOLVABLE) (P : Pause.S) = struct
   module Solve = Smt.Formula.Make_solver (S)
@@ -267,17 +267,17 @@ module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S) (S : Smt.Formula.
               let status, path = eval e feeder ~max_step in
               let t2 = Caml_unix.gettimeofday () in
               let _ : float = Utils.Safe_cell.map (fun t -> t +. (t2 -. t1)) global_runtime in
-              let k ~was_pruned = 
-                let targets = make_targets target path ~max_tree_depth in
+              let k ~reached_max_step = 
+                let targets, `Pruned is_pruned = make_targets target path ~max_tree_depth in
                 let* a = loop (TQ.push_list tq targets) ~run_num:(run_num + 1) in
-                if was_pruned
+                if is_pruned || reached_max_step
                 then return (Status.min Exhausted_pruned_tree a)
                 else return a
               in
               match status with
               | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
-              | Finished -> k ~was_pruned:(Path.length path > max_tree_depth)
-              | Reached_max_step -> k ~was_pruned:true
+              | Finished -> k ~reached_max_step:false
+              | Reached_max_step -> k ~reached_max_step:true
             end
           | Unknown -> let* a = loop tq ~run_num:(run_num + 1) in return (Status.min Unknown a)
           | Unsat -> loop tq ~run_num:(run_num + 1)
