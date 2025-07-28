@@ -783,14 +783,16 @@ module Expr = struct
         let p_child = op_precedence e in
         if p_child >= p_top then "(" ^ (to_string e) ^ ")" else to_string e in
       match e with
-      | EInt v1 -> Format.sprintf "%d" v1
-      | EBool v1 -> Format.sprintf "%b" v1
+      | EInt n -> string_of_int n
+      | EBool b -> if b then "true" else "false"
       | EUnit -> "()"
-      | EVar (Ident x) -> Format.sprintf "%s" x
-      | EBinop { left ; binop  ; right } -> (*if left > binop, then parens around left*)
-        let left_eval = ppp_gt left in
-        let right_eval = ppp_ge right in
-        left_eval ^ (Binop.to_string binop) ^ right_eval
+      | EVar (Ident x) -> x
+      | EBinop { left ; binop ; right } ->
+        (* Presently, all binary operators are left-associative *)
+        Format.sprintf "%s %s %s"
+          (ppp_gt left) (Binop.to_string binop) (ppp_ge right)
+        (* For a right-associative operator, we would use ppp_ge and ppp_gt,
+           respectively *)
       | EIf { cond ; true_body  ; false_body } ->
         Format.sprintf "if %s then %s else %s"
           (to_string cond) (to_string true_body) (ppp_gt false_body)
