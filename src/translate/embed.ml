@@ -108,7 +108,7 @@ end
 let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   let rec loop (e : Desugared.t) : bool =
     match e with
-    | (EInt _ | EBool _ | EPick_i () | EAbort _ | EVanish
+    | (EInt _ | EBool _ | EInput | EAbort _ | EVanish
       () | EType
     | ETypeInt | ETypeBool | ETypeTop | ETypeBottom | ETypeSingle | EUnit | ETypeUnit) -> false
     | EVar id' -> Ident.equal id id'
@@ -182,7 +182,9 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
 
     match expr with
     (* base cases *)
-    | (EInt _ | EBool _ | EVar _ | EPick_i () | EAbort _ | EVanish () | EUnit) as e -> e
+    | (EInt _ | EBool _ | EVar _ | EAbort _ | EVanish () | EUnit) as e -> e
+    (* input transform *)
+    | EInput -> EPick_i
     (* Simple propogation *)
     | EBinop { left ; binop ; right } ->
       EBinop { left = embed left ; binop ; right = embed right }
@@ -225,7 +227,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         }
     | ETypeInt ->
       make_embedded_type
-        { gen = lazy (EPick_i ())
+        { gen = lazy EPick_i
         ; check = lazy (
           fresh_abstraction "e_int_check" @@ fun e ->
             EMatch { subject = EVar e ; patterns = [ PInt, EUnit ]}
@@ -234,7 +236,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         }
     | ETypeBool ->
       make_embedded_type
-        { gen = lazy (EPick_b ())
+        { gen = lazy EPick_b
         ; check = lazy (
           fresh_abstraction "e_bool_check" @@ fun e ->
             EMatch { subject = EVar e ; patterns = [ PBool, EUnit ]}
@@ -246,7 +248,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         { gen = lazy (
           let tb = Names.fresh_id ~suffix:"tb" () in
           build @@
-            let%bind nonce = capture ~suffix:"nonce" (EPick_i ()) in
+            let%bind nonce = capture ~suffix:"nonce" EPick_i in
             let%bind () = if det then assign tb ETable else return () in
             return @@fresh_abstraction "arg_arrow_gen" @@ fun arg ->
               build @@
@@ -347,12 +349,12 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       make_embedded_type
         { gen = lazy (
           build @@
-            let%bind i = capture (EPick_i ()) in
+            let%bind i = capture EPick_i in
             return @@
             E.make ~ask_for:`All
               { gen = lazy (EUntouchable (
                 ERecord (RecordLabel.Map.of_alist_exn
-                  [ (Reserved.i, EVar i) ; (Reserved.nonce, (EPick_i ())) ]
+                  [ (Reserved.i, EVar i) ; (Reserved.nonce, EPick_i) ]
                 )
               ))
               ; check = lazy (
@@ -425,7 +427,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
             | [ (label, tau) ] -> EVariant { label ; payload = EDefer (gen tau) } (* no case needed on one variant *)
             | ls ->
               ECase
-                { subject = EPick_i ()
+                { subject = EPick_i
                 ; cases =
                   List.tl_exn ls
                   |> List.mapi ~f:(fun i (label, tau) ->
@@ -445,7 +447,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
           | [], _ | _, [] -> of_case_list e_variant_ls (* either was empty, so just put all flat *)
           | _ ->
             EIf
-              { cond = EBinop { left = EPick_i () ; binop = BEqual ; right = EInt 10 } (* unlikely but not THAT unlikely to choose *)
+              { cond = EBinop { left = EPick_i ; binop = BEqual ; right = EInt 10 } (* unlikely but not THAT unlikely to choose *)
               ; true_body = of_case_list unlikely
               ; false_body = of_case_list likely
               }
@@ -532,7 +534,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       res
     | ETypeTop ->
       make_embedded_type
-        { gen = lazy (EVariant { label = Reserved.top ; payload = ERecord (RecordLabel.Map.singleton Reserved.nonce (EPick_i ())) })  
+        { gen = lazy (EVariant { label = Reserved.top ; payload = ERecord (RecordLabel.Map.singleton Reserved.nonce EPick_i) })  
         ; check = lazy (fresh_abstraction "e_top_check" @@ fun _ -> EUnit)
         ; wrap = lazy EId
         }

@@ -511,7 +511,7 @@ end = struct
   *)
   let log : Embedded.With_program_points.t -> 'a m -> 'a m = fun expr x ->
     match expr with
-    | EInt _ | EBool _ | EVar _ | EPick_i _ | EPick_b _ | EFunction _ | EFreeze _ -> x (* these are fine to re-evalaute because they are values *)
+    | EInt _ | EBool _ | EVar _ | EPick_i | EPick_b | EFunction _ | EFreeze _ -> x (* these are fine to re-evalaute because they are values *)
     | _ -> (* handle non-values *)
       fun s r ->
         match Cache.put r.cache r.callstack expr r.env s with

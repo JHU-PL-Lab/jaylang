@@ -228,8 +228,8 @@ module Make (K : Smt.Symbol.KEY) = struct
       | EDefer e1, EDefer e2 -> eq e1 e2
       (* Intensional equality *)
       | ETable, ETable
-      | EPick_i (), EPick_i ()
-      | EPick_b (), EPick_b ()
+      | EPick_i, EPick_i
+      | EPick_b, EPick_b
       | EId, EId
       | EAbort _, EAbort _ (* ignore abort messages *)
       | EVanish (), EVanish () -> return true

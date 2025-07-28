@@ -23,8 +23,8 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
   | EVar id -> bind ask_env (Env.find id)
   | EId -> return VId
   (* inputs *)
-  | EPick_i _ -> any_int
-  | EPick_b _ -> any_bool
+  | EPick_i -> any_int
+  | EPick_b -> any_bool
   (* operations *)
   | EBinop { left ; binop ; right } -> begin
     let%bind v1 = analyze left in

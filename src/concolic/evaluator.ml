@@ -180,8 +180,8 @@ let eager_eval
       | v -> type_mismatch @@ Error_msg.case_non_int v
     end
     (* Inputs *)
-    | EPick_i () -> get_input Interp_common.Key.Stepkey.int_ input_feeder
-    | EPick_b () -> get_input Interp_common.Key.Stepkey.bool_ input_feeder
+    | EPick_i -> get_input Interp_common.Key.Stepkey.int_ input_feeder
+    | EPick_b -> get_input Interp_common.Key.Stepkey.bool_ input_feeder
     (* Tables -- includes some branching *)
     | ETable -> return (VTable { alist = [] })
     | ETblAppl { tbl ; gen ; arg } -> begin

@@ -32,8 +32,8 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
     | EVar id -> fetch id
     | EId -> return VId
     (* inputs *)
-    | EPick_i () -> get_input Interp_common.Key.Timekey.int_ input_feeder
-    | EPick_b () -> get_input Interp_common.Key.Timekey.bool_ input_feeder
+    | EPick_i -> get_input Interp_common.Key.Timekey.int_ input_feeder
+    | EPick_b -> get_input Interp_common.Key.Timekey.bool_ input_feeder
     (* operations *)
     | EBinop { left ; binop ; right } -> begin
       let%bind vleft = stern_eval left in

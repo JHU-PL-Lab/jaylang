@@ -12,7 +12,7 @@ let erase (pgm : Bluejay.pgm) : Type_erased.pgm =
   let rec erase (e : Bluejay.t) : Type_erased.t =
     match e with
     (* base cases *)
-    | (EInt _ | EBool _ | EVar _ | EPick_i _ | EUnit) as e -> e
+    | (EInt _ | EBool _ | EVar _ | EInput | EUnit) as e -> e
     (* destroy types *)
     | EType
     | ETypeInt
