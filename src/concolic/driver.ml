@@ -1,6 +1,7 @@
 
 open Core
-open Options.Arrow.Infix (* expose infix operators *)
+open Concolic_common
+open Concolic_common.Options.Arrow.Infix (* expose infix operators *)
 
 type 'a test = ('a, do_wrap:bool -> do_type_splay:bool -> Status.Terminal.t) Options.Arrow.t
 
@@ -12,7 +13,7 @@ type 'a test = ('a, do_wrap:bool -> do_type_splay:bool -> Status.Terminal.t) Opt
 
 (* runs [lwt_eval] and catches lwt timeout *)
 let test_with_timeout : (Lang.Ast.Embedded.t, Status.Terminal.t) Options.Arrow.t =
-  Evaluator.lwt_eval
+  Evaluator.eager_c_loop
   >>^ fun res_status ->
     try Lwt_main.run res_status with
     | Lwt_unix.Timeout -> Timeout
@@ -49,12 +50,15 @@ module Compute (O : Options.V) = struct
   module Work = struct
     type t = Lang.Ast.Embedded.t
 
+    module TQ_Made = Target_queue.Make (Interp_common.Step)
+    module Eval (S : Smt.Formula.SOLVABLE) = Evaluator.Make (Interp_common.Step) (TQ_Made.All) (S) (Pause.Id)
+
     let run : t -> Compute_result.t =
       fun expr ->
         (* makes a new solver for this thread *)
-        let module E = Evaluator.Make (Solve.Make ()) (Pause.Id) (O) in
+        let module E = Eval (Overlays.Typed_z3.Make ()) in
         Pause.Id.run
-        @@ E.eval expr
+        @@ Options.Arrow.appl (E.c_loop Evaluator.eager_eval) O.r expr
 
     let run_with_internal_timeout : t -> Compute_result.t =
       fun expr ->
@@ -70,6 +74,9 @@ end
   ----------------
 *)
 
+(*
+  TODO: have this (or the work inside Compute functor) take an evaluation function.
+*)
 let test_bjy : Lang.Ast.Bluejay.pgm test =
   Options.Arrow.make
   @@ fun r -> fun bjy -> fun ~do_wrap ~do_type_splay ->

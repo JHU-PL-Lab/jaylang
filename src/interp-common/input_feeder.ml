@@ -4,24 +4,33 @@ open Core
 type 'key t = { get : 'a. ('a, 'key) Key.t -> 'a }[@@unboxed]
 
 let zero : 'key t =
-  { get = 
-    let f (type a) (key : (a, 'key) Key.t) : a =
-      match key with
-      | I _ -> 0
-      | B _ -> false
-    in
-    f
-  }
+  let get (type a) (key : (a, 'key) Key.t) : a =
+    match key with
+    | I _ -> 0
+    | B _ -> false
+  in
+  { get }
 
 let default : 'key t =
-  { get = 
-    let f (type a) (key : (a, 'key) Key.t) : a =
+  let get (type a) (key : (a, 'key) Key.t) : a =
+    match key with
+    | I _ -> Rand.int_incl (-10) 10
+    | B _ -> Rand.bool ()
+  in
+  { get }
+
+let of_smt_model ?(fallback_feeder : 'k t = default) (model : 'k Smt.Model.t) ~(uid : 'k -> int) : 'k t =
+  let get (type a) (key : (a, 'k) Key.t) : a =
+    let s : (a, 'k) Smt.Symbol.t = 
       match key with
-      | I _ -> Rand.int_incl (-10) 10
-      | B _ -> Rand.bool ()
+      | I k -> Smt.Symbol.make_int k uid
+      | B k -> Smt.Symbol.make_bool k uid
     in
-    f
-  }
+    match model.value s with
+    | Some v -> v
+    | None -> fallback_feeder.get key
+  in
+  { get }
 
 (*
   Feeds using index in the sequence

@@ -15,6 +15,8 @@ module Closure = struct
     match Callstack.compare a.callstack b.callstack with
     | 0 -> Poly.compare a.body b.body (* we're willing to do structural comparison on expressions *)
     | x -> x
+  
+  let to_string : t -> string = fun _ -> "«closure»"
 end
 
 module rec Value : sig 
@@ -80,7 +82,7 @@ end = struct
     | VZero -> "0"
     | VTrue -> "true"
     | VFalse -> "false"
-    | VFunClosure { param ; _ } -> Format.sprintf "(fun %s -> <expr>)" (Ident.to_string param)
+    | VFunClosure { param ; body } -> Format.sprintf "(fun %s -> %s)" (Ident.to_string param) (Closure.to_string body)
     | VFrozen _ -> "Frozen <expr>"
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
     | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)

@@ -4,7 +4,7 @@ open Effects
 
 module E = Lang.Ast.Embedded
 
-let max_step = Int.(10 ** 6)
+let max_step = Interp_common.Step.Step Int.(10 ** 6)
 
 (* Eval may error (monadically) *)
 let rec eval (expr : E.t) : Value.t m =

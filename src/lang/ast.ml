@@ -167,25 +167,11 @@ module Pattern = struct
     (* only Bluejay *)
     | PEmptyList : 'a bluejay_or_type_erased t
     | PDestructList : { hd_id : Ident.t ; tl_id : Ident.t } -> 'a bluejay_or_type_erased t
-
-  let to_rank : type a. a t -> int = function
-    | PAny -> 0
-    | PVariable _ -> 1
-    | PVariant _ -> 2
-    | PUntouchable _ -> 3
-    | PEmptyList -> 4
-    | PDestructList _ -> 5
-    | PInt -> 6
-    | PBool -> 7
-    | PType -> 8
-    | PRecord -> 9
-    | PModule -> 10
-    | PFun -> 11
-    | PUnit -> 12
+  [@@deriving variants]
 
   let cmp : type a. a t -> a t -> [ `LT | `GT | `Eq of (Ident.t * Ident.t) list ] =
     fun a b ->
-    match Int.compare (to_rank a) (to_rank b) with
+    match Int.compare (Variants.to_rank a) (Variants.to_rank b) with
     | 0 -> begin
         match a, b with
         | PAny, PAny -> `Eq []
@@ -359,7 +345,7 @@ module Expr = struct
       | SFun fs -> [ func_id_of_funsig fs ]
       | SFunRec fss -> List.map fss ~f:func_id_of_funsig
 
-    (* Completely arbitrary rank. PPX libs can't do this automatically on a GADT. *)
+    (* Completely arbitrary rank. PPX libs can't do this with mutually recursive types, apparently. *)
     let to_rank : type a. a t -> int = function
       | EInt _ -> 0            | EBool _ -> 1      | EVar _ -> 2               | EBinop _ -> 3
       | EIf _ -> 4             | ELet _ -> 5       | EAppl _ -> 6              | EMatch _ -> 7
@@ -505,7 +491,7 @@ module Expr = struct
             | ETypeModule m1, ETypeModule m2 ->
               List.compare
                 (fun (a1,b1) (a2,b2) ->
-                  let- () = RecordLabel.compare a1 a2 in cmp b1 b2
+                   let- () = RecordLabel.compare a1 a2 in cmp b1 b2
                 ) m1 m2
             | ETypeFun r1, ETypeFun r2 -> begin
                 let- () = cmp r1.domain r2.domain in
@@ -760,11 +746,11 @@ module Expr = struct
         Format.sprintf "let %s=%s in %s" var_eval def_eval body_eval
       | EAppl (cell) -> 
         Cell.to_string (fun {func; arg} ->
-           let func_eval = ppp_gt func top (op_precedence func) in
-           let arg_eval = ppp_ge arg top (op_precedence arg) in
-           Format.sprintf "%s %s" func_eval arg_eval 
+            let func_eval = ppp_gt func top (op_precedence func) in
+            let arg_eval = ppp_ge arg top (op_precedence arg) in
+            Format.sprintf "%s %s" func_eval arg_eval 
           ) cell
-          (*subject : 'a t ; patterns : ('a Pattern.t * 'a t) list*)
+      (*subject : 'a t ; patterns : ('a Pattern.t * 'a t) list*)
       | EMatch { subject ; patterns } -> 
         let subject_eval = to_string subject in
         let patterns_eval pattern =
@@ -784,7 +770,7 @@ module Expr = struct
       | ENot e -> 
         Format.sprintf "not %s" (ppp_ge e top (op_precedence e))
       | EPick_i _ -> "input"
-         (* is parsed as "input", but we can immediately make it pick_i *)
+      (* is parsed as "input", but we can immediately make it pick_i *)
       | EFunction { param ; body } -> (* note bluejay also has multi-arg function, which generalizes this *)
         let param_eval = Ident.to_string param in
         let body_eval = ppp_gt body top (op_precedence body) in
@@ -795,13 +781,13 @@ module Expr = struct
         Format.sprintf "`%s %s" label_eval payload_eval
       | EDefer cell -> 
         Cell.to_string(fun e ->
-        Format.sprintf "defer %s" (ppp_ge e top (op_precedence e))) cell
+            Format.sprintf "defer %s" (ppp_ge e top (op_precedence e))) cell
       (* embedded only, so constrain 'a to only be `Embedded *)
       | EPick_b _ -> "input"
       | ECase { subject; cases ; default } -> (* simply sugar for nested conditionals *)
         let subject_eval = to_string subject in
         let cases_eval = String.concat ~sep:"\n| " 
-        @@ (List.map ~f:(fun (num, case) -> Format.sprintf "%d -> %s" num (to_string case))) cases in
+          @@ (List.map ~f:(fun (num, case) -> Format.sprintf "%d -> %s" num (to_string case))) cases in
         let default_eval = Format.sprintf "\n| %s\n" (to_string default) in
         Format.sprintf "case» %s of %s%s" subject_eval cases_eval default_eval
       | EFreeze e -> (*what is a as a???*)
@@ -839,11 +825,11 @@ module Expr = struct
         RecordLabel.record_body_to_string ~sep:":" record to_string
       | ETypeModule ls -> (* is a list because order matters *)
         Format.sprintf "sig %s end" (String.concat ~sep:" " 
-        @@ List.map ls ~f:(fun (label, expr) -> Format.sprintf "val %s : %s" (RecordLabel.to_string label) (to_string expr)))
+                                     @@ List.map ls ~f:(fun (label, expr) -> Format.sprintf "val %s : %s" (RecordLabel.to_string label) (to_string expr)))
       | ETypeFun { domain ; codomain ; dep ; det } -> 
         let arg1 = match dep with 
-        | `Binding Ident s -> Format.sprintf "(%s : %s)" s (ppp_ge domain top (op_precedence domain))
-        | `No -> Format.sprintf "%s" (ppp_ge domain top (op_precedence domain)) in
+          | `Binding Ident s -> Format.sprintf "(%s : %s)" s (ppp_ge domain top (op_precedence domain))
+          | `No -> Format.sprintf "%s" (ppp_ge domain top (op_precedence domain)) in
         let arg2 = if det then "-->" else "->" in
         let arg3 = to_string codomain in
         Format.sprintf "%s %s %s" arg1 arg2 arg3
@@ -864,9 +850,9 @@ module Expr = struct
       (* bluejay or type erased *)
       | EList list -> 
         let rec list_to_str = function
-        | [] -> ""
-        | hd::[] -> Format.sprintf "%s" (to_string hd)
-        | hd::tl -> Format.sprintf "%s; %s" (to_string hd) (list_to_str tl)
+          | [] -> ""
+          | hd::[] -> Format.sprintf "%s" (to_string hd)
+          | hd::tl -> Format.sprintf "%s; %s" (to_string hd) (list_to_str tl)
         in Format.sprintf "[%s]" (list_to_str list)
       | EListCons (hd, tl)-> 
         Format.sprintf "%s::%s" (ppp_gt hd top (op_precedence hd)) (ppp_gt tl top (op_precedence tl))
@@ -878,16 +864,16 @@ module Expr = struct
         let params_eval = (String.concat ~sep:" " @@ List.map ~f:(fun (Ident s) -> s) params) in
         Format.sprintf "(fun %s -> %s)" params_eval (ppp_gt body top (op_precedence body))
       (* | ELetFun : { func : 'a funsig ; body : 'a t } -> 'a bluejay_or_type_erased t
-      | ELetFunRec : { funcs : 'a funsig list ; body : 'a t } -> 'a bluejay_or_type_erased t *)
+         | ELetFunRec : { funcs : 'a funsig list ; body : 'a t } -> 'a bluejay_or_type_erased t *)
       | ELetFun {func; body} -> Format.sprintf "let %s in %s" (funsig_to_string func) (to_string body)
       | ELetFunRec {funcs; body} -> Format.sprintf "let rec %s in %s" (String.concat ~sep:"\nand " (List.map funcs ~f:(funsig_to_string))) (to_string body)
       (* bluejay only *)
       | ETypeList -> "list"
       | ETypeIntersect ls -> 
         Format.sprintf "%s" 
-        (String.concat ~sep:" & " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((`%s of %s) -> %s)" s (to_string tau1) (to_string tau2)))
+          (String.concat ~sep:" & " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((`%s of %s) -> %s)" s (to_string tau1) (to_string tau2)))
 
-      and statement_to_string : type a. a statement -> string = function
+    and statement_to_string : type a. a statement -> string = function
       | SUntyped { var ; defn } -> 
         Format.sprintf "let %s = %s" (Ident.to_string var) (to_string defn)
       (* bluejay or desugared *)
@@ -899,17 +885,17 @@ module Expr = struct
       | SFun fsig -> "let " ^ funsig_to_string fsig
       | SFunRec fsiglist -> "let rec " ^ String.concat ~sep:"\nand " (List.map fsiglist ~f:(funsig_to_string))
 
-      and funsig_to_string : type a. a funsig -> string = function
+    and funsig_to_string : type a. a funsig -> string = function
       | FUntyped { func_id = Ident f ; params; defn } -> 
         f ^ " " ^ String.concat ~sep:" " (List.map params ~f:(fun x -> let Ident s = x in s)) ^ " = " ^ to_string defn
       | FTyped func -> 
         let { type_vars ; func_id = Ident f ; params ; ret_type ; defn } = func in
         let vars_eval = if List.length type_vars = 0 then "" else Format.sprintf "(type %s)" (String.concat ~sep:" " (List.map type_vars ~f:(fun x -> 
-          let Ident s = x in s))) in
+            let Ident s = x in s))) in
         let params_eval = String.concat ~sep:" " (List.map params ~f:(fun x -> 
-          match x with 
-          | TVar {var = Ident s; tau} -> Format.sprintf "(%s : %s)" s (to_string tau)
-          | TVarDep {var = Ident s; tau} -> Format.sprintf "(dependent %s : %s)" s (to_string tau))) in
+            match x with 
+            | TVar {var = Ident s; tau} -> Format.sprintf "(%s : %s)" s (to_string tau)
+            | TVarDep {var = Ident s; tau} -> Format.sprintf "(dependent %s : %s)" s (to_string tau))) in
         let ret_eval = to_string ret_type in
         let defn_eval = to_string defn in
         Format.sprintf "%s %s %s : %s = %s" f vars_eval params_eval ret_eval defn_eval

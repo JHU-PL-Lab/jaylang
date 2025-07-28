@@ -8,6 +8,8 @@
   vector
   utils
   lang
+  overlays
+  smt
   )
  (synopsis "Common interpreter constructs for the Jaylang project")
  (inline_tests)

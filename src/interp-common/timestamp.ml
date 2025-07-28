@@ -8,6 +8,7 @@ module type S = sig
   val equal : t -> t -> bool
   val compare : t -> t -> int
   val to_string : t -> string
+  val uid : t -> int
 
   type comparator_witness
   val comparator : (t, comparator_witness) Comparator.t
@@ -30,6 +31,8 @@ module Simple : S = struct
     List.compare compare (List.rev xs1) (List.rev xs2)
   let to_string (Timestamp xs) =
     String.concat ~sep:"." (List.map (List.rev xs) ~f:string_of_int)
+
+  let uid = Hashtbl.hash
 
   include Comparator.Make (struct
       include T
@@ -88,6 +91,8 @@ module PerfectHash : S = struct
   let to_string (time : t) : string =
     let entry = Vector.get table time in
     String.concat ~sep:"." (List.map (List.rev entry.time) ~f:string_of_int)
+
+  let uid x = x
 
   include Comparator.Make(Int)
 end

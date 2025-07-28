@@ -61,7 +61,7 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
       ; timed_inputs = Input_log.empty }
   end
 
-  let max_step = Int.(10 ** 6)
+  let max_step : Interp_common.Step.t = Step Int.(10 ** 6)
 
   module Err = struct
     (* Not putting state in the error because it's returned anyways *)

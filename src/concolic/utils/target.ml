@@ -1,19 +1,28 @@
 
+open Core
+
 (* we can safely use this when making because it's promised that we never make a target twice *)
 let uid = Utils.Counter.create ()
 
-type t =
+type 'k t =
   { path_n : int
   ; uniq_id : int
-  ; path : Path.t }
+  ; exprs : (bool, 'k) Smt.Formula.t list }
 
-let make (path : Path.t) : t =
-  { path_n = Path.length path
+let initial_id = Utils.Counter.next uid
+
+let empty : 'k t =
+  { path_n = 0
+  ; uniq_id = initial_id
+  ; exprs = [] }
+
+let cons (expr : (bool, 'k) Smt.Formula.t) (target : 'k t) : 'k t =
+  { path_n = target.path_n + 1
   ; uniq_id = Utils.Counter.next uid
-  ; path }
+  ; exprs = expr :: target.exprs }
 
-let to_expressions ({ path ; _ } : t) : bool Expression.t list =
-  Path.to_exprs path
+let to_expressions ({ exprs ; _ } : 'k t) : (bool, 'k) Smt.Formula.t list =
+  exprs
 
 (*
   SUPER IMPORTANT NOTE:
@@ -26,8 +35,8 @@ let to_expressions ({ path ; _ } : t) : bool Expression.t list =
   * If only equality were needed, we would use `a == b`, as it
     does the same.
 *)
-let compare (a : t) (b : t) : int =
+let compare (a : 'k t) (b : 'k t) : int =
   Int.compare a.uniq_id b.uniq_id
 
-let path_n ({ path_n ; _ } : t) : int =
+let path_n ({ path_n ; _ } : 'k t) : int =
   path_n

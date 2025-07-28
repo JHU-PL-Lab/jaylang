@@ -1,191 +1,112 @@
 
 open Core
-open Z3
+open Smt
 
-module type S = sig
-  type 'a t
-  type model
-  val set_timeout : Core.Time_float.Span.t -> unit
-  val box_int : int -> int t
-  val box_bool : bool -> bool t
-  val int_var : int -> int t
-  val bool_var : int -> bool t
-  val value_of_expr : model -> 'a t -> 'a option
-  val constrained_vars : model -> int list
-  val not_ : bool t -> bool t
-  val plus : int t -> int t -> int t
-  val minus : int t -> int t -> int t
-  val times : int t -> int t -> int t
-  val divide : int t -> int t -> int t
-  val modulus : int t -> int t -> int t
-  val less_than : int t -> int t -> bool t
-  val less_than_eq : int t -> int t -> bool t
-  val eq_ints : int t -> int t -> bool t
-  val eq_bools : bool t -> bool t -> bool t
-  val neq : int t -> int t -> bool t
-  val and_ : bool t -> bool t -> bool t
-  val or_ : bool t -> bool t -> bool t
-  module Solve_status : sig
-    type t =
-      | Sat of model
-      | Unknown
-      | Unsat
-  end
-  val empty_model : model
-  val solve : bool t list -> Solve_status.t
-end
-
-module type Context = sig
+module type CONTEXT = sig
   val ctx : Z3.context
 end
 
-module Make_common_builders (C : Context) = struct
-  include Utils.Separate.Make (struct type t = Z3.Expr.expr end)
+(*
+  Z3 expressions using some context.
+
+  We will often like to avoid the context, so I have my own
+  homebrewed expressions further below that are functional.
+*)
+module Make_of_context (C : CONTEXT) : Formula.SOLVABLE = struct
+  (* I'm relying on internal correctness, and the types are phantom *)
+  type ('a, 'k) t = Z3.Expr.expr (* will need to be private *)
 
   let ctx = C.ctx
 
-  (* box to Z3 expression *)
-  let box_int i = int_ @@ Arithmetic.Integer.mk_numeral_i ctx i
-  let box_bool b = bool_ @@ Boolean.mk_val ctx b
+  let equal = Z3.Expr.equal
 
-  (* making sorts *)
-  let intS = Arithmetic.Integer.mk_sort ctx
-  let boolS = Boolean.mk_sort ctx
+  let const_int (i : int) : (int, 'k) t = Z3.Arithmetic.Integer.mk_numeral_i ctx i
+  let const_bool (b : bool) : (bool, 'k) t = Z3.Boolean.mk_val ctx b
 
-  (* basic builders. Given int is the unique identifier for the variable, which is used for the symbol *)
-  let int_var i = int_ @@ Expr.mk_const ctx (Symbol.mk_int ctx i) intS
-  let bool_var i = bool_ @@ Expr.mk_const ctx (Symbol.mk_int ctx i) boolS
+  let zero = const_int 0
+  let one = const_int 1
 
-  (* unbox from Z3 expression *)
-  let unbox_int e =
-    Big_int_Z.int_of_big_int
-    @@ Arithmetic.Integer.get_big_int e
+  let intS = Z3.Arithmetic.Integer.mk_sort ctx
+  let boolS = Z3.Boolean.mk_sort ctx
 
-  let unbox_bool e =
-    match Boolean.get_bool_value e with
-    | L_FALSE -> false
-    | L_TRUE -> true
-    | L_UNDEF -> failwith "bad unbox bool"
+  let symbol (type a) (s : (a, 'k) Symbol.t) : (a, 'k) t =
+    match s with
+    | I k -> Z3.Expr.mk_const ctx (Z3.Symbol.mk_int ctx k) intS
+    | B k -> Z3.Expr.mk_const ctx (Z3.Symbol.mk_int ctx k) boolS
 
-  (* use variable expression to query model for a concrete value associated with the expression *)
-  let a_of_expr model expr unbox =
-    let open Option.Let_syntax in
-    Model.get_const_interp_e model expr (* check if the expression exists in the model *)
-    >>= fun expr -> Model.eval model expr false (* find the value of that int within the model *)
-    >>| unbox (* unbox into ocaml value *)
-
-  (* use variable expression to query model for input *)
-  let value_of_expr (type a) model (expr : a t) : a option =
-    match expr with
-    | I e -> a_of_expr model e unbox_int
-    | B e -> a_of_expr model e unbox_bool
-
-  let constrained_vars model = 
-    List.map ~f:(fun decl -> FuncDecl.get_name decl |> Symbol.get_int)
-    @@ Model.get_const_decls model
-end
-
-module Make_datatype_builders (C : Context) = struct
-  include Make_common_builders (C)
-
-  let op_two_ints ret op =
-    fun (e1 : int t) (e2 : int t) ->
-      ret @@ op (extract e1) (extract e2)
-
-  let op_two_bools ret op =
-    fun (e1 : bool t) (e2 : bool t) ->
-      ret @@ op (extract e1) (extract e2)
+  let not_ (e : (bool, 'k) t) : (bool, 'k) t =
+    Z3.Boolean.mk_not ctx e
 
   let list_curry f x y = f [ x ; y ]
 
-  (* actual operations on expressions. *)
-
-  let eq (type a) (e1 : a t) (e2 : a t) : bool t = bool_ @@ Boolean.mk_eq ctx (extract e1) (extract e2)
-
-  let not_ (e : bool t) = bool_ @@ Boolean.mk_not ctx @@ extract e
-  let plus = op_two_ints int_ @@ list_curry @@ Arithmetic.mk_add ctx
-  let minus = op_two_ints int_ @@ list_curry @@ Arithmetic.mk_sub ctx
-  let times = op_two_ints int_ @@ list_curry @@ Arithmetic.mk_mul ctx
-  let less_than = op_two_ints bool_ @@ Arithmetic.mk_lt ctx
-  let less_than_eq = op_two_ints bool_ @@ Arithmetic.mk_le ctx
-  let eq_ints = op_two_ints bool_ @@ Boolean.mk_eq ctx
-  let eq_bools = op_two_bools bool_ @@ Boolean.mk_eq ctx
-  let neq e1 e2 = not_ @@ (op_two_ints bool_ @@ Boolean.mk_eq ctx) e1 e2
-  let and_ = op_two_bools bool_ @@ list_curry @@ Boolean.mk_and ctx
-  let or_ = op_two_bools bool_ @@ list_curry @@ Boolean.mk_or ctx
-
-  (*
-    See the docs at `jaylang/docs/implementation/z3.md` for explanation of division and modulus.
-  *)
-  (** [divides a b] is true iff [a] divides [b]. *)
   let divides a b =
-    eq_ints (box_int 0) (op_two_ints int_ (Arithmetic.Integer.mk_mod ctx) b a)
+    Z3.Boolean.mk_eq ctx (const_int 0) (Z3.Arithmetic.Integer.mk_mod ctx b a)
 
-  let divide x y = 
-    let res = Arithmetic.mk_div ctx (extract x) (extract y) in
-    int_ @@
-      Boolean.mk_ite ctx
-        (extract (or_ (divides y x) (less_than_eq (box_int 0) x)))
-        res
-        (Boolean.mk_ite ctx
-          (extract (less_than_eq (box_int 0) y))
-          (extract (plus (int_ res) (box_int 1)))
-          (extract (minus (int_ res) (box_int 1)))
-        )
+  let rec binop : type a b. (a * a * b) Binop.t -> (a, 'k) t -> (a, 'k) t -> (b, 'k) t = fun op ->
+    match op with
+    | Plus            -> list_curry @@ Z3.Arithmetic.mk_add ctx
+    | Minus           -> list_curry @@ Z3.Arithmetic.mk_sub ctx
+    | Times           -> list_curry @@ Z3.Arithmetic.mk_mul ctx
+    | Less_than       -> Z3.Arithmetic.mk_lt ctx
+    | Less_than_eq    -> Z3.Arithmetic.mk_le ctx
+    | Greater_than    -> Z3.Arithmetic.mk_gt ctx
+    | Greater_than_eq -> Z3.Arithmetic.mk_ge ctx
+    | Equal           -> Z3.Boolean.mk_eq ctx
+    | Not_equal       -> fun a b -> not_ (Z3.Boolean.mk_eq ctx a b)
+    | Or              -> list_curry @@ Z3.Boolean.mk_or ctx
+    (* OCaml division and modulus differ from Z3, so we need some extra encoding *)
+    | Divide -> fun x y ->
+      let div = Z3.Arithmetic.mk_div ctx x y in
+      Z3.Boolean.mk_ite ctx
+        (binop Or (divides y x) (binop Less_than_eq zero x))
+        div
+        (Z3.Boolean.mk_ite ctx
+          (binop Less_than_eq zero y)
+          (binop Plus div one)
+          (binop Minus div one)
+      )
+    | Modulus -> fun x y ->
+      binop Minus x (binop Times y (binop Divide x y))
 
-  let modulus a b = minus a (times b (divide a b))
+  let is_const (type a) (x : (a, 'k) t) : bool =
+    Z3.Expr.is_const x
 
-  let bool_expr_list_to_expr ls = 
-    Boolean.mk_and ctx
-    @@ extract_list ls
-end
-
-module Make_solver (C : Context) = struct
-  include Make_datatype_builders (C)  
-
-  type model = Z3.Model.model
-
-  module Solve_status = struct
-    type t =
-      | Sat of model
-      | Unknown
-      | Unsat
-  end
+  let and_ (exprs : (bool, 'k) t list) : (bool, 'k) t =
+    Z3.Boolean.mk_and ctx exprs
 
   let solver = Z3.Solver.mk_simple_solver ctx
 
-  (* 
-    Somewhat surprisingly, the empty solver has an empty model, but this could
-    eventually be the source of a bug if this we cannot always get the value.
-  *)
-  let empty_model = 
-    Option.value_exn
-    @@ Z3.Solver.get_model solver
+  let unbox_int_expr e =
+    Big_int_Z.int_of_big_int
+    @@ Z3.Arithmetic.Integer.get_big_int e
 
-  let set_timeout time =
-    time
-    |> Time_float.Span.to_ms
-    |> Float.iround_up_exn
-    |> Int.to_string
-    |> Z3.Params.update_param_value ctx "timeout"
+  let unbox_bool_expr e =
+    match Z3.Boolean.get_bool_value e with
+    | L_FALSE -> false
+    | L_TRUE -> true
+    | L_UNDEF -> failwith "Invariant failure: unboxing non-bool into bool."
 
-  let () = set_timeout (Time_float.Span.of_sec 2.)
+  let a_of_expr z3_model expr unbox_expr =
+    let open Option.Let_syntax in
+    Z3.Model.get_const_interp_e z3_model expr
+    >>| unbox_expr
 
-  let solve : bool t list -> Solve_status.t = fun bool_formulas ->
-    (* It is a bit faster to `and` all formulas together and only run `check` with that one. *)
-    (* That is, instead of adding to the solver, keep the solver empty and check the one formula. *)
-    (* Format.printf "Formulas:%s\n" (String.concat ~sep:" " @@ List.map bool_formulas ~f:(fun x -> Z3.Expr.to_string @@ extract x)); *)
-    let res = Z3.Solver.check solver [ bool_expr_list_to_expr bool_formulas ] in
-    match res with
+  let solve (exprs : (bool, 'k) t list) : 'k Solution.t =
+    match Z3.Solver.check solver [ and_ exprs ] with
     | Z3.Solver.SATISFIABLE ->
       let model = Option.value_exn @@ Z3.Solver.get_model solver in
-      Solve_status.Sat model
+      let value : type a. (a, 'k) Symbol.t -> a option = fun s ->
+        match s with
+        | I _ -> a_of_expr model (symbol s) unbox_int_expr
+        | B _ -> a_of_expr model (symbol s) unbox_bool_expr
+      in
+      Sat { value }
     | UNKNOWN -> Unknown
     | UNSATISFIABLE -> Unsat
 end
 
-module Make (C : Context) = struct
-  include Make_solver (C)
-end
+module Make () = Make_of_context (struct let ctx = Z3.mk_context [] end)
 
-module New_context () = Make (struct let ctx = Z3.mk_context [] end)
+module Default = Make ()
+
+include Default

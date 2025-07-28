@@ -11,25 +11,32 @@ type _ t =
   | Unbound_variable : Interp_common.Input.t list * Lang.Ast.Ident.t -> 'a t
 
   (* result from entire concolic evaluation *)
-  | Exhausted_full_tree : 'a terminal t
-  | Exhausted_pruned_tree : 'a terminal t
-  | Unknown : 'a terminal t (* due to solver timeout, but continued otherwise with no error found *)
   | Timeout : 'a terminal t
+  | Unknown : 'a terminal t (* due to solver timeout, but continued otherwise with no error found *)
+  | Exhausted_pruned_tree : 'a terminal t
+  | Exhausted_full_tree : 'a terminal t
 
   (* result from a single run *)
-  | Finished : { pruned : bool } -> 'a eval t
+  | Reached_max_step : 'a eval t
+  | Finished : 'a eval t
+  [@@deriving variants]
+
+let min (type a) (x : a t) (y : a t) : a t =
+  if Variants.to_rank x < Variants.to_rank y
+  then x
+  else y
 
 let is_terminal (type a) (x : a t) : bool =
   match x with
   | Found_abort _ | Type_mismatch _ | Timeout | Unbound_variable _ 
   | Exhausted_full_tree | Exhausted_pruned_tree | Unknown -> true
-  | Finished _ -> false
+  | Reached_max_step | Finished -> false
 
 let is_error_found (type a) (x : a t) : bool =
   match x with
   | Found_abort _ | Type_mismatch _ | Unbound_variable _ -> true
   | Timeout | Exhausted_full_tree | Exhausted_pruned_tree | Unknown
-  | Finished _ -> false
+  | Reached_max_step | Finished -> false
 
 let to_string (type a) (x : a t) : string =
   match x with
@@ -40,7 +47,8 @@ let to_string (type a) (x : a t) : string =
   | Exhausted_pruned_tree    -> "Exhausted pruned true"
   | Unknown                  -> "Unknown due to solver timeout"
   | Timeout                  -> "Timeout"
-  | Finished _               -> "Finished interpretation"
+  | Reached_max_step         -> "Reached max step"
+  | Finished                 -> "Finished interpretation"
 
 let to_loud_string (type a) (x : a t) : string =
   let make_loud s =
