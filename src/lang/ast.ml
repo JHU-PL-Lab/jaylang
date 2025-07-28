@@ -771,14 +771,16 @@ module Expr = struct
       | ETypeIntersect _ -> 1
 
     let rec to_string : type a. a t -> string = fun e ->
-      let top = op_precedence e in
+      let p_top = op_precedence e in
       (* Adds parentheses when the child has higher parse precedence than the
          parent. *)
-      let ppp_gt e p_top p_child =
+      let ppp_gt e =
+        let p_child = op_precedence e in
         if p_child > p_top then "(" ^ (to_string e) ^ ")" else to_string e in
       (* Adds parentheses when the child has higher or equal parse precedence
          when compared to the parent. *)
-      let ppp_ge e p_top p_child =
+      let ppp_ge e =
+        let p_child = op_precedence e in
         if p_child >= p_top then "(" ^ (to_string e) ^ ")" else to_string e in
       match e with
       | EInt v1 -> Format.sprintf "%d" v1
@@ -786,57 +788,51 @@ module Expr = struct
       | EUnit -> "()"
       | EVar (Ident x) -> Format.sprintf "%s" x
       | EBinop { left ; binop  ; right } -> (*if left > binop, then parens around left*)
-        let left_eval = ppp_gt left top (op_precedence left) in
-        let right_eval = ppp_ge right top (op_precedence right) in
+        let left_eval = ppp_gt left in
+        let right_eval = ppp_ge right in
         left_eval ^ (Binop.to_string binop) ^ right_eval
       | EIf { cond ; true_body  ; false_body } ->
-        let cond_eval = to_string cond in
-        let true_eval = to_string true_body in
-        let else_eval = ppp_gt false_body top (op_precedence false_body) in
-        Format.sprintf "if %s then %s else %s" cond_eval true_eval else_eval
+        Format.sprintf "if %s then %s else %s"
+          (to_string cond) (to_string true_body) (ppp_gt false_body)
       | ELet { var ; defn ; body } ->
-        let var_eval = Ident.to_string var in
-        let def_eval = to_string defn in
-        let body_eval = ppp_gt body top (op_precedence body) in
-        Format.sprintf "let %s=%s in %s" var_eval def_eval body_eval
+        Format.sprintf "let %s = %s in %s"
+          (Ident.to_string var) (to_string defn) (ppp_gt body)
       | EAppl (cell) ->
         Cell.to_string (fun {func; arg} ->
-            let func_eval = ppp_gt func top (op_precedence func) in
-            let arg_eval = ppp_ge arg top (op_precedence arg) in
-            Format.sprintf "%s %s" func_eval arg_eval
+            Format.sprintf "%s %s" (ppp_gt func) (ppp_ge arg)
           ) cell
       (*subject : 'a t ; patterns : ('a Pattern.t * 'a t) list*)
       | EMatch { subject ; patterns } ->
         let subject_eval = to_string subject in
         let patterns_eval pattern =
           let p, hd_expr = pattern in
-          let hd_eval = ppp_ge hd_expr top (op_precedence hd_expr) in
+          let hd_eval = ppp_ge hd_expr in
           let p_eval = Pattern.to_string p in
           Format.sprintf "%s -> %s" p_eval hd_eval in
         Format.sprintf "match %s with \n| %s \nend" subject_eval (String.concat ~sep:"\n| " (List.map patterns ~f:(patterns_eval)))
       | EProject { record ; label } ->
         let label_eval = RecordLabel.to_string label in
-        let record_eval = ppp_gt record top (op_precedence record) in
+        let record_eval = ppp_gt record in
         Format.sprintf "%s.%s" record_eval label_eval
       | ERecord record ->
         RecordLabel.record_body_to_string ~sep:"=" record to_string
       | EModule m ->
         "struct\n" ^ String.concat ~sep:"\n\n" (List.map m ~f:(statement_to_string)) ^ "\nend"
       | ENot e ->
-        Format.sprintf "not %s" (ppp_ge e top (op_precedence e))
+        Format.sprintf "not %s" (ppp_ge e)
       | EInput -> "input"
       (* is parsed as "input", but we can immediately make it pick_i *)
       | EFunction { param ; body } -> (* note bluejay also has multi-arg function, which generalizes this *)
         let param_eval = Ident.to_string param in
-        let body_eval = ppp_gt body top (op_precedence body) in
+        let body_eval = ppp_gt body in
         Format.sprintf "fun %s -> %s" param_eval body_eval
       | EVariant { label ; payload } ->
         let label_eval = VariantLabel.to_string label in
-        let payload_eval = ppp_ge payload top (op_precedence payload) in
+        let payload_eval = ppp_ge payload in
         Format.sprintf "`%s %s" label_eval payload_eval
       | EDefer cell ->
-        Cell.to_string(fun e ->
-            Format.sprintf "defer %s" (ppp_ge e top (op_precedence e))) cell
+        Cell.to_string (fun e ->
+            Format.sprintf "defer %s" (ppp_ge e)) cell
       (* embedded only, so constrain 'a to only be `Embedded *)
       | EPick_i -> "#pick_i"
       | EPick_b -> "#pick_b"
@@ -847,25 +843,24 @@ module Expr = struct
         let default_eval = Format.sprintf "\n| %s\n" (to_string default) in
         Format.sprintf "#case %s of %s%s" subject_eval cases_eval default_eval
       | EFreeze e ->
-        Format.sprintf "#freeze %s" (ppp_ge e top (op_precedence e))
+        Format.sprintf "#freeze %s" (ppp_ge e)
       | EThaw c ->
-        Format.sprintf "thaw» %s" (Cell.to_string (fun e -> ppp_ge e top (op_precedence e)) c)
+        Format.sprintf "#thaw %s" (Cell.to_string (fun e -> ppp_ge e) c)
       | EId -> "fun x -> x"
       | EIgnore { ignored ; body } -> (* simply sugar for `let _ = ignored in body` but is more efficient *)
-        let ignored_eval = to_string ignored in
-        let body_eval = ppp_gt body top (op_precedence body) in
-        Format.sprintf "#ignore %s in %s" ignored_eval body_eval
+        Format.sprintf "#ignore %s in %s" (to_string ignored) (ppp_gt body)
       | ETable -> "#table"
       | ETblAppl { tbl ; gen ; arg } ->
-        Format.sprintf "#table_appl (%s, %s, %s)" (to_string tbl) (to_string gen) (to_string arg)
+        Format.sprintf "#table_appl (%s, %s, %s)"
+          (to_string tbl) (to_string gen) (to_string arg)
       | EDet e ->
-        Format.sprintf "#det %s" (ppp_ge e top (op_precedence e))
+        Format.sprintf "#det %s" (ppp_ge e)
       | EEscapeDet e ->
-        Format.sprintf "#escapeDet %s" (ppp_ge e top (op_precedence e))
+        Format.sprintf "#escapeDet %s" (ppp_ge e)
       | EIntensionalEqual { left; right } ->
-        Format.sprintf "#intensionalEqual %s %s" (ppp_ge left top (op_precedence e)) (ppp_ge right top (op_precedence e))
+        Format.sprintf "#intensionalEqual %s %s" (ppp_ge left) (ppp_ge right)
       | EUntouchable e ->
-        Format.sprintf "#untouchable %s" (ppp_ge e top (op_precedence e))
+        Format.sprintf "#untouchable %s" (ppp_ge e)
       (* these exist in the desugared and embedded languages *)
       | EAbort m -> Format.sprintf "#abort:%s" (Cell.to_string (fun x ->x) m)  (* string is error message *)
       | EVanish _ -> "#vanish"
@@ -885,8 +880,8 @@ module Expr = struct
                                      @@ List.map ls ~f:(fun (label, expr) -> Format.sprintf "val %s : %s" (RecordLabel.to_string label) (to_string expr)))
       | ETypeFun { domain ; codomain ; dep ; det } ->
         let arg1 = match dep with
-          | `Binding Ident s -> Format.sprintf "(%s : %s)" s (ppp_ge domain top (op_precedence domain))
-          | `No -> Format.sprintf "%s" (ppp_ge domain top (op_precedence domain)) in
+          | `Binding Ident s -> Format.sprintf "(%s : %s)" s (ppp_ge domain)
+          | `No -> Format.sprintf "%s" (ppp_ge domain) in
         let arg2 = if det then "-->" else "->" in
         let arg3 = to_string codomain in
         Format.sprintf "%s %s %s" arg1 arg2 arg3
@@ -895,13 +890,18 @@ module Expr = struct
         let predicate_eval = to_string predicate in
         Format.sprintf "{%s |%s}" tau_eval predicate_eval
       | ETypeMu { var = Ident s ; params ; body } ->
-        Format.sprintf "mu %s. %s" (s ^ " " ^ String.concat ~sep:" " @@ List.map params ~f:Ident.to_string) (to_string body)
+        Format.sprintf "mu %s. %s" (
+          s ^ " " ^ String.concat ~sep:" " @@
+          List.map params ~f:Ident.to_string)
+          (to_string body)
       | ETypeVariant variant_list ->
         Format.sprintf "| %s"
           (String.concat ~sep: "\n| " @@ List.map variant_list ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "`%s of %s" s (to_string tau)))
       | ELetTyped { typed_var ; defn ; body ; do_wrap ; do_check } ->
         let {var = Ident s; tau} = typed_var in
-        let statement = Format.sprintf "let %s : %s = %s in %s" s (to_string tau) (to_string defn) (ppp_gt body top (op_precedence body)) in
+        let statement =
+          Format.sprintf "let %s : %s = %s in %s" s
+            (to_string tau) (to_string defn) (ppp_gt body) in
         if do_wrap && do_check then statement else statement ^ " (check/wrap failed)"
       | ETypeSingle -> "singlet"
       (* bluejay or type erased *)
@@ -912,14 +912,14 @@ module Expr = struct
           | hd::tl -> Format.sprintf "%s; %s" (to_string hd) (list_to_str tl)
         in Format.sprintf "[%s]" (list_to_str list)
       | EListCons (hd, tl)->
-        Format.sprintf "%s::%s" (ppp_gt hd top (op_precedence hd)) (ppp_gt tl top (op_precedence tl))
+        Format.sprintf "%s::%s" (ppp_gt hd) (ppp_gt tl)
       | EAssert e ->
-        Format.sprintf "assert %s" (ppp_ge e top (op_precedence e))
+        Format.sprintf "assert %s" (ppp_ge e)
       | EAssume e ->
-        Format.sprintf "assume %s" (ppp_ge e top (op_precedence e))
+        Format.sprintf "assume %s" (ppp_ge e)
       | EMultiArgFunction { params ; body } ->
         let params_eval = (String.concat ~sep:" " @@ List.map ~f:(fun (Ident s) -> s) params) in
-        Format.sprintf "(fun %s -> %s)" params_eval (ppp_gt body top (op_precedence body))
+        Format.sprintf "(fun %s -> %s)" params_eval (ppp_gt body)
       | ELetFun {func; body} -> Format.sprintf "let %s in %s" (funsig_to_string func) (to_string body)
       | ELetFunRec {funcs; body} -> Format.sprintf "let rec %s in %s" (String.concat ~sep:"\nand " (List.map funcs ~f:(funsig_to_string))) (to_string body)
       (* bluejay only *)
