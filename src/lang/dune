@@ -1,14 +1,24 @@
-(copy_files# parsers/*.{ml,mli})
-(copy_files parsers/*.{mll,mly})
+(rule
+  (action (bash "python3 uncombine.py --prefix combined --ignore-combined uncombine.py --combined %{deps} --targets %{targets}"))
+  (deps uncombine.py combinedLexerDesc.mll combinedParserDesc.mly)
+  (targets
+    bluejayLexerDesc.mll
+    bluejayParserDesc.mly
+    desugaredLexerDesc.mll
+    desugaredParserDesc.mly
+  )
+)
 
 (ocamllex
   bluejayLexerDesc
+  desugaredLexerDesc
 )
 
 (menhir
   (flags --explain)
   (modules
     bluejayParserDesc
+    desugaredParserDesc
   )
 )
 

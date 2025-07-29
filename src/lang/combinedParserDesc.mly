@@ -1,13 +1,30 @@
+(*
+This file is a combined description of the various Bluejay-related languages.
+During the build process, Dune runs the "uncombine.py" descript to split it
+into multiple different files which are then processed as usual by menhir.  The
+"uncombine.py" script includes instructions describing how it operates but,
+generally, special comments which include the commands "scope" and "endscope"
+are used to describe which lines of this file are preserved in each version of
+the language and which lines are erased.
+*)
 
 %{
-  (* Note: because AST uses GADTs and constraints, I must do some type annotation in this file *)
+  (* Note: because AST uses GADTs and constraints, we must do some type
+     annotation in this file *)
   open Ast
   open Binop
   open Pattern
   open Expr
   open Parsing_tools
+  (*! scope bluejay !*)
+  open Bluejay
+  (*! endscope !*)
+  (*! scope desugared !*)
+  open Desugared
+  (*! endscope !*)
 %}
 
+(* everyone *)
 %token <string> IDENTIFIER
 %token <int> INT
 %token <bool> BOOL
@@ -18,29 +35,23 @@
 %token BACKTICK
 %token OPEN_PAREN
 %token CLOSE_PAREN
-%token OPEN_BRACKET
-%token CLOSE_BRACKET
 %token EQUALS
 %token ARROW
 %token LONG_ARROW
 %token DOT
 %token COLON
-%token DOUBLE_COLON
 %token UNDERSCORE
 %token PIPE
 %token DOUBLE_PIPE
-%token AMPERSAND
 %token DOUBLE_AMPERSAND
 %token FUNCTION
 %token WITH
 %token LET
 %token LET_BIND
 %token IN
-%token REC
 %token IF
 %token THEN
 %token ELSE
-%token AND
 %token NOT
 %token INT_KEYWORD
 %token BOOL_KEYWORD
@@ -51,16 +62,11 @@
 %token INPUT
 %token MATCH
 %token END
-%token ASSERT
-%token ASSUME
 %token TYPE
 %token MU
-%token LIST
 %token SIG
 %token STRUCT
 %token VAL
-%token DEPENDENT
-%token DEP
 %token DEFER
 %token OF
 %token PLUS
@@ -75,6 +81,24 @@
 %token EQUAL_EQUAL
 %token NOT_EQUAL
 %token PIPELINE
+(*! scope bluejay !*)
+%token AMPERSAND
+%token AND
+%token ASSERT
+%token ASSUME
+%token CLOSE_BRACKET
+%token DEPENDENT
+%token DEP
+%token DOUBLE_COLON
+%token LIST
+%token OPEN_BRACKET
+%token REC
+(*! endscope !*)
+(*! scope desugared !*)
+%token ABORT
+%token GEN
+%token VANISH
+(*! endscope !*)
 
 /*
  * Precedences and associativities.  Lower precedences come first.
@@ -88,15 +112,23 @@
 %right NOT                    /* Not */
 /* == <> < <= > >= */
 %left EQUAL_EQUAL NOT_EQUAL LESS LESS_EQUAL GREATER GREATER_EQUAL
+(*! scope bluejay !*)
 %right DOUBLE_COLON           /* :: */
+(*! endscope !*)
 %left PLUS MINUS              /* + - */
 %left ASTERISK SLASH PERCENT  /* * / % */
+(*! scope bluejay !*)
 %right ASSERT ASSUME          /* Asserts, Assumes */
+(*! endscope !*)
+(*! scope desugared !*)
+%right GEN
+%right VANISH           /* failures */
+(*! endscope !*)
 %right ARROW LONG_ARROW       /* -> for type declaration, and --> for deterministic */
 %right prec_variant           /* variants, lists */
 
-%start <Bluejay.statement list> prog
-%start <Bluejay.statement list option> delim_expr
+%start <statement list> prog
+%start <statement list option> delim_expr
 
 %%
 
@@ -129,75 +161,85 @@ statement_list:
 
 statement:
   | LET l_ident COLON expr EQUALS expr
-      { STyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; do_wrap = true ; do_check = true } : Bluejay.statement }
+      { STyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; do_wrap = true ; do_check = true } : statement }
   | LET l_ident EQUALS expr
-      { SUntyped { var = $2 ; defn = $4 } : Bluejay.statement }
+      { SUntyped { var = $2 ; defn = $4 } : statement }
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr
-      { STyped { typed_var = { var = $3 ; tau = $5 } ; defn = $8 ; do_wrap = true ; do_check = true } : Bluejay.statement }
+      { STyped { typed_var = { var = $3 ; tau = $5 } ; defn = $8 ; do_wrap = true ; do_check = true } : statement }
+  (*! scope bluejay !*)
   | letfun_rec
-      { SFunRec $1 : Bluejay.statement }
+      { SFunRec $1 : statement }
   | letfun
-      { SFun $1 : Bluejay.statement }
+      { SFun $1 : statement }
+  (*! endscope !*)
 
 /* **** Expressions **** */
 
 
 expr:
   | appl_expr /* Includes primary expressions */
-      { $1 : Bluejay.t }
+      { $1 : t }
   | op_expr
-      { $1 : Bluejay.t }
+      { $1 : t }
   | type_expr
       { $1 }
   | IF expr THEN expr ELSE expr %prec prec_if
-      { EIf { cond = $2 ; true_body = $4 ; false_body = $6 } : Bluejay.t }
+      { EIf { cond = $2 ; true_body = $4 ; false_body = $6 } : t }
   | FUNCTION l_ident ARROW expr %prec prec_fun 
-      { EFunction { param = $2 ; body = $4 } : Bluejay.t }
+      { EFunction { param = $2 ; body = $4 } : t }
+  (*! scope bluejay !*)
   | FUNCTION l_ident param_list ARROW expr %prec prec_fun
-      { EMultiArgFunction { params = $2 :: $3 ; body = $5 } : Bluejay.t }
+      { EMultiArgFunction { params = $2 :: $3 ; body = $5 } : t }
+  (*! endscope !*)
   // Let
   | LET l_ident COLON expr EQUALS expr IN expr %prec prec_let
-      { ELetTyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; body = $8 ; do_wrap = true ; do_check = true } : Bluejay.t }
+      { ELetTyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; body = $8 ; do_wrap = true ; do_check = true } : t }
   | LET l_ident EQUALS expr IN expr %prec prec_let
-      { ELet { var = $2 ; defn = $4 ; body = $6 } : Bluejay.t }
+      { ELet { var = $2 ; defn = $4 ; body = $6 } : t }
   | LET_BIND l_ident EQUALS expr IN expr %prec prec_let (* this is desugared in place, which is a little ugly... *)
-      { EAppl { func = EAppl { func = EVar (Ident "bind") ; arg = $4 } ; arg = EFunction { param = $2 ; body = $6 }} : Bluejay.t } 
+      { EAppl { func = EAppl { func = EVar (Ident "bind") ; arg = $4 } ; arg = EFunction { param = $2 ; body = $6 }} : t } 
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
-      { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; defn = $8 ; body = $10 ; do_wrap = true ; do_check = true } : Bluejay.t }
+      { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; defn = $8 ; body = $10 ; do_wrap = true ; do_check = true } : t }
   // Functions
+  (*! scope bluejay !*)
   | letfun_rec IN expr %prec prec_fun
-      { ELetFunRec { funcs = $1 ; body = $3 } : Bluejay.t }
+      { ELetFunRec { funcs = $1 ; body = $3 } : t }
   | letfun IN expr %prec prec_fun
-      { ELetFun { func = $1 ; body = $3 } : Bluejay.t }
+      { ELetFun { func = $1 ; body = $3 } : t }
+  (*! endscope !*)
   // Match
   | MATCH expr WITH PIPE? match_expr_list END
-      { EMatch { subject = $2 ; patterns = $5 } : Bluejay.t }
+      { EMatch { subject = $2 ; patterns = $5 } : t }
 ;
 
 type_expr:
   | MU l_ident list(l_ident) DOT expr %prec prec_mu
-      { ETypeMu { var = $2 ; params = $3 ; body = $5 } : Bluejay.t}
+      { ETypeMu { var = $2 ; params = $3 ; body = $5 } : t}
   | expr ARROW expr
-      { ETypeFun { domain = $1 ; codomain = $3 ; dep = `No ; det = false } : Bluejay.t }
+      { ETypeFun { domain = $1 ; codomain = $3 ; dep = `No ; det = false } : t }
   | expr LONG_ARROW expr
-      { ETypeFun { domain = $1 ; codomain = $3 ; dep = `No ; det = true } : Bluejay.t }
+      { ETypeFun { domain = $1 ; codomain = $3 ; dep = `No ; det = true } : t }
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN ARROW expr
-      { ETypeFun { domain = $4 ; codomain = $7 ; dep = `Binding $2 ; det = false } : Bluejay.t }
+      { ETypeFun { domain = $4 ; codomain = $7 ; dep = `Binding $2 ; det = false } : t }
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN LONG_ARROW expr
-      { ETypeFun { domain = $4 ; codomain = $7 ; dep = `Binding $2 ; det = true } : Bluejay.t }
+      { ETypeFun { domain = $4 ; codomain = $7 ; dep = `Binding $2 ; det = true } : t }
   | PIPE separated_nonempty_list(PIPE, single_variant_type) (* pipe optional before first variant *)
-      { ETypeVariant $2 : Bluejay.t }
+      { ETypeVariant $2 : t }
   | separated_nonempty_list(PIPE, single_variant_type)
-      { ETypeVariant $1 : Bluejay.t }
+      { ETypeVariant $1 : t }
+  (*! scope bluejay !*)
   (* we need at least two here because otherwise it is just an arrow with a single variant type *)
   | separated_at_least_two_list(AMPERSAND, single_intersection_type)
-      { ETypeIntersect $1 : Bluejay.t } 
+      { ETypeIntersect $1 : t }
+  (*! endscope !*)
 
+(*! scope bluejay !*)
 (* Doesn't *really* need parens I think, but without them we would never get a meaningful intersection type *)
 (* This gives us a shift/reduce conflict that *can* be resolved because it is a valid expression in itself *)
 single_intersection_type:
   | OPEN_PAREN OPEN_PAREN single_variant_type CLOSE_PAREN ARROW expr CLOSE_PAREN
       { let (a, b) = $3 in (a, b, $6) }
+(*! endscope !*)
 
 single_variant_type:
   | variant_type_label OF expr %prec prec_variant { $1, $3 }
@@ -211,11 +253,11 @@ record_type_or_refinement:
       { ETypeRecord (add_record_entry $2 $4 $6) }
   (* refinement type with binding for tau, which looks like a record type at first, so that's why we expand the rules above *)
   | OPEN_BRACE l_ident COLON expr PIPE expr CLOSE_BRACE
-      { ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } : Bluejay.t }
+      { ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } : t }
 
 record_type_item:
   | record_label COLON expr
-      { $1, $3 : RecordLabel.t * Bluejay.t }
+      { $1, $3 : RecordLabel.t * t }
 
 record_type_body:
   | record_label COLON expr
@@ -226,6 +268,8 @@ record_type_body:
 // basic_types:
 
 /* **** Functions **** */
+
+(*! scope bluejay !*)
 
 letfun:
   | LET fun_sig { $2 }
@@ -238,19 +282,21 @@ letfun_rec:
 /* let foo (type a b) (x : int) ... : t = ... */
 fun_sig:
   | ident param_list EQUALS expr
-      { FUntyped { func_id = $1 ; params = $2 ; defn = $4 } : Bluejay.funsig }
+      { FUntyped { func_id = $1 ; params = $2 ; defn = $4 } : funsig }
   | ident param_list_with_type COLON expr EQUALS expr
-      { FTyped { type_vars = [] ; func_id = $1 ; params = $2 ; ret_type = $4 ; defn = $6 } : Bluejay.funsig }
+      { FTyped { type_vars = [] ; func_id = $1 ; params = $2 ; ret_type = $4 ; defn = $6 } : funsig }
   | ident OPEN_PAREN TYPE param_list CLOSE_PAREN param_list_with_type COLON expr EQUALS expr 
-      { FTyped { type_vars = $4 ; func_id = $1 ; params = $6 ; ret_type = $8 ; defn = $10 } : Bluejay.funsig }
+      { FTyped { type_vars = $4 ; func_id = $1 ; params = $6 ; ret_type = $8 ; defn = $10 } : funsig }
+
+(*! endscope !*)
 
 /* **** Primary expressions **** */
 
 /* (fun x -> x) y */
 appl_expr:
-  | appl_expr primary_expr { EAppl { func = $1 ; arg = $2 } : Bluejay.t }
-  | DEFER primary_expr { EDefer $2 : Bluejay.t }
-  | primary_expr { $1 : Bluejay.t }
+  | appl_expr primary_expr { EAppl { func = $1 ; arg = $2 } : t }
+  | DEFER primary_expr { EDefer $2 : t }
+  | primary_expr { $1 : t }
 ;
 
 
@@ -258,98 +304,116 @@ appl_expr:
    surrounding parentheses. */
 primary_expr:
   | INT
-      { EInt $1 : Bluejay.t }
+      { EInt $1 : t }
   | BOOL
-      { EBool $1 : Bluejay.t }
+      { EBool $1 : t }
   | ident_usage
-      { $1 : Bluejay.t }
+      { $1 : t }
   (* keywords *)
   | INPUT
-      { EInput : Bluejay.t }
+      { EInput : t }
   | TYPE
-      { EType : Bluejay.t }
+      { EType : t }
   | INT_KEYWORD
-      { ETypeInt : Bluejay.t }
+      { ETypeInt : t }
   | BOOL_KEYWORD
-      { ETypeBool : Bluejay.t }
+      { ETypeBool : t }
   | UNIT_KEYWORD
-      { ETypeUnit : Bluejay.t }
+      { ETypeUnit : t }
   | TOP_KEYWORD
-      { ETypeTop : Bluejay.t }
+      { ETypeTop : t }
   | BOTTOM_KEYWORD
-      { ETypeBottom : Bluejay.t }
+      { ETypeBottom : t }
+  (*! scope bluejay !*)
   | LIST
-      { ETypeList : Bluejay.t }
+      { ETypeList : t }
+  (*! endscope !*)
   | SINGLET_KEYWORD
-      { ETypeSingle : Bluejay.t }
+      { ETypeSingle : t }
   (* braces/parens *)
   | OPEN_PAREN CLOSE_PAREN
-      { EUnit : Bluejay.t }
+      { EUnit : t }
   | OPEN_BRACE COLON CLOSE_BRACE
-      { ETypeRecord empty_record : Bluejay.t }
+      { ETypeRecord empty_record : t }
   | OPEN_BRACE record_body CLOSE_BRACE
-      { ERecord $2 : Bluejay.t }
+      { ERecord $2 : t }
   | OPEN_BRACE CLOSE_BRACE
-      { ERecord empty_record : Bluejay.t }
+      { ERecord empty_record : t }
+  (*! scope bluejay !*)
   | OPEN_BRACKET separated_nonempty_list(SEMICOLON, expr) CLOSE_BRACKET
-      { EList $2 : Bluejay.t }
+      { EList $2 : t }
   | OPEN_BRACKET CLOSE_BRACKET
-      { EList [] : Bluejay.t }
+      { EList [] : t }
+  (*! endscope !*)
   | OPEN_PAREN expr CLOSE_PAREN
       { $2 }
   | OPEN_BRACE expr PIPE expr CLOSE_BRACE
-      { ETypeRefinement { tau = $2 ; predicate = $4 } : Bluejay.t }
+      { ETypeRefinement { tau = $2 ; predicate = $4 } : t }
   | SIG nonempty_list(val_item) END
-      { ETypeModule $2 : Bluejay.t }
+      { ETypeModule $2 : t }
   | STRUCT statement_list END
-      { EModule $2 : Bluejay.t }
+      { EModule $2 : t }
   | record_type_or_refinement
-      { $1 : Bluejay.t }
+      { $1 : t }
   | primary_expr DOT record_label
-      { EProject { record = $1 ; label = $3} : Bluejay.t }
+      { EProject { record = $1 ; label = $3} : t }
 ;
 
 op_expr:
+  (*! scope bluejay !*)
   | ASSERT expr
-      { EAssert $2 : Bluejay.t }
+      { EAssert $2 : t }
   | ASSUME expr
-      { EAssume $2 : Bluejay.t }
+      { EAssume $2 : t }
+  (*! endscope !*)
+  (*! scope desugared !*)
+  | ABORT ident
+      { let Ident s = $2 in EAbort s : t }
+  | VANISH expr
+      { EVanish () : t }
+  | GEN expr
+      { EGen $2 : t }
+  (*! endscope !*)
   | variant_label expr %prec prec_variant
-      { EVariant { label = $1 ; payload = $2 } : Bluejay.t }
+      { EVariant { label = $1 ; payload = $2 } : t }
   | expr ASTERISK expr
-      { EBinop { left = $1 ; binop = BTimes ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BTimes ; right = $3 } : t }
   | expr SLASH expr
-      { EBinop { left = $1 ; binop = BDivide ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BDivide ; right = $3 } : t }
   | expr PERCENT expr
-      { EBinop { left = $1 ; binop = BModulus ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BModulus ; right = $3 } : t }
   | expr PLUS expr
-      { EBinop { left = $1 ; binop = BPlus ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BPlus ; right = $3 } : t }
   | expr MINUS expr
-      { EBinop { left = $1 ; binop = BMinus ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BMinus ; right = $3 } : t }
+  (*! scope bluejay !*)
   | expr DOUBLE_COLON expr
-      { EListCons ($1, $3) : Bluejay.t }
+      { EListCons ($1, $3) : t }
+  (*! endscope !*)
   | expr EQUAL_EQUAL expr
-      { EBinop { left = $1 ; binop = BEqual ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BEqual ; right = $3 } : t }
   | expr NOT_EQUAL expr
-      { EBinop { left = $1 ; binop = BNeq ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BNeq ; right = $3 } : t }
   | expr GREATER expr
-      { EBinop { left = $1 ; binop = BGreaterThan ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BGreaterThan ; right = $3 } : t }
   | expr GREATER_EQUAL expr
-      { EBinop { left = $1 ; binop = BGeq ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BGeq ; right = $3 } : t }
   | expr LESS expr
-      { EBinop { left = $1 ; binop = BLessThan ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BLessThan ; right = $3 } : t }
   | expr LESS_EQUAL expr
-      { EBinop { left = $1 ; binop = BLeq ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BLeq ; right = $3 } : t }
   | NOT expr
-      { ENot $2 : Bluejay.t }
+      { ENot $2 : t }
   | expr DOUBLE_AMPERSAND expr
-      { EBinop { left = $1 ; binop = BAnd ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BAnd ; right = $3 } : t }
   | expr DOUBLE_PIPE expr
-      { EBinop { left = $1 ; binop = BOr ; right = $3 } : Bluejay.t }
+      { EBinop { left = $1 ; binop = BOr ; right = $3 } : t }
   | expr PIPELINE expr (* Note: evaluation order is that e' is evaluated first in e |> e' *)
       { EAppl { func = $3 ; arg = $1 } }
 
 /* **** Idents + labels **** */
+
+(*! scope bluejay !*)
 
 param_list_with_type:
   | param_with_type param_list_with_type { $1 :: $2 }
@@ -358,15 +422,15 @@ param_list_with_type:
 
 param_with_type:
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN
-      { TVar { var = $2 ; tau = $4 } : Bluejay.param }
+      { TVar { var = $2 ; tau = $4 } : param }
   | OPEN_PAREN l_ident COLON expr PIPE expr CLOSE_PAREN
-      { TVar { var = $2 ; tau = ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } } : Bluejay.param }
+      { TVar { var = $2 ; tau = ETypeRefinement { tau = $4 ; predicate = EFunction { param = $2 ; body = $6 } } } : param }
   | OPEN_PAREN DEP l_ident COLON expr CLOSE_PAREN
   | OPEN_PAREN DEPENDENT l_ident COLON expr CLOSE_PAREN
-      { TVarDep { var = $3 ; tau = $5 } : Bluejay.param }
+      { TVarDep { var = $3 ; tau = $5 } : param }
   | OPEN_PAREN DEP l_ident COLON expr PIPE expr CLOSE_PAREN
   | OPEN_PAREN DEPENDENT l_ident COLON expr PIPE expr CLOSE_PAREN
-      { TVarDep { var = $3 ; tau = ETypeRefinement { tau = $5 ; predicate = EFunction { param = $3 ; body = $7 } } } : Bluejay.param }
+      { TVarDep { var = $3 ; tau = ETypeRefinement { tau = $5 ; predicate = EFunction { param = $3 ; body = $7 } } } : param }
 ;
 
 param_list:
@@ -374,18 +438,20 @@ param_list:
   | l_ident { [ $1 ] }
 ;
 
+(*! endscope !*)
+
 /* val x : t (* for module types *) */
 /* val t = tau (* pure simple sugar for val t : singlet tau *) */
 val_item:
   | VAL record_type_item { $2 }
-  | VAL record_label EQUALS expr { $2, EAppl { func = ETypeSingle ; arg = $4 } : RecordLabel.t * Bluejay.t }
+  | VAL record_label EQUALS expr { $2, EAppl { func = ETypeSingle ; arg = $4 } : RecordLabel.t * t }
 
 %inline record_label:
   | ident { RecordLabel.RecordLabel $1 }
 ;
 
 %inline ident_usage:
-  | ident { EVar $1 : Bluejay.t }
+  | ident { EVar $1 : t }
 ;
 
 %inline l_ident: (* like "lvalue". These are idents that can be assigned to *)
@@ -418,17 +484,19 @@ variant_type_label:
 
 match_expr_list:
   | terminating_pattern ARROW expr
-      { [ $1, $3 ] : (Bluejay.pattern * Bluejay.t) list }
+      { [ $1, $3 ] : (pattern * t) list }
   | pattern ARROW expr PIPE match_expr_list (* does not include terminating patterns *)
-      { ($1, $3) :: $5 : (Bluejay.pattern * Bluejay.t) list }
+      { ($1, $3) :: $5 : (pattern * t) list }
   | pattern ARROW expr
-      { [ $1, $3 ] : (Bluejay.pattern * Bluejay.t) list }
+      { [ $1, $3 ] : (pattern * t) list }
 
 pattern:
   | variant_label l_ident { PVariant { variant_label = $1 ; payload_id = $2 } }
   | variant_label OPEN_PAREN l_ident CLOSE_PAREN { PVariant { variant_label = $1 ; payload_id = $3 } }
+  (*! scope bluejay !*)
   | OPEN_BRACKET CLOSE_BRACKET { PEmptyList }
   | l_ident DOUBLE_COLON l_ident { PDestructList { hd_id = $1 ; tl_id = $3 } }
+  (*! endscope !*)
   | OPEN_PAREN pattern CLOSE_PAREN { $2 }
 ;
 

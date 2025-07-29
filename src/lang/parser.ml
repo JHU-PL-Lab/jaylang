@@ -4,8 +4,9 @@ exception Parse_error of exn * int * int * string
 
 module type PARSING_DESC = sig
   type token
+  type statement
 
-  val prog : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> Ast.Bluejay.statement list
+  val prog : (Lexing.lexbuf -> token) -> Lexing.lexbuf -> statement list
 
   val token : Lexing.lexbuf -> token
 end
@@ -34,9 +35,17 @@ module Make(ParsingDesc : PARSING_DESC) = struct
     parse_single_pgm_string (Core.In_channel.read_all filename)
 end
 
-module Bluejay = Make(
-  struct include BluejayParserDesc;; include BluejayLexerDesc;; end
-  )
+module Bluejay = Make(struct
+    type statement = Ast.Bluejay.statement
+    include BluejayParserDesc
+    include BluejayLexerDesc
+  end)
+
+module Desugared = Make(struct
+    type statement = Ast.Desugared.statement
+    include DesugaredParserDesc
+    include DesugaredLexerDesc
+  end)
 
 let parse_program_from_file (filename : string) : Ast.some_program =
   match Ast.extension_to_language (Filename.extension filename) with
@@ -47,7 +56,8 @@ let parse_program_from_file (filename : string) : Ast.some_program =
       | SomeLanguage BluejayLanguage ->
         SomeProgram (BluejayLanguage, Bluejay.parse_single_pgm_string channel)
       | SomeLanguage DesugaredLanguage ->
-        SomeProgram (DesugaredLanguage, failwith "TODO")
+        SomeProgram (DesugaredLanguage,
+                     Desugared.parse_single_pgm_string channel)
       | SomeLanguage EmbeddedLanguage ->
         SomeProgram (EmbeddedLanguage, failwith "TODO")
     end

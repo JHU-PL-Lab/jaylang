@@ -864,10 +864,12 @@ module Expr = struct
       | EUntouchable e ->
         Format.sprintf "#untouchable %s" (ppp_ge e)
       (* these exist in the desugared and embedded languages *)
-      | EAbort m -> Format.sprintf "#abort:%s" (Cell.to_string (fun x ->x) m)  (* string is error message *)
+      | EAbort m -> Format.sprintf "#abort %s" (Cell.to_string (fun x ->x) m)  (* string is error message *)
       | EVanish _ -> "#vanish"
       (* only the desugared language *)
-      | EGen _ -> "#gen" (* Cannot be interpreted. Is only an intermediate step in translation *)
+      | EGen e' -> 
+        (* Cannot be interpreted. Is only an intermediate step in translation *)
+        Format.sprintf "#gen %s" (ppp_ge e')
       (* these exist in the bluejay and desugared languages *)
       | EType -> "type"
       | ETypeInt -> "int"

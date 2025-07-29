@@ -1,6 +1,20 @@
+(*
+This file is a combined description of the various Bluejay-related languages.
+During the build process, Dune runs the "uncombine.py" descript to split it
+into multiple different files which are then processed as usual by ocamllex.
+The "uncombine.py" script includes instructions describing how it operates but,
+generally, special comments which include the commands "scope" and "endscope"
+are used to describe which lines of this file are preserved in each version of
+the language and which lines are erased.
+*)
 
 {
+  (*!scope bluejay!*)
   open BluejayParserDesc
+  (*!endscope!*)
+  (*!scope desugared!*)
+  open DesugaredParserDesc
+  (*!endscope!*)
   open Lexing
   let incr_lineno lexbuf =
     let pos = lexbuf.lex_curr_p in
@@ -29,20 +43,18 @@ rule token = parse
 | "}"                  { CLOSE_BRACE }
 | "("                  { OPEN_PAREN }
 | ")"                  { CLOSE_PAREN }
-| "["                  { OPEN_BRACKET }
-| "]"                  { CLOSE_BRACKET }
 | ";"                  { SEMICOLON }
 | "`"                  { BACKTICK }
 | "="                  { EQUALS }
 | "."                  { DOT }
 | ":"                  { COLON }
-| "::"                 { DOUBLE_COLON }
 | "_"                  { UNDERSCORE }
 | "|"                  { PIPE }
 | "||"                 { DOUBLE_PIPE }
+(*! scope bluejay !*) (* must stay here vs. && *)
 | "&"                  { AMPERSAND }
+(*! endscope !*)
 | "&&"                 { DOUBLE_AMPERSAND }
-| "and"                { AND }
 | "not"                { NOT }
 | "int"                { INT_KEYWORD }
 | "bool"               { BOOL_KEYWORD }
@@ -58,7 +70,6 @@ rule token = parse
 | "else"               { ELSE }
 | "let"                { LET }
 | "let%bind"           { LET_BIND}
-| "rec"                { REC }
 | "in"                 { IN }
 | "->"                 { ARROW }
 | "-->"                { LONG_ARROW }
@@ -67,16 +78,11 @@ rule token = parse
 | "input"              { INPUT }
 | "match"              { MATCH }
 | "end"                { END }
-| "assert"             { ASSERT }
-| "assume"             { ASSUME }
 | "type"               { TYPE }
 | "mu"                 { MU }
-| "list"               { LIST }
 | "sig"                { SIG }
 | "struct"             { STRUCT }
 | "val"                { VAL }
-| "dependent"          { DEPENDENT }
-| "dep"                { DEP }
 | "defer"              { DEFER }
 | "of"                 { OF }
 | "+"                  { PLUS }
@@ -91,6 +97,23 @@ rule token = parse
 | ">"                  { GREATER }
 | ">="                 { GREATER_EQUAL }
 | "|>"                 { PIPELINE }
+(*! scope bluejay !*)
+| "["                  { OPEN_BRACKET }
+| "]"                  { CLOSE_BRACKET }
+| "::"                 { DOUBLE_COLON }
+| "and"                { AND }
+| "assert"             { ASSERT }
+| "assume"             { ASSUME }
+| "dependent"          { DEPENDENT }
+| "dep"                { DEP }
+| "list"               { LIST }
+| "rec"                { REC }
+(*! endscope !*)
+(*! scope desugared !*)
+| "#abort"             { ABORT }
+| "#vanish"            { VANISH }
+| "#gen"               { GEN }
+(*! endscope !*)
 | digit+ as n          { INT (int_of_string n) }
 | ident_start ident_cont* as s     { IDENTIFIER s }
 
