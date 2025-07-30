@@ -416,19 +416,26 @@ let rand_SFunRec : 'a statement_gen = fun ~ctx ->
 (* This portion of the file groups generators based upon their suitability for
    leaf or non-leaf construction in the various languages. *)
 
-let bluejay_leaf_pattern_generators : 'a bluejay_only pattern_gen list =
-  [ rand_PAny;
+type 'lang generator_parts = {
+  leaf_pattern_generators : 'lang pattern_gen list;
+  nonleaf_pattern_generators : 'lang pattern_gen list;
+  leaf_expression_generators : 'lang expr_gen list;
+  nonleaf_expression_generators : 'lang expr_gen list;
+  leaf_statement_generators : 'lang statement_gen list;
+  nonleaf_statement_generators : 'lang statement_gen list;
+}
+
+let bluejay_generator_parts : bluejay generator_parts = {
+  leaf_pattern_generators = [
+    rand_PAny;
     rand_PVariable;
     rand_PVariant;
     rand_PEmptyList;
     rand_PDestructList;
-  ]
-
-let bluejay_nonleaf_pattern_generators : 'a bluejay_only pattern_gen list =
-  []
-
-let bluejay_leaf_expression_generators : 'a bluejay_only expr_gen list =
-  [ rand_EUnit;
+  ];
+  nonleaf_pattern_generators = [];
+  leaf_expression_generators = [
+    rand_EUnit;
     rand_EInt;
     rand_EBool;
     rand_EVar;
@@ -443,10 +450,9 @@ let bluejay_leaf_expression_generators : 'a bluejay_only expr_gen list =
     rand_EAssert;
     rand_EAssume;
     rand_ETypeList;
-  ]
-
-let bluejay_nonleaf_expression_generators : 'a bluejay_only expr_gen list =
-  [ rand_EBinop;
+  ];
+  nonleaf_expression_generators = [
+    rand_EBinop;
     rand_EIf;
     rand_ELet;
     rand_EAppl;
@@ -471,18 +477,125 @@ let bluejay_nonleaf_expression_generators : 'a bluejay_only expr_gen list =
     rand_ELetFun;
     rand_ELetFunRec;
     rand_ETypeIntersect;
-  ]
-
-let bluejay_leaf_statement_generators : 'a bluejay_only statement_gen list =
-  []
-
-let bluejay_nonleaf_statement_generators
-  : 'a bluejay_only statement_gen list =
-  [ rand_SUntyped;
+  ];
+  leaf_statement_generators = [];
+  nonleaf_statement_generators = [
+    rand_SUntyped;
     rand_STyped;
     rand_SFun;
     rand_SFunRec;
   ]
+}
+
+let desugared_generator_parts : desugared generator_parts = {
+  leaf_pattern_generators = [
+    rand_PAny;
+    rand_PVariable;
+    rand_PVariant;
+  ];
+  nonleaf_pattern_generators = [];
+  leaf_expression_generators = [
+    rand_EUnit;
+    rand_EInt;
+    rand_EBool;
+    rand_EVar;
+    rand_EInput;
+    rand_EAbort;
+    rand_EVanish;
+    rand_EType;
+    rand_ETypeInt;
+    rand_ETypeBool;
+    rand_ETypeTop;
+    rand_ETypeBottom;
+    rand_ETypeUnit;
+    rand_ETypeSingle;
+  ];
+  nonleaf_expression_generators = [
+    rand_EBinop;
+    rand_EIf;
+    rand_ELet;
+    rand_EAppl;
+    rand_EMatch;
+    rand_EProject;
+    rand_ERecord;
+    rand_EModule;
+    rand_ENot;
+    rand_EFunction;
+    rand_EVariant;
+    rand_EDefer;
+    rand_EGen;
+    rand_ETypeRecord;
+    rand_ETypeModule;
+    rand_ETypeFun;
+    rand_ETypeRefinement;
+    rand_ETypeMu;
+    rand_ETypeVariant;
+    rand_ELetTyped;
+  ];
+  leaf_statement_generators = [];
+  nonleaf_statement_generators = [
+    rand_SUntyped;
+    rand_STyped;
+  ];
+}
+
+let embedded_generator_parts : embedded generator_parts = {
+  leaf_pattern_generators = [
+    rand_PAny;
+    rand_PVariable;
+    rand_PVariant;
+    rand_PInt;
+    rand_PBool;
+    rand_PType;
+    rand_PRecord;
+    rand_PModule;
+    rand_PFun;
+    rand_PUnit;
+    rand_PUntouchable;
+  ];
+  nonleaf_pattern_generators = [];
+  leaf_expression_generators = [
+    rand_EUnit;
+    rand_EInt;
+    rand_EBool;
+    rand_EVar;
+    rand_EPick_i;
+    rand_EPick_b;
+    rand_EId;
+    rand_ETable;
+    rand_EAbort;
+    rand_EVanish;
+  ];
+  nonleaf_expression_generators = [
+    rand_EBinop;
+    rand_EIf;
+    rand_ELet;
+    rand_EAppl;
+    rand_EMatch;
+    rand_EProject;
+    rand_ERecord;
+    rand_EModule;
+    rand_ENot;
+    rand_EFunction;
+    rand_EVariant;
+    rand_EDefer;
+    rand_ECase;
+    rand_EFreeze;
+    rand_EThaw;
+    rand_EId;
+    rand_EIgnore;
+    rand_ETable;
+    rand_ETblAppl;
+    rand_EDet;
+    rand_EEscapeDet;
+    rand_EIntensionalEqual;
+    rand_EUntouchable;
+  ];
+  leaf_statement_generators = [];
+  nonleaf_statement_generators = [
+    rand_SUntyped;
+  ];
+}
 
 (******************************************************************************)
 (* This section provides tools to assemble the above pieces into a closed
@@ -500,13 +613,7 @@ type 'lang generators = {
     'lang statement;
 }
 
-let build_generators
-    (leaf_pattern_generators : 'lang pattern_gen list)
-    (nonleaf_pattern_generators : 'lang pattern_gen list)
-    (leaf_expression_generators : 'lang expr_gen list)
-    (nonleaf_expression_generators : 'lang expr_gen list)
-    (leaf_statement_generators : 'lang statement_gen list)
-    (nonleaf_statement_generators : 'lang statement_gen list)
+let build_generators (parts : 'lang generator_parts)
   : 'lang generators =
   let create_depth_sensitive_gen
       (type a b)
@@ -542,15 +649,15 @@ let build_generators
   in
   let gen_pattern =
     create_depth_sensitive_gen
-      leaf_pattern_generators nonleaf_pattern_generators
+      parts.leaf_pattern_generators parts.nonleaf_pattern_generators
   in
   let gen_expr =
     create_depth_sensitive_gen
-      leaf_expression_generators nonleaf_expression_generators
+      parts.leaf_expression_generators parts.nonleaf_expression_generators
   in
   let gen_statement =
     create_depth_sensitive_gen
-      leaf_statement_generators nonleaf_statement_generators
+      parts.leaf_statement_generators parts.nonleaf_statement_generators
   in
   let rand_state = Random.State.make_self_init () in
   let make_context
@@ -578,13 +685,13 @@ let build_generators
   }
 
 let bluejay_generators : bluejay generators =
-  build_generators
-    bluejay_leaf_pattern_generators
-    bluejay_nonleaf_pattern_generators
-    bluejay_leaf_expression_generators
-    bluejay_nonleaf_expression_generators
-    bluejay_leaf_statement_generators
-    bluejay_nonleaf_statement_generators
+  build_generators bluejay_generator_parts
+
+let desugared_generators : desugared generators =
+  build_generators desugared_generator_parts
+
+let embedded_generator : embedded generators =
+  build_generators embedded_generator_parts
 
 (******************************************************************************)
 (* This section utilizes the above framework to create some unit tests. *)
@@ -625,10 +732,22 @@ let make_tests_from_generators
   (test_name, test_cases)
 
 let make_rand_tests (trees_per_language : int) : unit Alcotest.test list =
-  [make_tests_from_generators
-     ~test_name:"generated_bluebird_pp"
-     ~rand_state:(Random.State.make (Array.init 0 ~f:(fun _ -> 0)))
-     bluejay_generators
-     Lang.Parser.Bluejay.parse_single_pgm_string
-     trees_per_language;
+  [ make_tests_from_generators
+      ~test_name:"generated_bluejay_pp"
+      ~rand_state:(Random.State.make (Array.init 0 ~f:(fun _ -> 0)))
+      bluejay_generators
+      Lang.Parser.Bluejay.parse_single_pgm_string
+      trees_per_language;
+    make_tests_from_generators
+      ~test_name:"generated_desugared_pp"
+      ~rand_state:(Random.State.make (Array.init 0 ~f:(fun _ -> 0)))
+      desugared_generators
+      Lang.Parser.Desugared.parse_single_pgm_string
+      trees_per_language;
+    (* make_tests_from_generators
+      ~test_name:"generated_embedded_pp"
+      ~rand_state:(Random.State.make (Array.init 0 ~f:(fun _ -> 0)))
+      embedded_generators
+      Lang.Parser.Embedded.parse_single_pgm_string
+      trees_per_language; *)
   ]
