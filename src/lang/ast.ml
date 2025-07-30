@@ -906,6 +906,7 @@ module Expr = struct
         let statement =
           Format.sprintf "let %s : %s = %s in %s" s
             (to_string tau) (to_string defn) (ppp_gt body) in
+        (* FIXME: the following doesn't parse *)
         if do_wrap && do_check then statement else statement ^ " (check/wrap failed)"
       | ETypeSingle -> "singlet"
       (* bluejay or type erased *)

@@ -1,4 +1,4 @@
-.PHONY: all clean translator jil logclean cbenchmark repl sctest 
+.PHONY: all always clean translator jil logclean cbenchmark repl sctest 
 
 BUILD = _build/default
 BUILD_SRC = _build/default/src
@@ -6,7 +6,10 @@ BUILD_BIN = _build/default/src/bin
 BUILD_TEST = _build/default/src-test
 BENCH_C = benchmark/concolic
 
-docker-build:
+dune-build: always
+	dune build
+
+docker-build: always
 	docker build -t jaylang:latest .
 
 all: ceval interp bjy-cloc ft

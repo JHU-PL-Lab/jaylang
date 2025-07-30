@@ -21,17 +21,17 @@ module Make(ParsingDesc : PARSING_DESC) = struct
       let tok = lexeme buf in
       raise @@ Parse_error (exn, line, column, tok)
 
-  let parse_program (input : in_channel) =
+  let parse_program (input : in_channel) : ParsingDesc.statement list =
     let buf = Lexing.from_channel input in
     handle_parse_error buf @@ fun () ->
     ParsingDesc.prog ParsingDesc.token buf
 
-  let parse_single_pgm_string (expr_str : string) = 
+  let parse_single_pgm_string (expr_str : string) : ParsingDesc.statement list = 
     let buf = Lexing.from_string expr_str in
     handle_parse_error buf @@ fun () ->
     ParsingDesc.prog ParsingDesc.token buf
 
-  let parse_file (filename : string) =
+  let parse_file (filename : string) : ParsingDesc.statement list =
     parse_single_pgm_string (Core.In_channel.read_all filename)
 end
 
