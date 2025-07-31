@@ -791,8 +791,8 @@ module Expr = struct
         (* Presently, all binary operators are left-associative *)
         Format.sprintf "%s %s %s"
           (ppp_gt left) (Binop.to_string binop) (ppp_ge right)
-        (* For a right-associative operator, we would use ppp_ge and ppp_gt,
-           respectively *)
+      (* For a right-associative operator, we would use ppp_ge and ppp_gt,
+         respectively *)
       | EIf { cond ; true_body  ; false_body } ->
         Format.sprintf "if %s then %s else %s"
           (to_string cond) (to_string true_body) (ppp_gt false_body)
@@ -803,7 +803,6 @@ module Expr = struct
         Cell.to_string (fun {func; arg} ->
             Format.sprintf "%s %s" (ppp_gt func) (ppp_ge arg)
           ) cell
-      (*subject : 'a t ; patterns : ('a Pattern.t * 'a t) list*)
       | EMatch { subject ; patterns } ->
         let subject_eval = to_string subject in
         let patterns_eval pattern =
@@ -823,7 +822,6 @@ module Expr = struct
       | ENot e ->
         Format.sprintf "not %s" (ppp_ge e)
       | EInput -> "input"
-      (* is parsed as "input", but we can immediately make it pick_i *)
       | EFunction { param ; body } -> (* note bluejay also has multi-arg function, which generalizes this *)
         let param_eval = Ident.to_string param in
         let body_eval = ppp_gt body in
@@ -849,7 +847,7 @@ module Expr = struct
       | EThaw c ->
         Format.sprintf "#thaw %s" (Cell.to_string (fun e -> ppp_ge e) c)
       | EId -> "fun x -> x"
-      | EIgnore { ignored ; body } -> (* simply sugar for `let _ = ignored in body` but is more efficient *)
+      | EIgnore { ignored ; body } -> (* equivalent to `let _ = ignored in body` but is more efficient *)
         Format.sprintf "#ignore %s in %s" (to_string ignored) (ppp_gt body)
       | ETable -> "#table"
       | ETblAppl { tbl ; gen ; arg } ->
@@ -880,8 +878,11 @@ module Expr = struct
       | ETypeRecord record ->
         RecordLabel.record_body_to_string ~sep:":" record to_string
       | ETypeModule ls -> (* is a list because order matters *)
-        Format.sprintf "sig %s end" (String.concat ~sep:" "
-                                     @@ List.map ls ~f:(fun (label, expr) -> Format.sprintf "val %s : %s" (RecordLabel.to_string label) (to_string expr)))
+        Format.sprintf "sig %s end"
+          (String.concat ~sep:" " @@
+           List.map ls ~f:(fun (label, expr) ->
+               Format.sprintf "val %s : %s"
+                 (RecordLabel.to_string label) (to_string expr)))
       | ETypeFun { domain ; codomain ; dep ; det } ->
         let arg1 = match dep with
           | `Binding Ident s -> Format.sprintf "(%s : %s)" s (ppp_ge domain)
@@ -900,7 +901,9 @@ module Expr = struct
           (to_string body)
       | ETypeVariant variant_list ->
         Format.sprintf "| %s"
-          (String.concat ~sep: "\n| " @@ List.map variant_list ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "`%s of %s" s (to_string tau)))
+          (String.concat ~sep: "\n| " @@
+           List.map variant_list ~f:(fun (VariantTypeLabel Ident s, tau) ->
+               Format.sprintf "`%s of %s" s (to_string tau)))
       | ELetTyped { typed_var ; defn ; body ; do_wrap ; do_check } ->
         let {var = Ident s; tau} = typed_var in
         let statement =
@@ -911,11 +914,8 @@ module Expr = struct
       | ETypeSingle -> "singlet"
       (* bluejay or type erased *)
       | EList list ->
-        let rec list_to_str = function
-          | [] -> ""
-          | hd::[] -> Format.sprintf "%s" (to_string hd)
-          | hd::tl -> Format.sprintf "%s; %s" (to_string hd) (list_to_str tl)
-        in Format.sprintf "[%s]" (list_to_str list)
+        Format.sprintf "[%s]"
+          (String.concat ~sep:"; " @@ List.map ~f:to_string list)
       | EListCons (hd, tl)->
         Format.sprintf "%s::%s" (ppp_gt hd) (ppp_gt tl)
       | EAssert e ->
@@ -923,15 +923,26 @@ module Expr = struct
       | EAssume e ->
         Format.sprintf "assume %s" (ppp_ge e)
       | EMultiArgFunction { params ; body } ->
-        let params_eval = (String.concat ~sep:" " @@ List.map ~f:(fun (Ident s) -> s) params) in
+        let params_eval =
+          (String.concat ~sep:" " @@ List.map ~f:(fun (Ident s) -> s) params)
+        in
         Format.sprintf "(fun %s -> %s)" params_eval (ppp_gt body)
-      | ELetFun {func; body} -> Format.sprintf "let %s in %s" (funsig_to_string func) (to_string body)
-      | ELetFunRec {funcs; body} -> Format.sprintf "let rec %s in %s" (String.concat ~sep:"\nand " (List.map funcs ~f:(funsig_to_string))) (to_string body)
+      | ELetFun {func; body} ->
+        Format.sprintf "let %s in %s"
+          (funsig_to_string func) (to_string body)
+      | ELetFunRec {funcs; body} ->
+        Format.sprintf "let rec %s in %s"
+          (String.concat ~sep:"\nand " @@
+           List.map funcs ~f:(funsig_to_string))
+          (to_string body)
       (* bluejay only *)
       | ETypeList -> "list"
       | ETypeIntersect ls ->
-        Format.sprintf "%s"
-          (String.concat ~sep:" & " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((`%s of %s) -> %s)" s (to_string tau1) (to_string tau2)))
+        String.concat ~sep:" & " @@
+        List.map ls
+          ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) ->
+              Format.sprintf "((`%s of %s) -> %s)"
+                s (to_string tau1) (to_string tau2))
 
     and statement_to_string : type a. a statement -> string = function
       | SUntyped { var ; defn } ->
