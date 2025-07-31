@@ -690,7 +690,7 @@ let bluejay_generators : bluejay generators =
 let desugared_generators : desugared generators =
   build_generators desugared_generator_parts
 
-let embedded_generator : embedded generators =
+let embedded_generators : embedded generators =
   build_generators embedded_generator_parts
 
 (******************************************************************************)
@@ -744,10 +744,10 @@ let make_rand_tests (trees_per_language : int) : unit Alcotest.test list =
       desugared_generators
       Lang.Parser.Desugared.parse_single_pgm_string
       trees_per_language;
-    (* make_tests_from_generators
+    make_tests_from_generators
       ~test_name:"generated_embedded_pp"
       ~rand_state:(Random.State.make (Array.init 0 ~f:(fun _ -> 0)))
       embedded_generators
       Lang.Parser.Embedded.parse_single_pgm_string
-      trees_per_language; *)
+      trees_per_language;
   ]

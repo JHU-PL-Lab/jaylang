@@ -6,19 +6,22 @@
     bluejayParserDesc.mly
     desugaredLexerDesc.mll
     desugaredParserDesc.mly
+    embeddedLexerDesc.mll
+    embeddedParserDesc.mly
   )
 )
 
 (ocamllex
   bluejayLexerDesc
   desugaredLexerDesc
+  embeddedLexerDesc
 )
 
 (menhir
-  (flags --explain)
   (modules
     bluejayParserDesc
     desugaredParserDesc
+    embeddedParserDesc
   )
 )
 

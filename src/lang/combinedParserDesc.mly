@@ -22,6 +22,9 @@ the language and which lines are erased.
   (*! scope desugared !*)
   open Desugared
   (*! endscope !*)
+  (*! scope embedded !*)
+  open Embedded
+  (*! endscope !*)
 %}
 
 (* everyone *)
@@ -37,9 +40,7 @@ the language and which lines are erased.
 %token CLOSE_PAREN
 %token EQUALS
 %token ARROW
-%token LONG_ARROW
 %token DOT
-%token COLON
 %token UNDERSCORE
 %token PIPE
 %token DOUBLE_PIPE
@@ -53,22 +54,10 @@ the language and which lines are erased.
 %token THEN
 %token ELSE
 %token NOT
-%token INT_KEYWORD
-%token BOOL_KEYWORD
-%token UNIT_KEYWORD
-%token TOP_KEYWORD
-%token BOTTOM_KEYWORD
-%token SINGLET_KEYWORD
-%token INPUT
 %token MATCH
 %token END
-%token TYPE
-%token MU
-%token SIG
 %token STRUCT
-%token VAL
 %token DEFER
-%token OF
 %token PLUS
 %token MINUS
 %token ASTERISK
@@ -81,6 +70,22 @@ the language and which lines are erased.
 %token EQUAL_EQUAL
 %token NOT_EQUAL
 %token PIPELINE
+(*! scope bluejay desugared !*)
+%token BOOL_KEYWORD
+%token BOTTOM_KEYWORD
+%token COLON
+%token INPUT
+%token INT_KEYWORD
+%token LONG_ARROW
+%token MU
+%token OF
+%token SIG
+%token SINGLET_KEYWORD
+%token TOP_KEYWORD
+%token TYPE
+%token UNIT_KEYWORD
+%token VAL
+(*! endscope !*)
 (*! scope bluejay !*)
 %token AMPERSAND
 %token AND
@@ -94,10 +99,29 @@ the language and which lines are erased.
 %token OPEN_BRACKET
 %token REC
 (*! endscope !*)
-(*! scope desugared !*)
+(*! scope desugared embedded !*)
 %token ABORT
-%token GEN
 %token VANISH
+(*! endscope !*)
+(*! scope desugared !*)
+%token GEN
+(*! endscope !*)
+(*! scope embedded !*)
+%token COMMA
+%token PICK_I
+%token PICK_B
+%token CASE
+%token DEFAULT
+%token FREEZE
+%token THAW
+%token ID
+%token IGNORE
+%token TABLE
+%token TBLAPPL
+%token DET
+%token ESCAPEDET
+%token INTENSIONAL_EQUAL
+%token UNTOUCHABLE
 (*! endscope !*)
 
 /*
@@ -105,7 +129,9 @@ the language and which lines are erased.
  */
 %nonassoc prec_let prec_fun   /* Let-ins and functions */
 %nonassoc prec_if             /* Conditionals */
+(*! scope bluejay desugared !*)
 %nonassoc prec_mu             /* mu types */
+(*! endscope !*)
 %left PIPELINE                /* |> */
 %right DOUBLE_PIPE            /* || for boolean or */
 %right DOUBLE_AMPERSAND       /* && for boolean and */
@@ -122,9 +148,16 @@ the language and which lines are erased.
 (*! endscope !*)
 (*! scope desugared !*)
 %right GEN
+(*! endscope !*)
+(*! scope desugared embedded !*)
 %right VANISH           /* failures */
 (*! endscope !*)
+(*! scope embedded !*)
+%right UNTOUCHABLE THAW FREEZE DET ESCAPEDET
+(*! endscope !*)
+(*! scope bluejay desugared !*)
 %right ARROW LONG_ARROW       /* -> for type declaration, and --> for deterministic */
+(*! endscope !*)
 %right prec_variant           /* variants, lists */
 
 %start <statement list> prog
@@ -160,12 +193,14 @@ statement_list:
   | statement statement_list { $1 :: $2 }
 
 statement:
-  | LET l_ident COLON expr EQUALS expr
-      { STyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; do_wrap = true ; do_check = true } : statement }
   | LET l_ident EQUALS expr
       { SUntyped { var = $2 ; defn = $4 } : statement }
+  (*! scope bluejay desugared !*)
+  | LET l_ident COLON expr EQUALS expr
+      { STyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; do_wrap = true ; do_check = true } : statement }
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr
       { STyped { typed_var = { var = $3 ; tau = $5 } ; defn = $8 ; do_wrap = true ; do_check = true } : statement }
+  (*! endscope !*)
   (*! scope bluejay !*)
   | letfun_rec
       { SFunRec $1 : statement }
@@ -181,8 +216,10 @@ expr:
       { $1 : t }
   | op_expr
       { $1 : t }
+  (*! scope bluejay desugared !*)
   | type_expr
       { $1 }
+  (*! endscope !*)
   | IF expr THEN expr ELSE expr %prec prec_if
       { EIf { cond = $2 ; true_body = $4 ; false_body = $6 } : t }
   | FUNCTION l_ident ARROW expr %prec prec_fun 
@@ -192,14 +229,22 @@ expr:
       { EMultiArgFunction { params = $2 :: $3 ; body = $5 } : t }
   (*! endscope !*)
   // Let
+  (*! scope bluejay desugared !*)
   | LET l_ident COLON expr EQUALS expr IN expr %prec prec_let
       { ELetTyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; body = $8 ; do_wrap = true ; do_check = true } : t }
+  (*! endscope !*)
   | LET l_ident EQUALS expr IN expr %prec prec_let
       { ELet { var = $2 ; defn = $4 ; body = $6 } : t }
   | LET_BIND l_ident EQUALS expr IN expr %prec prec_let (* this is desugared in place, which is a little ugly... *)
       { EAppl { func = EAppl { func = EVar (Ident "bind") ; arg = $4 } ; arg = EFunction { param = $2 ; body = $6 }} : t } 
+  (*! scope bluejay desugared !*)
   | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
       { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; defn = $8 ; body = $10 ; do_wrap = true ; do_check = true } : t }
+  (*! endscope !*)
+  (*! scope embedded !*)
+  | IGNORE expr IN expr %prec prec_let
+      { EIgnore { ignored = $2; body = $4 } }
+  (*! endscope !*)
   // Functions
   (*! scope bluejay !*)
   | letfun_rec IN expr %prec prec_fun
@@ -210,9 +255,18 @@ expr:
   // Match
   | MATCH expr WITH PIPE? match_expr_list END
       { EMatch { subject = $2 ; patterns = $5 } : t }
+  (*! scope embedded !*)
+  | CASE expr WITH PIPE? case_expr_list DEFAULT expr END
+      { ECase { subject = $2; cases = $5; default = $7 } }
+  | TBLAPPL OPEN_PAREN expr COMMA expr COMMA expr CLOSE_PAREN
+      { ETblAppl { tbl = $3; gen = $5; arg = $7; } }
+  | INTENSIONAL_EQUAL OPEN_PAREN expr COMMA expr CLOSE_PAREN
+      { EIntensionalEqual { left = $3; right = $5 } }
+  (*! endscope !*)
 ;
 
-type_expr:
+(*! scope bluejay desugared !*)
+%inline type_expr:
   | MU l_ident list(l_ident) DOT expr %prec prec_mu
       { ETypeMu { var = $2 ; params = $3 ; body = $5 } : t}
   | expr ARROW expr
@@ -232,6 +286,7 @@ type_expr:
   | separated_at_least_two_list(AMPERSAND, single_intersection_type)
       { ETypeIntersect $1 : t }
   (*! endscope !*)
+(*! endscope !*)
 
 (*! scope bluejay !*)
 (* Doesn't *really* need parens I think, but without them we would never get a meaningful intersection type *)
@@ -240,6 +295,8 @@ single_intersection_type:
   | OPEN_PAREN OPEN_PAREN single_variant_type CLOSE_PAREN ARROW expr CLOSE_PAREN
       { let (a, b) = $3 in (a, b, $6) }
 (*! endscope !*)
+
+(*! scope bluejay desugared !*)
 
 single_variant_type:
   | variant_type_label OF expr %prec prec_variant { $1, $3 }
@@ -264,6 +321,8 @@ record_type_body:
       { new_record $1 $3 }
   | record_label COLON expr SEMICOLON record_type_body
       { add_record_entry $1 $3 $5 }
+
+(*! endscope !*)
 
 // basic_types:
 
@@ -310,8 +369,21 @@ primary_expr:
   | ident_usage
       { $1 : t }
   (* keywords *)
+  (*! scope bluejay desugared !*)
   | INPUT
       { EInput : t }
+  (*! endscope !*)
+  (*! scope embedded !*)
+  | PICK_I
+      { EPick_i : t }
+  | PICK_B
+      { EPick_b : t }
+  | ID
+      { EId : t }
+  | TABLE
+      { ETable : t }
+  (*! endscope !*)
+  (*! scope bluejay desugared !*)
   | TYPE
       { EType : t }
   | INT_KEYWORD
@@ -324,17 +396,22 @@ primary_expr:
       { ETypeTop : t }
   | BOTTOM_KEYWORD
       { ETypeBottom : t }
+  (*! endscope !*)
   (*! scope bluejay !*)
   | LIST
       { ETypeList : t }
   (*! endscope !*)
+  (*! scope bluejay desugared !*)
   | SINGLET_KEYWORD
       { ETypeSingle : t }
+  (*! endscope !*)
   (* braces/parens *)
   | OPEN_PAREN CLOSE_PAREN
       { EUnit : t }
+  (*! scope bluejay desugared !*)
   | OPEN_BRACE COLON CLOSE_BRACE
       { ETypeRecord empty_record : t }
+  (*! endscope !*)
   | OPEN_BRACE record_body CLOSE_BRACE
       { ERecord $2 : t }
   | OPEN_BRACE CLOSE_BRACE
@@ -347,14 +424,18 @@ primary_expr:
   (*! endscope !*)
   | OPEN_PAREN expr CLOSE_PAREN
       { $2 }
+  (*! scope bluejay desugared !*)
   | OPEN_BRACE expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $2 ; predicate = $4 } : t }
-  | SIG nonempty_list(val_item) END
-      { ETypeModule $2 : t }
+  (*! endscope !*)
   | STRUCT statement_list END
       { EModule $2 : t }
+  (*! scope bluejay desugared !*)
+  | SIG nonempty_list(val_item) END
+      { ETypeModule $2 : t }
   | record_type_or_refinement
       { $1 : t }
+  (*! endscope !*)
   | primary_expr DOT record_label
       { EProject { record = $1 ; label = $3} : t }
 ;
@@ -366,13 +447,27 @@ op_expr:
   | ASSUME expr
       { EAssume $2 : t }
   (*! endscope !*)
-  (*! scope desugared !*)
+  (*! scope desugared embedded !*)
   | ABORT ident
       { let Ident s = $2 in EAbort s : t }
   | VANISH expr
       { EVanish () : t }
+  (*! endscope !*)
+  (*! scope desugared !*)
   | GEN expr
       { EGen $2 : t }
+  (*! endscope !*)
+  (*! scope embedded !*)
+  | FREEZE expr
+      { EFreeze $2 : t }
+  | THAW expr
+      { EThaw $2 : t }
+  | DET expr
+      { EDet $2 : t }
+  | ESCAPEDET expr
+      { EEscapeDet $2 : t }
+  | UNTOUCHABLE expr
+      { EUntouchable $2 : t }
   (*! endscope !*)
   | variant_label expr %prec prec_variant
       { EVariant { label = $1 ; payload = $2 } : t }
@@ -440,11 +535,15 @@ param_list:
 
 (*! endscope !*)
 
+(*! scope bluejay desugared !*)
+
 /* val x : t (* for module types *) */
 /* val t = tau (* pure simple sugar for val t : singlet tau *) */
 val_item:
   | VAL record_type_item { $2 }
   | VAL record_label EQUALS expr { $2, EAppl { func = ETypeSingle ; arg = $4 } : RecordLabel.t * t }
+
+(*! endscope !*)
 
 %inline record_label:
   | ident { RecordLabel.RecordLabel $1 }
@@ -476,9 +575,11 @@ record_body:
 variant_label:
   | BACKTICK ident { VariantLabel.VariantLabel $2 }
 
+(*! scope bluejay desugared !*)
 /* e.g. ``Variant int */ 
 variant_type_label:
   | BACKTICK ident { VariantTypeLabel.VariantTypeLabel $2 }
+(*! endscope !*)
 
 /* **** Pattern matching **** */
 
@@ -489,6 +590,20 @@ match_expr_list:
       { ($1, $3) :: $5 : (pattern * t) list }
   | pattern ARROW expr
       { [ $1, $3 ] : (pattern * t) list }
+
+(*! scope embedded !*)
+
+case_expr:
+  | INT ARROW expr
+      { ($1, $3) : (int * t) }
+
+case_expr_list:
+  | case_expr PIPE
+      { [$1] : (int * t) list }
+  | case_expr PIPE case_expr_list
+      { $1::$3 : (int * t) list }
+
+(*! endscope !*)
 
 pattern:
   | variant_label l_ident { PVariant { variant_label = $1 ; payload_id = $2 } }

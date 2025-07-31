@@ -2,7 +2,7 @@
 
 (name jay)
 
-(using menhir 2.0)
+(using menhir 3.0)
 
 (generate_opam_files true)
 

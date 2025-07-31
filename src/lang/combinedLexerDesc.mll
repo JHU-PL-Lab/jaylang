@@ -9,12 +9,15 @@ the language and which lines are erased.
 *)
 
 {
-  (*!scope bluejay!*)
+  (*! scope bluejay !*)
   open BluejayParserDesc
-  (*!endscope!*)
-  (*!scope desugared!*)
+  (*! endscope !*)
+  (*! scope desugared !*)
   open DesugaredParserDesc
-  (*!endscope!*)
+  (*! endscope !*)
+  (*! scope embedded !*)
+  open EmbeddedParserDesc
+  (*! endscope !*)
   open Lexing
   let incr_lineno lexbuf =
     let pos = lexbuf.lex_curr_p in
@@ -47,7 +50,9 @@ rule token = parse
 | "`"                  { BACKTICK }
 | "="                  { EQUALS }
 | "."                  { DOT }
+(*! scope bluejay desugared !*) (* must stay here vs. :: *)
 | ":"                  { COLON }
+(*! endscope !*)
 | "_"                  { UNDERSCORE }
 | "|"                  { PIPE }
 | "||"                 { DOUBLE_PIPE }
@@ -56,12 +61,6 @@ rule token = parse
 (*! endscope !*)
 | "&&"                 { DOUBLE_AMPERSAND }
 | "not"                { NOT }
-| "int"                { INT_KEYWORD }
-| "bool"               { BOOL_KEYWORD }
-| "unit"               { UNIT_KEYWORD }
-| "top"                { TOP_KEYWORD }
-| "bottom"             { BOTTOM_KEYWORD }
-| "singlet"            { SINGLET_KEYWORD }
 | "fun"                { FUNCTION }
 | "function"           { FUNCTION }
 | "with"               { WITH }
@@ -72,19 +71,12 @@ rule token = parse
 | "let%bind"           { LET_BIND}
 | "in"                 { IN }
 | "->"                 { ARROW }
-| "-->"                { LONG_ARROW }
 | "false"              { BOOL false }
 | "true"               { BOOL true }
-| "input"              { INPUT }
 | "match"              { MATCH }
 | "end"                { END }
-| "type"               { TYPE }
-| "mu"                 { MU }
-| "sig"                { SIG }
 | "struct"             { STRUCT }
-| "val"                { VAL }
 | "defer"              { DEFER }
-| "of"                 { OF }
 | "+"                  { PLUS }
 | "-"                  { MINUS }
 | "*"                  { ASTERISK }
@@ -97,6 +89,21 @@ rule token = parse
 | ">"                  { GREATER }
 | ">="                 { GREATER_EQUAL }
 | "|>"                 { PIPELINE }
+(*! scope bluejay desugared !*)
+| "-->"                { LONG_ARROW }
+| "bool"               { BOOL_KEYWORD }
+| "bottom"             { BOTTOM_KEYWORD }
+| "input"              { INPUT }
+| "int"                { INT_KEYWORD }
+| "mu"                 { MU }
+| "of"                 { OF }
+| "sig"                { SIG }
+| "singlet"            { SINGLET_KEYWORD }
+| "top"                { TOP_KEYWORD }
+| "type"               { TYPE }
+| "unit"               { UNIT_KEYWORD }
+| "val"                { VAL }
+(*! endscope !*)
 (*! scope bluejay !*)
 | "["                  { OPEN_BRACKET }
 | "]"                  { CLOSE_BRACKET }
@@ -113,6 +120,23 @@ rule token = parse
 | "#abort"             { ABORT }
 | "#vanish"            { VANISH }
 | "#gen"               { GEN }
+(*! endscope !*)
+(*! scope embedded !*)
+| ","                  { COMMA }
+| "#pick_i"            { PICK_I }
+| "#pick_b"            { PICK_B }
+| "#case"              { CASE }
+| "#default"           { DEFAULT }
+| "#freeze"            { FREEZE }
+| "#thaw"              { THAW }
+| "#id"                { ID }
+| "#ignore"            { IGNORE }
+| "#table"             { TABLE }
+| "#tblappl"           { TBLAPPL }
+| "#det"               { DET }
+| "#escapedet"         { ESCAPEDET }
+| "#intensionalEqual"  { INTENSIONAL_EQUAL }
+| "#untouchable"       { UNTOUCHABLE }
 (*! endscope !*)
 | digit+ as n          { INT (int_of_string n) }
 | ident_start ident_cont* as s     { IDENTIFIER s }

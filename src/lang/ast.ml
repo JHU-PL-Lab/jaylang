@@ -860,7 +860,7 @@ module Expr = struct
       | EEscapeDet e ->
         Format.sprintf "#escapeDet %s" (ppp_ge e)
       | EIntensionalEqual { left; right } ->
-        Format.sprintf "#intensionalEqual %s %s" (ppp_ge left) (ppp_ge right)
+        Format.sprintf "#intensionalEqual (%s, %s)" (to_string left) (to_string right)
       | EUntouchable e ->
         Format.sprintf "#untouchable %s" (ppp_ge e)
       (* these exist in the desugared and embedded languages *)

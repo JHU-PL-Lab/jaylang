@@ -47,6 +47,12 @@ module Desugared = Make(struct
     include DesugaredLexerDesc
   end)
 
+module Embedded = Make(struct
+    type statement = Ast.Embedded.statement
+    include EmbeddedParserDesc
+    include EmbeddedLexerDesc
+  end)
+
 let parse_program_from_file (filename : string) : Ast.some_program =
   match Ast.extension_to_language (Filename.extension filename) with
   | Some language ->
