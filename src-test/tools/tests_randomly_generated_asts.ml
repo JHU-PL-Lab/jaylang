@@ -53,8 +53,8 @@ let pick_list
     ?(min_len:int=1) ?(max_len:int=5) ~(ctx : _ context) (f : unit -> a)
   : a list =
   let rec loop n : a list =
-    let x = f () in
-    if n = 1 then [x] else x::loop(n-1)
+    if n = 0 then [] else
+      f () :: loop (n-1)
   in
   loop (pick_int ~ctx ~min:min_len ~max:max_len)
 
