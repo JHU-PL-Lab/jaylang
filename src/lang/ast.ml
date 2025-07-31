@@ -335,6 +335,7 @@ module Expr = struct
       (* bluejay only *)
       | SFun : 'a funsig -> 'a bluejay_or_type_erased statement
       | SFunRec : 'a funsig list -> 'a bluejay_or_type_erased statement
+      [@@deriving jay_rank] (* because ppx variant deriver can't handle mutually recursive types *)
 
     let func_id_of_funsig : type a. a funsig -> Ident.t = function
       | FUntyped { func_id ; _ }
@@ -345,71 +346,6 @@ module Expr = struct
       | STyped { typed_var = { var ; _ } ; _ } -> [ var ]
       | SFun fs -> [ func_id_of_funsig fs ]
       | SFunRec fss -> List.map fss ~f:func_id_of_funsig
-
-    (* Completely arbitrary rank. PPX libs can't do this with mutually recursive types, apparently. *)
-    let to_rank : type a. a t -> int = function
-      | EInt _ -> 0
-      | EBool _ -> 1
-      | EVar _ -> 2
-      | EBinop _ -> 3
-      | EIf _ -> 4
-      | ELet _ -> 5
-      | EAppl _ -> 6
-      | EMatch _ -> 7
-      | EProject _ -> 8
-      | ERecord _ -> 9
-      | ENot _ -> 10
-      | EInput -> 11
-      | EFunction _ -> 12
-      | EVariant _ -> 13
-      | EPick_i -> 14
-      | EPick_b -> 15
-      | ECase _ -> 16
-      | EFreeze _ -> 17
-      | EThaw _ -> 18
-      | EId -> 19
-      | EIgnore _ -> 20
-      | ETable -> 21
-      | ETblAppl _ -> 22
-      | EDet _ -> 23
-      | EEscapeDet _ -> 24
-      | EAbort _ -> 25
-      | EVanish _ -> 26
-      | EType -> 27
-      | ETypeInt -> 28
-      | ETypeBool -> 29
-      | ETypeTop -> 30
-      | ETypeBottom -> 31
-      | ETypeRecord _ -> 32
-      | ETypeModule _ -> 33
-      | ETypeFun _ -> 34
-      | ETypeRefinement _ -> 35
-      | ETypeMu _ -> 36
-      | ETypeVariant _ -> 37
-      | ELetTyped _ -> 38
-      | ETypeSingle -> 39
-      | ETypeList -> 40
-      | ETypeIntersect _ -> 41
-      | EList _ -> 42
-      | EListCons _ -> 43
-      | EModule _ -> 44
-      | EAssert _ -> 45
-      | EAssume _ -> 46
-      | EMultiArgFunction _ -> 47
-      | ELetFun _ -> 48
-      | ELetFunRec _ -> 49
-      | EGen _  -> 50
-      | EIntensionalEqual _ -> 51
-      | EUntouchable _ -> 52
-      | EUnit -> 53
-      | ETypeUnit -> 54
-      | EDefer _ -> 55
-
-    let statement_to_rank : type a. a statement -> int = function
-      | SUntyped _ -> 0
-      | STyped _ -> 1
-      | SFun _ -> 2
-      | SFunRec _ -> 3
 
     module Alist = struct
       (* association list of identifiers *)

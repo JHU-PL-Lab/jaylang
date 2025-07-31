@@ -1,41 +1,26 @@
 (rule
-  (action (bash "python3 uncombine.py --prefix combined --ignore-combined uncombine.py --combined %{deps} --targets %{targets}"))
-  (deps uncombine.py combinedLexerDesc.mll combinedParserDesc.mly)
-  (targets
-    bluejayLexerDesc.mll
-    bluejayParserDesc.mly
-    desugaredLexerDesc.mll
-    desugaredParserDesc.mly
-    embeddedLexerDesc.mll
-    embeddedParserDesc.mly
-  )
-)
+ (action
+  (bash
+   "python3 uncombine.py --prefix combined --ignore-combined uncombine.py --combined %{deps} --targets %{targets}"))
+ (deps uncombine.py combinedLexerDesc.mll combinedParserDesc.mly)
+ (targets
+  bluejayLexerDesc.mll
+  bluejayParserDesc.mly
+  desugaredLexerDesc.mll
+  desugaredParserDesc.mly
+  embeddedLexerDesc.mll
+  embeddedParserDesc.mly))
 
-(ocamllex
-  bluejayLexerDesc
-  desugaredLexerDesc
-  embeddedLexerDesc
-)
+(ocamllex bluejayLexerDesc desugaredLexerDesc embeddedLexerDesc)
 
 (menhir
-  (modules
-    bluejayParserDesc
-    desugaredParserDesc
-    embeddedParserDesc
-  )
-)
+ (modules bluejayParserDesc desugaredParserDesc embeddedParserDesc))
 
 (library
  (name lang)
  (public_name jay.lang)
  (synopsis "Languages in Jaylang")
  (modules (:standard))
- (libraries
-  core
-  cmdliner
-  preface
-  utils
-  )
+ (libraries core cmdliner preface utils)
  (preprocess
-  (pps ocaml-monadic ppx_variants_conv ppx_sexp_conv ppx_compare ppx_hash))
-)
+  (pps ocaml-monadic ppx_variants_conv ppx_sexp_conv ppx_compare ppx_hash jay_ppx_local)))
