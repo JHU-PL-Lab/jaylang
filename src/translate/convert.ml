@@ -27,3 +27,8 @@ let[@landmark] bjy_to_des (bjy : Bluejay.pgm) ~(do_type_splay : bool) : Desugare
 
 let bjy_to_erased (bjy : Bluejay.pgm) : Type_erased.pgm =
   Type_erasure.erase bjy
+
+let[@landmark] des_to_emb (des : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm =
+  let module Names = Translation_tools.Fresh_names.Make () in
+  Embed.embed_pgm (module Names) ~do_wrap ~do_type_splay des
+

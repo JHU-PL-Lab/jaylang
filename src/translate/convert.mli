@@ -24,3 +24,11 @@ val bjy_to_many_emb : Lang.Ast.Bluejay.pgm -> do_wrap:bool -> do_type_splay:bool
 val bjy_to_erased : Lang.Ast.Bluejay.pgm -> Lang.Ast.Type_erased.pgm
 (** [bjy_to_erased pgm] is a program where all types in the given Bluejay program [pgm]
     are erased. Types are replaced with unusable unit values. *)
+
+val des_to_emb : Lang.Ast.Desugared.pgm -> do_wrap:bool -> do_type_splay:bool -> Lang.Ast.Embedded.pgm
+(** [des_to_emb des do_wrap do_type_splay] is a program where all types in [des] have
+    been embedded as expressions with runtime checks. Thus, behavior of the output program
+    is not guaranteed to be identical to the input program.
+    The "wrap" behavior is only on if [do_wrap] is true.
+    See the docs for translation behavior if [do_type_splay] is true. *)
+

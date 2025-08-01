@@ -301,7 +301,7 @@ let test_bjy =
 *)
 
 let test =
-  (fun s -> Lang.Parser.Bluejay.parse_single_pgm_string @@ In_channel.read_all s)
+  Lang.Parser.Bluejay.parse_file
   ^>> test_bjy
 
 (*
