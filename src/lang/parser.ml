@@ -65,7 +65,7 @@ let parse_program_from_file (filename : string) : Ast.some_program =
         SomeProgram (DesugaredLanguage,
                      Desugared.parse_single_pgm_string channel)
       | SomeLanguage EmbeddedLanguage ->
-        SomeProgram (EmbeddedLanguage, failwith "TODO")
+        SomeProgram (EmbeddedLanguage, Embedded.parse_single_pgm_string channel)
     end
   | None ->
     raise @@ Invalid_argument (
