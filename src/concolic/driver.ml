@@ -63,7 +63,7 @@ module Compute (Cfg : ComputeConfig) = struct
 
     let run_with_internal_timeout : t -> Compute_result.t =
       fun expr ->
-        test_with_timeout ~options:Cfg.options expr
+      test_with_timeout ~options:Cfg.options expr
   end
 
   let timeout_sec = Cfg.options.global_timeout_sec
@@ -78,14 +78,17 @@ end
 (*
   TODO: have this (or the work inside Compute functor) take an evaluation function.
 *)
-let test_bjy :
-  options:Options.t -> do_wrap:bool -> do_type_splay:bool -> Lang.Ast.Bluejay.pgm ->
+let test_some_program :
+  options:Options.t ->
+  do_wrap:bool ->
+  do_type_splay:bool ->
+  Lang.Ast.some_program ->
   Status.Terminal.t =
   fun ~options ~do_wrap ~do_type_splay program ->
   let programs =
     if options.in_parallel
-    then Translate.Convert.bjy_to_many_emb program ~do_wrap ~do_type_splay
-    else Preface.Nonempty_list.Last (Translate.Convert.bjy_to_emb program ~do_wrap ~do_type_splay)
+    then Translate.Convert.some_program_to_many_emb program ~do_wrap ~do_type_splay
+    else Preface.Nonempty_list.Last (Translate.Convert.some_program_to_emb program ~do_wrap ~do_type_splay)
   in
   let module C = Compute (struct let options = options end) in
   let module P = Overlays.Computation_pool.Process (C) in
@@ -99,12 +102,15 @@ let test_bjy :
   -------------------
 *)
 
-let test :
+let test_some_file :
   options:Options.t -> do_wrap:bool -> do_type_splay:bool -> Filename.t ->
   Status.Terminal.t =
   fun ~options ~do_wrap ~do_type_splay filename ->
-  test_bjy
-    ~options ~do_wrap ~do_type_splay (Lang.Parser.Bluejay.parse_file filename)
+  test_some_program
+    ~options
+    ~do_wrap
+    ~do_type_splay
+    (Lang.Parser.parse_program_from_file filename)
 
 (*
   ------------------------------
@@ -119,7 +125,4 @@ let ceval =
   let+ options = Options.cmd_arg_term
   and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
   and+ pgm = Lang.Parser.parse_program_from_argv in
-  match pgm with
-  | Lang.Ast.SomeProgram (BluejayLanguage, bjy_pgm) ->
-    test_bjy ~options ~do_wrap ~do_type_splay bjy_pgm
-  | _ -> failwith "TODO"
+  test_some_program ~options ~do_wrap ~do_type_splay pgm

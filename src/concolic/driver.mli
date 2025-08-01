@@ -11,16 +11,16 @@
 
 open Concolic_common
 
-val test_bjy :
+val test_some_program :
   options:Options.t ->
   do_wrap:bool ->
   do_type_splay:bool ->
-  Lang.Ast.Bluejay.pgm ->
+  Lang.Ast.some_program ->
   Concolic_common.Status.Terminal.t
 (** Performs concolic evaluation on the provided program or times out if the
     timeout limit was exceeded.  The result is printed to stdout. *)
 
-val test :
+val test_some_file :
   options:Options.t ->
   do_wrap:bool ->
   do_type_splay:bool ->

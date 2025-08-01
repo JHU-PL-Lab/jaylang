@@ -12,16 +12,7 @@ let analyze =
   Cmd.v (Cmd.info "analyze") @@
   let+ pgm = Lang.Parser.parse_program_from_argv 
   and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term in
-  let emb_pgm =
-    match pgm with
-    | Lang.Ast.SomeProgram (BluejayLanguage, pgm) ->
-      Translate.Convert.bjy_to_emb pgm ~do_wrap ~do_type_splay
-    | Lang.Ast.SomeProgram (DesugaredLanguage, pgm) ->
-      Translate.Convert.des_to_emb pgm ~do_wrap ~do_type_splay
-    | Lang.Ast.SomeProgram (EmbeddedLanguage, pgm) ->
-      pgm
-  in
-  emb_pgm
+  Translate.Convert.some_program_to_emb ~do_wrap ~do_type_splay pgm
   |> Lang.Ast_tools.Utils.pgm_to_module
   |> Lang.Ast.Embedded.With_program_points.t_of_expr
   |> Lang.Ast.Embedded.With_program_points.alphatize

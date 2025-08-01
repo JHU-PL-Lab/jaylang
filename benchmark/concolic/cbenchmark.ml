@@ -54,17 +54,18 @@ module Report_row (* : Latex_table.ROW *) = struct
           )
     )
 
-  let of_testname (n_trials : int) (runtest : Lang.Ast.Bluejay.pgm -> Status.Terminal.t) (testname : Filename.t) : t list =
+  let of_testname
+      (n_trials : int)
+      (runtest : Lang.Ast.some_program -> Status.Terminal.t)
+      (testname : Filename.t)
+    : t list =
     assert (n_trials > 0);
     let metadata = Metadata.of_bjy_file testname in
     let test_one (n : int) : t =
       let interp0 = Utils.Safe_cell.get Concolic.Evaluator.global_runtime in
       let solve0 = Utils.Safe_cell.get Concolic.Evaluator.global_solvetime in
       let t0 = Caml_unix.gettimeofday () in
-      let source =
-        In_channel.read_all testname
-        |> Lang.Parser.Bluejay.parse_single_pgm_string
-      in
+      let source = Lang.Parser.parse_program_from_file testname in
       let test_result = runtest source in
       let t1 = Caml_unix.gettimeofday () in
       let interp1 = Utils.Safe_cell.get Concolic.Evaluator.global_runtime in
@@ -113,7 +114,12 @@ end
 module Result_table = struct
   type t = Report_row.t Latex_tbl.t
 
-  let of_dirs ?(avg_only : bool = true) (n_trials : int) (dirs : Filename.t list) (runtest : Lang.Ast.Bluejay.pgm -> Status.Terminal.t) : t =
+  let of_dirs
+      ?(avg_only : bool = true)
+      (n_trials : int)
+      (dirs : Filename.t list)
+      (runtest : Lang.Ast.some_program -> Status.Terminal.t)
+    : t =
     let open List.Let_syntax in
     { row_module = (module Report_row)
     ; rows =
@@ -155,12 +161,12 @@ let run () =
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
   let runtest pgm =
-    let test_bjy = 
+    let test_program = 
       match mode with
-      | `Eager -> Concolic.Driver.test_bjy
-      | `Deferred -> Deferred.Cmain.test_bjy
+      | `Eager -> Concolic.Driver.test_some_program
+      | `Deferred -> Deferred.Cmain.test_some_program
     in
-    test_bjy
+    test_program
       ~options
       ~do_wrap:true        (* always wrap during benchmarking *)
       ~do_type_splay:false (* never type splay during benchmarking *)

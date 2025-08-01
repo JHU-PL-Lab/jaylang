@@ -21,16 +21,7 @@ let deval =
   let+ pgm = Lang.Parser.parse_program_from_argv 
   and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
   and+ inputs = Interp_common.Input.parse_list in
-  let emb_pgm =
-    match pgm with
-    | SomeProgram (BluejayLanguage, pgm) ->
-      Translate.Convert.bjy_to_emb pgm ~do_wrap ~do_type_splay
-    | SomeProgram (DesugaredLanguage, pgm) ->
-      Translate.Convert.des_to_emb pgm ~do_wrap ~do_type_splay
-    | SomeProgram (EmbeddedLanguage, pgm) ->
-      pgm
-  in
-  emb_pgm
+  Translate.Convert.some_program_to_emb ~do_wrap ~do_type_splay pgm
   |> Deferred.Main.deval_with_input_sequence inputs
   |> (function
       | Ok v -> Format.printf "Your program evaluated to:\n%s\n" (Deferred.Value.Without_symbols.to_string v)

@@ -287,17 +287,28 @@ let test_with_timeout :
   try Lwt_main.run res_status with
   | Lwt_unix.Timeout -> Timeout
 
-let test_bjy :
-  options:Options.t -> do_wrap:bool -> do_type_splay:bool -> Lang.Ast.Bluejay.pgm ->
+let test_embedded_program :
+  options:Options.t ->
+  Lang.Ast.Embedded.t ->
   Status.Terminal.t =
-  fun ~options ~do_wrap ~do_type_splay program ->
-  let expr =
-    Translate.Convert.bjy_to_emb program ~do_wrap ~do_type_splay
-    |> Lang.Ast_tools.Utils.pgm_to_module
-  in
-  let res = test_with_timeout ~options expr in
+  fun ~options program ->
+  let res = test_with_timeout ~options program in
   Format.printf "%s\n" (Status.to_loud_string res);
   res
+
+let test_some_program :
+  options:Options.t ->
+  do_wrap:bool ->
+  do_type_splay:bool ->
+  Lang.Ast.some_program ->
+  Status.Terminal.t =
+  fun ~options ~do_wrap ~do_type_splay some_program ->
+  let embedded_program =
+    Translate.Convert.some_program_to_emb ~do_wrap ~do_type_splay some_program
+  in
+  test_embedded_program ~options
+    (Lang.Ast_tools.Utils.pgm_to_module embedded_program)
+
 
 (*
   -------------------
@@ -305,12 +316,15 @@ let test_bjy :
   -------------------
 *)
 
-let test :
+let test_some_file :
   options:Options.t -> do_wrap:bool -> do_type_splay:bool -> Filename.t ->
   Status.Terminal.t =
   fun ~options ~do_wrap ~do_type_splay filename ->
-  test_bjy
-    ~options ~do_wrap ~do_type_splay (Lang.Parser.Bluejay.parse_file filename)
+  test_some_program
+    ~options
+    ~do_wrap
+    ~do_type_splay
+    (Lang.Parser.parse_program_from_file filename)
 
 (*
   ------------------------------
@@ -325,7 +339,4 @@ let cdeval =
   let+ options = Options.cmd_arg_term
   and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
   and+ pgm = Lang.Parser.parse_program_from_argv in
-  match pgm with
-  | Lang.Ast.SomeProgram (BluejayLanguage, bjy_pgm) ->
-    test_bjy ~options ~do_wrap ~do_type_splay bjy_pgm
-  | _ -> failwith "TODO"
+  test_some_program ~options ~do_wrap ~do_type_splay pgm
