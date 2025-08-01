@@ -105,6 +105,8 @@ the language and which lines are erased.
 (*! endscope !*)
 (*! scope desugared !*)
 %token GEN
+%token NO_CHECK
+%token NO_WRAP
 (*! endscope !*)
 (*! scope embedded !*)
 %token COMMA
@@ -195,13 +197,25 @@ statement_list:
 statement:
   | LET l_ident EQUALS expr
       { SUntyped { var = $2 ; defn = $4 } : statement }
-  (*! scope bluejay desugared !*)
-  | LET l_ident COLON expr EQUALS expr
-      { STyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; do_wrap = true ; do_check = true } : statement }
-  | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr
-      { STyped { typed_var = { var = $3 ; tau = $5 } ; defn = $8 ; do_wrap = true ; do_check = true } : statement }
+  (* desugared lets may have #no_check #no_wrap but bluejay lets may not *)
+  (*! scope desugared !*)
+  | LET NO_CHECK? NO_WRAP? typed_binding EQUALS expr
+      { STyped { typed_var = { var = fst $4 ; tau = snd $4 };
+                 defn = $6;
+                 typed_binding_opts =
+                    TBDesugared { do_wrap = Option.is_none $2;
+                                  do_check = Option.is_none $3
+                                }
+               } : statement
+      }
   (*! endscope !*)
   (*! scope bluejay !*)
+  | LET typed_binding EQUALS expr
+      { STyped { typed_var = { var = fst $2 ; tau = snd $2 };
+                 defn = $4;
+                 typed_binding_opts = TBBluejay
+               } : statement
+      }
   | letfun_rec
       { SFunRec $1 : statement }
   | letfun
@@ -229,18 +243,32 @@ expr:
       { EMultiArgFunction { params = $2 :: $3 ; body = $5 } : t }
   (*! endscope !*)
   // Let
-  (*! scope bluejay desugared !*)
-  | LET l_ident COLON expr EQUALS expr IN expr %prec prec_let
-      { ELetTyped { typed_var = { var = $2 ; tau = $4 } ; defn = $6 ; body = $8 ; do_wrap = true ; do_check = true } : t }
+  (* bluejay and desugared have different let syntax to allow for e.g. #no_check *)
+  (*! scope bluejay !*)
+  | LET typed_binding EQUALS expr IN expr %prec prec_let
+      { ELetTyped { typed_var = { var = fst $2 ; tau = snd $2 };
+                    defn = $4;
+                    body = $6;
+                    typed_binding_opts = TBBluejay
+                  } : t
+      }
+  (*! endscope !*)
+  (*! scope desugared !*)
+  | LET NO_CHECK? NO_WRAP? typed_binding EQUALS expr IN expr %prec prec_let
+      { ELetTyped { typed_var = { var = fst $4 ; tau = snd $4 };
+                    defn = $6;
+                    body = $8;
+                    typed_binding_opts = TBDesugared
+                        { do_wrap = Option.is_none $2;
+                          do_check = Option.is_none $3;
+                        }
+                  } : t
+      }
   (*! endscope !*)
   | LET l_ident EQUALS expr IN expr %prec prec_let
       { ELet { var = $2 ; defn = $4 ; body = $6 } : t }
   | LET_BIND l_ident EQUALS expr IN expr %prec prec_let (* this is desugared in place, which is a little ugly... *)
       { EAppl { func = EAppl { func = EVar (Ident "bind") ; arg = $4 } ; arg = EFunction { param = $2 ; body = $6 }} : t } 
-  (*! scope bluejay desugared !*)
-  | LET OPEN_PAREN l_ident COLON expr CLOSE_PAREN EQUALS expr IN expr %prec prec_let
-      { ELetTyped { typed_var = { var = $3 ; tau = $5 } ; defn = $8 ; body = $10 ; do_wrap = true ; do_check = true } : t }
-  (*! endscope !*)
   (*! scope embedded !*)
   | IGNORE expr IN expr %prec prec_let
       { EIgnore { ignored = $2; body = $4 } }
@@ -266,6 +294,12 @@ expr:
 ;
 
 (*! scope bluejay desugared !*)
+%inline typed_binding:
+  | l_ident COLON expr
+      { ($1, $3) }
+  | OPEN_PAREN l_ident COLON expr CLOSE_PAREN
+      { ($2, $4) }
+
 %inline type_expr:
   | MU l_ident list(l_ident) DOT expr %prec prec_mu
       { ETypeMu { var = $2 ; params = $3 ; body = $5 } : t}

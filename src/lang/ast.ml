@@ -291,7 +291,7 @@ module Expr = struct
       | ETypeRefinement : { tau : 'a t ; predicate : 'a t } -> 'a bluejay_or_desugared t
       | ETypeMu : { var : Ident.t ; params : Ident.t list ; body : 'a t } -> 'a bluejay_or_desugared t
       | ETypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
-      | ELetTyped : { typed_var : 'a typed_var ; defn : 'a t ; body : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared t
+      | ELetTyped : { typed_var : 'a typed_var ; defn : 'a t ; body : 'a t ; typed_binding_opts : 'a typed_binding_opts } -> 'a bluejay_or_desugared t
       | ETypeSingle : 'a bluejay_or_desugared t
       (* bluejay or type erased *)
       | EList : 'a t list -> 'a bluejay_or_type_erased t
@@ -304,6 +304,11 @@ module Expr = struct
       (* bluejay only *)
       | ETypeList : 'a bluejay_only t
       | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
+
+    (* the options for let expressions *)
+    and _ typed_binding_opts =
+      | TBBluejay : 'a bluejay_only typed_binding_opts
+      | TBDesugared : { do_wrap : bool; do_check : bool } -> 'a desugared_only typed_binding_opts
 
     (* the let-function signatures *)
     and _ funsig =
@@ -331,11 +336,11 @@ module Expr = struct
       (* all *)
       | SUntyped : { var : Ident.t ; defn : 'a t } -> 'a statement
       (* bluejay or desugared *)
-      | STyped : { typed_var : 'a typed_var ; defn : 'a t ; do_wrap : bool ; do_check : bool } -> 'a bluejay_or_desugared statement
+      | STyped : { typed_var : 'a typed_var ; defn : 'a t ; typed_binding_opts : 'a typed_binding_opts } -> 'a bluejay_or_desugared statement
       (* bluejay only *)
       | SFun : 'a funsig -> 'a bluejay_or_type_erased statement
       | SFunRec : 'a funsig list -> 'a bluejay_or_type_erased statement
-      [@@deriving jay_rank] (* because ppx variant deriver can't handle mutually recursive types *)
+    [@@deriving jay_rank] (* because ppx variant deriver can't handle mutually recursive types *)
 
     let func_id_of_funsig : type a. a funsig -> Ident.t = function
       | FUntyped { func_id ; _ }
@@ -502,8 +507,10 @@ module Expr = struct
             | ETypeVariant l1, ETypeVariant l2 ->
               List.compare (Tuple2.compare ~cmp1:VariantTypeLabel.compare ~cmp2:cmp) l1 l2
             | ELetTyped r1, ELetTyped r2 -> begin
-                let- () = Bool.compare r1.do_wrap r2.do_wrap in
-                let- () = Bool.compare r1.do_check r2.do_check in
+                let- () =
+                  compare_typed_binding_opts
+                    r1.typed_binding_opts r2.typed_binding_opts
+                in
                 let- () = cmp r1.typed_var.tau r2.typed_var.tau in
                 let- () = cmp r1.defn r2.defn in
                 compare (Alist.cons_assoc r1.typed_var.var r2.typed_var.var bindings) r1.body r2.body
@@ -545,6 +552,15 @@ module Expr = struct
             | _ ->
               raise @@ InvalidComparison (Printf.sprintf "Impossible comparison of expressions with ranks %d and %d" (to_rank a) (to_rank b))
 
+      and compare_typed_binding_opts : type a. a typed_binding_opts -> a typed_binding_opts -> int =
+        fun o1 o2 ->
+          match o1, o2 with
+          | TBBluejay, TBBluejay -> 0
+          | TBDesugared { do_check = c1; do_wrap = w1 },
+            TBDesugared { do_check = c2; do_wrap = w2 } ->
+            let- () = Bool.compare c1 c2 in
+            Bool.compare w1 w2
+
       and compare_application : type a. Alist.t -> a application -> a application -> int =
         fun bindings a1 a2 ->
           if phys_equal a1 a2 then 0 else
@@ -558,8 +574,10 @@ module Expr = struct
             match s1, s2 with
             | SUntyped r1, SUntyped r2 -> compare (Alist.cons_assoc r1.var r2.var bindings) r1.defn r2.defn
             | STyped r1, STyped r2 ->
-              let- () = Bool.compare r1.do_wrap r2.do_wrap in
-              let- () = Bool.compare r1.do_check r2.do_check in
+              let- () =
+                compare_typed_binding_opts
+                  r1.typed_binding_opts r2.typed_binding_opts
+              in
               let- () = compare bindings r1.typed_var.tau r2.typed_var.tau in
               compare bindings r1.defn r2.defn
             | SFun fs1, SFun fs2 -> compare_funsig bindings fs1 fs2
@@ -840,13 +858,17 @@ module Expr = struct
           (String.concat ~sep: "\n| " @@
            List.map variant_list ~f:(fun (VariantTypeLabel Ident s, tau) ->
                Format.sprintf "`%s of %s" s (to_string tau)))
-      | ELetTyped { typed_var ; defn ; body ; do_wrap ; do_check } ->
+      | ELetTyped { typed_var ; defn ; body ; typed_binding_opts } ->
         let {var = Ident s; tau} = typed_var in
-        let statement =
-          Format.sprintf "let %s : %s = %s in %s" s
-            (to_string tau) (to_string defn) (ppp_gt body) in
-        (* FIXME: the following doesn't parse *)
-        if do_wrap && do_check then statement else statement ^ " (check/wrap failed)"
+        let opts_string =
+          match typed_binding_opts with
+          | TBBluejay -> ""
+          | TBDesugared { do_check ; do_wrap } ->
+            (if do_check then "" else "#nocheck ") ^
+            (if do_wrap then "" else "#nowrap ")
+        in
+        Format.sprintf "let %s %s : %s = %s in %s" s
+          opts_string (to_string tau) (to_string defn) (ppp_gt body)
       | ETypeSingle -> "singlet"
       (* bluejay or type erased *)
       | EList list ->
@@ -884,10 +906,17 @@ module Expr = struct
       | SUntyped { var ; defn } ->
         Format.sprintf "let %s = %s" (Ident.to_string var) (to_string defn)
       (* bluejay or desugared *)
-      | STyped { typed_var ; defn ; do_wrap ; do_check } ->
+      | STyped { typed_var ; defn ; typed_binding_opts } ->
         let {var = Ident s; tau} = typed_var in
-        let statement = Format.sprintf "let %s:%s = %s" s (to_string tau) (to_string defn) in
-        if do_wrap && do_check then statement else statement ^ " (check/wrap failed)"
+        let opts_string =
+          match typed_binding_opts with
+          | TBBluejay -> ""
+          | TBDesugared { do_check ; do_wrap } ->
+            (if do_check then "" else "#nocheck ") ^
+            (if do_wrap then "" else "#nowrap ")
+        in
+        Format.sprintf "let %s (%s:%s) = %s"
+          opts_string s (to_string tau) (to_string defn)
       (* bluejay only *)
       | SFun fsig -> "let " ^ funsig_to_string fsig
       | SFunRec fsiglist -> "let rec " ^ String.concat ~sep:"\nand " (List.map fsiglist ~f:(funsig_to_string))
@@ -1181,7 +1210,7 @@ module Bluejay = struct
       -> is_det_e e1 && is_det_e e2
     (* three subexpressions *)
     | EIf { cond = e1 ; true_body = e2 ; false_body = e3 }
-    | ELetTyped { typed_var = { var = _ ; tau = e1 } ; defn = e2 ; body = e3 ; do_wrap = _ ; do_check = _ } ->
+    | ELetTyped { typed_var = { var = _ ; tau = e1 } ; defn = e2 ; body = e3 ; typed_binding_opts = _ } ->
       is_det_e e1
       && is_det_e e2
       && is_det_e e3

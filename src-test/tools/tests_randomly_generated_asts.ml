@@ -29,6 +29,8 @@ and 'a pattern_gen = ctx : 'a context -> 'a Pattern.t
 
 and 'a expr_gen = ctx : 'a context -> 'a Expr.t
 
+and 'a typed_binding_opts_gen = ctx : 'a context -> 'a typed_binding_opts
+
 and 'a statement_gen = ctx : 'a context -> 'a statement
 
 let ident_chars = ['a';'b';'c';'d';'e';'f';'g';'h';'i';'j';'k';'l';'m';'n';'o';'p';'q';'r';'s';'t';'u';'v';'w';'x';'y';'z';'_']
@@ -349,12 +351,12 @@ let rand_ETypeVariant : 'a expr_gen = fun ~ctx ->
   ETypeVariant(pick_list ~ctx
                  (fun () -> (pick_variant_type_label ~ctx (), pick_expr ~ctx)))
 
-let rand_ELetTyped : 'a expr_gen = fun ~ctx ->
+let rand_ELetTyped : 'a typed_binding_opts_gen -> 'a expr_gen =
+  fun typed_binding_opts_gen ~ctx ->
   ELetTyped { typed_var = pick_typed_var ~ctx;
               defn = pick_expr ~ctx;
               body = pick_expr ~ctx;
-              do_wrap = pick_bool ~ctx;
-              do_check = pick_bool ~ctx;
+              typed_binding_opts = typed_binding_opts_gen ~ctx;
             }
 
 let rand_ETypeSingle : 'a expr_gen = fun ~ctx ->
@@ -400,11 +402,12 @@ let rand_ETypeIntersect : 'a expr_gen = fun ~ctx ->
 let rand_SUntyped : 'a statement_gen = fun ~ctx ->
   SUntyped { var = pick_ident ~ctx (); defn = pick_expr ~ctx }
 
-let rand_STyped : 'a statement_gen = fun ~ctx ->
+let rand_STyped : 'a typed_binding_opts_gen -> 'a statement_gen =
+  fun typed_binding_opts_gen ~ctx ->
   STyped { typed_var = pick_typed_var ~ctx;
            defn = pick_expr ~ctx; 
-           do_wrap = pick_bool ~ctx;
-           do_check = pick_bool ~ctx; }
+           typed_binding_opts = typed_binding_opts_gen ~ctx
+         }
 
 let rand_SFun : 'a statement_gen = fun ~ctx ->
   SFun(pick_funsig ~ctx)
@@ -425,119 +428,125 @@ type 'lang generator_parts = {
   nonleaf_statement_generators : 'lang statement_gen list;
 }
 
-let bluejay_generator_parts : bluejay generator_parts = {
-  leaf_pattern_generators = [
-    rand_PAny;
-    rand_PVariable;
-    rand_PVariant;
-    rand_PEmptyList;
-    rand_PDestructList;
-  ];
-  nonleaf_pattern_generators = [];
-  leaf_expression_generators = [
-    rand_EUnit;
-    rand_EInt;
-    rand_EBool;
-    rand_EVar;
-    rand_EInput;
-    rand_EType;
-    rand_ETypeInt;
-    rand_ETypeBool;
-    rand_ETypeTop;
-    rand_ETypeBottom;
-    rand_ETypeUnit;
-    rand_ETypeSingle;
-    rand_EAssert;
-    rand_EAssume;
-    rand_ETypeList;
-  ];
-  nonleaf_expression_generators = [
-    rand_EBinop;
-    rand_EIf;
-    rand_ELet;
-    rand_EAppl;
-    rand_EMatch;
-    rand_EProject;
-    rand_ERecord;
-    rand_EModule;
-    rand_ENot;
-    rand_EFunction;
-    rand_EVariant;
-    rand_EDefer;
-    rand_ETypeRecord;
-    rand_ETypeModule;
-    rand_ETypeFun;
-    rand_ETypeRefinement;
-    rand_ETypeMu;
-    rand_ETypeVariant;
-    rand_ELetTyped;
-    rand_EList;
-    rand_EListCons;
-    rand_EMultiArgFunction;
-    rand_ELetFun;
-    rand_ELetFunRec;
-    rand_ETypeIntersect;
-  ];
-  leaf_statement_generators = [];
-  nonleaf_statement_generators = [
-    rand_SUntyped;
-    rand_STyped;
-    rand_SFun;
-    rand_SFunRec;
-  ]
-}
+let bluejay_generator_parts : bluejay generator_parts =
+  let typed_binding_opts_gen ~ctx = ignore ctx; TBBluejay in
+  {
+    leaf_pattern_generators = [
+      rand_PAny;
+      rand_PVariable;
+      rand_PVariant;
+      rand_PEmptyList;
+      rand_PDestructList;
+    ];
+    nonleaf_pattern_generators = [];
+    leaf_expression_generators = [
+      rand_EUnit;
+      rand_EInt;
+      rand_EBool;
+      rand_EVar;
+      rand_EInput;
+      rand_EType;
+      rand_ETypeInt;
+      rand_ETypeBool;
+      rand_ETypeTop;
+      rand_ETypeBottom;
+      rand_ETypeUnit;
+      rand_ETypeSingle;
+      rand_EAssert;
+      rand_EAssume;
+      rand_ETypeList;
+    ];
+    nonleaf_expression_generators = [
+      rand_EBinop;
+      rand_EIf;
+      rand_ELet;
+      rand_EAppl;
+      rand_EMatch;
+      rand_EProject;
+      rand_ERecord;
+      rand_EModule;
+      rand_ENot;
+      rand_EFunction;
+      rand_EVariant;
+      rand_EDefer;
+      rand_ETypeRecord;
+      rand_ETypeModule;
+      rand_ETypeFun;
+      rand_ETypeRefinement;
+      rand_ETypeMu;
+      rand_ETypeVariant;
+      rand_ELetTyped typed_binding_opts_gen;
+      rand_EList;
+      rand_EListCons;
+      rand_EMultiArgFunction;
+      rand_ELetFun;
+      rand_ELetFunRec;
+      rand_ETypeIntersect;
+    ];
+    leaf_statement_generators = [];
+    nonleaf_statement_generators = [
+      rand_SUntyped;
+      rand_STyped typed_binding_opts_gen;
+      rand_SFun;
+      rand_SFunRec;
+    ]
+  }
 
-let desugared_generator_parts : desugared generator_parts = {
-  leaf_pattern_generators = [
-    rand_PAny;
-    rand_PVariable;
-    rand_PVariant;
-  ];
-  nonleaf_pattern_generators = [];
-  leaf_expression_generators = [
-    rand_EUnit;
-    rand_EInt;
-    rand_EBool;
-    rand_EVar;
-    rand_EInput;
-    rand_EAbort;
-    rand_EVanish;
-    rand_EType;
-    rand_ETypeInt;
-    rand_ETypeBool;
-    rand_ETypeTop;
-    rand_ETypeBottom;
-    rand_ETypeUnit;
-    rand_ETypeSingle;
-  ];
-  nonleaf_expression_generators = [
-    rand_EBinop;
-    rand_EIf;
-    rand_ELet;
-    rand_EAppl;
-    rand_EMatch;
-    rand_EProject;
-    rand_ERecord;
-    rand_EModule;
-    rand_ENot;
-    rand_EFunction;
-    rand_EVariant;
-    rand_EDefer;
-    rand_EGen;
-    rand_ETypeRecord;
-    rand_ETypeModule;
-    rand_ETypeFun;
-    rand_ETypeRefinement;
-    rand_ETypeMu;
-    rand_ETypeVariant;
-    rand_ELetTyped;
-  ];
-  leaf_statement_generators = [];
-  nonleaf_statement_generators = [
-    rand_SUntyped;
-    rand_STyped;
-  ];
-}
+let desugared_generator_parts : desugared generator_parts =
+  let typed_binding_opts_gen ~ctx =
+    TBDesugared { do_wrap = pick_bool ~ctx; do_check = pick_bool ~ctx }
+  in
+  {
+    leaf_pattern_generators = [
+      rand_PAny;
+      rand_PVariable;
+      rand_PVariant;
+    ];
+    nonleaf_pattern_generators = [];
+    leaf_expression_generators = [
+      rand_EUnit;
+      rand_EInt;
+      rand_EBool;
+      rand_EVar;
+      rand_EInput;
+      rand_EAbort;
+      rand_EVanish;
+      rand_EType;
+      rand_ETypeInt;
+      rand_ETypeBool;
+      rand_ETypeTop;
+      rand_ETypeBottom;
+      rand_ETypeUnit;
+      rand_ETypeSingle;
+    ];
+    nonleaf_expression_generators = [
+      rand_EBinop;
+      rand_EIf;
+      rand_ELet;
+      rand_EAppl;
+      rand_EMatch;
+      rand_EProject;
+      rand_ERecord;
+      rand_EModule;
+      rand_ENot;
+      rand_EFunction;
+      rand_EVariant;
+      rand_EDefer;
+      rand_EGen;
+      rand_ETypeRecord;
+      rand_ETypeModule;
+      rand_ETypeFun;
+      rand_ETypeRefinement;
+      rand_ETypeMu;
+      rand_ETypeVariant;
+      rand_ELetTyped typed_binding_opts_gen;
+    ];
+    leaf_statement_generators = [];
+    nonleaf_statement_generators = [
+      rand_SUntyped;
+      rand_STyped typed_binding_opts_gen;
+    ];
+  }
 
 let embedded_generator_parts : embedded generator_parts = {
   leaf_pattern_generators = [

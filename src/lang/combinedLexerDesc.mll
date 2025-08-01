@@ -118,6 +118,8 @@ rule token = parse
 (*! endscope !*)
 (*! scope desugared !*)
 | "#abort"             { ABORT }
+| "#no_check"          { NO_CHECK }
+| "#no_wrap"           { NO_WRAP }
 | "#vanish"            { VANISH }
 | "#gen"               { GEN }
 (*! endscope !*)
