@@ -272,27 +272,32 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
 module TQ = Concolic.Target_queue.Make (Interp_common.Timestamp)
 module M = Concolic.Evaluator.Make (Interp_common.Timestamp) (TQ.BFS) (Overlays.Typed_z3.Default) (Concolic.Pause.Lwt)
 
-let deferred_c_loop : (Embedded.t, Status.Terminal.t Lwt.t) Options.Arrow.t =
+let deferred_c_loop :
+  options:Options.t -> Embedded.t -> Status.Terminal.t Lwt.t =
   M.c_loop eval_exp
 
 (*
   TODO: the following should be done using Concolic.Driver
 *)
-open Options.Arrow
 
-let test_with_timeout : (Lang.Ast.Embedded.t, Status.Terminal.t) Options.Arrow.t =
-  deferred_c_loop
-  >>^ fun res_status ->
+let test_with_timeout :
+  options:Options.t -> Embedded.t -> Status.Terminal.t =
+  fun ~options program ->
+  let res_status = deferred_c_loop ~options program in
   try Lwt_main.run res_status with
   | Lwt_unix.Timeout -> Timeout
 
-let test_bjy =
-  Options.Arrow.make
-  @@ fun r -> fun bjy -> fun ~do_wrap ~do_type_splay ->
-    let expr = Translate.Convert.bjy_to_emb bjy ~do_wrap ~do_type_splay |> Lang.Ast_tools.Utils.pgm_to_module in
-    let res = appl test_with_timeout r expr in
-    Format.printf "%s\n" (Status.to_loud_string res);
-    res
+let test_bjy :
+  options:Options.t -> do_wrap:bool -> do_type_splay:bool -> Lang.Ast.Bluejay.pgm ->
+  Status.Terminal.t =
+  fun ~options ~do_wrap ~do_type_splay program ->
+  let expr =
+    Translate.Convert.bjy_to_emb program ~do_wrap ~do_type_splay
+    |> Lang.Ast_tools.Utils.pgm_to_module
+  in
+  let res = test_with_timeout ~options expr in
+  Format.printf "%s\n" (Status.to_loud_string res);
+  res
 
 (*
   -------------------
@@ -300,9 +305,12 @@ let test_bjy =
   -------------------
 *)
 
-let test =
-  Lang.Parser.Bluejay.parse_file
-  ^>> test_bjy
+let test :
+  options:Options.t -> do_wrap:bool -> do_type_splay:bool -> Filename.t ->
+  Status.Terminal.t =
+  fun ~options ~do_wrap ~do_type_splay filename ->
+  test_bjy
+    ~options ~do_wrap ~do_type_splay (Lang.Parser.Bluejay.parse_file filename)
 
 (*
   ------------------------------
@@ -314,15 +322,10 @@ let cdeval =
   let open Cmdliner in
   let open Cmdliner.Term.Syntax in
   Cmd.v (Cmd.info "cdeval") @@
-  let+ concolic_args = Options.cmd_arg_term
+  let+ options = Options.cmd_arg_term
   and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
   and+ pgm = Lang.Parser.parse_program_from_argv in
   match pgm with
   | Lang.Ast.SomeProgram (BluejayLanguage, bjy_pgm) ->
-    Options.Arrow.appl
-      test_bjy
-      concolic_args
-      bjy_pgm
-      ~do_wrap
-      ~do_type_splay
+    test_bjy ~options ~do_wrap ~do_type_splay bjy_pgm
   | _ -> failwith "TODO"

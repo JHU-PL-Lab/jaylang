@@ -25,7 +25,7 @@ module Report_row (* : Latex_table.ROW *) = struct
         Latex_format.rotate_90
         @@ Ttag.V2.to_name_with_underline tag
       )
-    )
+      )
 
   let to_strings x =
     let span_to_ms_string =
@@ -45,12 +45,12 @@ module Report_row (* : Latex_table.ROW *) = struct
       match Metadata.tags_of_t x.metadata with
       | `Sorted_list ls ->
         List.map ls ~f:(function
-          | `Absent -> "--"
-          | `Feature tag -> Ttag.V2.to_char tag |> Char.to_string
-          | `Reason tag ->
-            Ttag.V2.to_char tag
-            |> Char.to_string
-            |> Latex_format.red
+            | `Absent -> "--"
+            | `Feature tag -> Ttag.V2.to_char tag |> Char.to_string
+            | `Reason tag ->
+              Ttag.V2.to_char tag
+              |> Char.to_string
+              |> Latex_format.red
           )
     )
 
@@ -86,26 +86,26 @@ module Report_row (* : Latex_table.ROW *) = struct
         trials
         ~init:{
           testname
-          ; test_result = Status.Exhausted_pruned_tree (* just arbitrary initial result *)
-          ; time_to_interpret = Time_float.Span.of_sec 0.0
-          ; time_to_solve = Time_float.Span.of_sec 0.0
-          ; total_time = Time_float.Span.of_sec 0.0
-          ; trial = Average
-          ; metadata
+        ; test_result = Status.Exhausted_pruned_tree (* just arbitrary initial result *)
+        ; time_to_interpret = Time_float.Span.of_sec 0.0
+        ; time_to_solve = Time_float.Span.of_sec 0.0
+        ; total_time = Time_float.Span.of_sec 0.0
+        ; trial = Average
+        ; metadata
         }
         ~f:(fun acc x ->
-          { acc with (* sum up *)
-            test_result = x.test_result (* keeps most recent test result *)
-          ; time_to_interpret = Time_float.Span.(acc.time_to_interpret + x.time_to_interpret)
-          ; time_to_solve = Time_float.Span.(acc.time_to_solve + x.time_to_solve)
-          ; total_time = Time_float.Span.(acc.total_time + x.total_time)
-          })
+            { acc with (* sum up *)
+              test_result = x.test_result (* keeps most recent test result *)
+            ; time_to_interpret = Time_float.Span.(acc.time_to_interpret + x.time_to_interpret)
+            ; time_to_solve = Time_float.Span.(acc.time_to_solve + x.time_to_solve)
+            ; total_time = Time_float.Span.(acc.total_time + x.total_time)
+            })
       |> fun r ->
-        { r with (* average out *)
-          time_to_interpret = Time_float.Span.(r.time_to_interpret / (Int.to_float n_trials))
-        ; time_to_solve = Time_float.Span.(r.time_to_solve / (Int.to_float n_trials))
-        ; total_time = Time_float.Span.(r.total_time / (Int.to_float n_trials))
-        }
+      { r with (* average out *)
+        time_to_interpret = Time_float.Span.(r.time_to_interpret / (Int.to_float n_trials))
+      ; time_to_solve = Time_float.Span.(r.time_to_solve / (Int.to_float n_trials))
+      ; total_time = Time_float.Span.(r.total_time / (Int.to_float n_trials))
+      }
     in
     trials @ [ avg_trial ]
 end
@@ -117,24 +117,24 @@ module Result_table = struct
     let open List.Let_syntax in
     { row_module = (module Report_row)
     ; rows =
-      dirs
-      |> Utils.File_utils.get_all_bjy_files
-      |> List.sort ~compare:(fun a b -> String.compare (Filename.basename a) (Filename.basename b))
-      >>= Report_row.of_testname n_trials runtest
-      |> List.filter ~f:(fun (row : Report_row.t) ->
-        not avg_only || match row.trial with Average -> true | _ -> false
-        )
-      >>| Latex_tbl.Row_or_hline.return
-      |> List.cons Latex_tbl.Row_or_hline.Hline
+        dirs
+        |> Utils.File_utils.get_all_bjy_files
+        |> List.sort ~compare:(fun a b -> String.compare (Filename.basename a) (Filename.basename b))
+        >>= Report_row.of_testname n_trials runtest
+        |> List.filter ~f:(fun (row : Report_row.t) ->
+            not avg_only || match row.trial with Average -> true | _ -> false
+          )
+        >>| Latex_tbl.Row_or_hline.return
+        |> List.cons Latex_tbl.Row_or_hline.Hline
     ; columns =
-      let little_space = Latex_tbl.Col_option.Little_space { point_size = 3 } in
-      [ [ Latex_tbl.Col_option.Right_align ; Vertical_line_to_right ]
-      ; [ little_space ] (* interp time *)
-      ; [ little_space ] (* solve time *)
-      ; [ little_space ;  Vertical_line_to_right ] (* total time *)
-      ; [ little_space ; Vertical_line_to_right ] (* loc *) ]
-      @
-      List.init (List.length Ttag.V2.all) ~f:(fun _ -> [ little_space ]) 
+        let little_space = Latex_tbl.Col_option.Little_space { point_size = 3 } in
+        [ [ Latex_tbl.Col_option.Right_align ; Vertical_line_to_right ]
+        ; [ little_space ] (* interp time *)
+        ; [ little_space ] (* solve time *)
+        ; [ little_space ;  Vertical_line_to_right ] (* total time *)
+        ; [ little_space ; Vertical_line_to_right ] (* loc *) ]
+        @
+        List.init (List.length Ttag.V2.all) ~f:(fun _ -> [ little_space ]) 
     }
 end
 
@@ -150,24 +150,28 @@ let run () =
   let open Cmdliner in
   let open Cmdliner.Term.Syntax in
   Cmd.v (Cmd.info "cbenchmark") @@
-  let+ concolic_args = Options.cmd_arg_term
+  let+ options = Options.cmd_arg_term
   and+ n_trials, dirs, mode = cbench_args in
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
   let runtest pgm =
-    Options.Arrow.appl
-      (match mode with `Eager -> Concolic.Driver.test_bjy | `Deferred -> Deferred.Cmain.test_bjy)
-      concolic_args
-      pgm
+    let test_bjy = 
+      match mode with
+      | `Eager -> Concolic.Driver.test_bjy
+      | `Deferred -> Deferred.Cmain.test_bjy
+    in
+    test_bjy
+      ~options
       ~do_wrap:true        (* always wrap during benchmarking *)
       ~do_type_splay:false (* never type splay during benchmarking *)
+      pgm
   in
   let tbl = Result_table.of_dirs n_trials dirs runtest in
   let times =
     List.filter_map tbl.rows ~f:(function
-      | Row row -> Some (Time_float.Span.to_ms row.total_time)
-      | Hline -> None
-    )
+        | Row row -> Some (Time_float.Span.to_ms row.total_time)
+        | Hline -> None
+      )
   in
   let mean =
     let total = List.fold times ~init:0.0 ~f:(+.) in

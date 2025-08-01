@@ -18,7 +18,7 @@ open Concolic_common
 module Make (K : Smt.Symbol.KEY) : sig
   module type S = sig
     type t
-    val of_options : (unit, t) Options.Arrow.t
+    val make : Options.t -> t
     val push_list : t -> K.t Target.t list -> t
     val remove : t -> K.t Target.t -> t
     val peek : t -> K.t Target.t option

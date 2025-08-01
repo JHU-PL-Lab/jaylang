@@ -18,7 +18,7 @@ module Make (K : Smt.Symbol.KEY) = struct
 
   module type S = sig
     type t
-    val of_options : (unit, t) Options.Arrow.t
+    val make : Options.t -> t
     val push_list : t -> KTarget.t list -> t
     val remove : t -> KTarget.t -> t
     val peek : t -> KTarget.t option
@@ -39,8 +39,8 @@ module Make (K : Smt.Symbol.KEY) = struct
 
     let empty : t = Q.empty
 
-    let of_options : (unit, t) Options.Arrow.t =
-      Options.Arrow.arrow (fun () -> empty)
+    let make (_options : Options.t) : t =
+      empty
 
     let push_one (q : t) (target : KTarget.t) : t =
       Q.push target (Interp_common.Rand.any_pos_int ()) q
@@ -67,8 +67,8 @@ module Make (K : Smt.Symbol.KEY) = struct
 
     let empty : t = return Q.empty
 
-    let of_options : (unit, t) Options.Arrow.t =
-      Options.Arrow.arrow (fun () -> empty)
+    let make (_options : Options.t) : t =
+      empty
 
     let push_one (Bfs q : t) (target : KTarget.t) : t =
       return
@@ -90,9 +90,10 @@ module Make (K : Smt.Symbol.KEY) = struct
       { q      : Q.t (* will use negative target depth as priority in order to prefer deeper targets *)
       ; stride : int }
 
-    let of_options : (unit, t) Options.Arrow.t =
-      Options.Arrow.make
-      @@ fun (r : Options.t) () -> { q = Q.empty ; stride = r.max_tree_depth / r.n_depth_increments }
+    let make (options : Options.t) : t =
+      { q = Q.empty ;
+        stride = options.max_tree_depth / options.n_depth_increments
+      }
 
     (*
       We push targets such that higher number of strides is worse priority, but within
@@ -110,7 +111,7 @@ module Make (K : Smt.Symbol.KEY) = struct
       opt_fst @@ Q.min q
 
     (* let is_empty ({ q ; _ } : t) : bool =
-      Q.is_empty q *)
+       Q.is_empty q *)
 
     let remove ({ q ; _ } as x : t) (target : KTarget.t) : t =
       { x with q = Q.remove target q }
@@ -119,9 +120,8 @@ module Make (K : Smt.Symbol.KEY) = struct
   module Merge (P : S) (Q : S) : S = struct
     type t = P.t * Q.t 
 
-    let of_options : (unit, t) Options.Arrow.t =
-      let open Options.Arrow.Infix in
-      P.of_options &&& Q.of_options
+    let make (options : Options.t) : t =
+      (P.make options, Q.make options)
 
     let push_list ((p, q) : t) (ls : KTarget.t list) : t =
       P.push_list p ls, Q.push_list q ls

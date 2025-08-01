@@ -1,12 +1,14 @@
 (**
-  File: evaluator.mli
-  Purpose: concolically evaluate the program repeatedly
+   File: evaluator.mli
+   Purpose: concolically evaluate the program repeatedly
 
-  Detailed description:
+   Detailed description:
     This runs the interpreter repeatedly and only stops when at a terminal
     status--timeout was hit, a program error was found, or all paths were
     exhausted.
 *)
+
+open Concolic_common
 
 val global_runtime : float Utils.Safe_cell.t
 (** [global_runtime] is a cell containing the total global time spent
@@ -27,11 +29,17 @@ val eager_eval : Interp_common.Step.t eval
 
 module Make : functor (K : Smt.Symbol.KEY) (_ : Target_queue.Make(K).S)
   (_ : Smt.Formula.SOLVABLE) (P : Pause.S) -> sig
-  val c_loop : K.t eval -> (Lang.Ast.Embedded.t, Concolic_common.Status.Terminal.t P.t) Concolic_common.Options.Arrow.t
-  (** [c_loop eval pgm] is the result of concolic looping on [pgm] using the concolic
-      evaluation function [eval]. *)
+  val c_loop :
+    options:Options.t ->
+    K.t eval ->
+    Lang.Ast.Embedded.t ->
+    Concolic_common.Status.Terminal.t P.t
+    (** [c_loop eval pgm] is the result of concolic looping on [pgm] using the concolic
+        evaluation function [eval]. *)
 end
 
-val eager_c_loop : (Lang.Ast.Embedded.t, Concolic_common.Status.Terminal.t Lwt.t) Concolic_common.Options.Arrow.t
+val eager_c_loop :
+  options:Options.t ->
+  Lang.Ast.Embedded.t -> Concolic_common.Status.Terminal.t Lwt.t
 (** [eager_c_loop pgm] is the result of concolic evaluation on [pgm] using the default
     global [Solve.S] module and eager evaluation. *)

@@ -1,9 +1,6 @@
 
 open Core
 open Concolic_common
-open Concolic_common.Options.Arrow.Infix (* expose infix operators *)
-
-type 'a test = ('a, do_wrap:bool -> do_type_splay:bool -> Status.Terminal.t) Options.Arrow.t
 
 (*
   ----------------------
@@ -12,10 +9,11 @@ type 'a test = ('a, do_wrap:bool -> do_type_splay:bool -> Status.Terminal.t) Opt
 *)
 
 (* runs [lwt_eval] and catches lwt timeout *)
-let test_with_timeout : (Lang.Ast.Embedded.t, Status.Terminal.t) Options.Arrow.t =
-  Evaluator.eager_c_loop
-  >>^ fun res_status ->
-  try Lwt_main.run res_status with
+let test_with_timeout :
+  options:Options.t -> Lang.Ast.Embedded.t -> Status.Terminal.t =
+  fun ~options prog ->
+  let status = Evaluator.eager_c_loop ~options prog in
+  try Lwt_main.run status with
   | Lwt_unix.Timeout -> Timeout
 
 (*
@@ -24,7 +22,11 @@ let test_with_timeout : (Lang.Ast.Embedded.t, Status.Terminal.t) Options.Arrow.t
   --------------------
 *)
 
-module Compute (O : Options.V) = struct
+module type ComputeConfig = sig
+  val options : Options.t
+end
+
+module Compute (Cfg : ComputeConfig) = struct
   module Compute_result = struct
     include Preface.Make.Monoid.Via_combine_and_neutral (struct
         type t = Status.Terminal.t
@@ -57,15 +59,14 @@ module Compute (O : Options.V) = struct
       fun expr ->
       (* makes a new solver for this thread *)
       let module E = Eval (Overlays.Typed_z3.Make ()) in
-      Pause.Id.run
-      @@ Options.Arrow.appl (E.c_loop Evaluator.eager_eval) O.r expr
+      Pause.Id.run (E.c_loop ~options:Cfg.options Evaluator.eager_eval expr)
 
     let run_with_internal_timeout : t -> Compute_result.t =
       fun expr ->
-      Options.Arrow.appl test_with_timeout O.r expr
+        test_with_timeout ~options:Cfg.options expr
   end
 
-  let timeout_sec = O.r.global_timeout_sec
+  let timeout_sec = Cfg.options.global_timeout_sec
 end
 
 (*
@@ -77,19 +78,20 @@ end
 (*
   TODO: have this (or the work inside Compute functor) take an evaluation function.
 *)
-let test_bjy : Lang.Ast.Bluejay.pgm test =
-  Options.Arrow.make
-  @@ fun r -> fun bjy -> fun ~do_wrap ~do_type_splay ->
-    let programs =
-      if r.in_parallel
-      then Translate.Convert.bjy_to_many_emb bjy ~do_wrap ~do_type_splay
-      else Preface.Nonempty_list.Last (Translate.Convert.bjy_to_emb bjy ~do_wrap ~do_type_splay)
-    in
-    let module C = Compute (struct let r = r end) in
-    let module P = Overlays.Computation_pool.Process (C) in
-    let res = P.process_all @@ Preface.Nonempty_list.map Lang.Ast_tools.Utils.pgm_to_module programs in
-    Format.printf "%s\n" (Status.to_loud_string res);
-    res
+let test_bjy :
+  options:Options.t -> do_wrap:bool -> do_type_splay:bool -> Lang.Ast.Bluejay.pgm ->
+  Status.Terminal.t =
+  fun ~options ~do_wrap ~do_type_splay program ->
+  let programs =
+    if options.in_parallel
+    then Translate.Convert.bjy_to_many_emb program ~do_wrap ~do_type_splay
+    else Preface.Nonempty_list.Last (Translate.Convert.bjy_to_emb program ~do_wrap ~do_type_splay)
+  in
+  let module C = Compute (struct let options = options end) in
+  let module P = Overlays.Computation_pool.Process (C) in
+  let res = P.process_all @@ Preface.Nonempty_list.map Lang.Ast_tools.Utils.pgm_to_module programs in
+  Format.printf "%s\n" (Status.to_loud_string res);
+  res
 
 (*
   -------------------
@@ -97,9 +99,12 @@ let test_bjy : Lang.Ast.Bluejay.pgm test =
   -------------------
 *)
 
-let test : Filename.t test =
-  (fun s -> Lang.Parser.Bluejay.parse_single_pgm_string @@ In_channel.read_all s)
-  ^>> test_bjy
+let test :
+  options:Options.t -> do_wrap:bool -> do_type_splay:bool -> Filename.t ->
+  Status.Terminal.t =
+  fun ~options ~do_wrap ~do_type_splay filename ->
+  test_bjy
+    ~options ~do_wrap ~do_type_splay (Lang.Parser.Bluejay.parse_file filename)
 
 (*
   ------------------------------
@@ -111,15 +116,10 @@ let ceval =
   let open Cmdliner in
   let open Cmdliner.Term.Syntax in
   Cmd.v (Cmd.info "ceval") @@
-  let+ concolic_args = Options.cmd_arg_term
+  let+ options = Options.cmd_arg_term
   and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
   and+ pgm = Lang.Parser.parse_program_from_argv in
   match pgm with
   | Lang.Ast.SomeProgram (BluejayLanguage, bjy_pgm) ->
-    Options.Arrow.appl
-      test_bjy
-      concolic_args
-      bjy_pgm
-      ~do_wrap
-      ~do_type_splay
+    test_bjy ~options ~do_wrap ~do_type_splay bjy_pgm
   | _ -> failwith "TODO"
