@@ -21,7 +21,7 @@ module Make (K : Smt.Symbol.KEY) : sig
     val make : Options.t -> t
     val push_list : t -> K.t Target.t list -> t
     val remove : t -> K.t Target.t -> t
-    val peek : t -> K.t Target.t option
+    val pop : t -> (K.t Target.t * t) option
   end
 
   module DFS : S
@@ -36,7 +36,7 @@ module Make (K : Smt.Symbol.KEY) : sig
   (** [Uniform] has random priority. *)
 
   module Merge (_ : S) (_ : S) : S
-  (** [Merge (A) (B)] randomly pops like [A] and [B] with equal priority. *)
+  (** [Merge (A) (B)] pops from [A] and [B] in a round robin style. *)
 
   module All : S
   (** [All] is [Merge (Merge (BFS) (DFS)) (Uniform)]. That is, DFS and BFS are

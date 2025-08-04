@@ -21,10 +21,8 @@ module Make (K : Smt.Symbol.KEY) = struct
     val make : Options.t -> t
     val push_list : t -> KTarget.t list -> t
     val remove : t -> KTarget.t -> t
-    val peek : t -> KTarget.t option
+    val pop : t -> (KTarget.t * t) option
   end
-
-  let opt_fst = Option.map ~f:Tuple2.get1
 
   (*
     Note that in a psq, the same priority can exist for multiple keys (e.g. two different targets
@@ -51,8 +49,10 @@ module Make (K : Smt.Symbol.KEY) = struct
     let remove (q : t) (target : KTarget.t) : t =
       Q.remove target q
 
-    let peek (q : t) : KTarget.t option =
-      opt_fst @@ Q.min q
+    let pop (q : t) : (KTarget.t * t) option =
+      match Q.pop q with
+      | Some ((target, _), t) -> Some (target, t)
+      | None -> None
   end
 
   (*
@@ -77,12 +77,14 @@ module Make (K : Smt.Symbol.KEY) = struct
     let push_list (x : t) (ls : KTarget.t list) : t =
       List.fold ls ~init:x ~f:push_one
 
-    let peek (Bfs q : t) : KTarget.t option =
-      opt_fst @@ Q.min q
-
     let remove (Bfs q : t) (target : KTarget.t) : t =
       return
       @@ Q.remove target q
+
+    let pop (Bfs q : t) : (KTarget.t * t) option =
+      match Q.pop q with
+      | Some ((target, _), t) -> Some (target, Bfs t)
+      | None -> None
   end
 
   module DFS = struct
@@ -107,38 +109,54 @@ module Make (K : Smt.Symbol.KEY) = struct
     let push_list (x : t) (ls : KTarget.t list) : t =
       List.fold ls ~init:x ~f:push_one
 
-    let peek ({ q ; _ } : t) : KTarget.t option =
-      opt_fst @@ Q.min q
-
-    (* let is_empty ({ q ; _ } : t) : bool =
-       Q.is_empty q *)
+    let pop ({ q ; _ } as x : t) : (KTarget.t * t) option =
+      match Q.pop q with
+      | Some ((target, _), t) -> Some (target, { x with q = t })
+      | None -> None
 
     let remove ({ q ; _ } as x : t) (target : KTarget.t) : t =
       { x with q = Q.remove target q }
   end
 
   module Merge (P : S) (Q : S) : S = struct
-    type t = P.t * Q.t 
+    type t = 
+      { p : P.t
+      ; q : Q.t 
+      ; turn : [ `P | `Q ] }
 
     let make (options : Options.t) : t =
-      (P.make options, Q.make options)
+      { p = P.make options
+      ; q = Q.make options
+      ; turn = `P }
 
-    let push_list ((p, q) : t) (ls : KTarget.t list) : t =
-      P.push_list p ls, Q.push_list q ls
+    let push_list ({ p ; q ; turn } : t) (ls : KTarget.t list) : t =
+      { p = P.push_list p ls
+      ; q = Q.push_list q ls
+      ; turn }
 
-    let remove ((p, q) : t) (target : KTarget.t) : t =
-      P.remove p target, Q.remove q target
+    let remove ({ p ; q ; turn } : t) (target : KTarget.t) : t =
+      { p = P.remove p target
+      ; q = Q.remove q target
+      ; turn }
 
-    let peek ((p, q) : t) : KTarget.t option =
-      if Interp_common.Rand.bool ()
-      then
-        match P.peek p with
-        | None -> Q.peek q
-        | t -> t
-      else
-        match Q.peek q with
-        | None -> P.peek p
-        | t -> t
+    let pop ({ p ; q ; turn } : t) : (KTarget.t * t) option =
+      match turn with
+      | `P -> begin
+        match P.pop p with
+        | None -> 
+          if Option.is_some (Q.pop q)
+          then failwith "Invariant failure: merged target queues have different sizes"
+          else None
+        | Some (target, p') -> Some (target, { p = p' ; q = Q.remove q target ; turn = `Q })
+      end
+      | `Q -> begin
+        match Q.pop q with
+        | None ->
+          if Option.is_some (P.pop p)
+          then failwith "Invariant failure: merged target queues have different sizes"
+          else None
+        | Some (target, q') -> Some (target, { q = q' ; p = P.remove p target ; turn = `P })
+      end
   end
 
   module All = Merge (Merge (BFS) (DFS)) (Uniform)

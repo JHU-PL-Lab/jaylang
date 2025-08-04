@@ -249,9 +249,8 @@ module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S) (S : Smt.Formula.
       let open P in
       let* () = pause () in
       let t0 = Caml_unix.gettimeofday () in
-      match TQ.peek tq with
-      | Some target -> begin
-          let tq = TQ.remove tq target in
+      match TQ.pop tq with
+      | Some (target, tq) -> begin
           let solve_result = Solve.solve (Target.to_expressions target) in
           let t1 = Caml_unix.gettimeofday () in
           let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
