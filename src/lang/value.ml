@@ -36,6 +36,22 @@ module type CELL = sig
   val to_string :('a -> string) -> 'a t -> string
 end
 
+let default_to_string_closure_depth =
+  ref @@
+  match Sys.getenv "TO_STRING_CLOSURE_DEPTH" with
+  | Some s ->
+    begin
+      try
+        int_of_string s
+      with
+      | Failure _ ->
+        prerr_endline
+          (Printf.sprintf
+             "Unparseable TO_STRING_CLOSURE_DEPTH env var: %s" s);
+        0
+    end
+  | None -> 0
+
 (*
   V is the payload of int and bool. We do this so that we can
   inject Z3 expressions into the values of the concolic evaluator.
@@ -219,21 +235,6 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
 
   include T
 
-  let default_to_string_closure_depth =
-    match Sys.getenv "TO_STRING_CLOSURE_DEPTH" with
-    | Some s ->
-      begin
-        try
-          int_of_string s
-        with
-        | Failure _ ->
-          prerr_endline
-            (Printf.sprintf
-               "Unparseable TO_STRING_CLOSURE_DEPTH env var: %s" s);
-          0
-      end
-    | None -> 0
-
   let _closure_depth_counter = ref 0
 
   let rec _to_string : type a. a t -> string = function
@@ -311,11 +312,11 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
     _closure_to_string closure
 
   let to_string : type a. a t -> string = fun v ->
-    to_string_by_depth ~max_closure_depth:default_to_string_closure_depth v
+    to_string_by_depth ~max_closure_depth:!default_to_string_closure_depth v
 
   let closure_to_string : type a. a closure -> string = fun closure ->
     closure_to_string_by_depth
-      ~max_closure_depth:default_to_string_closure_depth closure
+      ~max_closure_depth:!default_to_string_closure_depth closure
 end
 
 module Constrain (C : sig type constrain end) (Store : STORE) (Cell : CELL) (V : Utils.Equatable.P1) = struct

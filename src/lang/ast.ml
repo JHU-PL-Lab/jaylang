@@ -643,13 +643,19 @@ module Expr = struct
       in
       compare Alist.empty x y
 
-    (*calculates operator precedence to determine where to place parens, may be buggy
-      0 for primitives, higher precedence values have lower numbers*)
-    let op_precedence : type a. a t -> int = function
-      | EInt _ -> 0
-      | EBool _ -> 0
-      | EUnit -> 0
-      | EVar _ -> 0
+    (* Calculates operator precedence for a given expression.  Lower numbers
+       indicate higher-precedence operators: a value of 0 indicates a primary
+       or atomic expression and multiplication's number should be lower than
+       addition's.  As an exception, self-delimiting expressions have a very
+       high number (to prevent unnecessary parentheses from being added). *)
+    let op_precedence : type a. a t -> int = fun e ->
+      let primary_atomic = 0 in
+      let self_delimiting = 99999 in
+      match e with
+      | EInt _ -> primary_atomic
+      | EBool _ -> primary_atomic
+      | EUnit -> primary_atomic
+      | EVar _ -> primary_atomic
       | EBinop { left=_ ; binop=binop ; right=_ } ->
         begin
           match binop with
@@ -671,52 +677,52 @@ module Expr = struct
       | ELet _ -> 13
       | EAppl _ -> 1
       | EMatch _-> 12
-      | EProject _ -> 0
-      | ERecord _ -> 0
-      | EModule _ -> 0
+      | EProject _ -> primary_atomic
+      | ERecord _ -> self_delimiting
+      | EModule _ -> self_delimiting
       | ENot _ -> 7
-      | EInput -> 0
+      | EInput -> primary_atomic
       | EFunction _ -> 13
-      | EVariant _ -> 1
-      | EDefer _ -> 1
-      | EPick_i -> 0
-      | EPick_b -> 0
+      | EVariant _ -> 2
+      | EDefer _ -> 2
+      | EPick_i -> primary_atomic
+      | EPick_b -> primary_atomic
       | ECase _ -> 12 (* simply sugar for nested conditionals *)
-      | EFreeze _ -> 1
-      | EThaw _ -> 1
-      | EId -> 0
+      | EFreeze _ -> 2
+      | EThaw _ -> 2
+      | EId -> primary_atomic
       | EIgnore _ -> 13 (* simply sugar for `let _ = ignored in body` but is more efficient *)
-      | ETable -> 0
+      | ETable -> primary_atomic
       | ETblAppl _ -> 1
-      | EDet _ -> 1
-      | EEscapeDet _ -> 1
-      | EIntensionalEqual _ -> 0
-      | EUntouchable _ -> 1
+      | EDet _ -> 2
+      | EEscapeDet _ -> 2
+      | EIntensionalEqual _ -> self_delimiting
+      | EUntouchable _ -> 2
       (* these exist in the desugared and embedded languages *)
-      | EAbort _ -> 1 (* string is error message *)
-      | EVanish _ -> 1
+      | EAbort _ -> 2 (* string is error message *)
+      | EVanish _ -> 0
       (* only the desugared language *)
-      | EGen _ -> 1 (* Cannot be interpreted. Is only an intermediate step in translation *)
+      | EGen _ -> 2 (* Cannot be interpreted. Is only an intermediate step in translation *)
       (* these exist in the bluejay and desugared languages *)
-      | EType -> 0
-      | ETypeInt -> 0
-      | ETypeBool -> 0
-      | ETypeTop -> 0
-      | ETypeBottom -> 0
-      | ETypeUnit -> 0
-      | ETypeRecord _ -> 0
-      | ETypeModule _ -> 1
+      | EType -> primary_atomic
+      | ETypeInt -> primary_atomic
+      | ETypeBool -> primary_atomic
+      | ETypeTop -> primary_atomic
+      | ETypeBottom -> primary_atomic
+      | ETypeUnit -> primary_atomic
+      | ETypeRecord _ -> self_delimiting
+      | ETypeModule _ -> self_delimiting
       | ETypeFun _ -> 1
       | ETypeRefinement _ -> 1
       | ETypeMu _ -> 11
       | ETypeVariant _ -> 12
       | ELetTyped _ -> 13
-      | ETypeSingle -> 0
+      | ETypeSingle -> primary_atomic
       (* bluejay or type erased *)
-      | EList _ -> 0
+      | EList _ -> self_delimiting
       | EListCons _ -> 5
-      | EAssert _ -> 1
-      | EAssume _ -> 1
+      | EAssert _ -> 2
+      | EAssume _ -> 2
       | EMultiArgFunction _ -> 13
       | ELetFun _ -> 13
       | ELetFunRec _ -> 13
