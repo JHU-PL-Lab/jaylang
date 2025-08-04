@@ -33,7 +33,7 @@ and 'a typed_binding_opts_gen = ctx : 'a context -> 'a typed_binding_opts
 
 and 'a statement_gen = ctx : 'a context -> 'a statement
 
-let ident_chars = ['a';'b';'c';'d';'e';'f';'g';'h';'i';'j';'k';'l';'m';'n';'o';'p';'q';'r';'s';'t';'u';'v';'w';'x';'y';'z';'_']
+let ident_chars = ['a';'b';'c';'d';'e';'f';'g';'h';'i';'j';'k';'l';'m';'n';'o';'p';'q';'r';'s';'t';'u';'v';'w';'x';'y';'z']
 
 let pick_int ~(ctx : 'a context) ~(min:int) ~(max:int) : int =
   Random.State.int ctx.rand_state (max-min) + min
