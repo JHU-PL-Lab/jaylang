@@ -130,10 +130,9 @@ and not_ (e : (bool, 'k) t) : (bool, 'k) t =
   match e with
   | Const_bool b -> Const_bool (not b)
   | Not e' -> e'
-  | Binop (Or, e1, e2) -> and_ [ not_ e1 ; not_ e2 ] (* it's easier to work with "and" later *)
+  | Binop (Or, e1, e2) -> and_ [ not_ e1 ; not_ e2 ] (* it's easier in general to work with "and" *)
   | _ -> Not e
 
-(* Consider here checking if any is the negation of another *)
 and and_ (e_ls : (bool, 'k) t list) : (bool, 'k) t =
   match e_ls with
   | [] -> true_ (* vacuous truth *)
