@@ -145,18 +145,6 @@ the language and which lines are erased.
 (*! endscope !*)
 %left PLUS MINUS              /* + - */
 %left ASTERISK SLASH PERCENT  /* * / % */
-(*! scope bluejay !*)
-%right ASSERT ASSUME          /* Asserts, Assumes */
-(*! endscope !*)
-(*! scope desugared !*)
-%right GEN
-(*! endscope !*)
-(*! scope desugared embedded !*)
-%right VANISH           /* failures */
-(*! endscope !*)
-(*! scope embedded !*)
-%right UNTOUCHABLE THAW FREEZE DET ESCAPEDET
-(*! endscope !*)
 (*! scope bluejay desugared !*)
 %right ARROW LONG_ARROW       /* -> for type declaration, and --> for deterministic */
 (*! endscope !*)
@@ -389,6 +377,34 @@ fun_sig:
 appl_expr:
   | appl_expr primary_expr { EAppl { func = $1 ; arg = $2 } : t }
   | DEFER primary_expr { EDefer $2 : t }
+  (*! scope bluejay !*)
+  | ASSERT primary_expr
+      { EAssert $2 : t }
+  | ASSUME primary_expr
+      { EAssume $2 : t }
+  (*! endscope !*)
+  (*! scope desugared embedded !*)
+  | ABORT ident
+      { let Ident s = $2 in EAbort s : t }
+  | VANISH primary_expr
+      { EVanish () : t }
+  (*! endscope !*)
+  (*! scope desugared !*)
+  | GEN primary_expr
+      { EGen $2 : t }
+  (*! endscope !*)
+  (*! scope embedded !*)
+  | FREEZE primary_expr
+      { EFreeze $2 : t }
+  | THAW primary_expr
+      { EThaw $2 : t }
+  | DET primary_expr
+      { EDet $2 : t }
+  | ESCAPEDET primary_expr
+      { EEscapeDet $2 : t }
+  | UNTOUCHABLE primary_expr
+      { EUntouchable $2 : t }
+  (*! endscope !*)
   | primary_expr { $1 : t }
 ;
 
@@ -475,34 +491,6 @@ primary_expr:
 ;
 
 op_expr:
-  (*! scope bluejay !*)
-  | ASSERT expr
-      { EAssert $2 : t }
-  | ASSUME expr
-      { EAssume $2 : t }
-  (*! endscope !*)
-  (*! scope desugared embedded !*)
-  | ABORT ident
-      { let Ident s = $2 in EAbort s : t }
-  | VANISH expr
-      { EVanish () : t }
-  (*! endscope !*)
-  (*! scope desugared !*)
-  | GEN expr
-      { EGen $2 : t }
-  (*! endscope !*)
-  (*! scope embedded !*)
-  | FREEZE expr
-      { EFreeze $2 : t }
-  | THAW expr
-      { EThaw $2 : t }
-  | DET expr
-      { EDet $2 : t }
-  | ESCAPEDET expr
-      { EEscapeDet $2 : t }
-  | UNTOUCHABLE expr
-      { EUntouchable $2 : t }
-  (*! endscope !*)
   | variant_label expr %prec prec_variant
       { EVariant { label = $1 ; payload = $2 } : t }
   | expr ASTERISK expr
