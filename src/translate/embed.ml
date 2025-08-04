@@ -296,17 +296,18 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         { gen = lazy (ERecord (Map.map m ~f:gen))
         ; check = lazy (
             fresh_abstraction "e_rec_check" @@ fun e ->
-            EMatch { subject = EVar e ; patterns = 
-                                          let body = 
-                                            build @@
-                                            let%bind () =
-                                              iter (Map.to_alist m) ~f:(fun (label, tau) ->
-                                                  ignore (check tau (proj (EVar e) label))
-                                                )
-                                            in
-                                            return EUnit
-                                          in
-                                          [ PRecord, body ]
+            EMatch { subject = EVar e 
+                   ; patterns = 
+                       let body = 
+                         build @@
+                         let%bind () =
+                           iter (Map.to_alist m) ~f:(fun (label, tau) ->
+                               ignore (check tau (proj (EVar e) label))
+                             )
+                         in
+                         return EUnit
+                       in
+                       [ PRecord, body ]
                    }
           )
         ; wrap = lazy (
@@ -326,16 +327,17 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
             )
         ; check = lazy (
             fresh_abstraction "e_module_check" @@ fun e ->
-            EMatch { subject = EVar e ; patterns =
-                                          [ PModule
-                                          , build @@
-                                            let%bind () =
-                                              iter ls ~f:(fun (RecordLabel label_id as l, tau) ->
-                                                  let%bind () = ignore @@ check tau (proj (EVar e) l) in
-                                                  assign label_id @@ proj (EVar e) l
-                                                )
-                                            in
-                                            return EUnit ]
+            EMatch { subject = EVar e
+                   ; patterns =
+                       [ PModule
+                       , build @@
+                         let%bind () =
+                           iter ls ~f:(fun (RecordLabel label_id as l, tau) ->
+                               let%bind () = ignore @@ check tau (proj (EVar e) l) in
+                               assign label_id @@ proj (EVar e) l
+                             )
+                         in
+                         return EUnit ]
                    }
           )
         ; wrap = lazy (
@@ -481,7 +483,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
         then (* standard translation, allowing arbitrary depth in recursive types *)
           EThaw (apply Embedded_functions.y_freeze_thaw @@ 
                  fresh_abstraction "self_mu" @@ fun self ->
-                 EFreeze (EDefer (
+                 EFreeze (
                      abstract_over_ids params @@
                      let with_beta body = ELet { var = beta ; defn = EThaw (EVar self) ; body } in
                      make_embedded_type
@@ -489,7 +491,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                        ; check = lazy (fresh_abstraction "e_mu_check" @@ fun e -> with_beta (check tau (EVar e)))
                        ; wrap = lazy (fresh_abstraction "e_mu_wrap" @@ fun e -> with_beta (wrap tau (EVar e)))
                        }
-                   ))
+                   )
                 )
         else (* limit recursive depth of generated members in this type *)
           let gend = Names.fresh_id ~suffix:"gend" () in

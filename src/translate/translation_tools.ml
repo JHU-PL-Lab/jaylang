@@ -184,7 +184,7 @@ module Embedded_functions = struct
     EFunction { param = f ; body =
       EAppl
         { func = body
-        ; arg  = body
+        ; arg  = EDefer body
         }
     }
 
