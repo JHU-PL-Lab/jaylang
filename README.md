@@ -134,6 +134,20 @@ Suggested directories to benchmark (besides the default `test/bjy/oopsla-24-benc
 - `test/bjy/interp-ill-typed` (suggested to decrease trials from the default 50 due to longer run times)
 - `test/bjy/post-oopsla-ill-typed`
 
+### Profiling
+
+To use landmarks to profile an executable, build with
+
+```
+dune build --instrument-with landmarks
+```
+
+Then run the executable with the `OCAML_LANDMARKS` environment variable set to `on`. For example:
+
+```
+OCAML_LANDMARKS=on ./ceval.exe ./bluejay_file.bjy
+```
+
 ## Coding in Bluejay
 
 Write Bluejay code in `.bjy` files. It's strongly recommended to use the syntax highlighter found
