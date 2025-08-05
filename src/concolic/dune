@@ -20,13 +20,10 @@
  )
  (synopsis "Concolic evaluator on embedded-type programs")
  (inline_tests)
+ (instrumentation (backend landmarks --auto)) ; use `dune build --instrument-with landmarks` to get instrumentation
  (preprocess
   (pps
    ppx_sexp_conv
    ppx_compare
    ocaml-monadic
-   lwt_ppx
-   ;bisect_ppx ; should comment when not wanting report because it adds overhead
-   ; for profiling
-   landmarks-ppx
-   --auto)))
+   lwt_ppx)))

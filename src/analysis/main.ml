@@ -10,7 +10,7 @@ let type_mismatch s =
 
 module Error_msg = Lang.Value.Error_msg (Value)
 
-let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
+let rec analyze (e : Embedded.With_program_points.t) : Value.t m =
   log e @@
   match e with
   (* immediate *)

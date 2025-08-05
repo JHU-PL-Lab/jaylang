@@ -200,37 +200,40 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
     the minimal amount of work to get to whnf.
   *)
   and stern_eval (expr : Embedded.t) : V.whnf m = 
-    let%bind v = eval expr in
-    let%bind () = incr_step ~max_step in
-    V.split v
-      ~symb:(fun ((VSymbol t) as sym) ->
-          let%bind s = get in
-          match Time_map.find_opt t s.symbol_env with
-          | Some v -> 
+    match expr with
+    | EDefer body -> stern_eval body 
+    | _ ->
+      let%bind v = eval expr in
+      let%bind () = incr_step ~max_step in
+      V.split v
+        ~symb:(fun ((VSymbol t) as sym) ->
+            let%bind s = get in
+            match Time_map.find_opt t s.symbol_env with
+            | Some v -> 
+              let%bind () = incr_n_stern_steps in
+              return v
+            | None -> 
+              (* evaluate the deferred proof for this symbol *)
+              (* if this fails, the greater symbols get removed, and this error propagates *)
+              let%bind v = run_on_deferred_proof sym stern_eval in
+              (* update the symbol environment to contain the result  *)
+              let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v s.symbol_env }) in
+              return v
+          )
+        ~whnf:(fun v ->
+            (* optionally choose to work on a deferred proof here *)
             let%bind () = incr_n_stern_steps in
-            return v
-          | None -> 
-            (* evaluate the deferred proof for this symbol *)
-            (* if this fails, the greater symbols get removed, and this error propagates *)
-            let%bind v = run_on_deferred_proof sym stern_eval in
-            (* update the symbol environment to contain the result  *)
-            let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v s.symbol_env }) in
-            return v
-        )
-      ~whnf:(fun v ->
-          (* optionally choose to work on a deferred proof here *)
-          let%bind () = incr_n_stern_steps in
-          let%bind s = get in
-          let%bind b = should_work_on_deferred in
-          if b && not (Time_map.is_empty s.pending_proofs) then
-            let (t, _) = Time_map.choose s.pending_proofs in
-            let%bind v' = run_on_deferred_proof (VSymbol t) stern_eval in
-            let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
-            return v
-          else 
-            (* chose not to work on a deferred proof, or there are no proofs to work on *)
-            return v
-        )
+            let%bind s = get in
+            let%bind b = should_work_on_deferred in
+            if b && not (Time_map.is_empty s.pending_proofs) then
+              let (t, _) = Time_map.choose s.pending_proofs in
+              let%bind v' = run_on_deferred_proof (VSymbol t) stern_eval in
+              let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
+              return v
+            else 
+              (* chose not to work on a deferred proof, or there are no proofs to work on *)
+              return v
+          )
 
   (* 
     This does not monadically error.
