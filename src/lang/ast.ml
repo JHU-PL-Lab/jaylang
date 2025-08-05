@@ -765,7 +765,7 @@ module Expr = struct
           (ppp_gt left) (Binop.to_string binop) (ppp_ge right)
       (* For a right-associative operator, we would use ppp_ge and ppp_gt,
          respectively *)
-      | EIf { cond ; true_body  ; false_body } ->
+      | EIf { cond ; true_body ; false_body } ->
         Format.sprintf "if %s then %s else %s"
           (to_string cond) (to_string true_body) (ppp_gt false_body)
       | ELet { var ; defn ; body } ->
@@ -797,7 +797,7 @@ module Expr = struct
       | EFunction { param ; body } -> (* note bluejay also has multi-arg function, which generalizes this *)
         let param_eval = Ident.to_string param in
         let body_eval = ppp_gt body in
-        Format.sprintf "fun %s -> %s" param_eval body_eval
+        Format.sprintf "(fun %s -> %s)" param_eval body_eval
       | EVariant { label ; payload } ->
         let label_eval = VariantLabel.to_string label in
         let payload_eval = ppp_ge payload in
@@ -860,7 +860,7 @@ module Expr = struct
           | `Binding Ident s -> Format.sprintf "(%s : %s)" s (ppp_ge domain)
           | `No -> Format.sprintf "%s" (ppp_ge domain) in
         let arg2 = if det then "-->" else "->" in
-        let arg3 = to_string codomain in
+        let arg3 = ppp_gt codomain in
         Format.sprintf "%s %s %s" arg1 arg2 arg3
       | ETypeRefinement { tau ; predicate } ->
         let tau_eval = to_string tau in
