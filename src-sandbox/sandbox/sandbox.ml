@@ -10,14 +10,21 @@ let do_test
     (statement_to_string : 'a statement -> string)
     (text : string)
   : unit =
-  let ast1 = parse text in
-  let pp_ast1 = String.concat ~sep:"\n\n" (List.map ast1 ~f:(statement_to_string)) in
-  let ast2 = parse pp_ast1 in
-  let pp_ast2 = String.concat ~sep:"\n\n" (List.map ast2 ~f:(statement_to_string)) in
+  let parse s =
+    try
+      parse s
+    with | exn ->
+      print_endline "Parse failure";
+      raise exn
+  in
   print_endline "Orginal:";
   print_endline text;
+  let ast1 = parse text in
+  let pp_ast1 = String.concat ~sep:"\n\n" (List.map ast1 ~f:(statement_to_string)) in
   print_endline "\n\nPass 1:";
   print_endline pp_ast1;
+  let ast2 = parse pp_ast1 in
+  let pp_ast2 = String.concat ~sep:"\n\n" (List.map ast2 ~f:(statement_to_string)) in
   print_endline "\n\nPass 2:";
   print_endline pp_ast2;
   print_endline "\n\nAST 1 <=>? AST 2:";

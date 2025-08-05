@@ -399,7 +399,7 @@ let rand_ETypeList : 'a expr_gen = fun ~ctx ->
 
 let rand_ETypeIntersect : 'a expr_gen = fun ~ctx ->
   ETypeIntersect(
-    pick_list ~ctx (fun () ->
+    pick_list ~min_len:2 ~ctx (fun () ->
         (pick_variant_type_label ~ctx (), pick_expr ~ctx, pick_expr ~ctx)))
 
 (******************************************************************************)

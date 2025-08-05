@@ -651,9 +651,9 @@ module Expr = struct
     let op_precedence : type a. a t -> int = fun e ->
       let primary_atomic = 0 in
       let application_like = 2 in
-      let binop_base = 4 in
-      let arrow_type_op = binop_base in
-      let intersect_type_op = arrow_type_op + 1 in
+      let arrow_type_op = 4 in
+      let variant_constr = arrow_type_op + 1 in
+      let intersect_type_op = variant_constr + 1 in
       let multiplicative_op = intersect_type_op + 1 in
       let additive_op = multiplicative_op + 1 in
       let list_cons_op = additive_op + 1 in
@@ -727,7 +727,7 @@ module Expr = struct
       | ETypeFun _ -> arrow_type_op
       | ETypeRefinement _ -> self_delimiting
       | ETypeMu _ -> 11
-      | ETypeVariant _ -> toplevel_expr
+      | ETypeVariant _ -> variant_constr
       | ELetTyped _ -> toplevel_expr
       | ETypeSingle -> primary_atomic
       (* bluejay or type erased *)
@@ -785,8 +785,18 @@ module Expr = struct
           let p, hd_expr = pattern in
           let hd_eval = ppp_ge hd_expr in
           let p_eval = Pattern.to_string p in
-          Format.sprintf "%s -> %s" p_eval hd_eval in
-        Format.sprintf "match %s with \n| %s \nend" subject_eval (String.concat ~sep:"\n| " (List.map patterns ~f:(patterns_eval)))
+          (* FIXME: Sloppy hack for dangling expressions: throw parentheses
+             them always.  This is necessary here because of a syntax conflict
+             between match expressions and variant type expressions.  Consider:
+               match b with
+               | `Foo _ -> (| `A of int)
+               | `Bar _ -> (| `B of int)
+             Without the parentheses, this fails to parse. *)
+          Format.sprintf "%s -> (%s)" p_eval hd_eval
+        in
+        Format.sprintf "match %s with \n| %s \nend"
+          subject_eval (String.concat ~sep:"\n| "
+                          (List.map patterns ~f:patterns_eval))
       | EProject { record ; label } ->
         let label_eval = RecordLabel.to_string label in
         let record_eval = ppp_gt record in
@@ -883,7 +893,7 @@ module Expr = struct
         Format.sprintf "| %s"
           (String.concat ~sep: "\n| " @@
            List.map variant_list ~f:(fun (VariantTypeLabel Ident s, tau) ->
-               Format.sprintf "`%s of %s" s (to_string tau)))
+               Format.sprintf "`%s of %s" s (ppp_gt tau)))
       | ELetTyped { typed_var ; defn ; body ; typed_binding_opts } ->
         let {var = Ident x; tau} = typed_var in
         let opts_string =
