@@ -148,10 +148,10 @@ the language and which lines are erased.
 (*! scope bluejay !*)
 %left AMPERSAND
 (*! endscope !*)
+%right prec_variant           /* variants, lists */
 (*! scope bluejay desugared !*)
 %right ARROW LONG_ARROW       /* -> for type declaration, and --> for deterministic */
 (*! endscope !*)
-%right prec_variant           /* variants, lists */
 
 %start <statement list> prog
 %start <statement list option> delim_expr

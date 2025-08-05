@@ -766,8 +766,12 @@ module Expr = struct
       (* For a right-associative operator, we would use ppp_ge and ppp_gt,
          respectively *)
       | EIf { cond ; true_body ; false_body } ->
-        Format.sprintf "if %s then %s else %s"
-          (to_string cond) (to_string true_body) (ppp_gt false_body)
+        (* FIXME: Sloppy hack for dangling expressions: throw parentheses around
+           them always.  This is necessary because we don't currently handle
+           parentheses in any way other than precedence, so e.g.
+           "(1 * if b then 3 else 4) + 2" does not render properly otherwise. *)
+        Format.sprintf "if %s then %s else (%s)"
+          (to_string cond) (to_string true_body) (to_string false_body)
       | ELet { var ; defn ; body } ->
         Format.sprintf "let %s = %s in %s"
           (Ident.to_string var) (to_string defn) (ppp_gt body)
@@ -797,6 +801,10 @@ module Expr = struct
       | EFunction { param ; body } -> (* note bluejay also has multi-arg function, which generalizes this *)
         let param_eval = Ident.to_string param in
         let body_eval = ppp_gt body in
+        (* FIXME: Sloppy hack for dangling expressions: throw parentheses around
+           them always.  This is necessary because we don't currently handle
+           parentheses in any way other than precedence, so e.g.
+           "(1 * fun x -> x) + 2" does not render properly otherwise. *)
         Format.sprintf "(fun %s -> %s)" param_eval body_eval
       | EVariant { label ; payload } ->
         let label_eval = VariantLabel.to_string label in
@@ -917,7 +925,7 @@ module Expr = struct
         String.concat ~sep:" & " @@
         List.map ls
           ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) ->
-              Format.sprintf "(`%s of %s -> %s)"
+              Format.sprintf "((`%s of %s) -> %s)"
                 s (ppp_ge tau1) (ppp_ge tau2))
 
     and statement_to_string : type a. a statement -> string = function
