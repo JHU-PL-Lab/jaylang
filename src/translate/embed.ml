@@ -249,7 +249,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               let tb = Names.fresh_id ~suffix:"tb" () in
               build @@
               let%bind nonce = capture ~suffix:"nonce" EPick_i in
-              let%bind () = if det then assign tb ETable else return () in
+              let%bind () = if det then assign tb ETableCreate else return () in
               return @@fresh_abstraction "arg_arrow_gen" @@ fun arg ->
               build @@
               let%bind () = ignore (EVar nonce) in
@@ -260,7 +260,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                 | `No -> return ()
               in
               if det
-              then return (ETblAppl { tbl = EVar tb ; gen = gen tau2 ; arg = EVar arg })
+              then return (ETableAppl { tbl = EVar tb ; gen = gen tau2 ; arg = EVar arg })
               else return @@ gen tau2
             )
         ; check = lazy (

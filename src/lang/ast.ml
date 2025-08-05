@@ -267,8 +267,8 @@ module Expr = struct
       | EThaw : 'a t Cell.t -> 'a embedded_only t
       | EId : 'a embedded_only t
       | EIgnore : { ignored : 'a t ; body : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in body` but is more efficient *)
-      | ETable : 'a embedded_only t
-      | ETblAppl : { tbl : 'a t ; gen : 'a t ; arg : 'a t } -> 'a embedded_only t
+      | ETableCreate : 'a embedded_only t
+      | ETableAppl : { tbl : 'a t ; gen : 'a t ; arg : 'a t } -> 'a embedded_only t
       | EDet : 'a t -> 'a embedded_only t
       | EEscapeDet : 'a t -> 'a embedded_only t
       | EIntensionalEqual : { left : 'a t ; right : 'a t } -> 'a embedded_only t
@@ -407,7 +407,7 @@ module Expr = struct
             | EPick_i, EPick_i
             | EPick_b, EPick_b
             | EId, EId
-            | ETable, ETable
+            | ETableCreate, ETableCreate
             | EType, EType
             | ETypeInt, ETypeInt
             | ETypeBool, ETypeBool
@@ -470,7 +470,7 @@ module Expr = struct
             | EIgnore r1, EIgnore r2 ->
               let- () = cmp r1.ignored r2.ignored in
               cmp r1.body r2.body
-            | ETblAppl r1, ETblAppl r2 ->
+            | ETableAppl r1, ETableAppl r2 ->
               let- () = cmp r1.tbl r2.tbl in
               let- () = cmp r1.gen r2.gen in
               cmp r1.arg r2.arg
@@ -692,8 +692,8 @@ module Expr = struct
       | EThaw _ -> 2
       | EId -> primary_atomic
       | EIgnore _ -> 13 (* simply sugar for `let _ = ignored in body` but is more efficient *)
-      | ETable -> primary_atomic
-      | ETblAppl _ -> 1
+      | ETableCreate -> primary_atomic
+      | ETableAppl _ -> 1
       | EDet _ -> 2
       | EEscapeDet _ -> 2
       | EIntensionalEqual _ -> self_delimiting
@@ -809,8 +809,8 @@ module Expr = struct
       | EId -> "fun x -> x"
       | EIgnore { ignored ; body } -> (* equivalent to `let _ = ignored in body` but is more efficient *)
         Format.sprintf "#ignore %s in %s" (to_string ignored) (ppp_gt body)
-      | ETable -> "#table"
-      | ETblAppl { tbl ; gen ; arg } ->
+      | ETableCreate -> "#table"
+      | ETableAppl { tbl ; gen ; arg } ->
         Format.sprintf "#table_appl (%s, %s, %s)"
           (to_string tbl) (to_string gen) (to_string arg)
       | EDet e ->
@@ -987,7 +987,7 @@ module Embedded = struct
       | EBool b -> EBool b
       | EVar id -> EVar id
       | EId -> EId
-      | ETable -> ETable
+      | ETableCreate -> ETableCreate
       | EUnit -> EUnit
       | EPick_i -> EPick_i
       | EPick_b -> EPick_b
@@ -1036,10 +1036,10 @@ module Embedded = struct
       | EIgnore { ignored ; body } ->
         let ignored = t_of_expr ignored in
         EIgnore { ignored ; body = t_of_expr body }
-      | ETblAppl { tbl ; gen ; arg } ->
+      | ETableAppl { tbl ; gen ; arg } ->
         let tbl = t_of_expr tbl in
         let arg = t_of_expr arg in
-        ETblAppl { tbl ; gen = t_of_expr gen ; arg }
+        ETableAppl { tbl ; gen = t_of_expr gen ; arg }
       | EDet expr -> EDet (t_of_expr expr)
       | EEscapeDet expr -> EEscapeDet (t_of_expr expr)
       | EUntouchable expr -> EUntouchable (t_of_expr expr)
@@ -1077,7 +1077,7 @@ module Embedded = struct
         | EPick_i -> EPick_i
         | EPick_b -> EPick_b
         | EId -> EId
-        | ETable -> ETable
+        | ETableCreate -> ETableCreate
         | EUnit -> EUnit
         | EAbort msg -> EAbort msg
         | EVanish c -> EVanish c
@@ -1136,7 +1136,7 @@ module Embedded = struct
         | EFreeze expr -> EFreeze (visit expr env)
         | EThaw { data ; point } -> EThaw { data = visit data env ; point }
         | EIgnore { ignored ; body } -> EIgnore { ignored = visit ignored env ; body = visit body env }
-        | ETblAppl { tbl ; gen ; arg } -> ETblAppl { tbl = visit tbl env ; gen = visit gen env ; arg = visit arg env }
+        | ETableAppl { tbl ; gen ; arg } -> ETableAppl { tbl = visit tbl env ; gen = visit gen env ; arg = visit arg env }
         | EDet expr -> EDet (visit expr env)
         | EEscapeDet expr -> EEscapeDet (visit expr env)
         | EUntouchable expr -> EUntouchable (visit expr env)

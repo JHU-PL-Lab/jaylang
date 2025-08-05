@@ -118,8 +118,8 @@ the language and which lines are erased.
 %token THAW
 %token ID
 %token IGNORE
-%token TABLE
-%token TBLAPPL
+%token TABLE_CREATE
+%token TABLE_APPL
 %token DET
 %token ESCAPEDET
 %token INTENSIONAL_EQUAL
@@ -274,8 +274,8 @@ expr:
   (*! scope embedded !*)
   | CASE expr WITH PIPE? case_expr_list DEFAULT expr END
       { ECase { subject = $2; cases = $5; default = $7 } }
-  | TBLAPPL OPEN_PAREN expr COMMA expr COMMA expr CLOSE_PAREN
-      { ETblAppl { tbl = $3; gen = $5; arg = $7; } }
+  | TABLE_APPL OPEN_PAREN expr COMMA expr COMMA expr CLOSE_PAREN
+      { ETableAppl { tbl = $3; gen = $5; arg = $7; } }
   | INTENSIONAL_EQUAL OPEN_PAREN expr COMMA expr CLOSE_PAREN
       { EIntensionalEqual { left = $3; right = $5 } }
   (*! endscope !*)
@@ -430,8 +430,8 @@ primary_expr:
       { EPick_b : t }
   | ID
       { EId : t }
-  | TABLE
-      { ETable : t }
+  | TABLE_CREATE
+      { ETableCreate : t }
   (*! endscope !*)
   (*! scope bluejay desugared !*)
   | TYPE
