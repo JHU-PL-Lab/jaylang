@@ -865,7 +865,7 @@ module Expr = struct
            List.map variant_list ~f:(fun (VariantTypeLabel Ident s, tau) ->
                Format.sprintf "`%s of %s" s (to_string tau)))
       | ELetTyped { typed_var ; defn ; body ; typed_binding_opts } ->
-        let {var = Ident s; tau} = typed_var in
+        let {var = Ident x; tau} = typed_var in
         let opts_string =
           match typed_binding_opts with
           | TBBluejay -> ""
@@ -873,8 +873,8 @@ module Expr = struct
             (if do_check then "" else "#nocheck ") ^
             (if do_wrap then "" else "#nowrap ")
         in
-        Format.sprintf "let %s %s : %s = %s in %s" s
-          opts_string (to_string tau) (to_string defn) (ppp_gt body)
+        Format.sprintf "let (%s : %s) %s = %s in %s"
+          x (to_string tau) opts_string  (to_string defn) (ppp_gt body)
       | ETypeSingle -> "singlet"
       (* bluejay or type erased *)
       | EList list ->

@@ -272,10 +272,10 @@ let rand_EIgnore : 'a expr_gen = fun ~ctx ->
   EIgnore { ignored = pick_expr ~ctx; body = pick_expr ~ctx }
 
 let rand_ETable : 'a expr_gen = fun ~ctx ->
-  ignore ctx; ETable
+  ignore ctx; ETableCreate
 
 let rand_ETblAppl : 'a expr_gen = fun ~ctx ->
-  ETblAppl { tbl = pick_expr ~ctx; gen = pick_expr ~ctx; arg = pick_expr ~ctx }
+  ETableAppl { tbl = pick_expr ~ctx; gen = pick_expr ~ctx; arg = pick_expr ~ctx }
 
 let rand_EDet : 'a expr_gen = fun ~ctx ->
   EDet(pick_expr ~ctx)
