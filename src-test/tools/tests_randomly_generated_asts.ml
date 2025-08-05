@@ -19,7 +19,7 @@ let make_list (n : int) (f : int -> 'a) : 'a list =
 
 type 'a context = {
   rand_state : Random.State.t;
-  ctx_gen_pattern : 'a pattern_gen;
+  ctx_gen_pattern : allow_terminating:bool -> 'a pattern_gen;
   ctx_gen_expr : 'a expr_gen;
   ctx_gen_statement : 'a statement_gen;
   depth : int;
@@ -85,8 +85,11 @@ let pick_variant_type_label
   : VariantTypeLabel.t =
   VariantTypeLabel.VariantTypeLabel(pick_ident ~min_len ~max_len ~ctx ())
 
+let pick_nonterminating_pattern ~(ctx : 'a context) : 'a Pattern.t =
+  ctx.ctx_gen_pattern ~allow_terminating:false ~ctx
+
 let pick_pattern ~(ctx : 'a context) : 'a Pattern.t =
-  ctx.ctx_gen_pattern ~ctx
+  ctx.ctx_gen_pattern ~allow_terminating:true ~ctx
 
 let pick_expr ~(ctx : 'a context) : 'a Expr.t =
   ctx.ctx_gen_expr ~ctx
@@ -208,8 +211,11 @@ let rand_EAppl : 'a expr_gen = fun ~ctx ->
 let rand_EMatch : 'a expr_gen = fun ~ctx ->
   EMatch { subject = pick_expr ~ctx;
            patterns =
-             pick_list ~ctx
-               (fun () -> (pick_pattern ~ctx, pick_expr ~ctx))
+             (pick_list ~ctx
+                (fun () -> (pick_nonterminating_pattern ~ctx, pick_expr ~ctx)))
+             @
+             (if pick_bool ~ctx then [] else
+                [(pick_pattern ~ctx, pick_expr ~ctx)])
          }
 
 let rand_EProject : 'a expr_gen = fun ~ctx ->
@@ -420,8 +426,10 @@ let rand_SFunRec : 'a statement_gen = fun ~ctx ->
    leaf or non-leaf construction in the various languages. *)
 
 type 'lang generator_parts = {
-  leaf_pattern_generators : 'lang pattern_gen list;
-  nonleaf_pattern_generators : 'lang pattern_gen list;
+  terminating_leaf_pattern_generators : 'lang pattern_gen list;
+  terminating_nonleaf_pattern_generators : 'lang pattern_gen list;
+  nonterminating_leaf_pattern_generators : 'lang pattern_gen list;
+  nonterminating_nonleaf_pattern_generators : 'lang pattern_gen list;
   leaf_expression_generators : 'lang expr_gen list;
   nonleaf_expression_generators : 'lang expr_gen list;
   leaf_statement_generators : 'lang statement_gen list;
@@ -431,14 +439,17 @@ type 'lang generator_parts = {
 let bluejay_generator_parts : bluejay generator_parts =
   let typed_binding_opts_gen ~ctx = ignore ctx; TBBluejay in
   {
-    leaf_pattern_generators = [
+    terminating_leaf_pattern_generators = [
       rand_PAny;
       rand_PVariable;
+    ];
+    terminating_nonleaf_pattern_generators = [];
+    nonterminating_leaf_pattern_generators = [
       rand_PVariant;
       rand_PEmptyList;
       rand_PDestructList;
     ];
-    nonleaf_pattern_generators = [];
+    nonterminating_nonleaf_pattern_generators = [];
     leaf_expression_generators = [
       rand_EUnit;
       rand_EInt;
@@ -497,12 +508,15 @@ let desugared_generator_parts : desugared generator_parts =
     TBDesugared { do_wrap = pick_bool ~ctx; do_check = pick_bool ~ctx }
   in
   {
-    leaf_pattern_generators = [
+    terminating_leaf_pattern_generators = [
       rand_PAny;
       rand_PVariable;
+    ];
+    terminating_nonleaf_pattern_generators = [];
+    nonterminating_leaf_pattern_generators = [
       rand_PVariant;
     ];
-    nonleaf_pattern_generators = [];
+    nonterminating_nonleaf_pattern_generators = [];
     leaf_expression_generators = [
       rand_EUnit;
       rand_EInt;
@@ -549,9 +563,12 @@ let desugared_generator_parts : desugared generator_parts =
   }
 
 let embedded_generator_parts : embedded generator_parts = {
-  leaf_pattern_generators = [
+  terminating_leaf_pattern_generators = [
     rand_PAny;
     rand_PVariable;
+  ];
+  terminating_nonleaf_pattern_generators = [];
+  nonterminating_leaf_pattern_generators = [
     rand_PVariant;
     rand_PInt;
     rand_PBool;
@@ -562,7 +579,7 @@ let embedded_generator_parts : embedded generator_parts = {
     rand_PUnit;
     rand_PUntouchable;
   ];
-  nonleaf_pattern_generators = [];
+  nonterminating_nonleaf_pattern_generators = [];
   leaf_expression_generators = [
     rand_EUnit;
     rand_EInt;
@@ -612,7 +629,10 @@ let embedded_generator_parts : embedded generator_parts = {
 
 type 'lang generators = {
   gen_pattern :
-    ?rand_state:Random.State.t -> depth_threshold:int -> unit ->
+    ?rand_state:Random.State.t ->
+    allow_terminating:bool ->
+    depth_threshold:int ->
+    unit ->
     'lang Pattern.t;
   gen_expr :
     ?rand_state:Random.State.t -> depth_threshold:int -> unit ->
@@ -657,8 +677,23 @@ let build_generators (parts : 'lang generator_parts)
         generator ~ctx:ctx'
   in
   let gen_pattern =
-    create_depth_sensitive_gen
-      parts.leaf_pattern_generators parts.nonleaf_pattern_generators
+    let gen_allowing_terminating =
+      create_depth_sensitive_gen
+        (parts.terminating_leaf_pattern_generators @
+         parts.nonterminating_leaf_pattern_generators)
+        (parts.terminating_nonleaf_pattern_generators @
+         parts.nonterminating_nonleaf_pattern_generators)
+    in
+    let gen_disallowing_terminating =
+      create_depth_sensitive_gen
+        parts.nonterminating_leaf_pattern_generators
+        parts.nonterminating_nonleaf_pattern_generators
+    in
+    fun ~allow_terminating ->
+      if allow_terminating then
+        gen_allowing_terminating
+      else
+        gen_disallowing_terminating
   in
   let gen_expr =
     create_depth_sensitive_gen
@@ -679,10 +714,12 @@ let build_generators (parts : 'lang generator_parts)
       depth;
     }
   in
-  { gen_pattern = (fun ?(rand_state=rand_state) ~depth_threshold () ->
-        gen_pattern
-          ~depth_threshold
-          ~ctx:(make_context ~rand_state ~depth_threshold 0));
+  { gen_pattern = (
+        fun ?(rand_state=rand_state) ~allow_terminating ~depth_threshold () ->
+          gen_pattern
+            ~allow_terminating
+            ~depth_threshold
+            ~ctx:(make_context ~rand_state ~depth_threshold 0));
     gen_expr = (fun ?(rand_state=rand_state) ~depth_threshold () ->
         gen_expr
           ~depth_threshold

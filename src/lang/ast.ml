@@ -650,6 +650,18 @@ module Expr = struct
        high number (to prevent unnecessary parentheses from being added). *)
     let op_precedence : type a. a t -> int = fun e ->
       let primary_atomic = 0 in
+      let application_like = 2 in
+      let binop_base = 4 in
+      let arrow_type_op = binop_base in
+      let intersect_type_op = arrow_type_op + 1 in
+      let multiplicative_op = intersect_type_op + 1 in
+      let additive_op = multiplicative_op + 1 in
+      let list_cons_op = additive_op + 1 in
+      let comparison_op = list_cons_op + 1 in
+      let boolean_not_op = comparison_op + 1 in
+      let boolean_and_op = boolean_not_op + 1 in
+      let boolean_or_op = boolean_and_op + 1 in
+      let toplevel_expr = 100 in
       let self_delimiting = 99999 in
       match e with
       | EInt _ -> primary_atomic
@@ -659,50 +671,50 @@ module Expr = struct
       | EBinop { left=_ ; binop=binop ; right=_ } ->
         begin
           match binop with
-          | BPlus -> 4
-          | BMinus -> 4
-          | BTimes -> 3
-          | BDivide -> 3
-          | BModulus -> 3
-          | BEqual -> 6
-          | BNeq -> 6
-          | BLessThan -> 6
-          | BLeq -> 6
-          | BGreaterThan -> 6
-          | BGeq -> 6
-          | BAnd -> 8
-          | BOr -> 9
+          | BPlus -> additive_op
+          | BMinus -> additive_op
+          | BTimes -> multiplicative_op
+          | BDivide -> multiplicative_op
+          | BModulus -> multiplicative_op
+          | BEqual -> comparison_op
+          | BNeq -> comparison_op
+          | BLessThan -> comparison_op
+          | BLeq -> comparison_op
+          | BGreaterThan -> comparison_op
+          | BGeq -> comparison_op
+          | BAnd -> boolean_and_op
+          | BOr -> boolean_or_op
         end
-      | EIf _ -> 12
-      | ELet _ -> 13
-      | EAppl _ -> 1
-      | EMatch _-> 12
+      | EIf _ -> toplevel_expr
+      | ELet _ -> toplevel_expr
+      | EAppl _ -> application_like
+      | EMatch _-> toplevel_expr
       | EProject _ -> primary_atomic
       | ERecord _ -> self_delimiting
       | EModule _ -> self_delimiting
-      | ENot _ -> 7
+      | ENot _ -> boolean_not_op
       | EInput -> primary_atomic
-      | EFunction _ -> 13
-      | EVariant _ -> 2
-      | EDefer _ -> 2
+      | EFunction _ -> toplevel_expr
+      | EVariant _ -> application_like
+      | EDefer _ -> application_like
       | EPick_i -> primary_atomic
       | EPick_b -> primary_atomic
-      | ECase _ -> 12 (* simply sugar for nested conditionals *)
-      | EFreeze _ -> 2
-      | EThaw _ -> 2
+      | ECase _ -> toplevel_expr (* simply sugar for nested conditionals *)
+      | EFreeze _ -> application_like
+      | EThaw _ -> application_like
       | EId -> primary_atomic
-      | EIgnore _ -> 13 (* simply sugar for `let _ = ignored in body` but is more efficient *)
+      | EIgnore _ -> toplevel_expr (* simply sugar for `let _ = ignored in body` but is more efficient *)
       | ETableCreate -> primary_atomic
       | ETableAppl _ -> 1
-      | EDet _ -> 2
-      | EEscapeDet _ -> 2
+      | EDet _ -> application_like
+      | EEscapeDet _ -> application_like
       | EIntensionalEqual _ -> self_delimiting
-      | EUntouchable _ -> 2
+      | EUntouchable _ -> application_like
       (* these exist in the desugared and embedded languages *)
-      | EAbort _ -> 2 (* string is error message *)
-      | EVanish _ -> 0
+      | EAbort _ -> application_like (* string is error message *)
+      | EVanish _ -> primary_atomic
       (* only the desugared language *)
-      | EGen _ -> 2 (* Cannot be interpreted. Is only an intermediate step in translation *)
+      | EGen _ -> application_like (* Cannot be interpreted. Is only an intermediate step in translation *)
       (* these exist in the bluejay and desugared languages *)
       | EType -> primary_atomic
       | ETypeInt -> primary_atomic
@@ -712,23 +724,23 @@ module Expr = struct
       | ETypeUnit -> primary_atomic
       | ETypeRecord _ -> self_delimiting
       | ETypeModule _ -> self_delimiting
-      | ETypeFun _ -> 1
-      | ETypeRefinement _ -> 1
+      | ETypeFun _ -> arrow_type_op
+      | ETypeRefinement _ -> self_delimiting
       | ETypeMu _ -> 11
-      | ETypeVariant _ -> 12
-      | ELetTyped _ -> 13
+      | ETypeVariant _ -> toplevel_expr
+      | ELetTyped _ -> toplevel_expr
       | ETypeSingle -> primary_atomic
       (* bluejay or type erased *)
       | EList _ -> self_delimiting
-      | EListCons _ -> 5
-      | EAssert _ -> 2
-      | EAssume _ -> 2
-      | EMultiArgFunction _ -> 13
-      | ELetFun _ -> 13
-      | ELetFunRec _ -> 13
+      | EListCons _ -> list_cons_op
+      | EAssert _ -> application_like
+      | EAssume _ -> application_like
+      | EMultiArgFunction _ -> toplevel_expr
+      | ELetFun _ -> toplevel_expr
+      | ELetFunRec _ -> toplevel_expr
       (* bluejay only *)
       | ETypeList ->  0
-      | ETypeIntersect _ -> 1
+      | ETypeIntersect _ -> intersect_type_op
 
     let rec to_string : type a. a t -> string = fun e ->
       let p_top = op_precedence e in
@@ -905,8 +917,8 @@ module Expr = struct
         String.concat ~sep:" & " @@
         List.map ls
           ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) ->
-              Format.sprintf "((`%s of %s) -> %s)"
-                s (to_string tau1) (to_string tau2))
+              Format.sprintf "(`%s of %s -> %s)"
+                s (ppp_ge tau1) (ppp_ge tau2))
 
     and statement_to_string : type a. a statement -> string = function
       | SUntyped { var ; defn } ->
