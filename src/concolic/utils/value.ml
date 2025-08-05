@@ -213,7 +213,7 @@ module Make (K : Smt.Symbol.KEY) = struct
         let%bind eq_ignored = eq r1.ignored r2.ignored in
         let%bind eq_cont = eq r1.ignored r2.ignored in
         return (eq_ignored && eq_cont)
-      | ETblAppl r1, ETblAppl r2 ->
+      | ETableAppl r1, ETableAppl r2 ->
         let%bind eq_tbl = eq r1.tbl r2.tbl in
         let%bind eq_gen = eq r1.gen r2.gen in
         let%bind eq_arg = eq r1.arg r2.arg in
@@ -227,7 +227,7 @@ module Make (K : Smt.Symbol.KEY) = struct
       | EUntouchable e1, EUntouchable e2
       | EDefer e1, EDefer e2 -> eq e1 e2
       (* Intensional equality *)
-      | ETable, ETable
+      | ETableCreate, ETableCreate
       | EPick_i, EPick_i
       | EPick_b, EPick_b
       | EId, EId

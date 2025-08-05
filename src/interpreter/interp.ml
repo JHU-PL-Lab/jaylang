@@ -394,8 +394,8 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
         | _ -> raise @@ InvariantFailure "Logically impossible abstraction from funsig without parameters"
       end
     (* tables *)
-    | ETable -> return (VTable { alist = [] })
-    | ETblAppl { tbl ; gen ; arg } -> begin
+    | ETableCreate -> return (VTable { alist = [] })
+    | ETableAppl { tbl ; gen ; arg } -> begin
         match%bind eval tbl with
         | VTable mut_r -> begin
             let%bind v = eval arg in

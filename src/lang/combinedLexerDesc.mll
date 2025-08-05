@@ -133,8 +133,8 @@ rule token = parse
 | "#thaw"              { THAW }
 | "#id"                { ID }
 | "#ignore"            { IGNORE }
-| "#table"             { TABLE }
-| "#tblappl"           { TBLAPPL }
+| "#tableCreate"       { TABLE_CREATE }
+| "#tableAppl"         { TABLE_APPL }
 | "#det"               { DET }
 | "#escapedet"         { ESCAPEDET }
 | "#intensionalEqual"  { INTENSIONAL_EQUAL }

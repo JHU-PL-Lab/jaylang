@@ -159,5 +159,5 @@ let rec analyze (e : Embedded.With_program_points.t) : Value.t m =
   | EDet expr
   | EEscapeDet expr -> analyze expr
   (* unhandled and currently aborting *)
-  | ETable
-  | ETblAppl _ -> failwith "unimplemented analysis on tables"
+  | ETableCreate
+  | ETableAppl _ -> failwith "unimplemented analysis on tables"

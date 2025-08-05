@@ -118,8 +118,8 @@ the language and which lines are erased.
 %token THAW
 %token ID
 %token IGNORE
-%token TABLE
-%token TBLAPPL
+%token TABLE_CREATE
+%token TABLE_APPL
 %token DET
 %token ESCAPEDET
 %token INTENSIONAL_EQUAL
@@ -145,6 +145,9 @@ the language and which lines are erased.
 (*! endscope !*)
 %left PLUS MINUS              /* + - */
 %left ASTERISK SLASH PERCENT  /* * / % */
+(*! scope bluejay !*)
+%left AMPERSAND
+(*! endscope !*)
 (*! scope bluejay desugared !*)
 %right ARROW LONG_ARROW       /* -> for type declaration, and --> for deterministic */
 (*! endscope !*)
@@ -187,12 +190,12 @@ statement:
       { SUntyped { var = $2 ; defn = $4 } : statement }
   (* desugared lets may have #no_check #no_wrap but bluejay lets may not *)
   (*! scope desugared !*)
-  | LET NO_CHECK? NO_WRAP? typed_binding EQUALS expr
-      { STyped { typed_var = { var = fst $4 ; tau = snd $4 };
+  | LET typed_binding NO_CHECK? NO_WRAP? EQUALS expr
+      { STyped { typed_var = { var = fst $2 ; tau = snd $2 };
                  defn = $6;
                  typed_binding_opts =
-                    TBDesugared { do_wrap = Option.is_none $2;
-                                  do_check = Option.is_none $3
+                    TBDesugared { do_wrap = Option.is_none $3;
+                                  do_check = Option.is_none $4;
                                 }
                } : statement
       }
@@ -242,13 +245,13 @@ expr:
       }
   (*! endscope !*)
   (*! scope desugared !*)
-  | LET NO_CHECK? NO_WRAP? typed_binding EQUALS expr IN expr %prec prec_let
-      { ELetTyped { typed_var = { var = fst $4 ; tau = snd $4 };
+  | LET typed_binding NO_CHECK? NO_WRAP? EQUALS expr IN expr %prec prec_let
+      { ELetTyped { typed_var = { var = fst $2 ; tau = snd $2 };
                     defn = $6;
                     body = $8;
                     typed_binding_opts = TBDesugared
-                        { do_wrap = Option.is_none $2;
-                          do_check = Option.is_none $3;
+                        { do_wrap = Option.is_none $3;
+                          do_check = Option.is_none $4;
                         }
                   } : t
       }
@@ -274,8 +277,8 @@ expr:
   (*! scope embedded !*)
   | CASE expr WITH PIPE? case_expr_list DEFAULT expr END
       { ECase { subject = $2; cases = $5; default = $7 } }
-  | TBLAPPL OPEN_PAREN expr COMMA expr COMMA expr CLOSE_PAREN
-      { ETblAppl { tbl = $3; gen = $5; arg = $7; } }
+  | TABLE_APPL OPEN_PAREN expr COMMA expr COMMA expr CLOSE_PAREN
+      { ETableAppl { tbl = $3; gen = $5; arg = $7; } }
   | INTENSIONAL_EQUAL OPEN_PAREN expr COMMA expr CLOSE_PAREN
       { EIntensionalEqual { left = $3; right = $5 } }
   (*! endscope !*)
@@ -289,6 +292,14 @@ expr:
       { ($2, $4) }
 
 %inline type_expr:
+  | PIPE separated_nonempty_list(PIPE, single_variant_type) (* pipe optional before first variant *)
+      { ETypeVariant $2 : t }
+  | separated_nonempty_list(PIPE, single_variant_type)
+      { ETypeVariant $1 : t }
+  | type_expr_without_variant
+      { $1 : t }
+
+%inline type_expr_without_variant:
   | MU l_ident list(l_ident) DOT expr %prec prec_mu
       { ETypeMu { var = $2 ; params = $3 ; body = $5 } : t}
   | expr ARROW expr
@@ -299,23 +310,39 @@ expr:
       { ETypeFun { domain = $4 ; codomain = $7 ; dep = `Binding $2 ; det = false } : t }
   | OPEN_PAREN l_ident COLON expr CLOSE_PAREN LONG_ARROW expr
       { ETypeFun { domain = $4 ; codomain = $7 ; dep = `Binding $2 ; det = true } : t }
-  | PIPE separated_nonempty_list(PIPE, single_variant_type) (* pipe optional before first variant *)
-      { ETypeVariant $2 : t }
-  | separated_nonempty_list(PIPE, single_variant_type)
-      { ETypeVariant $1 : t }
   (*! scope bluejay !*)
-  (* we need at least two here because otherwise it is just an arrow with a single variant type *)
-  | separated_at_least_two_list(AMPERSAND, single_intersection_type)
-      { ETypeIntersect $1 : t }
+  | expr AMPERSAND expr
+      { (* We need to restrict these expressions to the form
+            `Foo τ -> τ'
+           in order to build our AST.  This is a bit tricky, since Menhir
+           doesn't have the lookahead necessary to do so.  We'll just let Menhir
+           parse whatever expressions it likes here and then yell if we get
+           something which doesn't match.  But to play nice, we need to make '&'
+           a binary operator.  This means that the types to the left and right
+           may either be a single type of this form or intersection types
+           themselves.
+      *)
+        let extract (e : t) : (VariantTypeLabel.t * t * t) list =
+          match e with
+          | ETypeIntersect xs -> xs
+          | ETypeFun { domain = ETypeVariant [(lbl,tIn)];
+                       codomain = tOut;
+                       dep = `No;
+                       det = false;
+                     } ->
+            [(lbl, tIn, tOut)]
+          | ETypeFun { det = true; _ } ->
+            failwith "TODO: error message: deterministic variable"
+          | ETypeFun { dep = `Binding _; _ } ->
+            failwith "TODO: error message: dependent variable"
+          | ETypeFun { domain = ETypeVariant (_::_::_); _ } ->
+            failwith "TODO: error message: multiple arguments"
+          | _ ->
+            failwith "TODO: error message: not a function type"
+        in
+        ETypeIntersect (extract $1 @ extract $3) : t
+      }
   (*! endscope !*)
-(*! endscope !*)
-
-(*! scope bluejay !*)
-(* Doesn't *really* need parens I think, but without them we would never get a meaningful intersection type *)
-(* This gives us a shift/reduce conflict that *can* be resolved because it is a valid expression in itself *)
-single_intersection_type:
-  | OPEN_PAREN OPEN_PAREN single_variant_type CLOSE_PAREN ARROW expr CLOSE_PAREN
-      { let (a, b) = $3 in (a, b, $6) }
 (*! endscope !*)
 
 (*! scope bluejay desugared !*)
@@ -430,8 +457,8 @@ primary_expr:
       { EPick_b : t }
   | ID
       { EId : t }
-  | TABLE
-      { ETable : t }
+  | TABLE_CREATE
+      { ETableCreate : t }
   (*! endscope !*)
   (*! scope bluejay desugared !*)
   | TYPE

@@ -188,8 +188,8 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
     | EEscapeDet expr -> with_escaped_det (eval expr)
     (* unhandled and currently aborting -- okay to ignore for now because these are uncommon *)
     | EIntensionalEqual _ -> failwith "unhandled intensional equality in deferred evaluation"
-    | ETable
-    | ETblAppl _ -> failwith "unhandled table operations in deferred evaluation"
+    | ETableCreate
+    | ETableAppl _ -> failwith "unhandled table operations in deferred evaluation"
 
   (*
     This stern eval may error monadically so that we get propagation of

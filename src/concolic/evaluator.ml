@@ -183,8 +183,8 @@ let eager_eval
     | EPick_i -> get_input Interp_common.Key.Stepkey.int_ input_feeder
     | EPick_b -> get_input Interp_common.Key.Stepkey.bool_ input_feeder
     (* Tables -- includes some branching *)
-    | ETable -> return (VTable { alist = [] })
-    | ETblAppl { tbl ; gen ; arg } -> begin
+    | ETableCreate -> return (VTable { alist = [] })
+    | ETableAppl { tbl ; gen ; arg } -> begin
         match%bind eval tbl with
         | VTable mut_r -> begin
             let%bind v = eval arg in
