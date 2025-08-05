@@ -183,8 +183,8 @@ let eager_eval
     | EPick_i -> get_input Interp_common.Key.Stepkey.int_ input_feeder
     | EPick_b -> get_input Interp_common.Key.Stepkey.bool_ input_feeder
     (* Tables -- includes some branching *)
-    | ETable -> return (VTable { alist = [] })
-    | ETblAppl { tbl ; gen ; arg } -> begin
+    | ETableCreate -> return (VTable { alist = [] })
+    | ETableAppl { tbl ; gen ; arg } -> begin
         match%bind eval tbl with
         | VTable mut_r -> begin
             let%bind v = eval arg in
@@ -249,9 +249,8 @@ module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S) (S : Smt.Formula.
       let open P in
       let* () = pause () in
       let t0 = Caml_unix.gettimeofday () in
-      match TQ.peek tq with
-      | Some target -> begin
-          let tq = TQ.remove tq target in
+      match TQ.pop tq with
+      | Some (target, tq) -> begin
           let solve_result = Solve.solve (Target.to_expressions target) in
           let t1 = Caml_unix.gettimeofday () in
           let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in

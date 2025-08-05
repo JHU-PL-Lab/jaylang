@@ -9,7 +9,7 @@ end
 module X = Utils.Separate.Make_with_compare (Int)
 
 module T = struct
-  type ('a, 'k) t = 'a X.t (* should be private *)
+  type ('a, 'k) t = 'a X.t
 
   let equal = X.equal
 

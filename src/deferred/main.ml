@@ -160,8 +160,8 @@ let rec eval (expr : E.t) : Value.t m =
   | EEscapeDet expr -> with_escaped_det (eval expr)
   (* unhandled and currently aborting -- okay to ignore for now because these are uncommon *)
   | EIntensionalEqual _ -> failwith "unhandled intensional equality in deferred evaluation"
-  | ETable
-  | ETblAppl _ -> failwith "unhandled table operations in deferred evaluation"
+  | ETableCreate
+  | ETableAppl _ -> failwith "unhandled table operations in deferred evaluation"
 
 (*
   This stern eval may error monadically so that we get propagation of
@@ -238,7 +238,7 @@ let begin_stern_loop (expr : E.t) : Value.ok Res.t s =
   clean_up_deferred r
 
 (* TODO: should probably differentiate between vanish and other errors *)
-let[@landmark] deval 
+let deval 
   ?(feeder : Interp_common.Timestamp.t Interp_common.Input_feeder.t = Interp_common.Input_feeder.zero) 
   (pgm : Lang.Ast.Embedded.pgm) 
   : (Value.Without_symbols.t, Err.t) result

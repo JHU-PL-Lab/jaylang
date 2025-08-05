@@ -267,8 +267,8 @@ module Expr = struct
       | EThaw : 'a t Cell.t -> 'a embedded_only t
       | EId : 'a embedded_only t
       | EIgnore : { ignored : 'a t ; body : 'a t } -> 'a embedded_only t (* simply sugar for `let _ = ignored in body` but is more efficient *)
-      | ETable : 'a embedded_only t
-      | ETblAppl : { tbl : 'a t ; gen : 'a t ; arg : 'a t } -> 'a embedded_only t
+      | ETableCreate : 'a embedded_only t
+      | ETableAppl : { tbl : 'a t ; gen : 'a t ; arg : 'a t } -> 'a embedded_only t
       | EDet : 'a t -> 'a embedded_only t
       | EEscapeDet : 'a t -> 'a embedded_only t
       | EIntensionalEqual : { left : 'a t ; right : 'a t } -> 'a embedded_only t
@@ -407,7 +407,7 @@ module Expr = struct
             | EPick_i, EPick_i
             | EPick_b, EPick_b
             | EId, EId
-            | ETable, ETable
+            | ETableCreate, ETableCreate
             | EType, EType
             | ETypeInt, ETypeInt
             | ETypeBool, ETypeBool
@@ -470,7 +470,7 @@ module Expr = struct
             | EIgnore r1, EIgnore r2 ->
               let- () = cmp r1.ignored r2.ignored in
               cmp r1.body r2.body
-            | ETblAppl r1, ETblAppl r2 ->
+            | ETableAppl r1, ETableAppl r2 ->
               let- () = cmp r1.tbl r2.tbl in
               let- () = cmp r1.gen r2.gen in
               cmp r1.arg r2.arg
@@ -643,13 +643,19 @@ module Expr = struct
       in
       compare Alist.empty x y
 
-    (*calculates operator precedence to determine where to place parens, may be buggy
-      0 for primitives, higher precedence values have lower numbers*)
-    let op_precedence : type a. a t -> int = function
-      | EInt _ -> 0
-      | EBool _ -> 0
-      | EUnit -> 0
-      | EVar _ -> 0
+    (* Calculates operator precedence for a given expression.  Lower numbers
+       indicate higher-precedence operators: a value of 0 indicates a primary
+       or atomic expression and multiplication's number should be lower than
+       addition's.  As an exception, self-delimiting expressions have a very
+       high number (to prevent unnecessary parentheses from being added). *)
+    let op_precedence : type a. a t -> int = fun e ->
+      let primary_atomic = 0 in
+      let self_delimiting = 99999 in
+      match e with
+      | EInt _ -> primary_atomic
+      | EBool _ -> primary_atomic
+      | EUnit -> primary_atomic
+      | EVar _ -> primary_atomic
       | EBinop { left=_ ; binop=binop ; right=_ } ->
         begin
           match binop with
@@ -671,52 +677,52 @@ module Expr = struct
       | ELet _ -> 13
       | EAppl _ -> 1
       | EMatch _-> 12
-      | EProject _ -> 0
-      | ERecord _ -> 0
-      | EModule _ -> 0
+      | EProject _ -> primary_atomic
+      | ERecord _ -> self_delimiting
+      | EModule _ -> self_delimiting
       | ENot _ -> 7
-      | EInput -> 0
+      | EInput -> primary_atomic
       | EFunction _ -> 13
-      | EVariant _ -> 1
-      | EDefer _ -> 1
-      | EPick_i -> 0
-      | EPick_b -> 0
+      | EVariant _ -> 2
+      | EDefer _ -> 2
+      | EPick_i -> primary_atomic
+      | EPick_b -> primary_atomic
       | ECase _ -> 12 (* simply sugar for nested conditionals *)
-      | EFreeze _ -> 1
-      | EThaw _ -> 1
-      | EId -> 0
+      | EFreeze _ -> 2
+      | EThaw _ -> 2
+      | EId -> primary_atomic
       | EIgnore _ -> 13 (* simply sugar for `let _ = ignored in body` but is more efficient *)
-      | ETable -> 0
-      | ETblAppl _ -> 1
-      | EDet _ -> 1
-      | EEscapeDet _ -> 1
-      | EIntensionalEqual _ -> 0
-      | EUntouchable _ -> 1
+      | ETableCreate -> primary_atomic
+      | ETableAppl _ -> 1
+      | EDet _ -> 2
+      | EEscapeDet _ -> 2
+      | EIntensionalEqual _ -> self_delimiting
+      | EUntouchable _ -> 2
       (* these exist in the desugared and embedded languages *)
-      | EAbort _ -> 1 (* string is error message *)
-      | EVanish _ -> 1
+      | EAbort _ -> 2 (* string is error message *)
+      | EVanish _ -> 0
       (* only the desugared language *)
-      | EGen _ -> 1 (* Cannot be interpreted. Is only an intermediate step in translation *)
+      | EGen _ -> 2 (* Cannot be interpreted. Is only an intermediate step in translation *)
       (* these exist in the bluejay and desugared languages *)
-      | EType -> 0
-      | ETypeInt -> 0
-      | ETypeBool -> 0
-      | ETypeTop -> 0
-      | ETypeBottom -> 0
-      | ETypeUnit -> 0
-      | ETypeRecord _ -> 0
-      | ETypeModule _ -> 1
+      | EType -> primary_atomic
+      | ETypeInt -> primary_atomic
+      | ETypeBool -> primary_atomic
+      | ETypeTop -> primary_atomic
+      | ETypeBottom -> primary_atomic
+      | ETypeUnit -> primary_atomic
+      | ETypeRecord _ -> self_delimiting
+      | ETypeModule _ -> self_delimiting
       | ETypeFun _ -> 1
       | ETypeRefinement _ -> 1
       | ETypeMu _ -> 11
       | ETypeVariant _ -> 12
       | ELetTyped _ -> 13
-      | ETypeSingle -> 0
+      | ETypeSingle -> primary_atomic
       (* bluejay or type erased *)
-      | EList _ -> 0
+      | EList _ -> self_delimiting
       | EListCons _ -> 5
-      | EAssert _ -> 1
-      | EAssume _ -> 1
+      | EAssert _ -> 2
+      | EAssume _ -> 2
       | EMultiArgFunction _ -> 13
       | ELetFun _ -> 13
       | ELetFunRec _ -> 13
@@ -803,8 +809,8 @@ module Expr = struct
       | EId -> "fun x -> x"
       | EIgnore { ignored ; body } -> (* equivalent to `let _ = ignored in body` but is more efficient *)
         Format.sprintf "#ignore %s in %s" (to_string ignored) (ppp_gt body)
-      | ETable -> "#table"
-      | ETblAppl { tbl ; gen ; arg } ->
+      | ETableCreate -> "#table"
+      | ETableAppl { tbl ; gen ; arg } ->
         Format.sprintf "#table_appl (%s, %s, %s)"
           (to_string tbl) (to_string gen) (to_string arg)
       | EDet e ->
@@ -859,7 +865,7 @@ module Expr = struct
            List.map variant_list ~f:(fun (VariantTypeLabel Ident s, tau) ->
                Format.sprintf "`%s of %s" s (to_string tau)))
       | ELetTyped { typed_var ; defn ; body ; typed_binding_opts } ->
-        let {var = Ident s; tau} = typed_var in
+        let {var = Ident x; tau} = typed_var in
         let opts_string =
           match typed_binding_opts with
           | TBBluejay -> ""
@@ -867,8 +873,8 @@ module Expr = struct
             (if do_check then "" else "#nocheck ") ^
             (if do_wrap then "" else "#nowrap ")
         in
-        Format.sprintf "let %s %s : %s = %s in %s" s
-          opts_string (to_string tau) (to_string defn) (ppp_gt body)
+        Format.sprintf "let (%s : %s) %s = %s in %s"
+          x (to_string tau) opts_string  (to_string defn) (ppp_gt body)
       | ETypeSingle -> "singlet"
       (* bluejay or type erased *)
       | EList list ->
@@ -981,7 +987,7 @@ module Embedded = struct
       | EBool b -> EBool b
       | EVar id -> EVar id
       | EId -> EId
-      | ETable -> ETable
+      | ETableCreate -> ETableCreate
       | EUnit -> EUnit
       | EPick_i -> EPick_i
       | EPick_b -> EPick_b
@@ -1030,10 +1036,10 @@ module Embedded = struct
       | EIgnore { ignored ; body } ->
         let ignored = t_of_expr ignored in
         EIgnore { ignored ; body = t_of_expr body }
-      | ETblAppl { tbl ; gen ; arg } ->
+      | ETableAppl { tbl ; gen ; arg } ->
         let tbl = t_of_expr tbl in
         let arg = t_of_expr arg in
-        ETblAppl { tbl ; gen = t_of_expr gen ; arg }
+        ETableAppl { tbl ; gen = t_of_expr gen ; arg }
       | EDet expr -> EDet (t_of_expr expr)
       | EEscapeDet expr -> EEscapeDet (t_of_expr expr)
       | EUntouchable expr -> EUntouchable (t_of_expr expr)
@@ -1071,7 +1077,7 @@ module Embedded = struct
         | EPick_i -> EPick_i
         | EPick_b -> EPick_b
         | EId -> EId
-        | ETable -> ETable
+        | ETableCreate -> ETableCreate
         | EUnit -> EUnit
         | EAbort msg -> EAbort msg
         | EVanish c -> EVanish c
@@ -1130,7 +1136,7 @@ module Embedded = struct
         | EFreeze expr -> EFreeze (visit expr env)
         | EThaw { data ; point } -> EThaw { data = visit data env ; point }
         | EIgnore { ignored ; body } -> EIgnore { ignored = visit ignored env ; body = visit body env }
-        | ETblAppl { tbl ; gen ; arg } -> ETblAppl { tbl = visit tbl env ; gen = visit gen env ; arg = visit arg env }
+        | ETableAppl { tbl ; gen ; arg } -> ETableAppl { tbl = visit tbl env ; gen = visit gen env ; arg = visit arg env }
         | EDet expr -> EDet (visit expr env)
         | EEscapeDet expr -> EEscapeDet (visit expr env)
         | EUntouchable expr -> EUntouchable (visit expr env)

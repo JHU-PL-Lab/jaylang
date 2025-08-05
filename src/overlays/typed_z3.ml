@@ -8,13 +8,10 @@ end
 
 (*
   Z3 expressions using some context.
-
-  We will often like to avoid the context, so I have my own
-  homebrewed expressions further below that are functional.
 *)
 module Make_of_context (C : CONTEXT) : Formula.SOLVABLE = struct
   (* I'm relying on internal correctness, and the types are phantom *)
-  type ('a, 'k) t = Z3.Expr.expr (* will need to be private *)
+  type ('a, 'k) t = Z3.Expr.expr
 
   let ctx = C.ctx
 

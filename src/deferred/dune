@@ -15,10 +15,9 @@
  )
  (synopsis "Deferred evaluator on embedded-type programs")
  (inline_tests)
+ (instrumentation (backend landmarks --auto))
  (preprocess
   (pps
    ppx_compare
    ppx_fields_conv
-   ocaml-monadic
-   landmarks-ppx
-   --auto)))
+   ocaml-monadic)))
