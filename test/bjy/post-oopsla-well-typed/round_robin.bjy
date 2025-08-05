@@ -1,0 +1,65 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Dependent_types Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+let option t =
+  | `None of unit
+  | `Some of t 
+
+let S k = sig
+  val t : type
+  val empty : t
+  val peek : t -> option k
+  (* val remove : k -> t -> t
+  val add : k -> t -> t *)
+end
+
+(* error idea: I forgot to refine n to be positive, which would make `empty` a predicate violation *)
+let Make (dependent n : int | n > 0) (dependent k : type) : (mu t n. if n == 0 then S k else S k -> t (n - 1)) n =
+  let rec make n acc cont =
+    if n == 0
+    then cont acc
+    else fun s -> make (n - 1) (s :: acc) cont
+  in
+  make n [] (fun ls -> struct
+    let t =
+      { ms : list sig
+        val M : S k
+        val item : M.t
+      end
+      ; turn : { i : int | 0 <= i && i < n } } 
+
+    let empty =
+      { ms = 
+        let rec loop xs =
+          match xs with
+          | [] -> []
+          | x :: xss -> struct
+              let M = x
+              let item = M.empty
+            end :: loop xss
+          end
+        in
+        loop ls
+      ; turn = 0 }
+
+    let rec get ls i =
+      match ls with
+      | [] -> `None ()
+      | hd :: tl ->
+        if i == 0
+        then `Some hd
+        else get tl (i - 1)
+      end
+
+    let peek t =
+      match get t.ms t.turn with
+      | `Some X -> X.M.peek X.item (* TODO: update turn in some way *)
+      | none -> none
+      end
+  end)
