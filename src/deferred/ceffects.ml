@@ -118,9 +118,6 @@ let push_deferred_proof (symb : V.symb) (work : V.closure) : (unit, 'e) t =
     return closure
   | None -> failwith "no deferred proof for given symbol" *)
 
-let remove_greater_symbols : (unit, 'e) t =
-  modify State.remove_greater_symbols
-
 (*
   This is meant to be equivalent to
 
@@ -209,8 +206,7 @@ let should_work_on_deferred : bool m =
 *)
 
 let fail_and_filter (err : State.t -> Err.t) : 'a m =
-  let%bind () = remove_greater_symbols in
-  { run = fun ~reject ~accept:_ state step _ -> reject (err state) state step }
+  { run = fun ~reject ~accept:_ state step _ -> reject (err state) (State.remove_greater_symbols state) step }
 
 (* timestamp payload on error is just for printing. It is not used in tracking at all *)
 let abort (msg : string) : 'a m =
@@ -228,14 +224,16 @@ let type_mismatch (msg : string) : 'a m =
 let lookup (V.VSymbol t : V.symb) : V.whnf option m =
   { run = fun ~reject:_ ~accept state step _ -> accept (Time_map.find_opt t state.symbol_env) state step }
 
-
 let vanish : 'a m =
   fail_and_filter (fun _ -> Status.Finished)
 
 let push_branch (dir : k Direction.t) : unit m =
-  if match dir with
+  let is_const =
+    match dir with
     | Bool_direction (_, expr) -> Smt.Formula.is_const expr
     | Int_direction { expr ; _ } -> Smt.Formula.is_const expr
+  in
+  if is_const
   then return ()
   else modify (fun s -> { s with path = Path.cons dir s.path })
 
