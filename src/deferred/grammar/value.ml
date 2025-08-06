@@ -70,7 +70,7 @@ module Make (V : Utils.Equatable.P1) = struct
       | VUntouchable _
       | VSymbol _) as x -> x
 
-  let split (type a b) (v : a v) ~(whnf : whnf -> b) ~(symb : symb -> b) : b =
+  let[@inline always] split (type a b) (v : a v) ~(whnf : whnf -> b) ~(symb : symb -> b) : b =
     match v with
     | (VUnit
       | VInt _

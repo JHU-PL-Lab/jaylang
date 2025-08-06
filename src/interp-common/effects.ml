@@ -9,6 +9,11 @@ module type ENV = sig
   val fetch : Ast.Ident.t -> t -> value option
 end
 
+(*
+  In general in this implementation, we prioritize inlining and using the structure
+  of the monad instead of utilizing the abstractions. This reduces the number of
+  binds and improves efficiency.
+*)
 module Make (State : T) (Env : ENV) (Err : sig
   type t
   val fail_on_nondeterminism_misuse : State.t -> t * State.t
@@ -81,8 +86,7 @@ end) = struct
     { run = fun ~reject:_ ~accept state step r -> accept r state step }
 
   let read_env : (Env.t, 'e) t =
-    let%bind { env ; _ } = read in
-    return env
+    { run = fun ~reject:_ ~accept state step r -> accept r.env state step }
 
   let[@inline always][@specialise] local_read (f : Read.t -> Read.t) (x : ('a, 'e) t) : ('a, 'e) t =
     { run = fun ~reject ~accept state step r -> x.run ~reject ~accept state step (f r) }
@@ -126,7 +130,7 @@ end) = struct
         ~accept:(fun a state step ->
           (ok a).run ~reject ~accept state step e
         )
-  }
+    }
 
   (*
     ------------------
@@ -173,8 +177,10 @@ end) = struct
     else fail_map Err.fail_on_nondeterminism_misuse
 
   let[@inline always] fetch (id : Ast.Ident.t) : Env.value m =
-    let%bind env = read_env in
-    match Env.fetch id env with
-    | None -> fail_map @@ Err.fail_on_fetch id
-    | Some v -> return v
+    { run =
+      fun ~reject ~accept state step r ->
+        match Env.fetch id r.env with
+        | None -> let e, s = Err.fail_on_fetch id state in reject e s step
+        | Some v -> accept v state step
+    }
 end
