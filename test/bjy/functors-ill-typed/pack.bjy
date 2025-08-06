@@ -41,7 +41,7 @@ let Make : (X : sig val t : type --> type val compare : (a : type) -> t a -> t a
       | `I axi ->
         match b with
         | `I bxi -> X.compare int axi bxi
-        | `B _ -> 0 - 1 
+        | `B _ -> -1
         end
       | `B axb ->
         match b with

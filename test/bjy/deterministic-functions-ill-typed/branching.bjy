@@ -15,7 +15,7 @@ let _ : (int --> int) -> int -> int =
       7
     else if f (x + 10) <> 121 then
       2
-    else if x <> (0 - 10) then
+    else if x <> -10 then
       9
     else 
       not x (* ERROR: this is reachable *)

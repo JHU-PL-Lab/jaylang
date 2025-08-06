@@ -129,7 +129,7 @@ true   (* boolean literal *)
 false  (* boolean literal *)
 ```
 
-Negative integers must be written as subtractions from `0`.
+Negative integer literals are allowed, but minus (`-`) is not a unary operator and CANNOT be used to negate identifiers, like `-x`.
 
 ### Lists
 
