@@ -106,8 +106,8 @@ let[@inline always] local_env (f : V.env -> V.env) (x : ('a, 'e) t) : ('a, 'e) t
   -----
 *)
 
-let push_deferred_proof (symb : V.symb) (work : V.closure) : (unit, 'e) t =
-  modify (fun s -> { s with pending_proofs = V.Pending_proofs.push symb work s.pending_proofs })
+(* let push_deferred_proof (symb : V.symb) (work : V.closure) : (unit, 'e) t =
+  modify (fun s -> { s with pending_proofs = V.Pending_proofs.push symb work s.pending_proofs }) *)
 
 (* No longer needed, but kept while we might still revert to the version that is not so inlined *)
 (* let pop_deferred_proof (symb : V.symb) : (V.closure, 'e) t =
@@ -131,10 +131,10 @@ let push_deferred_proof (symb : V.symb) (work : V.closure) : (unit, 'e) t =
   I sure hope it is.
 *)
 let local_time (time : Timestamp.t) (x : ('a, 'e) t) : ('a, 'e) t =
-  { run = fun ~reject ~accept state step env ->
+  { run = fun ~reject ~accept state step r ->
     x.run ~reject ~accept:(fun a s step ->
       accept a { s with time = state.time } step
-    ) { state with time } step env
+    ) { state with time } step r
   }
 
 (*
@@ -158,7 +158,7 @@ let local_time (time : Timestamp.t) (x : ('a, 'e) t) : ('a, 'e) t =
   by inlining and partially evaluating.
 *)
 let[@inline always] run_on_deferred_proof (VSymbol t as symb : V.symb) (f : Lang.Ast.Embedded.t -> ('a, 'e) t) : ('a, 'e) t =
-  { run = fun ~reject ~accept state step env ->
+  { run = fun ~reject ~accept state step r ->
     (* Get the deferred proof for the symbol from the current state. *)
     match V.Pending_proofs.pop symb state.pending_proofs with   
     | None -> failwith "Invariant failure: popping symbol that does not exist in the symbol map"
@@ -174,7 +174,7 @@ let[@inline always] run_on_deferred_proof (VSymbol t as symb : V.symb) (f : Lang
             inner_state.pending_proofs (* Keep all the proofs after f finished running ... *)
             to_add_back (* ... and put back the proofs we hid from f *)
         } inner_step
-      ) { state with time = t ; pending_proofs = to_keep } step { env with env = { env.env with env = closure.env } }
+      ) { state with time = t ; pending_proofs = to_keep } step { r with env = { r.env with env = closure.env } }
   }
 
 let incr_time : unit m =
@@ -236,6 +236,17 @@ let push_branch (dir : k Direction.t) : unit m =
   if is_const
   then return ()
   else modify (fun s -> { s with path = Path.cons dir s.path })
+
+
+let[@inline always] defer (body : Lang.Ast.Embedded.t) : V.t m =
+  { run =
+    fun ~reject:_ ~accept state step r ->
+      let symb = V.VSymbol (Interp_common.Timestamp.push state.time) in
+      accept (V.cast_up symb) { state with 
+        time = Interp_common.Timestamp.increment state.time
+      ; pending_proofs = V.Pending_proofs.push symb { body ; env = r.env.env } state.pending_proofs 
+      } step
+  }
 
 module Time_symbol = Smt.Symbol.Make (Timestamp)
 

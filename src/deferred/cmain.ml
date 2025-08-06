@@ -173,13 +173,7 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
       let%bind v = eval e in
       return (VUntouchable v)
     (* deferral *)
-    | EDefer body ->
-      let%bind e = read_env in
-      let%bind s = get in
-      let symb = VSymbol (Interp_common.Timestamp.push s.time) in
-      let%bind () = push_deferred_proof symb { body ; env = e.env } in
-      let%bind () = incr_time in
-      return (cast_up symb)
+    | EDefer body -> defer body
     (* termination *)
     | EVanish () -> vanish
     | EAbort msg -> abort msg
