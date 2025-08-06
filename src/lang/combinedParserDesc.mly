@@ -549,7 +549,9 @@ op_expr:
   | expr DOUBLE_PIPE expr
       { EBinop { left = $1 ; binop = BOr ; right = $3 } : t }
   | expr PIPELINE expr (* Note: evaluation order is that e' is evaluated first in e |> e' *)
-      { EAppl { func = $3 ; arg = $1 } }
+      { EAppl { func = $3 ; arg = $1 } : t }
+  | MINUS INT
+      { EInt (-$2) : t }
 
 /* **** Idents + labels **** */
 
