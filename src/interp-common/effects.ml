@@ -18,14 +18,12 @@ end) = struct
   module Read = struct
     type t = 
       { env : Env.t
-      ; det_depth : [ `Escaped | `Depth of int ] } 
+      ; det_depth : Det_depth.t } 
 
-    let empty : t = { env = Env.empty ; det_depth = `Depth 0 }
+    let empty : t = { env = Env.empty ; det_depth = Det_depth.zero }
 
     let is_determinism_allowed ({ det_depth ; _ } : t) : bool =
-      match det_depth with
-      | `Escaped -> true
-      | `Depth i -> i = 0
+      Det_depth.is_determinism_allowed det_depth
   end
 
   type empty_err = private | (* uninhabited type *)
@@ -163,15 +161,10 @@ end) = struct
 
 
   let[@inline always][@specialise] with_incr_depth (x : ('a, 'e) t) : ('a, 'e) t =
-    local_read (fun r -> { r with det_depth =
-      match r.det_depth with
-      | `Escaped -> `Escaped
-      | `Depth i -> `Depth (i + 1)
-      }
-    ) x
+    local_read (fun r -> { r with det_depth = Det_depth.incr r.det_depth }) x
 
   let[@inline always][@specialise] with_escaped_det (x : 'a m) : 'a m =
-    local_read (fun r -> { r with det_depth = `Escaped}) x
+    local_read (fun r -> { r with det_depth = Det_depth.escaped }) x
 
   let assert_nondeterminism : unit m =
     let%bind r = read in

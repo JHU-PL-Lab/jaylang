@@ -84,7 +84,7 @@ let run_on_empty (x : 'a s) (feeder : Feeder.t) : 'a * State.t * Interp_common.S
   run_safe
     x
     State.empty
-    { env = { Env.empty with feeder } ; det_depth = `Depth 0 }
+    { env = { Env.empty with feeder } ; det_depth = Interp_common.Det_depth.zero }
 
 (*
   -----------
