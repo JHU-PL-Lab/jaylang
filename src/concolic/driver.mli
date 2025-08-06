@@ -11,23 +11,42 @@
 
 open Concolic_common
 
-val test_some_program :
-  options:Options.t ->
-  do_wrap:bool ->
-  do_type_splay:bool ->
-  Lang.Ast.some_program ->
-  Concolic_common.Status.Terminal.t
-(** Performs concolic evaluation on the provided program or times out if the
-    timeout limit was exceeded.  The result is printed to stdout. *)
+module type CONFIG = sig
+  module Key : Smt.Symbol.KEY
+  module TQ : Target_queue.S with type k = Key.t
+  val ceval : Key.t Evaluator.eval
+end
 
-val test_some_file :
-  options:Options.t ->
-  do_wrap:bool ->
-  do_type_splay:bool ->
-  Core.Filename.t ->
-  Concolic_common.Status.Terminal.t
-(** Performs concolic evaluation on the program in the provided file or times
-    out if the timeout limit was exceeded.  The result is printed to stdout. *)
+module type S = sig
+  type ceval_witness
 
-val ceval : Concolic_common.Status.Terminal.t Cmdliner.Cmd.t
-(** [ceval] can be run with [Cmdliner] to run [test] on the command line arguments. *)
+  val test_some_program :
+    options:Options.t ->
+    do_wrap:bool ->
+    do_type_splay:bool ->
+    Lang.Ast.some_program ->
+    Concolic_common.Status.Terminal.t
+  (** Performs concolic evaluation on the provided program or times out if the
+      timeout limit was exceeded.  The result is printed to stdout. *)
+
+  val test_some_file :
+    options:Options.t ->
+    do_wrap:bool ->
+    do_type_splay:bool ->
+    Core.Filename.t ->
+    Concolic_common.Status.Terminal.t
+  (** Performs concolic evaluation on the program in the provided file or times
+      out if the timeout limit was exceeded.  The result is printed to stdout. *)
+
+  val eval : Concolic_common.Status.Terminal.t Cmdliner.Cmd.t
+  (** [eval] can be run with [Cmdliner] to run [test] on the command line arguments. *)
+end
+
+(* This is generative because a new solver contexts are made *)
+module Make (_ : CONFIG) () : S
+
+module Eager : S
+
+module Default = Eager
+
+include S with type ceval_witness = Default.ceval_witness

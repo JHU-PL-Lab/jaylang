@@ -272,74 +272,9 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
 
   run (res_to_err (begin_stern_loop expr))
 
-module TQ = Concolic.Target_queue.Make (Interp_common.Timestamp)
-module M = Concolic.Evaluator.Make (Interp_common.Timestamp) (TQ.BFS) (Overlays.Typed_z3.Default) (Concolic.Pause.Lwt)
-
-let deferred_c_loop :
-  options:Options.t -> Embedded.t -> Status.Terminal.t Lwt.t =
-  M.c_loop eval_exp
-
-(*
-  TODO: the following should be done using Concolic.Driver
-*)
-
-let test_with_timeout :
-  options:Options.t -> Embedded.t -> Status.Terminal.t =
-  fun ~options program ->
-  let res_status = deferred_c_loop ~options program in
-  try Lwt_main.run res_status with
-  | Lwt_unix.Timeout -> Timeout
-
-let test_embedded_program :
-  options:Options.t ->
-  Lang.Ast.Embedded.t ->
-  Status.Terminal.t =
-  fun ~options program ->
-  let res = test_with_timeout ~options program in
-  Format.printf "%s\n" (Status.to_loud_string res);
-  res
-
-let test_some_program :
-  options:Options.t ->
-  do_wrap:bool ->
-  do_type_splay:bool ->
-  Lang.Ast.some_program ->
-  Status.Terminal.t =
-  fun ~options ~do_wrap ~do_type_splay some_program ->
-  let embedded_program =
-    Translate.Convert.some_program_to_emb ~do_wrap ~do_type_splay some_program
-  in
-  test_embedded_program ~options
-    (Lang.Ast_tools.Utils.pgm_to_module embedded_program)
-
-
-(*
-  -------------------
-  TESTING BY FILENAME
-  -------------------
-*)
-
-let test_some_file :
-  options:Options.t -> do_wrap:bool -> do_type_splay:bool -> Filename.t ->
-  Status.Terminal.t =
-  fun ~options ~do_wrap ~do_type_splay filename ->
-  test_some_program
-    ~options
-    ~do_wrap
-    ~do_type_splay
-    (Lang.Parser.parse_program_from_file filename)
-
-(*
-  ------------------------------
-  TESTING FROM COMMAND LINE ARGS
-  ------------------------------
-*)
-
-let cdeval =
-  let open Cmdliner in
-  let open Cmdliner.Term.Syntax in
-  Cmd.v (Cmd.info "cdeval") @@
-  let+ options = Options.cmd_arg_term
-  and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
-  and+ pgm = Lang.Parser.parse_program_from_argv in
-  test_some_program ~options ~do_wrap ~do_type_splay pgm
+include Concolic.Driver.Make (struct
+  module Key = Interp_common.Timestamp 
+  module TQ_made = Concolic.Target_queue.Make (Key)
+  module TQ = TQ_made.BFS
+  let ceval = eval_exp
+end) ()

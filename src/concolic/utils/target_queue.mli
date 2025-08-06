@@ -15,14 +15,17 @@
 
 open Concolic_common
 
+module type S = sig
+  type k
+  type t
+  val make : Options.t -> t
+  val push_list : t -> k Target.t list -> t
+  val remove : t -> k Target.t -> t
+  val pop : t -> (k Target.t * t) option
+end
+
 module Make (K : Smt.Symbol.KEY) : sig
-  module type S = sig
-    type t
-    val make : Options.t -> t
-    val push_list : t -> K.t Target.t list -> t
-    val remove : t -> K.t Target.t -> t
-    val pop : t -> (K.t Target.t * t) option
-  end
+  module type S = S with type k = K.t
 
   module DFS : S
   (** [DFS] is bounded depth-first search. But actually we find it

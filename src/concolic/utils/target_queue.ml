@@ -2,6 +2,15 @@
 open Core
 open Concolic_common
 
+module type S = sig
+  type k
+  type t
+  val make : Options.t -> t
+  val push_list : t -> k Target.t list -> t
+  val remove : t -> k Target.t -> t
+  val pop : t -> (k Target.t * t) option
+end
+
 (*
   TODO: is it possible to have K.t be a type parameter?
     It seems no because then 'k is unbound in Psq.Make
@@ -9,20 +18,12 @@ open Concolic_common
     some 0-arity type.
 *)
 module Make (K : Smt.Symbol.KEY) = struct
-  type k = K.t
-
   module KTarget = struct
-    type t = k Target.t
+    type t = K.t Target.t
     let compare = Target.compare
   end
 
-  module type S = sig
-    type t
-    val make : Options.t -> t
-    val push_list : t -> KTarget.t list -> t
-    val remove : t -> KTarget.t -> t
-    val pop : t -> (KTarget.t * t) option
-  end
+  module type S = S with type k = K.t
 
   (*
     Note that in a psq, the same priority can exist for multiple keys (e.g. two different targets
@@ -33,6 +34,7 @@ module Make (K : Smt.Symbol.KEY) = struct
   module Q = Psq.Make (KTarget) (Int) (* functional priority search queue *)
 
   module Uniform = struct
+    type k = K.t
     type t = Q.t
 
     let empty : t = Q.empty
@@ -61,6 +63,7 @@ module Make (K : Smt.Symbol.KEY) = struct
     Thus, we use a priority search queue with the depth of the targets as the priority.
   *)
   module BFS = struct
+    type k = K.t
     type t = Bfs of Q.t [@@unboxed]
 
     let return q = Bfs q
@@ -88,6 +91,7 @@ module Make (K : Smt.Symbol.KEY) = struct
   end
 
   module DFS = struct
+    type k = K.t
     type t =
       { q      : Q.t (* will use negative target depth as priority in order to prefer deeper targets *)
       ; stride : int }
@@ -119,6 +123,7 @@ module Make (K : Smt.Symbol.KEY) = struct
   end
 
   module Merge (P : S) (Q : S) : S = struct
+    type k = K.t
     type t = 
       { p : P.t
       ; q : Q.t 
