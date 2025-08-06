@@ -148,10 +148,10 @@ the language and which lines are erased.
 (*! scope bluejay !*)
 %left AMPERSAND
 (*! endscope !*)
+%right prec_variant           /* variants, lists */
 (*! scope bluejay desugared !*)
 %right ARROW LONG_ARROW       /* -> for type declaration, and --> for deterministic */
 (*! endscope !*)
-%right prec_variant           /* variants, lists */
 
 %start <statement list> prog
 %start <statement list option> delim_expr
@@ -296,10 +296,6 @@ expr:
       { ETypeVariant $2 : t }
   | separated_nonempty_list(PIPE, single_variant_type)
       { ETypeVariant $1 : t }
-  | type_expr_without_variant
-      { $1 : t }
-
-%inline type_expr_without_variant:
   | MU l_ident list(l_ident) DOT expr %prec prec_mu
       { ETypeMu { var = $2 ; params = $3 ; body = $5 } : t}
   | expr ARROW expr
