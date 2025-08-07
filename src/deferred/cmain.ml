@@ -195,7 +195,7 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
   *)
   and stern_eval (expr : Embedded.t) : V.whnf m = 
     match expr with
-    | EDefer body -> stern_eval body 
+    | EDefer body -> stern_eval body (* When stern evalling a deferred thing, we can just directly eval the thing *)
     | _ ->
       let%bind v = eval expr in
       let%bind () = incr_step ~max_step in
@@ -203,16 +203,8 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
         ~symb:(fun ((VSymbol t) as sym) ->
             let%bind s = get in
             match Time_map.find_opt t s.symbol_env with
-            | Some v -> 
-              let%bind () = incr_n_stern_steps in
-              return v
-            | None -> 
-              (* evaluate the deferred proof for this symbol *)
-              (* if this fails, the greater symbols get removed, and this error propagates *)
-              let%bind v = run_on_deferred_proof sym stern_eval in
-              (* update the symbol environment to contain the result  *)
-              let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v s.symbol_env }) in
-              return v
+            | Some v -> let%bind () = incr_n_stern_steps in return v
+            | None -> map_deferred_proof sym stern_eval
           )
         ~whnf:(fun v ->
             (* optionally choose to work on a deferred proof here *)
@@ -221,8 +213,7 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
             let%bind b = should_work_on_deferred in
             if b && not (Time_map.is_empty s.pending_proofs) then
               let (t, _) = Time_map.choose s.pending_proofs in
-              let%bind v' = run_on_deferred_proof (VSymbol t) stern_eval in
-              let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
+              let%bind _ : V.whnf = map_deferred_proof (VSymbol t) stern_eval in
               return v
             else 
               (* chose not to work on a deferred proof, or there are no proofs to work on *)
@@ -233,7 +224,8 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
     This does not monadically error.
     Any error is packed into Res, so there is no implicit error propagation.
     This is helpful because we don't want errors propagating and messing with
-    our stern semantics.
+    the cleanup in our stern semantics, where we must evaluate everything and
+    keep the smallest error.
   *)
   and clean_up_deferred (final : V.ok res) : V.ok res s =
     let%bind s = get in
@@ -241,27 +233,18 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
     | None -> return final (* done! can finish with how we're told to finish *)
     | Some (t, _) -> (* some cleanup to do, so do it, and then keep looping after that *)
       (* Do some cleanup by running this timestamp *)
-      handle_error (run_on_deferred_proof (VSymbol t) stern_eval)
-        (fun v' ->
-           (* deferred proof evaluated. Put it into the map, and continue on looping. It doesn't affect the final value *)
-           let%bind () = modify (fun s -> { s with symbol_env = Time_map.add t v' s.symbol_env }) in
-           clean_up_deferred final)
-        (function 
-          (* | (Concolic.Status.Reach_max_step _) as e -> (* LOUD FIXME: need a status for reach max step, but each step will just re-throw, so this is result-like error propagation currently *)
-             (* ran out of steps running deferred proof. Give up totally and say so. *)
-             return (Res.E e) *)
-          | e ->
-            (* deferred proof errored. This means the final value should be overwritten with this new error *)
-            clean_up_deferred (E e))
+      handle_error (map_deferred_proof (VSymbol t) stern_eval)
+        (fun _ -> clean_up_deferred final) (* ignore value of deferred proof because we already have the final value *)
+        (fun e -> clean_up_deferred (E e)) (* deferred proof errored, so it must be the smaller error, so keep it and continue *)
+  in
 
-  and begin_stern_loop (expr : Embedded.t) : V.ok res s =
+  let begin_stern_loop (expr : Embedded.t) : V.ok res s =
     let%bind r =
       handle_error (stern_eval expr)
         (fun v -> return (V v))
         (fun e -> return (E e))
     in
     clean_up_deferred r
-
   in
 
   run (res_to_err (begin_stern_loop expr))

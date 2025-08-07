@@ -106,18 +106,6 @@ let[@inline always] local_env (f : V.env -> V.env) (x : ('a, 'e) t) : ('a, 'e) t
   -----
 *)
 
-(* let push_deferred_proof (symb : V.symb) (work : V.closure) : (unit, 'e) t =
-  modify (fun s -> { s with pending_proofs = V.Pending_proofs.push symb work s.pending_proofs }) *)
-
-(* No longer needed, but kept while we might still revert to the version that is not so inlined *)
-(* let pop_deferred_proof (symb : V.symb) : (V.closure, 'e) t =
-  let%bind s = get in
-  match V.Pending_proofs.pop symb s.pending_proofs with
-  | Some (closure, pending) ->
-    let%bind () = modify (fun s -> { s with pending_proofs = pending }) in
-    return closure
-  | None -> failwith "no deferred proof for given symbol" *)
-
 (*
   This is meant to be equivalent to
 
@@ -142,22 +130,9 @@ let local_time (time : Timestamp.t) (x : ('a, 'e) t) : ('a, 'e) t =
     but we should be able to add some filters on it that just pretend to split the map, and then
     we remove the filter instead of union.
 
-  This is meant to be the same as
-
-    let%bind closure = pop_deferred_proof symb in
-    let%bind s = get in
-    let VSymbol t = symb in
-    let to_keep, _, to_add_back = Time_map.split t s.pending_proofs in
-    let%bind () = modify (fun s -> { s with pending_proofs = to_keep }) in
-    local_time (V.timestamp_of_symbol symb) (
-      let%bind v = local (fun e -> { e with env = closure.env }) (f closure.body) in
-      let%bind () = modify (fun s -> { s with pending_proofs = Time_map.union (fun _ _ _ -> failwith "unexpected duplicate") s.pending_proofs to_add_back }) in
-      return v
-    )
-
-  by inlining and partially evaluating.
+  Maps the deferred proof for the given symbol and moves it from a pending proof into the symbol environment.
 *)
-let[@inline always] run_on_deferred_proof (VSymbol t as symb : V.symb) (f : Lang.Ast.Embedded.t -> ('a, 'e) t) : ('a, 'e) t =
+let[@inline always] map_deferred_proof (VSymbol t as symb : V.symb) (f : Lang.Ast.Embedded.t -> (V.whnf, 'e) t) : (V.whnf, 'e) t =
   { run = fun ~reject ~accept state step r ->
     (* Get the deferred proof for the symbol from the current state. *)
     match V.Pending_proofs.pop symb state.pending_proofs with   
@@ -166,14 +141,15 @@ let[@inline always] run_on_deferred_proof (VSymbol t as symb : V.symb) (f : Lang
       (* When we go to work on a deferred proof, we only let is see the lesser symbols *)
       let to_keep, _, to_add_back = Time_map.split t remaining_pending_proofs in
       (* We will locally run with the time from the symbol and only the lesser pending proofs. *)
-      (f closure.body).run ~reject ~accept:(fun a inner_state inner_step ->
-        accept a { inner_state with
+      (f closure.body).run ~reject ~accept:(fun v final_state final_step ->
+        accept v { final_state with
           time = state.time (* Restore original time now that f is done. *)
         ; pending_proofs = 
           Time_map.union (fun _ _ _ -> failwith "Invariant failure: duplicate timestamp when adding back hidden symbols") 
-            inner_state.pending_proofs (* Keep all the proofs after f finished running ... *)
+            final_state.pending_proofs (* Keep all the proofs after f finished running ... *)
             to_add_back (* ... and put back the proofs we hid from f *)
-        } inner_step
+        ; symbol_env = Time_map.add t v final_state.symbol_env
+        } final_step
       ) { state with time = t ; pending_proofs = to_keep } step { r with env = { r.env with env = closure.env } }
   }
 
