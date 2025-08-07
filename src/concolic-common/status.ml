@@ -61,10 +61,13 @@ let to_loud_string (type a) (x : a t) : string =
         else c
     )
   in
-  match String.split (to_string x) ~on:':' with
-  | [ s ] -> make_loud s
-  | before_colon :: after_colon :: [] -> make_loud before_colon ^ ":" ^ after_colon
-  | _ -> failwith "this doesn't make sense"
+  let s = to_string x in
+  match String.substr_index s ~pattern:":" with
+  | None -> make_loud s
+  | Some i ->
+    let before_colon = String.prefix s i in
+    let after_colon = String.drop_prefix s i in
+    make_loud before_colon ^ after_colon
 
 module Eval = struct
   type nonrec t = [ `Eval ] t
