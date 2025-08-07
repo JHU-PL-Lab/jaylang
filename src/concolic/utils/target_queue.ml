@@ -35,25 +35,25 @@ module Make (K : Smt.Symbol.KEY) = struct
 
   module Uniform = struct
     type k = K.t
-    type t = Q.t
+    type t = Uniform of Q.t [@@unboxed]
 
-    let empty : t = Q.empty
+    let empty : t = Uniform Q.empty
 
     let make (_options : Options.t) : t =
       empty
 
-    let push_one (q : t) (target : KTarget.t) : t =
-      Q.push target (Interp_common.Rand.any_pos_int ()) q
+    let push_one (Uniform q : t) (target : KTarget.t) : t =
+      Uniform (Q.push target (Interp_common.Rand.any_pos_int ()) q)
 
     let push_list (q : t) (ls : KTarget.t list) : t =
       List.fold ls ~init:q ~f:push_one
 
-    let remove (q : t) (target : KTarget.t) : t =
-      Q.remove target q
+    let remove (Uniform q : t) (target : KTarget.t) : t =
+      Uniform (Q.remove target q)
 
-    let pop (q : t) : (KTarget.t * t) option =
+    let pop (Uniform q : t) : (KTarget.t * t) option =
       match Q.pop q with
-      | Some ((target, _), t) -> Some (target, t)
+      | Some ((target, _), t) -> Some (target, Uniform t)
       | None -> None
   end
 
@@ -64,29 +64,25 @@ module Make (K : Smt.Symbol.KEY) = struct
   *)
   module BFS = struct
     type k = K.t
-    type t = Bfs of Q.t [@@unboxed]
+    type t = BFS of Q.t [@@unboxed]
 
-    let return q = Bfs q
-
-    let empty : t = return Q.empty
+    let empty : t = BFS Q.empty
 
     let make (_options : Options.t) : t =
       empty
 
-    let push_one (Bfs q : t) (target : KTarget.t) : t =
-      return
-      @@ Q.push target (Target.path_n target) q
+    let push_one (BFS q : t) (target : KTarget.t) : t =
+      BFS (Q.push target (Target.path_n target) q)
 
     let push_list (x : t) (ls : KTarget.t list) : t =
       List.fold ls ~init:x ~f:push_one
 
-    let remove (Bfs q : t) (target : KTarget.t) : t =
-      return
-      @@ Q.remove target q
+    let remove (BFS q : t) (target : KTarget.t) : t =
+      BFS (Q.remove target q)
 
-    let pop (Bfs q : t) : (KTarget.t * t) option =
+    let pop (BFS q : t) : (KTarget.t * t) option =
       match Q.pop q with
-      | Some ((target, _), t) -> Some (target, Bfs t)
+      | Some ((target, _), t) -> Some (target, BFS t)
       | None -> None
   end
 
