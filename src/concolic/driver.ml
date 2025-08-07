@@ -148,7 +148,7 @@ end
 module Eager = Make (struct
   module Key = Interp_common.Step
   module TQ_made = Target_queue.Make (Key)
-  module TQ = TQ_made.All
+  module TQ = TQ_made.BFS
   let ceval = Evaluator.eager_eval
 end) ()
 
