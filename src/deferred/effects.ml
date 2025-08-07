@@ -117,13 +117,14 @@ let get_input (type a) (make_key : Timestamp.t -> a Feeder.Key.t) : (Value.t, 'e
 *)
 
 let push_deferred_proof (symb : Value.symb) (work : Value.closure) : (unit, 'e) t =
-  modify (fun s -> { s with pending_proofs = Value.Pending_proofs.push symb work s.pending_proofs })
+  let%bind r = read in
+  modify (fun s -> { s with pending_proofs = Value.Pending_proofs.push symb work r.det_depth s.pending_proofs })
 
 let pop_deferred_proof (symb : Value.symb) : (Value.closure, 'e) t =
   let%bind s = get in
   match Value.Pending_proofs.pop symb s.pending_proofs with
-  | Some (closure, pending) ->
-    let%bind () = modify (fun s -> { s with pending_proofs = pending }) in
+  | Some (closure, _depth, pending) ->
+    let%bind () = modify (fun s -> { s with pending_proofs = pending }) in (* FIXME: need to set depth and filter out greater proofs *)
     return closure
   | None -> failwith "no deferred proof for given symbol" (* only happens if there is an implementation bug *)
 

@@ -37,28 +37,24 @@ let make_tests (dirs : string list) : unit Alcotest.test list =
 let () =
   Alcotest.run "deferred concolic"
   @@ make_tests
-    [ 
-
-    (* Not prepared to handle deterministic functions yet *)
-
-      (* "post-oopsla-ill-typed" *)
-    (* ; "post-oopsla-well-typed" *)
+    [ "post-oopsla-ill-typed"
+    ; "post-oopsla-well-typed"
 
     (* ; "deep-type-error" *)
 
     (* ; "interp-ill-typed" *)
     (* ; "interp-well-typed" *)
 
-    (* ; "edge-cases-ill-typed" *)
-    (* ; "edge-cases-well-typed" *)
+    ; "edge-cases-ill-typed"
+    ; "edge-cases-well-typed"
 
-    (* ; "deterministic-functions-well-typed" *)
-    (* ; "deterministic-functions-ill-typed" *)
+    ; "deterministic-functions-well-typed"
+    ; "deterministic-functions-ill-typed"
 
-    (* ; "functors-ill-typed" *)
-    (* ; "functors-well-typed" *)
+    ; "functors-ill-typed"
+    ; "functors-well-typed"
 
-      "oopsla-24-tests-ill-typed"
+    ; "oopsla-24-tests-ill-typed"
     ; "oopsla-24-tests-well-typed"
 
     ; "oopsla-24-benchmarks-ill-typed"

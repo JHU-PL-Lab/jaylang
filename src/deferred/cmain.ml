@@ -75,6 +75,10 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
           end
         | v -> type_mismatch @@ Error_msg.project_non_record label v
       end
+    | EIntensionalEqual { left ; right } ->
+      let%bind vleft = eval left in
+      let%bind vright = eval right in
+      return @@ VBool (V.equal vleft vright)
     (* control flow / branches *)
     | EMatch { subject ; patterns  } -> begin
         let%bind v = stern_eval subject in
@@ -180,10 +184,33 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
     (* determinism stuff *)
     | EDet expr -> with_incr_depth (eval expr) (* TODO: this should need to be propagated into deferred expressions! *)
     | EEscapeDet expr -> with_escaped_det (eval expr)
-    (* unhandled and currently aborting -- okay to ignore for now because these are uncommon *)
-    | EIntensionalEqual _ -> failwith "unhandled intensional equality in deferred evaluation"
-    | ETableCreate
-    | ETableAppl _ -> failwith "unhandled table operations in deferred evaluation"
+    (* tables *)
+    | ETableCreate -> return (VTable { alist = [] })
+    | ETableAppl { tbl ; gen ; arg } -> begin
+      match%bind stern_eval tbl with
+      | VTable mut_r -> begin
+        let%bind v = stern_eval arg in
+        let%bind output_opt =
+          List.fold mut_r.alist ~init:(return None) ~f:(fun acc_m (input, output) ->
+            match%bind acc_m with
+            | None ->
+              let (b, e) = V.equal input (cast_up v) in
+              let%bind () = push_branch (Direction.Bool_direction (b, e)) in
+              if b
+              then return (Some output)
+              else return None
+            | Some _ -> acc_m (* already found an output, so go unchanged *)
+          )
+        in
+        match output_opt with
+        | Some output -> return output
+        | None ->
+          let%bind new_output = with_escaped_det @@ eval gen in
+          mut_r.alist <- (cast_up v, new_output) :: mut_r.alist;
+          return new_output
+      end
+      | tb -> type_mismatch @@ Error_msg.appl_non_table tb
+    end
 
   (*
     This stern eval may error monadically so that we get propagation of

@@ -21,9 +21,7 @@ type k = Interp_common.Timestamp.t
 
 module Feeder = Input_feeder.Make (Timestamp)
 
-module CV = Concolic.Value.Make (Timestamp)
-
-module V = Value.Make (CV.Concolic_value)
+module V = Value.Concolic_value
 
 module Env = struct
   type value = V.t
@@ -137,20 +135,24 @@ let[@inline always] map_deferred_proof (VSymbol t as symb : V.symb) (f : Lang.As
     (* Get the deferred proof for the symbol from the current state. *)
     match V.Pending_proofs.pop symb state.pending_proofs with   
     | None -> failwith "Invariant failure: popping symbol that does not exist in the symbol map"
-    | Some (closure, remaining_pending_proofs) ->
+    | Some (closure, depth, remaining_pending_proofs) ->
       (* When we go to work on a deferred proof, we only let is see the lesser symbols *)
       let to_keep, _, to_add_back = Time_map.split t remaining_pending_proofs in
       (* We will locally run with the time from the symbol and only the lesser pending proofs. *)
-      (f closure.body).run ~reject ~accept:(fun v final_state final_step ->
-        accept v { final_state with
-          time = state.time (* Restore original time now that f is done. *)
-        ; pending_proofs = 
-          Time_map.union (fun _ _ _ -> failwith "Invariant failure: duplicate timestamp when adding back hidden symbols") 
-            final_state.pending_proofs (* Keep all the proofs after f finished running ... *)
-            to_add_back (* ... and put back the proofs we hid from f *)
-        ; symbol_env = Time_map.add t v final_state.symbol_env
-        } final_step
-      ) { state with time = t ; pending_proofs = to_keep } step { r with env = { r.env with env = closure.env } }
+      (f closure.body).run 
+        { state with time = t ; pending_proofs = to_keep } 
+        step
+        { env = { r.env with env = closure.env } ; det_depth = depth } (* locally uses det depth from when symbol was pushed *)
+        ~reject ~accept:(fun v final_state final_step ->
+          accept v { final_state with
+            time = state.time (* Restore original time now that f is done. *)
+          ; pending_proofs = 
+            Time_map.union (fun _ _ _ -> failwith "Invariant failure: duplicate timestamp when adding back hidden symbols") 
+              final_state.pending_proofs (* Keep all the proofs after f finished running ... *)
+              to_add_back (* ... and put back the proofs we hid from f *)
+          ; symbol_env = Time_map.add t v final_state.symbol_env
+          } final_step
+        ) 
   }
 
 let incr_time : unit m =
@@ -232,18 +234,15 @@ let push_branch (dir : k Direction.t) : unit m =
   then return ()
   else modify (fun s -> { s with path = Path.cons dir s.path })
 
-
 let[@inline always] defer (body : Lang.Ast.Embedded.t) : V.t m =
   { run =
     fun ~reject:_ ~accept state step r ->
       let symb = V.VSymbol (Interp_common.Timestamp.push state.time) in
       accept (V.cast_up symb) { state with 
         time = Interp_common.Timestamp.increment state.time
-      ; pending_proofs = V.Pending_proofs.push symb { body ; env = r.env.env } state.pending_proofs 
+      ; pending_proofs = V.Pending_proofs.push symb { body ; env = r.env.env } r.det_depth state.pending_proofs 
       } step
   }
-
-module Time_symbol = Smt.Symbol.Make (Timestamp)
 
 let get_input (type a) (make_key : Timestamp.t -> a Key.Timekey.t) (feeder : Timestamp.t Input_feeder.t) : V.t m =
   let%bind () = assert_nondeterminism in
@@ -253,10 +252,10 @@ let get_input (type a) (make_key : Timestamp.t -> a Key.Timekey.t) (feeder : Tim
   match key with
   | I k -> 
     let%bind () = modify (fun s -> { s with inputs = (I v, s.time) :: s.inputs ; time = Timestamp.increment s.time }) in
-    return @@ V.VInt (v, Smt.Formula.symbol (Time_symbol.make_int k))
+    return @@ V.symbolic_int v k
   | B k ->
     let%bind () = modify (fun s -> { s with inputs = (B v, s.time) :: s.inputs ; time = Timestamp.increment s.time }) in
-    return @@ V.VBool (v, Smt.Formula.symbol (Time_symbol.make_bool k))
+    return @@ V.symbolic_bool v k
 
 let run (x : 'a m) : Status.Eval.t * k Path.t =
   match run x State.empty Read.empty with
