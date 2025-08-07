@@ -176,6 +176,25 @@ let should_work_on_deferred : bool m =
   return (Step.to_int s.n_stern_steps land 31 = 0) (* quick way to check is 0 mod 32 -- works on deferred proof every 32nd stern eval *)
 
 (*
+  Maps an arbitrary deferred proof dictated by the number of stern steps.
+  We use bitwise arithmetic to work on a deferred proof every 32nd stern step.
+
+  Uses the monad structure to partially eval a few binds.
+*)
+let[@inline always] optionally_map_some_deferred_proof (f : Lang.Ast.Embedded.t -> (V.whnf, 'e) t) : (unit, 'e) t =
+  { run = fun ~reject ~accept state step r ->
+    if Step.to_int state.n_stern_steps land 31 = 0 (* quick way to check it is 0 mod 32 *)
+    && not (Time_map.is_empty state.pending_proofs) (* ... and there is some pending proof we can work on *)
+    then 
+      let (t, _) = Time_map.choose state.pending_proofs in
+      (map_deferred_proof (VSymbol t) f).run ~reject ~accept:(fun _ final_state final_step ->
+        accept () final_state final_step
+      ) state step r
+    else
+      accept () state step
+  }
+
+(*
   ------
   RESULT
   ------

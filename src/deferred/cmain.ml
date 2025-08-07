@@ -92,7 +92,7 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
     | EIf { cond ; true_body ; false_body } -> begin
         match%bind stern_eval cond with
         | VBool (b, e_b) ->
-          let%bind () = incr_time in
+          (* let%bind () = incr_time in *) (* time is not actually needed in practice on branches *)
           let body = if b then true_body else false_body in
           let%bind () = push_branch (Direction.Bool_direction (b, e_b)) in
           eval body
@@ -102,7 +102,7 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
         let int_cases = List.map cases ~f:Tuple2.get1 in
         match%bind stern_eval subject with
         | VInt (i, e_i) -> begin
-            let%bind () = incr_time in (* TODO: we should be able to delete this *)
+            (* let%bind () = incr_time in *) (* time is not actually needed in practice on branches *)
             let body_opt = List.find_map cases ~f:(fun (i', body) -> if i = i' then Some body else None) in
             match body_opt with
             | Some body -> 
@@ -199,25 +199,17 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
     | _ ->
       let%bind v = eval expr in
       let%bind () = incr_step ~max_step in
+      let%bind () = incr_n_stern_steps in
       V.split v
         ~symb:(fun ((VSymbol t) as sym) ->
             let%bind s = get in
             match Time_map.find_opt t s.symbol_env with
-            | Some v -> let%bind () = incr_n_stern_steps in return v
+            | Some v -> return v
             | None -> map_deferred_proof sym stern_eval
           )
-        ~whnf:(fun v ->
-            (* optionally choose to work on a deferred proof here *)
-            let%bind () = incr_n_stern_steps in
-            let%bind s = get in
-            let%bind b = should_work_on_deferred in
-            if b && not (Time_map.is_empty s.pending_proofs) then
-              let (t, _) = Time_map.choose s.pending_proofs in
-              let%bind _ : V.whnf = map_deferred_proof (VSymbol t) stern_eval in
-              return v
-            else 
-              (* chose not to work on a deferred proof, or there are no proofs to work on *)
-              return v
+        ~whnf:(fun v -> 
+            let%bind () = optionally_map_some_deferred_proof stern_eval in
+            return v
           )
 
   (* 
