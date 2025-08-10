@@ -6,3 +6,11 @@
  (public_name jay.cbenchmark)
  (libraries lang utils ttag metadata latex_tbl latex_format concolic deferred core core_unix.sys_unix)
 )
+
+(executable
+ (name cdbenchmark)
+ (modules cdbenchmark)
+ (package jay)
+ (public_name jay.cdbenchmark)
+ (libraries lang utils ttag metadata latex_tbl latex_format concolic deferred core core_unix.sys_unix)
+)

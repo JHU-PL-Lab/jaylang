@@ -68,3 +68,6 @@ test-tools:
 
 cbenchmark:
 	dune exec --profile=release $(BENCH_C)/cbenchmark.exe -- $(ARGS)
+
+cdbenchmark:
+	dune exec --profile=release $(BENCH_C)/cdbenchmark.exe -- $(ARGS)

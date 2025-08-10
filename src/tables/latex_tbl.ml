@@ -71,10 +71,23 @@ type 'row t =
   ; rows : 'row Row_or_hline.t list
   ; columns : Column.t list } (* of same or lesser length than (val row_module).to_strings *)
 
-let align_ampersands (ls : string list) : string list =
+let concat (type row) (a : row t) (b : row t) : row t =
+  assert (Poly.equal a.columns b.columns);
+  let module A = (val a.row_module) in
+  let module B = (val b.row_module) in
+  assert (Poly.equal A.names B.names);
+  { a with rows = a.rows @ b.rows }
+
+let append (type row) (tbl : row t) (rows : row Row_or_hline.t list) : row t =
+  { tbl with rows = tbl.rows @ rows }
+
+let append_rows (type row) (tbl : row t) (rows : row list) : row t =
+  { tbl with rows = tbl.rows @ List.map rows ~f:Row_or_hline.return }
+
+let align_on ~(sep : char) (ls : string list) : string list =
   let open List.Let_syntax in
   ls
-  >>| String.split ~on:'&'
+  >>| String.split ~on:sep
   |> List.transpose_exn
   >>| begin fun row -> 
     let m =
@@ -86,7 +99,7 @@ let align_ampersands (ls : string list) : string list =
     >>| fun s -> s ^ String.make (m - String.length s) ' '
   end
   |> List.transpose_exn
-  >>| String.concat ~sep: " & "
+  >>| String.concat ~sep:(" " ^ Char.to_string sep ^ " ")
 
 let show_rows (type row) (row_to_strings : row -> string list) (x : row Row_or_hline.t list) : string list =
   let show_single_row = function
@@ -101,7 +114,7 @@ let show_rows (type row) (row_to_strings : row -> string list) (x : row Row_or_h
     x
     |> List.filter ~f:(function Row_or_hline.Hline -> false | _ -> true)
     |> List.map ~f:show_single_row
-    |> align_ampersands
+    |> align_on ~sep:'&'
   in
   List.fold x ~init:(0, []) ~f:(fun (i, acc) row ->
     match row with
@@ -111,7 +124,7 @@ let show_rows (type row) (row_to_strings : row -> string list) (x : row Row_or_h
   |> Tuple2.get2
   |> List.rev
 
-let show (type row) (x : row t) : string =
+let show_full (type row) (x : row t) : string =
   let module R = (val x.row_module) in
   let tabular_cols = Column.tabular_cols (List.length R.names) x.columns
   in
@@ -130,3 +143,18 @@ let show (type row) (x : row t) : string =
   @ (show_rows R.to_strings x.rows)
   @ table_end
   |> String.concat ~sep:"\n"
+
+let show_hum (type row) (x : row t) : string =
+  let module R = (val x.row_module) in
+  List.filter_map x.rows ~f:(function
+    | Hline -> None
+    | Row row -> Some (String.concat ~sep:" | " @@ R.to_strings row)
+  )
+  |> List.cons (String.concat R.names ~sep:" | ") (* Put headers on front *)
+  |> align_on ~sep:'|'
+  |> String.concat ~sep:"\n"
+
+let show (type row) ?(hum : bool = true) (x : row t) : string =
+  if hum
+  then show_hum x
+  else show_full x

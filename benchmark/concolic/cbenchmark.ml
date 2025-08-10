@@ -149,15 +149,16 @@ let cbench_args =
   let open Cmdliner.Arg in
   let+ n_trials = value & opt int 50 & info ["trials"] ~doc:"Number of trials"
   and+ dirs = value & opt (list ~sep:' ' dir) [ "test/bjy/oopsla-24-benchmarks-ill-typed" ] & info ["dirs"] ~doc:"Directories to benchmark"
-  and+ mode = value & opt (enum ["eager", `Eager ; "deferred", `Deferred]) `Eager & info ["mode"] ~doc:"Mode: eager or deferred. Default is eager" in
-  n_trials, dirs, mode
+  and+ mode = value & opt (enum ["eager", `Eager ; "deferred", `Deferred]) `Eager & info ["mode"] ~doc:"Mode: eager or deferred. Default is eager"
+  and+ hum = value & flag & info ["h"] ~doc:"Show human readable output" in
+  n_trials, dirs, mode, hum
 
 let run () =
   let open Cmdliner in
   let open Cmdliner.Term.Syntax in
   Cmd.v (Cmd.info "cbenchmark") @@
   let+ options = Options.cmd_arg_term
-  and+ n_trials, dirs, mode = cbench_args in
+  and+ n_trials, dirs, mode, hum = cbench_args in
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
   let runtest pgm =
@@ -189,7 +190,7 @@ let run () =
   in
   Format.set_formatter_out_channel Out_channel.stdout;
   tbl
-  |> Latex_tbl.show
+  |> Latex_tbl.show ~hum
   |> Format.printf "%s\n";
   Format.printf "Mean time of all tests: %fms\nMedian time of all tests: %fms\n" 
     mean 
