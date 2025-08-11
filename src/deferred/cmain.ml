@@ -22,8 +22,9 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
   fun expr input_feeder ~max_step ->
   let open Ceffects in
 
-  let rec eval (expr : Embedded.t) : V.t m =
+  let rec eval ?(is_stern : bool = false) (expr : Embedded.t) : V.t m =
     let open V in
+    let k = eval ~is_stern in
     let%bind () = incr_step ~max_step in
     match expr with
     | EUnit -> return VUnit
@@ -90,7 +91,7 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
               | `No_match -> None
             )
         with
-        | Some (e, f) -> local_env f (eval e)
+        | Some (e, f) -> local_env f (k e)
         | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v
       end
     | EIf { cond ; true_body ; false_body } -> begin
@@ -99,7 +100,7 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
           (* let%bind () = incr_time in *) (* time is not actually needed in practice on branches *)
           let body = if b then true_body else false_body in
           let%bind () = push_branch (Direction.Bool_direction (b, e_b)) in
-          eval body
+          k body
         | v -> type_mismatch @@ Error_msg.cond_non_bool v
       end
     | ECase { subject ; cases ; default } -> begin
@@ -112,15 +113,15 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
             | Some body -> 
               let not_in = List.filter int_cases ~f:((<>) i) in
               let%bind () = push_branch (Direction.Int_direction { dir = Case_int i ; expr = e_i ; not_in }) in
-              eval body
+              k body
             | None -> 
               let%bind () = push_branch (Direction.Int_direction { dir = Case_default ; expr = e_i ; not_in = int_cases }) in
-              eval default
+              k default
           end
         | v -> type_mismatch @@ Error_msg.case_non_int v
       end
     (* closures and applications *)
-    | EFunction { param  ; body } ->
+    | EFunction { param ; body } ->
       let%bind { env ; _ } = read_env in
       return (VFunClosure { param ; closure = { body ; env }})
     | EFreeze body ->
@@ -137,13 +138,13 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
         | VId -> eval arg
         | VFunClosure { param ; closure } ->
           let%bind v = eval arg in 
-          local_env (fun _ -> Env.add param v closure.env) (eval closure.body)
+          local_env (fun _ -> Env.add param v closure.env) (k closure.body)
         | v -> type_mismatch @@ Error_msg.bad_appl v
       end
     | EThaw expr -> begin
         match%bind stern_eval expr with
         | VFrozen closure ->
-          local_env (fun _ -> closure.env) (eval closure.body)
+          local_env (fun _ -> closure.env) (k closure.body)
         | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
       end
     (* modules, records, and variants  *)
@@ -177,13 +178,13 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
       let%bind v = eval e in
       return (VUntouchable v)
     (* deferral *)
-    | EDefer body -> defer body
+    | EDefer body -> if is_stern then k body else defer body
     (* termination *)
     | EVanish () -> vanish
     | EAbort msg -> abort msg
     (* determinism stuff *)
-    | EDet expr -> with_incr_depth (eval expr) (* TODO: this should need to be propagated into deferred expressions! *)
-    | EEscapeDet expr -> with_escaped_det (eval expr)
+    | EDet expr -> with_incr_depth (k expr)
+    | EEscapeDet expr -> with_escaped_det (k expr)
     (* tables *)
     | ETableCreate -> return (VTable { alist = [] })
     | ETableAppl { tbl ; gen ; arg } -> begin
@@ -205,7 +206,7 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
         match output_opt with
         | Some output -> return output
         | None ->
-          let%bind new_output = with_escaped_det @@ eval gen in
+          let%bind new_output = with_escaped_det @@ k gen in
           mut_r.alist <- (cast_up v, new_output) :: mut_r.alist;
           return new_output
       end
@@ -222,9 +223,9 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
   *)
   and stern_eval (expr : Embedded.t) : V.whnf m = 
     match expr with
-    | EDefer body -> stern_eval body (* When stern evalling a deferred thing, we can just directly eval the thing *)
+    | EDefer body -> stern_eval body (* When sternly evaluating a deferred thing, we can just directly eval the thing *)
     | _ ->
-      let%bind v = eval expr in
+      let%bind v = eval ~is_stern:true expr in
       let%bind () = incr_step ~max_step in
       let%bind () = incr_n_stern_steps in
       V.split v

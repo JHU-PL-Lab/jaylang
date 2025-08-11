@@ -173,10 +173,6 @@ let push_time : unit m =
 let incr_n_stern_steps : unit m =
   modify State.incr_stern_step
 
-let should_work_on_deferred : bool m =
-  let%bind s = get in
-  return (Step.to_int s.n_stern_steps land 31 = 0) (* quick way to check is 0 mod 32 -- works on deferred proof every 32nd stern eval *)
-
 (*
   Maps an arbitrary deferred proof dictated by the number of stern steps.
   We use bitwise arithmetic to work on a deferred proof every 32nd stern step.

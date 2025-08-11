@@ -181,12 +181,8 @@ module Embedded_functions = struct
           apply (EVar f) (apply (EVar x) (EVar x))
         ))
     in
-    EFunction { param = f ; body =
-      EAppl
-        { func = body
-        ; arg  = EDefer body
-        }
-    }
+    abstract_over_ids [ f ] @@
+      apply body (EDefer body)
 
   (*
     Generic Y-combinator for one function.
