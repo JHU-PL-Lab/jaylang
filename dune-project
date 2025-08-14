@@ -24,7 +24,6 @@
   (alcotest :with-test)
   menhir
   lwt
-  lwt_ppx
   landmarks
   landmarks-ppx
   alcotest
