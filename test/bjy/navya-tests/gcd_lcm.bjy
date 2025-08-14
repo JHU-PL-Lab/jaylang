@@ -1,3 +1,10 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
 (* programs to find gcd and lcm *)
 
 let rec gcd (dependent a : int | a > 0) (dependent b : int | b > 0) : { x : int | x > 0 && x <= a && x <= b} = 

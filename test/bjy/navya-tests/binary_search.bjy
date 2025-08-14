@@ -1,3 +1,10 @@
+(***
+  (
+    (typing Ill_typed)
+    (flags "-p")
+  )
+*)
+
 (* Safe list_get function with bounds checking *)
 let rec list_get (arr : list int) (dependent i : int | i >= 0 && i < list_length arr) : int =
   match arr with

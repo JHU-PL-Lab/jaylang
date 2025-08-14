@@ -48,6 +48,9 @@ test-all:
 test-interp:
 	dune exec -- src-test/interp/test_interp.exe
 
+test-basic:
+	dune exec -- src-test/basic-bluejay/test_basic_bluejay.exe
+
 # benchmark
 
 cbenchmark:

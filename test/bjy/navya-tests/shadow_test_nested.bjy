@@ -1,3 +1,10 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
 (* basic shadow test 2*)
 let x = 5 
 let nested_shadow_test : int = 

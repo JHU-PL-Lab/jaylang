@@ -1,0 +1,12 @@
+
+(tests
+ (names test_basic_bluejay)
+ (modules test_basic_bluejay)
+ (libraries
+  utils
+  cmdliner
+  alcotest
+  alcotest-lwt
+  metadata
+  concolic)
+ )

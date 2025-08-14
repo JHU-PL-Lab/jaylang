@@ -1,3 +1,10 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
 (* basic shadowing test *)
 let x = 10 
 let x = 20 (*shadows previous test*)

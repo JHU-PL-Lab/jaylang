@@ -1,3 +1,10 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
 (* shadowing with function parameters *)
 let outer_var = 100
 let shadow_param (outer_var : int) : int = outer_var + 1

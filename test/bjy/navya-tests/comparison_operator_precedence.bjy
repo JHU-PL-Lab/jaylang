@@ -1,3 +1,10 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
 let p1 : bool = 5 + 3 == 8 
 let _ = assert p1 
 
