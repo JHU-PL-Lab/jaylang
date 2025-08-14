@@ -28,6 +28,7 @@
   landmarks-ppx
   alcotest
   alcotest-lwt
+  baby
   psq
   preface
   moonpool
