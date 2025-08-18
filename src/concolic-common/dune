@@ -6,10 +6,12 @@
  (libraries
   core
   utils
-  ; overlays
+  smt
+  psq
+  lwt
+  lwt.unix
   interp_common
   lang
-  smt
   )
  (synopsis "Common concolic constructs for the Jaylang project")
  (inline_tests)

@@ -1,6 +1,5 @@
 
 open Core
-open Concolic_common
 
 module type S = sig
   type k

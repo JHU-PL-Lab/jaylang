@@ -15,7 +15,7 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
   in
   Alcotest.test_case testname speed_level
   @@ fun () ->
-    Cmdliner.Cmd.eval_value' ~argv:(Array.append [| ""; testname; "-t"; "10.0" |] metadata.flags) Deferred.Cmain.eval
+    Cmdliner.Cmd.eval_value' ~argv:(Array.append [| ""; testname; "-t"; "10.0" |] metadata.flags) Concolic.Driver.Deferred.eval
     |> begin function
       | `Ok status -> Concolic_common.Status.is_error_found status
       | `Exit i -> raise @@ Invalid_argument (Format.sprintf "Test couldn't evaluate and finished with exit code %d." i)

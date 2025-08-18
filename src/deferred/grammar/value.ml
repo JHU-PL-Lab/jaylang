@@ -210,8 +210,8 @@ module Make (V : Utils.Equatable.P1) = struct
 end
 
 module Concolic_value = struct
-  module CV = Concolic.Value.Make (Interp_common.Timestamp)
-  include Make (CV.Concolic_value)
+  module CV = Concolic_common.Cvalue.Make (Interp_common.Timestamp)
+  include Make (CV)
 
   module Time_symbol = Smt.Symbol.Make (Interp_common.Timestamp)
 

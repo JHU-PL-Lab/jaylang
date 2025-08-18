@@ -18,8 +18,7 @@ let res_to_err (type a) (x : a res Ceffects.s) : a V.v Ceffects.m =
       | E e -> Ceffects.fail e
     )
 
-let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
-  fun expr input_feeder ~max_step ->
+let deferred_eval expr input_feeder ~max_step =
   let open Ceffects in
 
   let rec eval ?(is_stern : bool = false) (expr : Embedded.t) : V.t m =
@@ -268,10 +267,3 @@ let eval_exp : Interp_common.Timestamp.t Concolic.Evaluator.eval =
   in
 
   run (res_to_err (begin_stern_loop expr))
-
-include Concolic.Driver.Make (struct
-  module Key = Interp_common.Timestamp 
-  module TQ_made = Concolic.Target_queue.Make (Key)
-  module TQ = TQ_made.BFS
-  let ceval = eval_exp
-end) ()

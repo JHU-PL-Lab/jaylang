@@ -8,6 +8,5 @@
   alcotest
   alcotest-lwt
   metadata
-  concolic
-  deferred)
+  concolic)
  )

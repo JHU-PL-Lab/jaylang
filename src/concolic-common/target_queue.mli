@@ -13,8 +13,6 @@
     Target -- is stored in the queues
 *)
 
-open Concolic_common
-
 module type S = sig
   type k
   type t

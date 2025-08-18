@@ -47,6 +47,8 @@ module Make (_ : CONFIG) () : S
 
 module Eager : S
 
+module Deferred : S
+
 module Default = Eager
 
 include S with type ceval_witness = Default.ceval_witness

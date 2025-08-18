@@ -24,9 +24,6 @@ type 'k eval = Lang.Ast.Embedded.t -> 'k Interp_common.Input_feeder.t ->
 (** ['k eval] is the type of functions that concolically evaluate programs to a path
     made of concolic formulas keyed by ['k]. *)
 
-val eager_eval : Interp_common.Step.t eval
-(** [eager_eval] is an eager concolic evaluator with standard eager semantics. *)
-
 module Make : functor (K : Smt.Symbol.KEY) (_ : Target_queue.Make(K).S)
   (_ : Smt.Formula.SOLVABLE) (P : Pause.S) -> sig
   val c_loop :

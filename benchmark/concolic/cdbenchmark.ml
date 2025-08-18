@@ -233,14 +233,14 @@ let run () =
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
   let runtest_eager pgm =
-      Concolic.Driver.test_some_program
+    Concolic.Driver.Eager.test_some_program
       ~options:{ options with random = true }
       ~do_wrap:true        (* always wrap during benchmarking *)
       ~do_type_splay:false (* never type splay during benchmarking *)
       pgm
   in
   let runtest_deferred pgm =
-    Deferred.Cmain.test_some_program
+    Concolic.Driver.Deferred.test_some_program
       ~options:{ options with random = true }
       ~do_wrap:true        (* always wrap during benchmarking *)
       ~do_type_splay:false (* never type splay during benchmarking *)

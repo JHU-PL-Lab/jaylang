@@ -149,7 +149,14 @@ module Eager = Make (struct
   module Key = Interp_common.Step
   module TQ_made = Target_queue.Make (Key)
   module TQ = TQ_made.BFS
-  let ceval = Evaluator.eager_eval
+  let ceval = Eager_concolic.Main.eager_eval
+end) ()
+
+module Deferred = Make (struct
+  module Key = Interp_common.Timestamp
+  module TQ_made = Target_queue.Make (Key)
+  module TQ = TQ_made.BFS
+  let ceval = Deferred.Cmain.deferred_eval
 end) ()
 
 module Default = Eager

@@ -1,19 +1,17 @@
 (include_subdirs unqualified)
 
 (library
- (name deferred)
- (public_name jay.deferred)
+ (name eager_concolic)
+ (public_name jay.eager_concolic)
  (libraries
   core
   lang
   utils
-  baby
   interp_common
   concolic_common
   preface
-  interpreter
  )
- (synopsis "Deferred evaluator on embedded-type programs")
+ (synopsis "Eager concolic evaluator on embedded-type programs")
  (inline_tests)
  (instrumentation (backend landmarks --auto))
  (preprocess

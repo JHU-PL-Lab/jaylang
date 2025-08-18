@@ -164,8 +164,8 @@ let run () =
   let runtest pgm =
     let test_program = 
       match mode with
-      | `Eager -> Concolic.Driver.test_some_program
-      | `Deferred -> Deferred.Cmain.test_some_program
+      | `Eager -> Concolic.Driver.Eager.test_some_program
+      | `Deferred -> Concolic.Driver.Eager.test_some_program
     in
     test_program
       ~options

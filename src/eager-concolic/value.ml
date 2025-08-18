@@ -2,16 +2,7 @@
 open Core
 
 module Make (K : Smt.Symbol.KEY) = struct
-  module Concolic_value = struct
-    type 'a t = 'a * ('a, K.t) Smt.Formula.t
-    let to_string f (v, _) = f v
-
-    let return_bool b = b, Smt.Formula.const_bool b
-
-    let equal eq (a, e_a) (b, e_b) =
-      eq a b
-      && Smt.Formula.equal e_a e_b
-  end
+  module Concolic_value = Concolic_common.Cvalue.Make (K)
 
   include Lang.Value.Embedded (Concolic_value)
 
