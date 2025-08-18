@@ -1,5 +1,6 @@
 
 type ('a, 'k) t = 'a * ('a, 'k) Smt.Formula.t
+
 let to_string f (v, _) = f v
 
 let return_bool b = b, Smt.Formula.const_bool b
@@ -15,4 +16,3 @@ module Make (K : Smt.Symbol.KEY) = struct
   let return_bool = return_bool
   let equal = equal
 end
-

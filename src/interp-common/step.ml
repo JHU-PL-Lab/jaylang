@@ -2,14 +2,13 @@
 open Core
 
 module T = struct
-  type t = Step of int [@@deriving compare, equal, sexp]
-    [@@unboxed]
+  type t = Step of int [@@unboxed] [@@deriving compare, equal, sexp]
 
   let zero = Step 0
 
-  let next (Step i) = Step (i + 1)
+  let[@inline always][@specialize] next (Step i) = Step (i + 1)
 
-  let to_int (Step i) = i
+  let[@inline always][@specialize] to_int (Step i) = i
 
   let uid = to_int
 

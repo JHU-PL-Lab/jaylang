@@ -1,17 +1,3 @@
-(**
-  File: target_queue.mli
-  Purpose: store targets for easy popping
-
-  Detailed description:
-    Target queues are functional priorities queues that allow for
-    quick retrieval of targets. They are mixed and matched by merging.
-
-    This is just a trivial data structure holding targets.
-
-  Dependencies:
-    Options -- used to bound the queues
-    Target -- is stored in the queues
-*)
 
 module type S = sig
   type k

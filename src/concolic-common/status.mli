@@ -1,19 +1,3 @@
-(**
-  File: status.mli
-  Purpose: convey the status of concolic evaluator components
-
-  Detailed description:
-    The concolic evaluator needs to frequently check what happened
-    as a result of a process, or if a process is done, etc.
-
-    This module puts many of those statuses in one place to be reused.
-
-    For example, an abort may be hit during interpretation, which then
-    propagates up the layers until it is shared as the final status
-    of the entire concolic algorithm.
-
-    GADTs and polymorphic variants are used for subtyping and reuse.
-*)
 
 (* The following types are just constraints to use in the GADT. *)
 type 'a terminal = 'a constraint 'a = [ `Terminal ]

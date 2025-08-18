@@ -5,13 +5,9 @@ type int_direction =
   | Case_int of int
   | Case_default
 
-module T = struct
-  type 'k t =
-    | Bool_direction of bool * (bool, 'k) Smt.Formula.t
-    | Int_direction of { dir : int_direction ; not_in : int list ; expr : (int, 'k) Smt.Formula.t }
-end
-
-include T
+type 'k t =
+  | Bool_direction of bool * (bool, 'k) Smt.Formula.t
+  | Int_direction of { dir : int_direction ; not_in : int list ; expr : (int, 'k) Smt.Formula.t }
 
 let to_expression (dir : 'k t) : (bool, 'k) Smt.Formula.t =
   match dir with

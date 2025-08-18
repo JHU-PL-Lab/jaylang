@@ -1,5 +1,4 @@
 (**
-  File: value.mli
   Purpose: values and environment for concolic interpretation
 
   Detailed description:

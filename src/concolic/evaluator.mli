@@ -1,12 +1,3 @@
-(**
-   File: evaluator.mli
-   Purpose: concolically evaluate the program repeatedly
-
-   Detailed description:
-    This runs the interpreter repeatedly and only stops when at a terminal
-    status--timeout was hit, a program error was found, or all paths were
-    exhausted.
-*)
 
 open Concolic_common
 

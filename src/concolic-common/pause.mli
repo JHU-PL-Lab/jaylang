@@ -1,5 +1,4 @@
 (**
-  File: pause.mli
   Purpose: provide a common interface for a monad that allows pausing
 
   Detailed description:
