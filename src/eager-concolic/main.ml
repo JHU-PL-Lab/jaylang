@@ -166,10 +166,10 @@ let eager_eval
             match body_opt with
             | Some body -> (* found a matching case *)
               let not_in = List.filter int_cases ~f:((<>) i) in
-              let%bind () = push_branch (Direction.Int_direction { dir = Case_int i ; expr = e ; not_in }) in
+              let%bind () = push_branch (Direction.Int_direction { dir = Case_int i ; formula = e ; not_in }) in
               eval body
             | None -> (* no matching case, so take default case *)
-              let%bind () = push_branch (Direction.Int_direction { dir = Case_default ; expr = e ; not_in = int_cases }) in
+              let%bind () = push_branch (Direction.Int_direction { dir = Case_default ; formula = e ; not_in = int_cases }) in
               eval default
           end
         | v -> type_mismatch @@ Error_msg.case_non_int v

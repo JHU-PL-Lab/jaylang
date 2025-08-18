@@ -54,7 +54,7 @@ let default_to_string_closure_depth =
 
 (*
   V is the payload of int and bool. We do this so that we can
-  inject Z3 expressions into the values of the concolic evaluator.
+  inject Z3 formulas into the values of the concolic evaluator.
 *)
 module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
   module T = struct

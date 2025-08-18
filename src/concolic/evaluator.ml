@@ -24,7 +24,7 @@ let make_targets (target : 'k Target.t) (final_path : 'k Path.t) ~(max_tree_dept
       else Continue (
           List.map (Direction.negations dir) ~f:(fun e -> Target.cons e target)
           @ acc
-        , Target.cons (Direction.to_expression dir) target
+        , Target.cons (Direction.to_formula dir) target
         )
     ) ~finish:(fun (acc, _) -> acc, `Pruned false)
 
@@ -42,7 +42,7 @@ module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S) (S : Smt.Formula.
       let t0 = Caml_unix.gettimeofday () in
       match TQ.pop tq with
       | Some (target, tq) -> begin
-          let solve_result = Solve.solve (Target.to_expressions target) in
+          let solve_result = Solve.solve (Target.to_formulas target) in
           let t1 = Caml_unix.gettimeofday () in
           let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
           let* () = pause () in

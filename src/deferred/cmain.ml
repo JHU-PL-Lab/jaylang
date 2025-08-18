@@ -111,10 +111,10 @@ let deferred_eval expr input_feeder ~max_step =
             match body_opt with
             | Some body -> 
               let not_in = List.filter int_cases ~f:((<>) i) in
-              let%bind () = push_branch (Direction.Int_direction { dir = Case_int i ; expr = e_i ; not_in }) in
+              let%bind () = push_branch (Direction.Int_direction { dir = Case_int i ; formula = e_i ; not_in }) in
               k body
             | None -> 
-              let%bind () = push_branch (Direction.Int_direction { dir = Case_default ; expr = e_i ; not_in = int_cases }) in
+              let%bind () = push_branch (Direction.Int_direction { dir = Case_default ; formula = e_i ; not_in = int_cases }) in
               k default
           end
         | v -> type_mismatch @@ Error_msg.case_non_int v

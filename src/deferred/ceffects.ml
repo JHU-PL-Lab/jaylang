@@ -203,8 +203,8 @@ let vanish : 'a m =
 let push_branch (dir : k Direction.t) : unit m =
   let is_const =
     match dir with
-    | Bool_direction (_, expr) -> Smt.Formula.is_const expr
-    | Int_direction { expr ; _ } -> Smt.Formula.is_const expr
+    | Bool_direction (_, formula) -> Smt.Formula.is_const formula
+    | Int_direction { formula ; _ } -> Smt.Formula.is_const formula
   in
   if is_const
   then return ()

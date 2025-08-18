@@ -27,8 +27,8 @@ val compare : 'k t -> 'k t -> int
     and hence only literal equality (of memory location) is sufficient
     for [compare a b] to be [0]. *)
 
-val to_expressions : 'k t -> (bool, 'k) Smt.Formula.t list
-(** [to_expressions t] are the constraints to solve in order to realize [t]. *)
+val to_formulas : 'k t -> (bool, 'k) Smt.Formula.t list
+(** [to_formulas t] are the constraints to solve in order to realize [t]. *)
 
 val path_n : 'k t -> int
 (** [path_n target] is the length of the path to the [target]. *)
