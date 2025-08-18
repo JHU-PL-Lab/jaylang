@@ -90,7 +90,7 @@ let deferred_eval expr input_feeder ~max_step =
               | `No_match -> None
             )
         with
-        | Some (e, f) -> local_env f (k e)
+        | Some (e, f) -> local f (k e)
         | None -> type_mismatch @@ Error_msg.pattern_not_found patterns v
       end
     | EIf { cond ; true_body ; false_body } -> begin
@@ -121,14 +121,14 @@ let deferred_eval expr input_feeder ~max_step =
       end
     (* closures and applications *)
     | EFunction { param ; body } ->
-      let%bind { env ; _ } = read_env in
+      let%bind env = read_env in
       return (VFunClosure { param ; closure = { body ; env }})
     | EFreeze body ->
-      let%bind { env ; _ } = read_env in
+      let%bind env = read_env in
       return (VFrozen { body ; env })
     | ELet { var ; defn ; body } ->
       let%bind v = eval defn in
-      local_env (Env.add var v) (eval body)
+      local (Env.add var v) (eval body)
     | EIgnore { ignored ; body } ->
       let%bind _ : V.t = eval ignored in
       eval body
@@ -137,13 +137,13 @@ let deferred_eval expr input_feeder ~max_step =
         | VId -> eval arg
         | VFunClosure { param ; closure } ->
           let%bind v = eval arg in 
-          local_env (fun _ -> Env.add param v closure.env) (k closure.body)
+          local (fun _ -> Env.add param v closure.env) (k closure.body)
         | v -> type_mismatch @@ Error_msg.bad_appl v
       end
     | EThaw expr -> begin
         match%bind stern_eval expr with
         | VFrozen closure ->
-          local_env (fun _ -> closure.env) (k closure.body)
+          local (fun _ -> closure.env) (k closure.body)
         | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
       end
     (* modules, records, and variants  *)
@@ -166,7 +166,7 @@ let deferred_eval expr input_feeder ~max_step =
           | SUntyped { var ; defn } :: tl ->
             let%bind acc = acc_m in
             let%bind v = eval defn in
-            local_env (Env.add var v) (
+            local (Env.add var v) (
               fold_stmts (return @@ Map.set acc ~key:(Lang.Ast.RecordLabel.RecordLabel var) ~data:v) tl
             )
         in

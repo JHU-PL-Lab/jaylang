@@ -18,8 +18,6 @@ module type CONFIG = sig
 end
 
 module type S = sig
-  type ceval_witness
-
   val test_some_program :
     options:Options.t ->
     do_wrap:bool ->
@@ -51,4 +49,4 @@ module Deferred : S
 
 module Default = Eager
 
-include S with type ceval_witness = Default.ceval_witness
+include S (* Is Default *)

@@ -9,8 +9,6 @@ module type CONFIG = sig
 end
 
 module type S = sig
-  type ceval_witness
-
   val test_some_program :
     options:Options.t ->
     do_wrap:bool ->
@@ -30,8 +28,6 @@ end
 
 (* This is generative because it uses a generative functor to make the default evaluator *)
 module Make (Cfg : CONFIG) () : S = struct
-  type ceval_witness
-
   module Eval (S : Smt.Formula.SOLVABLE) = Evaluator.Make (Cfg.Key) (Cfg.TQ) (S) (Pause.Id)
   module Default_eval = Evaluator.Make (Cfg.Key) (Cfg.TQ) (Overlays.Typed_z3.Make ()) (Pause.Lwt)
 

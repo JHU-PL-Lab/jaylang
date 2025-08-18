@@ -114,6 +114,7 @@ module Make (V : Utils.Equatable.P1) = struct
     | _ -> `No_match
 
   module Env = struct
+    type value = t
     include Lang.Value.List_store
     type t = env
   end

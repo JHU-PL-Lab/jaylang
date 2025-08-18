@@ -23,23 +23,6 @@ module Feeder = Input_feeder.Make (Timestamp)
 
 module V = Value.Concolic_value
 
-module Env = struct
-  type value = V.t
-
-  (* stuff to read from *)
-  type t =
-    { feeder : Feeder.t
-    ; env    : V.env }
-
-  let empty : t =
-    { feeder = Feeder.zero
-    ; env = V.Env.empty }
-
-  let fetch : Lang.Ast.Ident.t -> t -> V.t option =
-    fun id e ->
-      V.Env.fetch id e.env
-end
-
 module State = struct
   (* This is getting a little long and will be expensive on every update
     to copy all the fields.
@@ -84,7 +67,7 @@ module Err = struct
     Status.Reached_max_step, s
 end
 
-include Interp_common.Effects.Make (State) (Env) (Err)
+include Interp_common.Effects.Make (State) (V.Env) (Err)
 
 (*
   -----------
@@ -93,10 +76,7 @@ include Interp_common.Effects.Make (State) (Env) (Err)
 *)
 
 let[@inline always] with_binding (id : Lang.Ast.Ident.t) (v : V.t) (x : ('a, 'e) t) : ('a, 'e) t =
-  local (fun e -> { e with env = V.Env.add id v e.env }) x
-
-let[@inline always] local_env (f : V.env -> V.env) (x : ('a, 'e) t) : ('a, 'e) t =
-  local (fun e -> { e with env = f e.env }) x
+  local (V.Env.add id v) x
 
 (*
   -----
@@ -131,7 +111,7 @@ let local_time (time : Timestamp.t) (x : ('a, 'e) t) : ('a, 'e) t =
   Maps the deferred proof for the given symbol and moves it from a pending proof into the symbol environment.
 *)
 let[@inline always] map_deferred_proof (VSymbol t as symb : V.symb) (f : Lang.Ast.Embedded.t -> (V.whnf, 'e) t) : (V.whnf, 'e) t =
-  { run = fun ~reject ~accept state step r ->
+  { run = fun ~reject ~accept state step _ ->
     (* Get the deferred proof for the symbol from the current state. *)
     match V.Pending_proofs.pop symb state.pending_proofs with   
     | None -> failwith "Invariant failure: popping symbol that does not exist in the symbol map"
@@ -142,7 +122,7 @@ let[@inline always] map_deferred_proof (VSymbol t as symb : V.symb) (f : Lang.As
       (f closure.body).run 
         { state with time = t ; pending_proofs = to_keep } 
         step
-        { env = { r.env with env = closure.env } ; det_depth = depth } (* locally uses det depth from when symbol was pushed *)
+        { env = closure.env ; det_depth = depth } (* locally uses det depth from when symbol was pushed *)
         ~reject ~accept:(fun v final_state final_step ->
           accept v { final_state with
             time = state.time (* Restore original time now that f is done. *)
@@ -236,7 +216,7 @@ let[@inline always] defer (body : Lang.Ast.Embedded.t) : V.t m =
       let symb = V.VSymbol (Interp_common.Timestamp.push state.time) in
       accept (V.cast_up symb) { state with 
         time = Interp_common.Timestamp.increment state.time
-      ; pending_proofs = V.Pending_proofs.push symb { body ; env = r.env.env } r.det_depth state.pending_proofs 
+      ; pending_proofs = V.Pending_proofs.push symb { body ; env = r.env } r.det_depth state.pending_proofs 
       } step
   }
 
