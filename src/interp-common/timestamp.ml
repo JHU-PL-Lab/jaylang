@@ -18,7 +18,7 @@ module Simple : S = struct
   module T = struct
     type t =
       | Timestamp of int list [@@unboxed]
-    [@@deriving equal, sexp]
+    [@@deriving equal, sexp, hash]
   end
 
   include T
@@ -32,7 +32,8 @@ module Simple : S = struct
   let to_string (Timestamp xs) =
     String.concat ~sep:"." (List.map (List.rev xs) ~f:string_of_int)
 
-  let uid = Hashtbl.hash
+  (* The standard library polymorphic hash has collisions after length 10, so we derive hash for uid *)
+  let uid = hash 
 
   include Comparator.Make (struct
       include T
