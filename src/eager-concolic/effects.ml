@@ -45,9 +45,7 @@ let vanish : 'a m =
   fail Status.Finished
 
 let push_branch (dir : k Direction.t) : unit m =
-  if match dir with
-    | Bool_direction (_, formula) -> Smt.Formula.is_const formula
-    | Int_direction { formula ; _ } -> Smt.Formula.is_const formula
+  if Smt.Formula.is_const @@ Direction.to_formula dir
   then return ()
   else modify (fun s -> { s with path = Path.cons dir s.path })
 

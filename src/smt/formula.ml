@@ -168,5 +168,5 @@ module Make_solver (X : SOLVABLE) = struct
   module M = Make_transformer (X)
 
   let solve (exprs : (bool, 'k) t list) : 'k Solution.t =
-    X.solve @@ List.map exprs ~f:M.transform
+    X.solve [ M.transform @@ and_ exprs ]
 end

@@ -116,7 +116,7 @@ let[@inline always] map_deferred_proof (VSymbol t as symb : V.symb) (f : Lang.As
     match V.Pending_proofs.pop symb state.pending_proofs with   
     | None -> failwith "Invariant failure: popping symbol that does not exist in the symbol map"
     | Some (closure, depth, remaining_pending_proofs) ->
-      (* When we go to work on a deferred proof, we only let is see the lesser symbols *)
+      (* When we go to work on a deferred proof, we only let it see the lesser symbols *)
       let to_keep, _, to_add_back = Time_map.split t remaining_pending_proofs in
       (* We will locally run with the time from the symbol and only the lesser pending proofs. *)
       (f closure.body).run 
@@ -201,12 +201,7 @@ let vanish : 'a m =
   fail_and_filter (fun _ -> Status.Finished)
 
 let push_branch (dir : k Direction.t) : unit m =
-  let is_const =
-    match dir with
-    | Bool_direction (_, formula) -> Smt.Formula.is_const formula
-    | Int_direction { formula ; _ } -> Smt.Formula.is_const formula
-  in
-  if is_const
+  if Smt.Formula.is_const @@ Direction.to_formula dir
   then return ()
   else modify (fun s -> { s with path = Path.cons dir s.path })
 
