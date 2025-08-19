@@ -8,6 +8,9 @@ open Translation_tools
 open Ast_tools
 open Ast_tools.Utils
 
+let splay_depth = ref 3
+let rec_var_pick = ref 123456
+
 module LetMonad (Names : Fresh_names.S) = struct
   module Binding = struct
     type a = Constraints.embedded
@@ -449,7 +452,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               | [], _ | _, [] -> of_case_list e_variant_ls (* either was empty, so just put all flat *)
               | _ ->
                 EIf
-                  { cond = EBinop { left = EPick_i ; binop = BEqual ; right = EInt 10 } (* unlikely but not THAT unlikely to choose *)
+                  { cond = EBinop { left = EPick_i ; binop = BEqual ; right = EInt !rec_var_pick }
                   ; true_body = of_case_list unlikely
                   ; false_body = of_case_list likely
                   }
@@ -529,8 +532,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                             )
               }
           in
-          (* initial depth is hardcoded to be 3 *)
-          appl_list Embedded_functions.y_1 [ body ; (EInt 3) ]
+          appl_list Embedded_functions.y_1 [ body ; (EInt !splay_depth) ]
       in
       let _ = Stack.pop_exn cur_mu_vars in
       res
