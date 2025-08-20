@@ -28,6 +28,16 @@ let make_targets (target : 'k Target.t) (final_path : 'k Path.t) ~(max_tree_dept
         )
     ) ~finish:(fun (acc, _) -> acc, `Pruned false)
 
+(*
+  I need to log here, but my log in the interp common effects does not extend to here because
+  the effects are limited only to the interp monad.
+
+  I can instead parametrize the eval type by the type of the log and have it return that.
+  I can also have a builder monad transformer for this part that transforms P.
+  
+  You know I also wonder if I should have an instance of a random type to make sure parallelized
+  computations are deterministics. Currently the random stuff is not compatible.
+*)
 module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S) (S : Smt.Formula.SOLVABLE) (P : Pause.S) = struct
   module Solve = Smt.Formula.Make_solver (S)
 
