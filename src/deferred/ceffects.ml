@@ -67,7 +67,7 @@ module Err = struct
     Status.Reached_max_step, s
 end
 
-include Interp_common.Effects.Make (State) (Interp_common.Effects.Unit_builder) (V.Env) (Err)
+include Interp_common.Effects.Make (State) (Utils.Builder.Unit_builder) (V.Env) (Err)
 
 (*
   -----------

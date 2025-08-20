@@ -17,11 +17,9 @@ open V
 module Feeder = Interp_common.Input_feeder
 
 module Input_log = struct
-  type t = (Interp_common.Input.t * Interp_common.Timestamp.t) list
-
-  let empty : t = []
-
-  let cons i t ls = (i, t) :: ls
+  include Utils.Builder.Make_list_builder (struct
+    type t = Interp_common.Input.t * Interp_common.Timestamp.t
+  end)
 
   let to_sequence : t -> Interp_common.Input.t list = fun t ->
     List.map t ~f:Tuple2.get1
@@ -52,13 +50,11 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
   module State = struct
     type t =
       { time : Interp_common.Timestamp.t
-      ; n_inputs : int
-      ; timed_inputs : Input_log.t }
+      ; n_inputs : int }
 
     let initial : t =
       { time = Interp_common.Timestamp.initial
-      ; n_inputs = 0
-      ; timed_inputs = Input_log.empty }
+      ; n_inputs = 0 }
   end
 
   let max_step : Interp_common.Step.t = Step Int.(10 ** 6)
@@ -77,7 +73,7 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
       `XReach_max_step (), s
   end
 
-  include Interp_common.Effects.Make (State) (Interp_common.Effects.Unit_builder) (Env) (Err)
+  include Interp_common.Effects.Make (State) (Input_log) (Env) (Err)
 
   let incr_time : unit m =
     modify (fun s -> { s with time = Interp_common.Timestamp.increment s.time })
@@ -112,9 +108,9 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
     return (f env)
 
   let log_input (input : Interp_common.Input.t) : unit m =
-    modify (fun s ->
-        { s with n_inputs = s.n_inputs + 1 ; timed_inputs = Input_log.cons input s.time s.timed_inputs }
-      )
+    let%bind { time ; _ } = get in
+    let%bind () = modify (fun s -> { s with n_inputs = s.n_inputs + 1 }) in
+    log (input, time)
 
   let n_inputs : int m =
     let%bind s = get in
@@ -486,7 +482,7 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
   in
 
   (run (eval e) State.initial Read.empty)
-  |> fun (res, state, _, _) ->
+  |> fun (res, _, _, timed_inputs) ->
   (match res with
    | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
    | Error `XType_mismatch { Interp_common.Errors.msg = _ ; body = () } -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
@@ -494,7 +490,7 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
    | Error `XVanish () -> Format.printf "VANISH\n"; VVanish
    | Error `XUnbound_variable (Lang.Ast.Ident.Ident s, ()) -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)
    | Error `XReach_max_step () -> Format.printf "REACHED MAX STEP\n"; VVanish
-  ), state.State.timed_inputs
+  ), timed_inputs
 
 let eval_pgm 
     (type a)

@@ -61,7 +61,7 @@ module State = struct
     { s with n_stern_steps = Step.next s.n_stern_steps }
 end
 
-include Interp_common.Effects.Make (State) (Interp_common.Effects.Unit_builder) (Env) (struct
+include Interp_common.Effects.Make (State) (Utils.Builder.Unit_builder) (Env) (struct
   include Err
 
   let fail_on_nondeterminism_misuse (s : State.t) : t * State.t =

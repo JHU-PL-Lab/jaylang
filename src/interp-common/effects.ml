@@ -2,32 +2,6 @@
 open Core
 open Lang
 
-module type BUILDER = sig
-  type a
-  type t
-  val empty : t
-  val cons : a -> t -> t
-end
-
-(*
-  Note that BUILDER gives us MONOID:
-
-  module type MONOID = sig
-    type t 
-    include BUILDER with type a := t and type t := t
-  end
-
-  So if we just want a monoidal log, then that will work.
-*)
-
-(* There is definitely a better place for this *)
-module Unit_builder : BUILDER with type a = unit and type t = unit = struct
-  type a = unit
-  type t = unit
-  let empty = ()
-  let cons () () = ()
-end
-
 module type ENV = sig
   type value
   type t
@@ -40,7 +14,7 @@ end
   of the monad instead of utilizing the abstractions. This reduces the number of
   binds and improves efficiency.
 *)
-module Make (State : T) (Builder : BUILDER) (Env : ENV) (Err : sig
+module Make (State : T) (Builder : Utils.Builder.S) (Env : ENV) (Err : sig
   type t
   val fail_on_nondeterminism_misuse : State.t -> t * State.t
   val fail_on_fetch : Ast.Ident.t -> State.t -> t * State.t

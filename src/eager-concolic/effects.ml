@@ -1,6 +1,5 @@
 
 open Core
-open Lang.Ast
 open Interp_common
 open Concolic_common
 
@@ -25,13 +24,13 @@ module Err = struct
   include Status.Eval
   let fail_on_nondeterminism_misuse (s : State.t) : t * State.t =
     Status.Found_abort (State.inputs s, "Nondeterminism used when not allowed."), s
-  let fail_on_fetch (id : Ident.t) (s : State.t) : t * State.t =
+  let fail_on_fetch (id : Lang.Ast.Ident.t) (s : State.t) : t * State.t =
     Status.Unbound_variable (State.inputs s, id), s
   let fail_on_max_step (_step : int) (s : State.t) : t * State.t =
     Status.Reached_max_step, s
 end
 
-include Interp_common.Effects.Make (State) (Interp_common.Effects.Unit_builder) (Value.Env) (Err)
+include Interp_common.Effects.Make (State) (Utils.Builder.Unit_builder) (Value.Env) (Err)
 
 let abort (msg : string) : 'a m =
   let%bind s = get in
