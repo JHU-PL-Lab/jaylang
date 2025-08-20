@@ -2,6 +2,14 @@
 open Core
 open Concolic_common
 
+type tape = unit (* FIXME: this should be an actual tape *)
+
+(* This should be located better *)
+let span_to_ms =
+  let ms_over_ns = Mtime.Span.to_float_ns Mtime.Span.ms /. Mtime.Span.to_float_ns Mtime.Span.ns in
+  fun span ->
+    Mtime.Span.to_float_ns span /. ms_over_ns
+
 module Report_row (* : Latex_table.ROW *) = struct
   module Trial = struct
     type t =
@@ -30,7 +38,7 @@ module Report_row (* : Latex_table.ROW *) = struct
   let to_strings x =
     let span_to_ms_string =
       fun span ->
-        let fl = Concolic_common.Stats.span_to_ms span in
+        let fl = span_to_ms span in
         Float.to_string @@
         if Float.(fl < 1.)
         then Float.round_decimal fl ~decimal_digits:2
@@ -56,19 +64,19 @@ module Report_row (* : Latex_table.ROW *) = struct
 
   let of_testname
       (n_trials : int)
-      (runtest : Lang.Ast.some_program -> Status.Terminal.t * Concolic_common.Stats.t)
+      (runtest : Lang.Ast.some_program -> Status.Terminal.t * tape)
       (testname : Filename.t)
     : t list =
     assert (n_trials > 0);
     let metadata = Metadata.of_bjy_file testname in
     let test_one (n : int) : t =
       let parse_time, source = Concolic_common.Stats.time Lang.Parser.parse_program_from_file testname in
-      let run_time, (test_result, stats) = Concolic_common.Stats.time runtest source in
+      let run_time, (test_result, _tape) = Concolic_common.Stats.time runtest source in
       let row =
         { testname
         ; test_result
-        ; interp_time = stats.interp_time
-        ; solve_time = stats.solve_time
+        ; interp_time = Mtime.Span.zero (*tape.interp_time*)
+        ; solve_time = Mtime.Span.zero (*tape.solve_time*)
         ; total_time = Mtime.Span.add parse_time run_time (* ignores stats measured total time *)
         ; trial = Number n
         ; metadata }
@@ -116,7 +124,7 @@ module Result_table = struct
       ?(avg_only : bool = true)
       (n_trials : int)
       (dirs : Filename.t list)
-      (runtest : Lang.Ast.some_program -> Status.Terminal.t * Concolic_common.Stats.t)
+      (runtest : Lang.Ast.some_program -> Status.Terminal.t * tape)
     : t =
     let open List.Let_syntax in
     { row_module = (module Report_row)
@@ -174,7 +182,7 @@ let run () =
   let tbl = Result_table.of_dirs n_trials dirs runtest in
   let times =
     List.filter_map tbl.rows ~f:(function
-        | Row row -> Some (Time_float.Span.to_ms row.total_time)
+        | Row row -> Some (span_to_ms row.total_time)
         | Hline -> None
       )
   in
@@ -192,10 +200,10 @@ let run () =
   |> Format.printf "%s\n";
   Format.printf "Mean time of all tests: %fms\nMedian time of all tests: %fms\n" 
     mean 
-    median;
-  Format.printf "Total interpretation time: %fs\nTotal solving time: %fs\n"
+    median
+  (* Format.printf "Total interpretation time: %fs\nTotal solving time: %fs\n"
     (Utils.Safe_cell.get Concolic.Evaluator.global_runtime) 
-    (Utils.Safe_cell.get Concolic.Evaluator.global_solvetime)
+    (Utils.Safe_cell.get Concolic.Evaluator.global_solvetime) *)
 
 (*
   Common directories to benchmark include
