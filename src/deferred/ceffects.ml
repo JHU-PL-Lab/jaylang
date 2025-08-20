@@ -28,6 +28,11 @@ module State = struct
     to copy all the fields.
     Real effects are starting to seem tempting.
     Or we could group the fields into those that are more/less likely to change. *)
+  (*
+    The symbol maps could go together (but don't have a _great_ reason to), and
+    the input log could be an add-on only when logging is needed (it's sort of just
+    a debugging thing).
+  *)
   type t =
     { time : Timestamp.t
     ; symbol_env : V.Symbol_map.t

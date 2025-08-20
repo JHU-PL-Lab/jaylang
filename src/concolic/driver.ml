@@ -2,12 +2,17 @@
 open Core
 open Concolic_common
 
-module type CONFIG = sig
-  module Key : Smt.Symbol.KEY
-  module TQ : Target_queue.S with type k = Key.t
-  val ceval : Key.t Evaluator.eval
-end
+(*
+  I'm thinking this whole thing needs to be wrapped with the log transformer.
+  Then everything can stay inside the log, and we get the logging for free
+  without ever having to exit.
 
+  I would need lift functions.
+  Pause.S should use bind instead of let*
+
+  The log transformer will not itself be functor but instead just a module with an
+  internal functor to transform. That way, the log type can be gotten immediately.
+*)
 module type S = sig
   val test_some_program :
     options:Options.t ->
@@ -27,9 +32,15 @@ module type S = sig
 end
 
 (* This is generative because it uses a generative functor to make the default evaluator *)
-module Make (Cfg : CONFIG) () : S = struct
-  module Eval (S : Smt.Formula.SOLVABLE) = Evaluator.Make (Cfg.Key) (Cfg.TQ) (S) (Pause.Id)
-  module Default_eval = Evaluator.Make (Cfg.Key) (Cfg.TQ) (Overlays.Typed_z3.Make ()) (Pause.Lwt)
+module Make (Key : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) 
+  (E : Evaluator.EVAL with type k := Key.t) (Log_t : Stat.LOG_T) () : S = struct
+  module Eval (S : Smt.Formula.SOLVABLE) = Evaluator.Make (Key) (Make_tq) (S) (Pause.Id) (Log_t)
+  module Default_eval = Evaluator.Make (Key) (Make_tq) (Overlays.Typed_z3.Make ()) (Pause.Lwt) (Log_t)
+
+  module Lwt_log = Log_t (Pause.Lwt)
+  (*
+    I need the log type. However, the log type is within a transformer.
+  *)
 
   (*
     ----------------------
@@ -38,31 +49,31 @@ module Make (Cfg : CONFIG) () : S = struct
   *)
 
   (* runs [lwt_eval] and catches lwt timeout *)
-  let test_with_timeout :
-    options:Options.t -> Lang.Ast.Embedded.t -> Status.Terminal.t =
-    fun ~options prog ->
-    let status = Default_eval.c_loop ~options Cfg.ceval prog in
-    try Lwt_main.run status with
-    | Lwt_unix.Timeout -> Timeout
+  let test_with_timeout 
+    : options:Options.t -> Lang.Ast.Embedded.t -> Status.Terminal.t * Stat.t list
+    = fun ~options prog ->
+    let main = Default_eval.c_loop ~options Cfg.ceval prog in
+    try Lwt_main.run (Lwt_log.run main) with
+    | Lwt_unix.Timeout -> Status.Timeout, [] (* FIXME: timeout doesn't provide stats *)
 
   module Compute (O : sig val options : Options.t end) = struct
     module Compute_result = struct
       include Preface.Make.Monoid.Via_combine_and_neutral (struct
-          type t = Status.Terminal.t
-          let neutral : t = Exhausted_full_tree
-          let combine : t -> t -> t =
-            fun a b ->
-            let open Status in
-            match a, b with
-            (* keep the message that says to quit *)
-            | Found_abort _, _ | Type_mismatch _, _ | Unbound_variable _, _ -> a
-            | _, Found_abort _ | _, Type_mismatch _ | _, Unbound_variable _ -> b
-            (* none say to quit, so keep the message that says we know the LEAST *)
-            | Timeout, _ | _, Timeout -> Timeout
-            | Unknown, _ | _, Unknown -> Unknown
-            | Exhausted_pruned_tree, _ | _, Exhausted_pruned_tree -> Exhausted_pruned_tree
-            | Exhausted_full_tree, Exhausted_full_tree -> Exhausted_full_tree
-        end)
+        type t = Status.Terminal.t
+        let neutral : t = Exhausted_full_tree
+        let combine : t -> t -> t =
+          fun a b ->
+          let open Status in
+          match a, b with
+          (* keep the message that says to quit *)
+          | Found_abort _, _ | Type_mismatch _, _ | Unbound_variable _, _ -> a
+          | _, Found_abort _ | _, Type_mismatch _ | _, Unbound_variable _ -> b
+          (* none say to quit, so keep the message that says we know the LEAST *)
+          | Timeout, _ | _, Timeout -> Timeout
+          | Unknown, _ | _, Unknown -> Unknown
+          | Exhausted_pruned_tree, _ | _, Exhausted_pruned_tree -> Exhausted_pruned_tree
+          | Exhausted_full_tree, Exhausted_full_tree -> Exhausted_full_tree
+      end)
 
       let is_signal_to_quit : t -> bool = Status.is_error_found
       let timeout_res : t = Timeout
@@ -141,19 +152,13 @@ module Make (Cfg : CONFIG) () : S = struct
     test_some_program ~options ~do_wrap ~do_type_splay pgm
 end
 
-module Eager = Make (struct
-  module Key = Interp_common.Step
-  module TQ_made = Target_queue.Make (Key)
-  module TQ = TQ_made.BFS
+module Eager = Make (Interp_common.Step) (Target_queue.Make_BFS) (struct
   let ceval = Eager_concolic.Main.eager_eval
-end) ()
+end) (Concolic_common.Stat.Transform) ()
 
-module Deferred = Make (struct
-  module Key = Interp_common.Timestamp
-  module TQ_made = Target_queue.Make (Key)
-  module TQ = TQ_made.BFS
+module Deferred = Make (Interp_common.Timestamp) (Target_queue.Make_BFS) (struct
   let ceval = Deferred.Cmain.deferred_eval
-end) ()
+end) (Concolic_common.Stat.Transform) ()
 
 module Default = Eager
 

@@ -12,6 +12,8 @@
   lwt.unix
   interp_common
   lang
+  mtime
+  mtime.clock.os
   )
  (synopsis "Common concolic constructs for the Jaylang project")
  (inline_tests)

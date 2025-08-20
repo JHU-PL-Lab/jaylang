@@ -12,6 +12,8 @@
   concolic_common
   eager_concolic
   deferred
+  mtime
+  mtime.clock.os
  )
  (synopsis "Concolic evaluator on embedded-type programs")
  (inline_tests)

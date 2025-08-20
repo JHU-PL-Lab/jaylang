@@ -29,3 +29,17 @@ module Make (K : Smt.Symbol.KEY) : sig
   (** [All] is [Merge (Merge (BFS) (DFS)) (Uniform)]. That is, DFS and BFS are
       chosen 1/4 of the time each, and Uniform is the other 1/2 of the time. *)
 end
+
+(*
+  All of the following pulls the modules out one level to each be parametrized
+  with a key.
+*)
+
+module type MAKE = functor (K : Smt.Symbol.KEY) -> S with type k = K.t
+
+module Make_DFS : MAKE
+module Make_BFS : MAKE
+module Make_uniform : MAKE
+
+module Make_merge (_ : MAKE) (_ : MAKE) : MAKE
+module Make_all : MAKE

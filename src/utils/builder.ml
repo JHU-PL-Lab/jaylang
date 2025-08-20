@@ -33,11 +33,7 @@ module Make_list_builder (Elt : T) : S with type a = Elt.t and type t = Elt.t li
   let cons a l = a :: l
 end
 
-module Transformer (M : sig
-  type 'a m 
-  val return : 'a -> 'a m
-  val bind : 'a m -> ('a -> 'b m) -> 'b m
-end) (B : S) = struct
+module Transformer (M : Types.MONAD) (B : S) = struct
   type 'a m = B.t -> ('a * B.t) M.m
 
   let return a = fun b -> M.return (a, b)
@@ -64,6 +60,16 @@ end) (B : S) = struct
 
   let log (a : B.a) : unit m =
     modify_log (B.cons a)
+
+  let map_t (f : 'a M.m -> 'b M.m) : 'a m -> 'b m =
+    fun am ->
+      fun b ->
+        M.bind (am b) (fun (a, b) ->
+          M.bind (f (M.return a)) (fun res ->
+            M.return (res, b)
+          )
+        )
+
 end
 
 module Monad (B : S) = Transformer (struct

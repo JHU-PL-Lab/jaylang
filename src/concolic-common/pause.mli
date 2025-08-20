@@ -10,25 +10,16 @@
 *)
 
 module type S = sig
-  type 'a t
-
-  val pause : unit -> unit t
+  include Utils.Types.MONAD
+  val pause : unit -> unit m
   (** [pause ()] is a chance to check if timeout has been exceeded. *)
 
-  val with_timeout : float -> (unit -> 'a t) -> 'a t
+  val with_timeout : float -> (unit -> 'a m) -> 'a m
 
-  val run : 'a t -> 'a
-
-  val return : 'a -> 'a t
-
-  val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
-  (** [let*] is the let-sugar for [bind] *)
-
-  val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
-  (** [(>>=)] is infix [bind]. *)
+  val run : 'a m -> 'a
 end
 
-module Lwt : S with type 'a t = 'a Lwt.t
+module Lwt : S with type 'a m = 'a Lwt.t
 (** [Lwt] is a limited interface to the [Lwt] monad--everything the concolic
     evaluator happens to need. *)
 

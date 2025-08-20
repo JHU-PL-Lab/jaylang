@@ -7,14 +7,16 @@ open Concolic_common
 *)
 type 'k eval = Lang.Ast.Embedded.t -> 'k Interp_common.Input_feeder.t -> max_step:Interp_common.Step.t -> Status.Eval.t * 'k Path.t
 
+module type EVAL = sig
+  type k
+  val ceval : k eval
+end
+
 (*
   -------------
   CONCOLIC LOOP
   -------------
 *)
-
-let global_runtime = Utils.Safe_cell.create 0.0
-let global_solvetime = Utils.Safe_cell.create 0.0
 
 let make_targets (target : 'k Target.t) (final_path : 'k Path.t) ~(max_tree_depth : int) : 'k Target.t list * [ `Pruned of bool ] =
   let stem = List.drop (Path.to_dirs final_path) (Target.path_n target) in
@@ -38,79 +40,80 @@ let make_targets (target : 'k Target.t) (final_path : 'k Path.t) ~(max_tree_dept
   You know I also wonder if I should have an instance of a random type to make sure parallelized
   computations are deterministics. Currently the random stuff is not compatible.
 *)
-module Make (K : Smt.Symbol.KEY) (TQ : Target_queue.Make(K).S) (S : Smt.Formula.SOLVABLE) (P : Pause.S) = struct
+module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (S : Smt.Formula.SOLVABLE) (P : Pause.S) (Log_t : Stat.LOG_T) = struct
+  module Tq = Make_tq (K)
   module Solve = Smt.Formula.Make_solver (S)
+  module Stats_logger = Log_t (P)
 
   (*
     Falls back on all-zero input feeder on first run and default (random) feeder after that.
   *)
-  let c_loop_body : Lang.Ast.Embedded.t -> K.t eval -> TQ.t -> run_num:int -> max_tree_depth:int -> max_step:Interp_common.Step.t -> Status.Terminal.t P.t =
-    fun e eval tq ~run_num ~max_tree_depth ~max_step ->
-    let rec loop tq ~run_num =
-      let open P in
-      let* () = pause () in
-      let t0 = Caml_unix.gettimeofday () in
-      match TQ.pop tq with
+  let c_loop_body (e : Lang.Ast.Embedded.t) (eval : K.t eval) (tq : Tq.t)
+    ~(max_tree_depth : int) ~(max_step : Interp_common.Step.t) : Status.Terminal.t Stats_logger.m =
+    let open Stats_logger in
+    let is_first_interp = ref true in
+    let rec loop tq =
+      let%bind () = upper @@ P.pause () in
+      match Tq.pop tq with
       | Some (target, tq) -> begin
-          let solve_result = Solve.solve (Target.to_formulas target) in
-          let t1 = Caml_unix.gettimeofday () in
-          let _ : float = Utils.Safe_cell.map (fun t -> t +. (t1 -. t0)) global_solvetime in
-          let* () = pause () in
+          let solve_span, solve_result = Stats.time Solve.solve (Target.to_formulas target) in
+          let%bind () = log @@ Time (Solve_time, solve_span) in
+          let%bind () = log @@ Count (N_solves, 1) in
+          let%bind () = upper @@ P.pause () in
           match solve_result with
-          | Sat model -> begin
-              let feeder = 
-                Interp_common.Input_feeder.of_smt_model 
-                  model 
-                  ~uid:K.uid 
-                  ~fallback_feeder:(if run_num = 0 then Interp_common.Input_feeder.zero else Interp_common.Input_feeder.default)
-              in
-              let status, path = eval e feeder ~max_step in
-              let t2 = Caml_unix.gettimeofday () in
-              let _ : float = Utils.Safe_cell.map (fun t -> t +. (t2 -. t1)) global_runtime in
-              let k ~reached_max_step = 
-                let targets, `Pruned is_pruned = make_targets target path ~max_tree_depth in
-                let* a = loop (TQ.push_list tq targets) ~run_num:(run_num + 1) in
-                if is_pruned || reached_max_step
-                then return (Status.min Exhausted_pruned_tree a)
-                else return a
-              in
-              match status with
-              | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s -> P.return s
-              | Finished -> k ~reached_max_step:false
-              | Reached_max_step -> k ~reached_max_step:true
-            end
-          | Unknown -> let* a = loop tq ~run_num:(run_num + 1) in return (Status.min Unknown a)
-          | Unsat -> loop tq ~run_num:(run_num + 1)
+          | Sat model -> loop_on_model target tq model
+          | Unknown -> let%bind a = loop tq in return (Status.min Unknown a)
+          | Unsat -> loop tq
         end
-      | None ->
-        let _ : float = Utils.Safe_cell.map (fun t -> t +. (Caml_unix.gettimeofday () -. t0)) global_solvetime in
-        return Status.Exhausted_full_tree
+      | None -> return Status.Exhausted_full_tree
+
+    and loop_on_model target tq model =
+      let feeder = 
+        Interp_common.Input_feeder.of_smt_model 
+          model 
+          ~uid:K.uid 
+          ~fallback_feeder:(
+            if !is_first_interp
+            then (is_first_interp := false; Interp_common.Input_feeder.zero)
+            else Interp_common.Input_feeder.default
+          )
+      in
+      let interp_span, (status, path) = Stats.time (eval e ~max_step) feeder in
+      let%bind () = log @@ Time (Interp_time, interp_span) in
+      let%bind () = log @@ Count (N_interps, 1) in
+      let k ~reached_max_step = 
+        let targets, `Pruned is_pruned = make_targets target path ~max_tree_depth in
+        let%bind a = loop (Tq.push_list tq targets) in
+        if is_pruned || reached_max_step
+        then return (Status.min Exhausted_pruned_tree a)
+        else return a
+      in
+      match status with
+      | (Found_abort _ | Type_mismatch _ | Unbound_variable _) as s ->
+        let%bind () = log @@ Depth (Target_depth, Target.path_n target) in
+        let%bind () = log @@ Depth (Error_depth, Path.length path) in
+        return s
+      | Finished -> k ~reached_max_step:false (* TODO: track number of vanishes *)
+      | Reached_max_step -> k ~reached_max_step:true
+
     in
-    loop tq ~run_num
+    let t0 = Mtime_clock.now () in
+    let%bind res = loop tq in
+    let t1 = Mtime_clock.now () in
+    let%bind () = log @@ Time (Total_time, Mtime.span t0 t1) in
+    return res
 
-  let c_loop : 
-    options:Options.t ->
-    K.t eval ->
-    Lang.Ast.Embedded.t ->
-    Concolic_common.Status.Terminal.t P.t =
-    fun ~options eval program ->
+  let c_loop ~(options : Options.t) (eval : K.t eval) (e : Lang.Ast.Embedded.t) : Status.Terminal.t Stats_logger.m =
     if not options.random then Interp_common.Rand.reset ();
-    P.with_timeout options.global_timeout_sec @@ fun () ->
-    let empty_tq = TQ.make options in
-    c_loop_body
-      program
-      eval
-      (TQ.push_list empty_tq [ Target.empty ]) 
-      ~run_num:0
-      ~max_tree_depth:options.max_tree_depth
-      ~max_step:(Step options.global_max_step)
+    let lifted_timeout t f = Stats_logger.map_t 
+      (fun m -> P.with_timeout t (fun () -> m)) (f ())
+    in
+    lifted_timeout options.global_timeout_sec @@ fun () ->
+      let empty_tq = Tq.make options in
+      c_loop_body
+        e
+        eval
+        (Tq.push_list empty_tq [ Target.empty ]) 
+        ~max_tree_depth:options.max_tree_depth
+        ~max_step:(Step options.global_max_step)
 end
-
-module TQ_Made = Target_queue.Make (Interp_common.Step)
-module M = Make (Interp_common.Step) (TQ_Made.All) (Overlays.Typed_z3.Default) (Pause.Lwt)
-
-let eager_c_loop :
-  options:Options.t ->
-  Lang.Ast.Embedded.t ->
-  Concolic_common.Status.Terminal.t Lwt.t =
-  M.c_loop Eager_concolic.Main.eager_eval 

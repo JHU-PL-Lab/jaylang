@@ -1,12 +1,6 @@
 
 open Concolic_common
 
-module type CONFIG = sig
-  module Key : Smt.Symbol.KEY
-  module TQ : Target_queue.S with type k = Key.t
-  val ceval : Key.t Evaluator.eval
-end
-
 module type S = sig
   val test_some_program :
     options:Options.t ->
@@ -31,7 +25,7 @@ module type S = sig
 end
 
 (* This is generative because a new solver contexts are made *)
-module Make (_ : CONFIG) () : S
+module Make (Key : Smt.Symbol.KEY) (_ : Target_queue.MAKE) (_ : Evaluator.EVAL with type k := Key.t) (_ : Stat.LOG_T) () : S
 
 module Eager : S
 
