@@ -61,7 +61,7 @@ module State = struct
     { s with n_stern_steps = Step.next s.n_stern_steps }
 end
 
-include Interp_common.Effects.Make (State) (Env) (struct
+include Interp_common.Effects.Make (State) (Interp_common.Effects.Unit_builder) (Env) (struct
   include Err
 
   let fail_on_nondeterminism_misuse (s : State.t) : t * State.t =
@@ -81,10 +81,13 @@ end)
 *)
 
 let run_on_empty (x : 'a s) (feeder : Feeder.t) : 'a * State.t * Interp_common.Step.t =
-  run_safe
-    x
-    State.empty
-    { env = { Env.empty with feeder } ; det_depth = Interp_common.Det_depth.zero }
+  let a, state, step, () =
+    run_safe
+      x
+      State.empty
+      { env = { Env.empty with feeder } ; det_depth = Interp_common.Det_depth.zero }
+  in
+  a, state, step
 
 (*
   -----------
@@ -100,14 +103,14 @@ let[@inline always] local_env (f : Value.env -> Value.env) (x : ('a, 'e) t) : ('
 
 let get_input (type a) (make_key : Timestamp.t -> a Feeder.Key.t) : (Value.t, 'e) t =
   let%bind () = assert_nondeterminism in
-  { run = fun ~reject:_ ~accept state step e -> 
+  { run = fun ~reject:_ ~accept state step () e -> 
     accept (
       let key = make_key state.time in
       let v = e.env.feeder.get key in
       match key with
       | I _ -> Value.VInt v
       | B _ -> Value.VBool v
-    ) { state with time = Timestamp.increment state.time } step
+    ) { state with time = Timestamp.increment state.time } step ()
   }
 
 (*
@@ -184,7 +187,7 @@ let should_work_on_deferred : bool m =
 
 let fail_at_time (err : Timestamp.t -> Err.t) : 'a m =
   let%bind () = remove_greater_symbols in
-  { run = fun ~reject ~accept:_ state step _ -> reject (err state.time) state step }
+  { run = fun ~reject ~accept:_ state step () _ -> reject (err state.time) state step () }
 
 (* timestamp payload on error is just for printing. It is not used in tracking at all *)
 let abort (msg : string) : 'a m =
@@ -206,4 +209,4 @@ let unbound_variable (id : Lang.Ast.Ident.t) : 'a m =
 *)
 
 let lookup (Value.VSymbol t : Value.symb) : Value.whnf option m =
-  { run = fun ~reject:_ ~accept state step _ -> accept (Time_map.find_opt t state.symbol_env) state step }
+  { run = fun ~reject:_ ~accept state step () _ -> accept (Time_map.find_opt t state.symbol_env) state step () }

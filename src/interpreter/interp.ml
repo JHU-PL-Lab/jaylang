@@ -77,7 +77,7 @@ module CPS_Error_M (Env : Interp_common.Effects.ENV) = struct
       `XReach_max_step (), s
   end
 
-  include Interp_common.Effects.Make (State) (Env) (Err)
+  include Interp_common.Effects.Make (State) (Interp_common.Effects.Unit_builder) (Env) (Err)
 
   let incr_time : unit m =
     modify (fun s -> { s with time = Interp_common.Timestamp.increment s.time })
@@ -486,7 +486,7 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
   in
 
   (run (eval e) State.initial Read.empty)
-  |> fun (res, state, _) ->
+  |> fun (res, state, _, _) ->
   (match res with
    | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
    | Error `XType_mismatch { Interp_common.Errors.msg = _ ; body = () } -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
