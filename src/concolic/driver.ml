@@ -2,29 +2,21 @@
 open Core
 open Concolic_common
 
-module Make_with_logger (L : sig
-  type tape
-  module Tape : Preface_specs.MONOID with type t = tape
-  module Transform (M : Utils.Types.MONAD) : sig
-    include Utils.Types.TRANSFORMED with type 'a lower := 'a M.m
-    include Stat.LOG_M with type 'a m := 'a m and type tape = tape
-    val run : 'a m -> ('a * tape) M.m
-  end
-end) = struct
+module Make_with_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) = struct
   module type S = sig
     val test_some_program :
       options:Options.t ->
       do_wrap:bool ->
       do_type_splay:bool ->
       Lang.Ast.some_program ->
-      Concolic_common.Status.Terminal.t * L.tape
+      Concolic_common.Status.Terminal.t * T.tape
 
     val test_some_file :
       options:Options.t ->
       do_wrap:bool ->
       do_type_splay:bool ->
       Core.Filename.t ->
-      Concolic_common.Status.Terminal.t * L.tape
+      Concolic_common.Status.Terminal.t * T.tape
 
     val eval : Concolic_common.Status.Terminal.t Cmdliner.Cmd.t
   end
@@ -32,15 +24,15 @@ end) = struct
   module Make (Key : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) 
     (C : Evaluator.EVAL with type k := Key.t) () : S = struct
 
-    (* I think should just pass in the transformed pause *)
-    module Lwt_eval = Evaluator.Make (Key) (Make_tq) (Pause.Lwt) (L.Transform)
-    module Eval = Evaluator.Make (Key) (Make_tq) (Pause.Id) (L.Transform)
+    module Lwt_log = T.Transform (Pause.Lwt)
+    module Log = T.Transform (Pause.Id)
+
+    module Lwt_eval = Evaluator.Make (Key) (Make_tq) (Pause.Lwt) (Lwt_log)
+    module Eval = Evaluator.Make (Key) (Make_tq) (Pause.Id) (Log)
 
     module Default_Z3 = Overlays.Typed_z3.Make ()
     module Default_solver = Smt.Formula.Make_solver (Default_Z3)
 
-    module Lwt_log = L.Transform (Pause.Lwt)
-    module Log = L.Transform (Pause.Id)
 
     (*
       ----------------------
@@ -50,11 +42,11 @@ end) = struct
 
     (* runs [lwt_eval] and catches lwt timeout *)
     let test_with_timeout 
-      : options:Options.t -> Lang.Ast.Embedded.t -> Status.Terminal.t * L.tape
+      : options:Options.t -> Lang.Ast.Embedded.t -> Status.Terminal.t * T.tape
       = fun ~options prog ->
       let main = Lwt_eval.c_loop ~options C.ceval Default_solver.solve prog in
       try Lwt_main.run @@ Lwt_log.run main with
-      | Lwt_unix.Timeout -> Status.Timeout, failwith "unhandled log for timeout" (* FIXME: timeout doesn't provide stats *)
+      | Lwt_unix.Timeout -> Status.Timeout, T.B.empty (* FIXME: timeout doesn't provide stats *)
 
     module Compute (O : sig val options : Options.t end) = struct
       module Compute_result = struct
@@ -109,7 +101,7 @@ end) = struct
       do_wrap:bool ->
       do_type_splay:bool ->
       Lang.Ast.some_program ->
-      Status.Terminal.t * L.tape =
+      Status.Terminal.t * T.tape =
       fun ~options ~do_wrap ~do_type_splay program ->
       let status, tape =
         if options.in_parallel
@@ -139,7 +131,7 @@ end) = struct
 
     let test_some_file :
       options:Options.t -> do_wrap:bool -> do_type_splay:bool -> Filename.t ->
-      Status.Terminal.t * L.tape =
+      Status.Terminal.t * T.tape =
       fun ~options ~do_wrap ~do_type_splay filename ->
       test_some_program
         ~options
@@ -177,4 +169,10 @@ end) = struct
   include Default
 end
 
-include Make_with_logger (Stat.No_logging)
+module Unit_logger = struct
+  module B = Stat.Unit_builder
+  type tape = unit
+  module Transform (M : Utils.Types.MONAD) = Utils.Logger.Over_monad_with_builder (M) (B)
+end
+
+include Make_with_logger (Unit_logger)

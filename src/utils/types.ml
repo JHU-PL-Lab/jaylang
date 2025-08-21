@@ -13,3 +13,9 @@ module type TRANSFORMED = sig
 end
 
 module type TRANSFORMER = functor (M : MONAD) -> TRANSFORMED with type 'a lower := 'a M.m
+
+module type MONOID = sig
+  type t
+  val neutral : t
+  val combine : t -> t -> t
+end

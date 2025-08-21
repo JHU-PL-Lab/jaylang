@@ -30,23 +30,15 @@ let make_targets (target : 'k Target.t) (final_path : 'k Path.t) ~(max_tree_dept
         )
     ) ~finish:(fun (acc, _) -> acc, `Pruned false)
 
-(*
-  The logger here should be able to interface with the interpreter to get the log from it
-  and continue building on it.
-
-  I'd like to not time things if the logger doesn't do anything. I don't think that is very
-  practical to achieve, though. I mean I _could_ just pass in the "timer", too.
-*)
-module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (P : Pause.S) (Log_t : Stat.LOG_T) = struct
+module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (P : Pause.S) (Log : Utils.Logger.FULL with type B.a = Stat.t and type 'a M.m = 'a P.m) = struct
   module Tq = Make_tq (K)
-  module Stats_logger = Log_t (P)
 
   (*
     Falls back on all-zero input feeder on first run and default (random) feeder after that.
   *)
   let c_loop_body (e : Lang.Ast.Embedded.t) (eval : K.t eval) (tq : Tq.t) (solve : K.t Smt.Formula.solver)
-    ~(max_tree_depth : int) ~(max_step : Interp_common.Step.t) : Status.Terminal.t Stats_logger.m =
-    let open Stats_logger in
+    ~(max_tree_depth : int) ~(max_step : Interp_common.Step.t) : Status.Terminal.t Log.m =
+    let open Log in
     let is_first_interp = ref true in
     let rec loop tq =
       let%bind () = upper @@ P.pause () in
@@ -99,9 +91,9 @@ module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (P : Pause.S) (Lo
     let%bind () = log @@ Time (Total_time, Mtime.span t0 t1) in
     return res
 
-  let c_loop ~(options : Options.t) (eval : K.t eval) (solve : K.t Smt.Formula.solver) (e : Lang.Ast.Embedded.t) : Status.Terminal.t Stats_logger.m =
+  let c_loop ~(options : Options.t) (eval : K.t eval) (solve : K.t Smt.Formula.solver) (e : Lang.Ast.Embedded.t) : Status.Terminal.t Log.m =
     if not options.random then Interp_common.Rand.reset ();
-    let lifted_timeout t f = Stats_logger.map_t 
+    let lifted_timeout t f = Log.map_t 
       (fun m -> P.with_timeout t (fun () -> m)) (f ())
     in
     lifted_timeout options.global_timeout_sec @@ fun () ->

@@ -17,7 +17,7 @@ open V
 module Feeder = Interp_common.Input_feeder
 
 module Input_log = struct
-  include Utils.Builder.Make_list_builder (struct
+  include Utils.Builder.List_builder (struct
     type t = Interp_common.Input.t * Interp_common.Timestamp.t
   end)
 

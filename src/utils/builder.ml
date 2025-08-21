@@ -6,7 +6,31 @@ module type S = sig
   type t
   val empty : t
   val cons : a -> t -> t
+  val combine : t -> t -> t
 end
+
+module Unit_builder : S with type a = unit and type t = unit = struct
+  type a = unit
+  type t = unit
+  let empty = ()
+  let cons () () = ()
+  let combine () () = ()
+end
+
+module Dlist_builder (A : T) : S with type a = A.t and type t = A.t Dlist.t = struct
+  type a = A.t 
+  include Dlist
+  type t = a Dlist.t
+end
+
+module List_builder (A : T) : S with type a = A.t and type t = A.t list = struct
+  type a = A.t 
+  type t = a list
+  let empty = []
+  let cons a ls = a :: ls
+  let combine = List.append
+end
+
 
 (*
   Note that BUILDER gives us MONOID:
@@ -16,64 +40,13 @@ end
     include S with type a := t and type t := t
   end
 
-  So if we just want a monoidal log, then that will work.
+  So if we just want a monoidal log, then that will work. Hence, I require
+  logs in this repo to work over builders, and any monoid is sufficient.
 *)
-
-module Unit_builder : S with type a = unit and type t = unit = struct
-  type a = unit
-  type t = unit
-  let empty = ()
-  let cons () () = ()
+module Of_monoid (M : Types.MONOID) : S with type a = M.t and type t = M.t = struct
+  type a = M.t
+  type t = M.t
+  let empty = M.neutral
+  let cons = M.combine
+  let combine = M.combine
 end
-
-module Make_list_builder (Elt : T) : S with type a = Elt.t and type t = Elt.t list = struct
-  type a = Elt.t
-  type t = a list
-  let empty = []
-  let cons a l = a :: l
-end
-
-module Transformer (M : Types.MONAD) (B : S) = struct
-  type 'a m = B.t -> ('a * B.t) M.m
-
-  let return a = fun b -> M.return (a, b)
-
-  let bind x f =
-    fun b ->
-      M.bind (x b) (fun (a, b) ->
-        f a b
-      )
-
-  let upper (m : 'a M.m) : 'a m =
-    fun b ->
-      M.bind m (fun a ->
-        M.return (a, b)
-      )
-
-  let observe : B.t m =
-    fun b ->
-      M.return (b, b)
-
-  let modify_log (f : B.t -> B.t) : unit m =
-    fun b ->
-      M.return ((), f b)
-
-  let log (a : B.a) : unit m =
-    modify_log (B.cons a)
-
-  let map_t (f : 'a M.m -> 'b M.m) : 'a m -> 'b m =
-    fun am ->
-      fun b ->
-        M.bind (am b) (fun (a, b) ->
-          M.bind (f (M.return a)) (fun res ->
-            M.return (res, b)
-          )
-        )
-
-end
-
-module Monad (B : S) = Transformer (struct
-  type 'a m = 'a 
-  let[@inline always] return a = a
-  let[@inline always] bind x f = f x
-end) (B)
