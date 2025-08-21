@@ -33,6 +33,7 @@ module type LOG_M = sig
 
   include Utils.Types.MONAD
   val log : t -> unit m
+  val modify_log : (tape -> tape) -> unit m
   val observe : tape m
 end
 
@@ -42,29 +43,36 @@ module type LOG_T = functor (M : Utils.Types.MONAD) -> sig
   val run : 'a m -> ('a * tape) M.m
 end
 
-module Make_transformer (M : Utils.Types.MONAD) = struct
-  type log = t list
+module List_logging = struct
+  type tape = t list
+  module Tape = Preface.Make.Monoid.Via_combine_and_neutral (struct
+    type t = tape 
+    let neutral = []
+    let combine a b = a @ b
+  end)
 
-  include Utils.Builder.Transformer (M) (List_builder)
+  module Transform (M : Utils.Types.MONAD) = struct
+    include Utils.Builder.Transformer (M) (List_builder)
 
-  let fold (init : 'acc) (f : 'acc -> t -> 'acc) : 'acc m =
-    let%bind l = observe in
-    return @@ List.fold l ~init ~f
-  
-  let sum_time (kind : time_kind) : Mtime.Span.t m =
-    fold Mtime.Span.zero (fun acc -> function
-      | Time (k, s) when equal_time_kind kind k -> Mtime.Span.add acc s
-      | _ -> acc
-    )
+    let fold (init : 'acc) (f : 'acc -> t -> 'acc) : 'acc m =
+      let%bind l = observe in
+      return @@ List.fold l ~init ~f
+    
+    let sum_time (kind : time_kind) : Mtime.Span.t m =
+      fold Mtime.Span.zero (fun acc -> function
+        | Time (k, s) when equal_time_kind kind k -> Mtime.Span.add acc s
+        | _ -> acc
+      )
 
-  let sum_count (kind : count_kind) : int m =
-    fold 0 (fun acc -> function
-      | Count (k, c) when equal_count_kind kind k -> acc + c
-      | _ -> acc
-    )
+    let sum_count (kind : count_kind) : int m =
+      fold 0 (fun acc -> function
+        | Count (k, c) when equal_count_kind kind k -> acc + c
+        | _ -> acc
+      )
 
-  let run x =
-    Lwt_main.run (x [])
+    let run x =
+      Lwt_main.run (x [])
+    end
 end
 
 module No_logging = struct
@@ -79,7 +87,8 @@ module No_logging = struct
     include Utils.Identity.Transformer (M)
     type tape = unit
     let log _ = return ()
-    let observe = return()
+    let modify_log _ = return ()
+    let observe = return ()
     let run m = bind m (fun a -> return (a, ()))
   end
 end

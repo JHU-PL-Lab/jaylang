@@ -23,5 +23,5 @@ module Lwt : S with type 'a m = 'a Lwt.t
 (** [Lwt] is a limited interface to the [Lwt] monad--everything the concolic
     evaluator happens to need. *)
 
-module Id : S
+module Id : S with type 'a m = 'a
 (** [Id] is the identity monad. *)

@@ -31,24 +31,20 @@ let make_targets (target : 'k Target.t) (final_path : 'k Path.t) ~(max_tree_dept
     ) ~finish:(fun (acc, _) -> acc, `Pruned false)
 
 (*
-  I need to log here, but my log in the interp common effects does not extend to here because
-  the effects are limited only to the interp monad.
+  The logger here should be able to interface with the interpreter to get the log from it
+  and continue building on it.
 
-  I can instead parametrize the eval type by the type of the log and have it return that.
-  I can also have a builder monad transformer for this part that transforms P.
-  
-  You know I also wonder if I should have an instance of a random type to make sure parallelized
-  computations are deterministics. Currently the random stuff is not compatible.
+  I'd like to not time things if the logger doesn't do anything. I don't think that is very
+  practical to achieve, though. I mean I _could_ just pass in the "timer", too.
 *)
-module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (S : Smt.Formula.SOLVABLE) (P : Pause.S) (Log_t : Stat.LOG_T) = struct
+module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (P : Pause.S) (Log_t : Stat.LOG_T) = struct
   module Tq = Make_tq (K)
-  module Solve = Smt.Formula.Make_solver (S)
   module Stats_logger = Log_t (P)
 
   (*
     Falls back on all-zero input feeder on first run and default (random) feeder after that.
   *)
-  let c_loop_body (e : Lang.Ast.Embedded.t) (eval : K.t eval) (tq : Tq.t)
+  let c_loop_body (e : Lang.Ast.Embedded.t) (eval : K.t eval) (tq : Tq.t) (solve : K.t Smt.Formula.solver)
     ~(max_tree_depth : int) ~(max_step : Interp_common.Step.t) : Status.Terminal.t Stats_logger.m =
     let open Stats_logger in
     let is_first_interp = ref true in
@@ -56,7 +52,7 @@ module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (S : Smt.Formula.
       let%bind () = upper @@ P.pause () in
       match Tq.pop tq with
       | Some (target, tq) -> begin
-          let solve_span, solve_result = Stats.time Solve.solve (Target.to_formulas target) in
+          let solve_span, solve_result = Stats.time solve (Target.to_formulas target) in
           let%bind () = log @@ Time (Solve_time, solve_span) in
           let%bind () = log @@ Count (N_solves, 1) in
           let%bind () = upper @@ P.pause () in
@@ -103,7 +99,7 @@ module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (S : Smt.Formula.
     let%bind () = log @@ Time (Total_time, Mtime.span t0 t1) in
     return res
 
-  let c_loop ~(options : Options.t) (eval : K.t eval) (e : Lang.Ast.Embedded.t) : Status.Terminal.t Stats_logger.m =
+  let c_loop ~(options : Options.t) (eval : K.t eval) (solve : K.t Smt.Formula.solver) (e : Lang.Ast.Embedded.t) : Status.Terminal.t Stats_logger.m =
     if not options.random then Interp_common.Rand.reset ();
     let lifted_timeout t f = Stats_logger.map_t 
       (fun m -> P.with_timeout t (fun () -> m)) (f ())
@@ -114,6 +110,7 @@ module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (S : Smt.Formula.
         e
         eval
         (Tq.push_list empty_tq [ Target.empty ]) 
+        solve
         ~max_tree_depth:options.max_tree_depth
         ~max_step:(Step options.global_max_step)
 end

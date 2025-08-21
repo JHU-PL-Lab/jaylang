@@ -31,8 +31,13 @@ end) = struct
 
   module Make (Key : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) 
     (C : Evaluator.EVAL with type k := Key.t) () : S = struct
-    module Eval (S : Smt.Formula.SOLVABLE) = Evaluator.Make (Key) (Make_tq) (S) (Pause.Id) (L.Transform)
-    module Default_eval = Evaluator.Make (Key) (Make_tq) (Overlays.Typed_z3.Make ()) (Pause.Lwt) (L.Transform)
+
+    (* I think should just pass in the transformed pause *)
+    module Lwt_eval = Evaluator.Make (Key) (Make_tq) (Pause.Lwt) (L.Transform)
+    module Eval = Evaluator.Make (Key) (Make_tq) (Pause.Id) (L.Transform)
+
+    module Default_Z3 = Overlays.Typed_z3.Make ()
+    module Default_solver = Smt.Formula.Make_solver (Default_Z3)
 
     module Lwt_log = L.Transform (Pause.Lwt)
     module Log = L.Transform (Pause.Id)
@@ -47,33 +52,37 @@ end) = struct
     let test_with_timeout 
       : options:Options.t -> Lang.Ast.Embedded.t -> Status.Terminal.t * L.tape
       = fun ~options prog ->
-      let main = Default_eval.c_loop ~options C.ceval prog in
+      let main = Lwt_eval.c_loop ~options C.ceval Default_solver.solve prog in
       try Lwt_main.run @@ Lwt_log.run main with
       | Lwt_unix.Timeout -> Status.Timeout, failwith "unhandled log for timeout" (* FIXME: timeout doesn't provide stats *)
 
     module Compute (O : sig val options : Options.t end) = struct
       module Compute_result = struct
+        open Log
+
         include Preface.Make.Monoid.Via_combine_and_neutral (struct
-          type t = Status.Terminal.t * L.tape
-          let neutral : t = Exhausted_full_tree, L.Tape.neutral
-          let combine : t -> t -> t = fun (a, x) (b, y) ->
-            let open Status in
-            let left =
-              match a, b with
-              (* keep the message that says to quit *)
-              | Found_abort _, _ | Type_mismatch _, _ | Unbound_variable _, _ -> a
-              | _, Found_abort _ | _, Type_mismatch _ | _, Unbound_variable _ -> b
-              (* none say to quit, so keep the message that says we know the LEAST *)
-              | Timeout, _ | _, Timeout -> Timeout
-              | Unknown, _ | _, Unknown -> Unknown
-              | Exhausted_pruned_tree, _ | _, Exhausted_pruned_tree -> Exhausted_pruned_tree
-              | Exhausted_full_tree, Exhausted_full_tree -> Exhausted_full_tree
-            in
-            left, L.Tape.combine x y
+          type t = Status.Terminal.t Log.m
+          let neutral : t = Log.return Status.Exhausted_full_tree
+          let combine : t -> t -> t = fun am bm ->
+            let%bind a = am in
+            let%bind b = bm in
+            return @@
+            match a, b with
+            (* keep the message that says to quit *)
+            | Found_abort _, _ | Type_mismatch _, _ | Unbound_variable _, _ -> a
+            | _, Found_abort _ | _, Type_mismatch _ | _, Unbound_variable _ -> b
+            (* none say to quit, so keep the message that says we know the LEAST *)
+            | Timeout, _ | _, Timeout -> Timeout
+            | Unknown, _ | _, Unknown -> Unknown
+            | Exhausted_pruned_tree, _ | _, Exhausted_pruned_tree -> Exhausted_pruned_tree
+            | Exhausted_full_tree, Exhausted_full_tree -> Exhausted_full_tree
         end)
 
-        let is_signal_to_quit : t -> bool = fun (s, _) -> Status.is_error_found s
-        let timeout_res : t = Timeout, L.Tape.neutral
+        let is_signal_to_quit : t -> bool = 
+          (* TOOD: this is hideous, but I don't see a way around it right now *)
+          fun sm -> let s, _tape = run sm in Status.is_error_found s
+
+        let timeout_res : t = return Status.Timeout
       end
 
       module Work = struct
@@ -81,11 +90,9 @@ end) = struct
 
         let run (expr : t) : Compute_result.t =
           (* makes a new solver for this thread *)
-          let module E = Eval (Overlays.Typed_z3.Make ()) in
-          Pause.Id.run @@ Log.run (E.c_loop ~options:O.options C.ceval expr)
-
-        let run_with_internal_timeout (expr : t) : Compute_result.t =
-          test_with_timeout ~options:O.options expr
+          let module Z = Overlays.Typed_z3.Make () in
+          let module S = Smt.Formula.Make_solver (Z) in
+          Eval.c_loop ~options:O.options C.ceval S.solve expr
       end
 
       let timeout_sec = O.options.global_timeout_sec
@@ -104,14 +111,23 @@ end) = struct
       Lang.Ast.some_program ->
       Status.Terminal.t * L.tape =
       fun ~options ~do_wrap ~do_type_splay program ->
-      let programs =
+      let status, tape =
         if options.in_parallel
-        then Translate.Convert.some_program_to_many_emb program ~do_wrap ~do_type_splay
-        else Preface.Nonempty_list.Last (Translate.Convert.some_program_to_emb program ~do_wrap ~do_type_splay)
+        then
+          let pgms = Translate.Convert.some_program_to_many_emb program ~do_wrap ~do_type_splay in
+          match pgms with
+          | Last pgm -> 
+            (* Nothing to do in parallel if only one program *)
+            test_with_timeout ~options @@ Lang.Ast_tools.Utils.pgm_to_module pgm
+          | _ ->
+            let module C = Compute (struct let options = options end) in
+            let module P = Overlays.Computation_pool.Process (C) in
+            let status_m = P.process_all @@ Preface.Nonempty_list.map Lang.Ast_tools.Utils.pgm_to_module pgms in
+            Log.run status_m
+        else
+          let pgm = Translate.Convert.some_program_to_emb program ~do_wrap ~do_type_splay in
+          test_with_timeout ~options @@ Lang.Ast_tools.Utils.pgm_to_module pgm
       in
-      let module C = Compute (struct let options = options end) in
-      let module P = Overlays.Computation_pool.Process (C) in
-      let status, tape = P.process_all @@ Preface.Nonempty_list.map Lang.Ast_tools.Utils.pgm_to_module programs in
       Format.printf "%s\n" (Status.to_loud_string status);
       status, tape
 

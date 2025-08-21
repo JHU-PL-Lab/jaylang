@@ -14,7 +14,7 @@ module Lwt : S with type 'a m = 'a Lwt.t = struct
   let run = Lwt_main.run
 end
 
-module Id : S = struct
+module Id : S with type 'a m = 'a = struct
   include Utils.Identity.Monad
   let pause () = ()
 
