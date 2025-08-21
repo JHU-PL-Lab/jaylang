@@ -2,7 +2,9 @@
 open Core
 open Concolic_common
 
-type tape = unit (* FIXME: use a real tape*)
+module Driver = Concolic.Driver.Of_logger (Utils.Logger.Transformer_of_builder (Utils.Dlist.Specialize (Stat)))
+
+type tape = Driver.tape
 
 (* This should be located better *)
 let span_to_ms =
@@ -55,15 +57,15 @@ module Basic_test = struct
     (runtest : Lang.Ast.some_program -> Status.Terminal.t * tape) (* promises to update interp and solve time *)
     (testname : Filename.t)
     : t =
-    let source = Lang.Parser.parse_program_from_file testname in (* span should probably include this *)
-    let span, _ = Concolic_common.Stats.time runtest source in
-    { testname
-    (* ; test_result *)
-    ; interp_time = Mtime.Span.zero (* FIXME *)
-    ; solve_time = Mtime.Span.zero (* FIXME *)
-    ; total_time = span
-    ; trial
-    ; mode }
+    let source = Lang.Parser.parse_program_from_file testname in (* span should maybe include this *)
+    let span, (_, tape) = Concolic_common.Stats.time runtest source in
+    let stat_list = tape [] in
+      { testname
+      ; interp_time = Stat.sum_time Stat.Interp_time stat_list
+      ; solve_time = Stat.sum_time Stat.Solve_time stat_list
+      ; total_time = span (* ignores stats measured total time *)
+      ; trial
+      ; mode }
 
   let average (tests : t list) : t =
     match tests with
@@ -239,14 +241,14 @@ let run () =
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
   let runtest_eager pgm =
-    Concolic.Driver.Eager.test_some_program
+    Driver.Eager.test_some_program
       ~options:{ options with random = true }
       ~do_wrap:true        (* always wrap during benchmarking *)
       ~do_type_splay:false (* never type splay during benchmarking *)
       pgm
   in
   let runtest_deferred pgm =
-    Concolic.Driver.Deferred.test_some_program
+    Driver.Deferred.test_some_program
       ~options:{ options with random = true }
       ~do_wrap:true        (* always wrap during benchmarking *)
       ~do_type_splay:false (* never type splay during benchmarking *)

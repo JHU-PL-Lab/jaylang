@@ -2,27 +2,60 @@
 open Core
 open Concolic_common
 
-module Make_with_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) = struct
-  module type S = sig
+module type S = sig
+  type tape
+  module type DRIVER = sig
     val test_some_program :
       options:Options.t ->
       do_wrap:bool ->
       do_type_splay:bool ->
       Lang.Ast.some_program ->
-      Concolic_common.Status.Terminal.t * T.tape
+      Concolic_common.Status.Terminal.t * tape
 
     val test_some_file :
       options:Options.t ->
       do_wrap:bool ->
       do_type_splay:bool ->
       Core.Filename.t ->
-      Concolic_common.Status.Terminal.t * T.tape
+      Concolic_common.Status.Terminal.t * tape
+
+    val eval : Concolic_common.Status.Terminal.t Cmdliner.Cmd.t
+  end
+
+  module Make (Key : Smt.Symbol.KEY) (_ : Target_queue.MAKE) (_ : Evaluator.EVAL with type k := Key.t) () : DRIVER
+
+  module Eager : DRIVER
+
+  module Deferred : DRIVER
+
+  module Default = Eager
+
+  include DRIVER (* Is Default *)
+end
+
+module Of_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) : S with type tape = T.tape = struct
+  type tape = T.tape
+
+  module type DRIVER = sig
+    val test_some_program :
+      options:Options.t ->
+      do_wrap:bool ->
+      do_type_splay:bool ->
+      Lang.Ast.some_program ->
+      Concolic_common.Status.Terminal.t * tape
+
+    val test_some_file :
+      options:Options.t ->
+      do_wrap:bool ->
+      do_type_splay:bool ->
+      Core.Filename.t ->
+      Concolic_common.Status.Terminal.t * tape
 
     val eval : Concolic_common.Status.Terminal.t Cmdliner.Cmd.t
   end
 
   module Make (Key : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) 
-    (C : Evaluator.EVAL with type k := Key.t) () : S = struct
+    (C : Evaluator.EVAL with type k := Key.t) () : DRIVER = struct
 
     module Lwt_log = T.Transform (Pause.Lwt)
     module Log = T.Transform (Pause.Id)
@@ -42,7 +75,7 @@ module Make_with_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) = 
 
     (* runs [lwt_eval] and catches lwt timeout *)
     let test_with_timeout 
-      : options:Options.t -> Lang.Ast.Embedded.t -> Status.Terminal.t * T.tape
+      : options:Options.t -> Lang.Ast.Embedded.t -> Status.Terminal.t * tape
       = fun ~options prog ->
       let main = Lwt_eval.c_loop ~options C.ceval Default_solver.solve prog in
       try Lwt_main.run @@ Lwt_log.run main with
@@ -101,7 +134,7 @@ module Make_with_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) = 
       do_wrap:bool ->
       do_type_splay:bool ->
       Lang.Ast.some_program ->
-      Status.Terminal.t * T.tape =
+      Status.Terminal.t * tape =
       fun ~options ~do_wrap ~do_type_splay program ->
       let status, tape =
         if options.in_parallel
@@ -131,7 +164,7 @@ module Make_with_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) = 
 
     let test_some_file :
       options:Options.t -> do_wrap:bool -> do_type_splay:bool -> Filename.t ->
-      Status.Terminal.t * T.tape =
+      Status.Terminal.t * tape =
       fun ~options ~do_wrap ~do_type_splay filename ->
       test_some_program
         ~options
@@ -169,10 +202,4 @@ module Make_with_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) = 
   include Default
 end
 
-module Unit_logger = struct
-  module B = Stat.Unit_builder
-  type tape = unit
-  module Transform (M : Utils.Types.MONAD) = Utils.Logger.Over_monad_with_builder (M) (B)
-end
-
-include Make_with_logger (Unit_logger)
+include Of_logger (Utils.Logger.Transformer_of_builder (Stat.Unit_builder))

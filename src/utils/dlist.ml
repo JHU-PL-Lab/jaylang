@@ -24,12 +24,15 @@ let combine = append
 
 let of_list ls = fun xs -> ls @ xs
 
-(* module Make (X : T) : Builder.S with type t = X.t t = struct
+module Specialize (X : T) = struct
   type a = X.t
   type nonrec t = a t
+  let neutral = neutral
   let empty = empty
   let cons = cons
-end *)
+  let append = append
+  let combine = combine
+end
 
 module Log (X : T) = struct
   type tape = X.t list

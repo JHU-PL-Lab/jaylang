@@ -1,4 +1,6 @@
 
+open Core
+
 type time_kind = 
   | Interp_time  (* How long was spent interpreting the program *)
   | Solve_time   (* How long was spent solving constraints *)
@@ -31,3 +33,15 @@ module Unit_builder : Utils.Builder.S with type a = t and type t = unit = struct
   let cons _ () = ()
   let combine () () = ()
 end
+
+let sum_time (kind : time_kind) (ls : t list) : Mtime.Span.t =
+  List.fold ls ~init:Mtime.Span.zero ~f:(fun acc -> function
+    | Time (k, s) when equal_time_kind kind k -> Mtime.Span.add acc s
+    | _ -> acc
+  )
+
+let sum_count (kind : count_kind) (ls : t list) : int =
+  List.fold ls ~init:0 ~f:(fun acc -> function
+    | Count (k, c) when equal_count_kind kind k -> acc + c
+    | _ -> acc
+  )

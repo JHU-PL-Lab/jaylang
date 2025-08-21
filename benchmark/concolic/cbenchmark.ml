@@ -2,7 +2,9 @@
 open Core
 open Concolic_common
 
-type tape = unit (* FIXME: this should be an actual tape *)
+module Driver = Concolic.Driver.Of_logger (Utils.Logger.Transformer_of_builder (Utils.Dlist.Specialize (Stat)))
+
+type tape = Driver.tape
 
 (* This should be located better *)
 let span_to_ms =
@@ -71,12 +73,13 @@ module Report_row (* : Latex_table.ROW *) = struct
     let metadata = Metadata.of_bjy_file testname in
     let test_one (n : int) : t =
       let parse_time, source = Concolic_common.Stats.time Lang.Parser.parse_program_from_file testname in
-      let run_time, (test_result, _tape) = Concolic_common.Stats.time runtest source in
+      let run_time, (test_result, tape) = Concolic_common.Stats.time runtest source in
+      let stat_list = tape [] in
       let row =
         { testname
         ; test_result
-        ; interp_time = Mtime.Span.zero (*tape.interp_time*)
-        ; solve_time = Mtime.Span.zero (*tape.solve_time*)
+        ; interp_time = Stat.sum_time Stat.Interp_time stat_list
+        ; solve_time = Stat.sum_time Stat.Solve_time stat_list
         ; total_time = Mtime.Span.add parse_time run_time (* ignores stats measured total time *)
         ; trial = Number n
         ; metadata }
@@ -170,8 +173,8 @@ let run () =
   let runtest pgm =
     let test_program = 
       match mode with
-      | `Eager -> Concolic.Driver.Eager.test_some_program
-      | `Deferred -> Concolic.Driver.Eager.test_some_program
+      | `Eager -> Driver.Eager.test_some_program
+      | `Deferred -> Driver.Eager.test_some_program
     in
     test_program
       ~options
