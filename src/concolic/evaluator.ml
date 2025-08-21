@@ -4,6 +4,13 @@ open Concolic_common
 
 (*
   Evaluates an expression to a concolic path.
+
+  Note:
+  - If we want to collect a log from this evaluation, then we would want a functor that passes in the log
+    we're using because that type would have to line up with the builder from `Log` in the `Make` functor
+    below.
+  - Or this type is parametrized by the log type, which would not be a monad but would be fully run and
+    returned here. Then the loop just uses `tell` to collect that whole log in.
 *)
 type 'k eval = Lang.Ast.Embedded.t -> 'k Interp_common.Input_feeder.t -> max_step:Interp_common.Step.t -> Status.Eval.t * 'k Path.t
 
