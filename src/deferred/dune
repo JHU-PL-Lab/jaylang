@@ -4,7 +4,8 @@
  (libraries
   core
   lang
-  deferred_concolic
+  concolic
+  interp_common
  )
  (synopsis "Deferred interpreter on type-embedded programs")
  (inline_tests)

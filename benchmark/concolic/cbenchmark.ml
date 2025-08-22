@@ -1,6 +1,6 @@
 
 open Core
-open Concolic_common
+open Concolic.Common
 
 module Driver = Concolic.Driver.Of_logger (Utils.Logger.Transformer_of_builder (Utils.Dlist.Specialize (Stat)))
 
@@ -72,8 +72,8 @@ module Report_row (* : Latex_table.ROW *) = struct
     assert (n_trials > 0);
     let metadata = Metadata.of_bjy_file testname in
     let test_one (n : int) : t =
-      let parse_time, source = Concolic_common.Stats.time Lang.Parser.parse_program_from_file testname in
-      let run_time, (test_result, tape) = Concolic_common.Stats.time runtest source in
+      let parse_time, source = Stats.time Lang.Parser.parse_program_from_file testname in
+      let run_time, (test_result, tape) = Stats.time runtest source in
       let stat_list = tape [] in
       let row =
         { testname

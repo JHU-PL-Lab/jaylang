@@ -2,7 +2,7 @@
 open Core
 
 module Make (K : Smt.Symbol.KEY) = struct
-  module Concolic_value = Concolic_common.Cvalue.Make (K)
+  module Concolic_value = Common.Cvalue.Make (K)
 
   include Lang.Value.Embedded (Concolic_value)
 

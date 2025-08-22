@@ -1,7 +1,7 @@
 
 open Core
 
-include Dvalue.Make (Concolic_common.Cvalue.Make (Interp_common.Timestamp))
+include Dvalue.Make (Common.Cvalue.Make (Interp_common.Timestamp))
 
 module Time_symbol = Smt.Symbol.Make (Interp_common.Timestamp)
 

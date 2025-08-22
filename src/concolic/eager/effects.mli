@@ -1,5 +1,5 @@
 
-open Concolic_common
+open Common
 
 (*
   ------------

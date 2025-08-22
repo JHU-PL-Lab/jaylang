@@ -3,7 +3,7 @@
 
 open Core
 open Lang.Ast
-open Concolic_common
+open Common
 
 type 'a res =  
   | V of 'a Value.v

@@ -1,4 +1,4 @@
-(include_subdirs unqualified)
+(include_subdirs qualified)
 
 (library
  (name concolic)
@@ -8,10 +8,11 @@
   lwt
   lwt.unix
   translate
+  interpreter
   cmdliner
-  concolic_common
-  eager_concolic
-  deferred_concolic
+  interp_common
+  baby
+  psq
   mtime
   mtime.clock.os
  )
@@ -22,4 +23,5 @@
   (pps
    ppx_sexp_conv
    ppx_compare
+   ppx_variants_conv
    ocaml-monadic)))

@@ -1,6 +1,6 @@
 
 open Core
-open Concolic_common
+open Concolic.Common
 
 module Driver = Concolic.Driver.Of_logger (Utils.Logger.Transformer_of_builder (Utils.Dlist.Specialize (Stat)))
 
@@ -58,7 +58,7 @@ module Basic_test = struct
     (testname : Filename.t)
     : t =
     let source = Lang.Parser.parse_program_from_file testname in (* span should maybe include this *)
-    let span, (_, tape) = Concolic_common.Stats.time runtest source in
+    let span, (_, tape) = Concolic.Common.Stats.time runtest source in
     let stat_list = tape [] in
       { testname
       ; interp_time = Stat.sum_time Stat.Interp_time stat_list

@@ -1,6 +1,6 @@
 
 open Core
-open Concolic_common
+open Common
 
 module type S = sig
   type tape
@@ -10,16 +10,16 @@ module type S = sig
       do_wrap:bool ->
       do_type_splay:bool ->
       Lang.Ast.some_program ->
-      Concolic_common.Status.Terminal.t * tape
+      Status.Terminal.t * tape
 
     val test_some_file :
       options:Options.t ->
       do_wrap:bool ->
       do_type_splay:bool ->
       Core.Filename.t ->
-      Concolic_common.Status.Terminal.t * tape
+      Status.Terminal.t * tape
 
-    val eval : Concolic_common.Status.Terminal.t Cmdliner.Cmd.t
+    val eval : Status.Terminal.t Cmdliner.Cmd.t
   end
 
   module Make (Key : Smt.Symbol.KEY) (_ : Target_queue.MAKE) (_ : Evaluator.EVAL with type k := Key.t) () : DRIVER
@@ -42,16 +42,16 @@ module Of_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) : S with 
       do_wrap:bool ->
       do_type_splay:bool ->
       Lang.Ast.some_program ->
-      Concolic_common.Status.Terminal.t * tape
+      Status.Terminal.t * tape
 
     val test_some_file :
       options:Options.t ->
       do_wrap:bool ->
       do_type_splay:bool ->
       Core.Filename.t ->
-      Concolic_common.Status.Terminal.t * tape
+      Status.Terminal.t * tape
 
-    val eval : Concolic_common.Status.Terminal.t Cmdliner.Cmd.t
+    val eval : Status.Terminal.t Cmdliner.Cmd.t
   end
 
   module Make (Key : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) 
@@ -190,11 +190,11 @@ module Of_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) : S with 
   end
 
   module Eager = Make (Interp_common.Step) (Target_queue.Make_BFS) (struct
-    let ceval = Eager_concolic.Main.eager_eval
+    let ceval = Eager.Main.eager_eval
   end) ()
 
   module Deferred = Make (Interp_common.Timestamp) (Target_queue.Make_BFS) (struct
-    let ceval = Deferred_concolic.Main.deferred_eval
+    let ceval = Deferred.Main.deferred_eval
   end) ()
 
   module Default = Eager

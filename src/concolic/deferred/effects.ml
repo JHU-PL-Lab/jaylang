@@ -5,7 +5,7 @@
 
 open Core
 open Interp_common
-open Concolic_common
+open Common
 
 (* monad to handle all of the effects *)
 

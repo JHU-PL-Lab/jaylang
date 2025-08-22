@@ -1,5 +1,5 @@
 
-open Concolic_common
+open Common
 
 module type S = sig
   type tape
@@ -9,7 +9,7 @@ module type S = sig
       do_wrap:bool ->
       do_type_splay:bool ->
       Lang.Ast.some_program ->
-      Concolic_common.Status.Terminal.t * tape
+      Status.Terminal.t * tape
     (** Performs concolic evaluation on the provided program or times out if the
         timeout limit was exceeded.  The result is printed to stdout. *)
 
@@ -18,11 +18,11 @@ module type S = sig
       do_wrap:bool ->
       do_type_splay:bool ->
       Core.Filename.t ->
-      Concolic_common.Status.Terminal.t * tape
+      Status.Terminal.t * tape
     (** Performs concolic evaluation on the program in the provided file or times
         out if the timeout limit was exceeded.  The result is printed to stdout. *)
 
-    val eval : Concolic_common.Status.Terminal.t Cmdliner.Cmd.t
+    val eval : Status.Terminal.t Cmdliner.Cmd.t
     (** [eval] can be run with [Cmdliner] to run [test] on the command line arguments. *)
   end
 

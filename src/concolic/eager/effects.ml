@@ -1,7 +1,7 @@
 
 open Core
 open Interp_common
-open Concolic_common
+open Common
 
 type k = Step.t
 

@@ -1,5 +1,5 @@
 
-open Concolic_common
+open Common
 
 type 'k eval = Lang.Ast.Embedded.t -> 'k Interp_common.Input_feeder.t ->
   max_step:Interp_common.Step.t -> Status.Eval.t * 'k Path.t
@@ -18,7 +18,7 @@ end
   (But I should just pass in a made target queue and pull the k from that!)
 *)
 module Make : functor (K : Smt.Symbol.KEY) (_ : Target_queue.MAKE) (P : Pause.S) (Log : Utils.Logger.FULL with type B.a = Stat.t and type 'a M.m = 'a P.m) -> sig
-  val c_loop : options:Options.t -> K.t eval -> K.t Smt.Formula.solver -> Lang.Ast.Embedded.t -> Concolic_common.Status.Terminal.t Log.m
+  val c_loop : options:Options.t -> K.t eval -> K.t Smt.Formula.solver -> Lang.Ast.Embedded.t -> Status.Terminal.t Log.m
   (** [c_loop ~options eval pgm] is the result of concolic looping on [pgm] using the concolic
       evaluation function [eval]. *)
 end

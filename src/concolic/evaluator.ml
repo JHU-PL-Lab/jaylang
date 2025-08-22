@@ -1,6 +1,6 @@
 
 open Core
-open Concolic_common
+open Common
 
 (*
   Evaluates an expression to a concolic path.
