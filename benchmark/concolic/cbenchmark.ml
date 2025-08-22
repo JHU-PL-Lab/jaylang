@@ -6,12 +6,6 @@ module Driver = Concolic.Driver.Of_logger (Utils.Logger.Transformer_of_builder (
 
 type tape = Driver.tape
 
-(* This should be located better *)
-let span_to_ms =
-  let ms_over_ns = Mtime.Span.to_float_ns Mtime.Span.ms /. Mtime.Span.to_float_ns Mtime.Span.ns in
-  fun span ->
-    Mtime.Span.to_float_ns span /. ms_over_ns
-
 module Report_row (* : Latex_table.ROW *) = struct
   module Trial = struct
     type t =
@@ -40,7 +34,7 @@ module Report_row (* : Latex_table.ROW *) = struct
   let to_strings x =
     let span_to_ms_string =
       fun span ->
-        let fl = span_to_ms span in
+        let fl = Utils.Time.span_to_ms span in
         Float.to_string @@
         if Float.(fl < 1.)
         then Float.round_decimal fl ~decimal_digits:2
@@ -72,8 +66,8 @@ module Report_row (* : Latex_table.ROW *) = struct
     assert (n_trials > 0);
     let metadata = Metadata.of_bjy_file testname in
     let test_one (n : int) : t =
-      let parse_time, source = Stats.time Lang.Parser.parse_program_from_file testname in
-      let run_time, (test_result, tape) = Stats.time runtest source in
+      let parse_time, source = Utils.Time.time Lang.Parser.parse_program_from_file testname in
+      let run_time, (test_result, tape) = Utils.Time.time runtest source in
       let stat_list = tape [] in
       let row =
         { testname
@@ -87,10 +81,6 @@ module Report_row (* : Latex_table.ROW *) = struct
       row
     in
     let trials = List.init n_trials ~f:test_one in
-    let div_span span fl = 
-      Option.value_exn @@ 
-      Mtime.Span.of_float_ns (Mtime.Span.to_float_ns span /. fl)
-    in
     let avg_trial =
       List.fold
         trials
@@ -112,9 +102,9 @@ module Report_row (* : Latex_table.ROW *) = struct
             })
       |> fun r ->
       { r with (* average out *)
-        interp_time = div_span r.interp_time (Int.to_float n_trials)
-      ; solve_time = div_span r.solve_time (Int.to_float n_trials)
-      ; total_time = div_span r.total_time (Int.to_float n_trials)
+        interp_time = Utils.Time.divide_span r.interp_time n_trials
+      ; solve_time = Utils.Time.divide_span r.solve_time n_trials
+      ; total_time = Utils.Time.divide_span r.total_time n_trials
       }
     in
     trials @ [ avg_trial ]
@@ -185,7 +175,7 @@ let run () =
   let tbl = Result_table.of_dirs n_trials dirs runtest in
   let times =
     List.filter_map tbl.rows ~f:(function
-        | Row row -> Some (span_to_ms row.total_time)
+        | Row row -> Some (Utils.Time.span_to_ms row.total_time)
         | Hline -> None
       )
   in

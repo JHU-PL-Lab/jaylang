@@ -14,7 +14,6 @@
   baby
   psq
   mtime
-  mtime.clock.os
  )
  (synopsis "Concolic evaluator on embedded-type programs")
  (inline_tests)

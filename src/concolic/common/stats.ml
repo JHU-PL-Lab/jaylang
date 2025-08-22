@@ -1,13 +1,18 @@
 
 open Core
 
+(*
+  This is an alternative to the `Stat` module that describes
+  a single statistic, like the time alone.
+*)
+
 type t = 
   { interp_time  : Mtime.Span.t
   ; solve_time   : Mtime.Span.t
   ; total_time   : Mtime.Span.t
   ; n_interps    : int
   ; n_solves     : int
-  (* ; mutable n_vanishes   : int *)
+  (* ; n_vanishes   : int *)
   ; target_depth : int option
   ; error_depth  : int option
   }
@@ -25,7 +30,6 @@ let create () =
 
 let sum_opts x y = Option.merge x y ~f:(+)
 
-(* Creates a new stats record without mutating the arguments *)
 let combine a b =
   { interp_time = Mtime.Span.add a.interp_time b.interp_time
   ; solve_time = Mtime.Span.add a.solve_time b.solve_time
@@ -35,14 +39,3 @@ let combine a b =
   ; target_depth = sum_opts a.target_depth b.target_depth
   ; error_depth = sum_opts a.error_depth b.error_depth
   }
-
-let time f x =
-  let t0 = Mtime_clock.now () in
-  let res = f x in
-  let t1 = Mtime_clock.now () in
-  Mtime.span t0 t1, res
-
-let span_to_ms =
-  let ms_over_ns = Mtime.Span.to_float_ns Mtime.Span.ms /. Mtime.Span.to_float_ns Mtime.Span.ns in
-  fun span ->
-    Mtime.Span.to_float_ns span *. ms_over_ns

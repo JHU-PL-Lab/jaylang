@@ -51,7 +51,7 @@ module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (P : Pause.S) (Lo
       let%bind () = upper @@ P.pause () in
       match Tq.pop tq with
       | Some (target, tq) -> begin
-          let solve_span, solve_result = Stats.time solve (Target.to_formulas target) in
+          let solve_span, solve_result = Utils.Time.time solve (Target.to_formulas target) in
           let%bind () = log @@ Time (Solve_time, solve_span) in
           let%bind () = log @@ Count (N_solves, 1) in
           let%bind () = upper @@ P.pause () in
@@ -73,7 +73,7 @@ module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (P : Pause.S) (Lo
             else Interp_common.Input_feeder.default
           )
       in
-      let interp_span, (status, path) = Stats.time (eval e ~max_step) feeder in
+      let interp_span, (status, path) = Utils.Time.time (eval e ~max_step) feeder in
       let%bind () = log @@ Time (Interp_time, interp_span) in
       let%bind () = log @@ Count (N_interps, 1) in
       let k ~reached_max_step = 

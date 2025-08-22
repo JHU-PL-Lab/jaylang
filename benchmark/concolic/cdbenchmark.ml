@@ -6,17 +6,6 @@ module Driver = Concolic.Driver.Of_logger (Utils.Logger.Transformer_of_builder (
 
 type tape = Driver.tape
 
-(* This should be located better *)
-let span_to_ms =
-  let ms_over_ns = Mtime.Span.to_float_ns Mtime.Span.ms /. Mtime.Span.to_float_ns Mtime.Span.ns in
-  fun span ->
-    Mtime.Span.to_float_ns span /. ms_over_ns
-
-(* This too *)
-let div_span span fl = 
-  Option.value_exn @@ 
-  Mtime.Span.of_float_ns (Mtime.Span.to_float_ns span /. fl)
-
 module Basic_test = struct
   module Trial = struct
     type t =
@@ -39,7 +28,7 @@ module Basic_test = struct
   let to_strings x =
     let span_to_ms_string =
       fun span ->
-        let fl = span_to_ms span in
+        let fl = Utils.Time.span_to_ms span in
         Float.to_string @@
         if Float.(fl < 1.)
         then Float.round_decimal fl ~decimal_digits:2
@@ -58,7 +47,7 @@ module Basic_test = struct
     (testname : Filename.t)
     : t =
     let source = Lang.Parser.parse_program_from_file testname in (* span should maybe include this *)
-    let span, (_, tape) = Concolic.Common.Stats.time runtest source in
+    let span, (_, tape) = Utils.Time.time runtest source in
     let stat_list = tape [] in
       { testname
       ; interp_time = Stat.sum_time Stat.Interp_time stat_list
@@ -83,9 +72,10 @@ module Basic_test = struct
         )
       in
       { sum with
-        interp_time = div_span sum.interp_time (Int.to_float n_trials)
-      ; solve_time = div_span sum.solve_time (Int.to_float n_trials)
-      ; total_time = div_span sum.total_time (Int.to_float n_trials) }
+        interp_time = Utils.Time.divide_span sum.interp_time n_trials
+      ; solve_time = Utils.Time.divide_span sum.solve_time n_trials
+      ; total_time = Utils.Time.divide_span sum.total_time n_trials
+      }
 end 
 
 module Result_table = struct
@@ -153,9 +143,9 @@ module Result_table = struct
           testname = mode ^ " average" 
         ; trial = Average
         ; mode
-        ; interp_time = div_span interp_sum (Int.to_float n)
-        ; solve_time = div_span solve_sum (Int.to_float n)
-        ; total_time = div_span total_sum (Int.to_float n)
+        ; interp_time = Utils.Time.divide_span interp_sum n
+        ; solve_time = Utils.Time.divide_span solve_sum n
+        ; total_time = Utils.Time.divide_span total_sum n
       }
     ]
 end
