@@ -1,15 +1,17 @@
 (library
- (name eager_concolic)
- (public_name jay.eager_concolic)
+ (name deferred_concolic)
+ (public_name jay.deferred_concolic)
  (libraries
   core
   lang
   utils
+  baby
   interp_common
   concolic_common
   preface
+  interpreter
  )
- (synopsis "Eager concolic evaluator on embedded-type programs")
+ (synopsis "Deferred concolic evaluator on typed-embedded programs")
  (inline_tests)
  (instrumentation (backend landmarks --auto))
  (preprocess

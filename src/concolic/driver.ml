@@ -194,7 +194,7 @@ module Of_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) : S with 
   end) ()
 
   module Deferred = Make (Interp_common.Timestamp) (Target_queue.Make_BFS) (struct
-    let ceval = Deferred.Cmain.deferred_eval
+    let ceval = Deferred_concolic.Main.deferred_eval
   end) ()
 
   module Default = Eager

@@ -11,7 +11,7 @@
   cmdliner
   concolic_common
   eager_concolic
-  deferred
+  deferred_concolic
   mtime
   mtime.clock.os
  )

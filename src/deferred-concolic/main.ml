@@ -5,24 +5,21 @@ open Core
 open Lang.Ast
 open Concolic_common
 
-module V = Ceffects.V
-
-(* this should be abstracted *)
 type 'a res =  
-  | V of 'a V.v
-  | E of Ceffects.Err.t
+  | V of 'a Value.v
+  | E of Effects.Err.t
 
-let res_to_err (type a) (x : a res Ceffects.s) : a V.v Ceffects.m =
-  Ceffects.bind (Ceffects.make_unsafe x) (function
-      | V v -> Ceffects.return v
-      | E e -> Ceffects.fail e
+let res_to_err (type a) (x : a res Effects.s) : a Value.v Effects.m =
+  Effects.bind (Effects.make_unsafe x) (function
+      | V v -> Effects.return v
+      | E e -> Effects.fail e
     )
 
-let deferred_eval expr input_feeder ~max_step =
-  let open Ceffects in
+let deferred_interp expr input_feeder ~max_step =
+  let open Effects in
 
-  let rec eval ?(is_stern : bool = false) (expr : Embedded.t) : V.t m =
-    let open V in
+  let rec eval ?(is_stern : bool = false) (expr : Embedded.t) : Value.t m =
+    let open Value in
     let k = eval ~is_stern in
     let%bind () = incr_step ~max_step in
     match expr with
@@ -70,7 +67,7 @@ let deferred_eval expr input_feeder ~max_step =
         match%bind stern_eval record with
         | (VRecord body | VModule body) as v -> begin
             match Map.find body label with
-            | Some v -> return (V.cast_up v)
+            | Some v -> return (Value.cast_up v)
             | None -> type_mismatch @@ Error_msg.project_missing_label label v
           end
         | v -> type_mismatch @@ Error_msg.project_non_record label v
@@ -78,13 +75,13 @@ let deferred_eval expr input_feeder ~max_step =
     | EIntensionalEqual { left ; right } ->
       let%bind vleft = eval left in
       let%bind vright = eval right in
-      return @@ VBool (V.equal vleft vright)
+      return @@ VBool (Value.equal vleft vright)
     (* control flow / branches *)
     | EMatch { subject ; patterns  } -> begin
         let%bind v = stern_eval subject in
         match
           List.find_map patterns ~f:(fun (pat, body) ->
-              match V.matches v pat with
+              match Value.matches v pat with
               | `Matches -> Some (body, fun x -> x)
               | `Matches_with (v', id) -> Some (body, Env.add id v')
               | `No_match -> None
@@ -130,7 +127,7 @@ let deferred_eval expr input_feeder ~max_step =
       let%bind v = eval defn in
       local (Env.add var v) (eval body)
     | EIgnore { ignored ; body } ->
-      let%bind _ : V.t = eval ignored in
+      let%bind _ : Value.t = eval ignored in
       eval body
     | EAppl { func ; arg } -> begin
         match%bind stern_eval func with
@@ -161,7 +158,7 @@ let deferred_eval expr input_feeder ~max_step =
       return (VVariant { label ; payload = v })
     | EModule stmt_ls ->
       let%bind module_body =
-        let rec fold_stmts acc_m : Embedded.statement list -> V.t Lang.Ast.RecordLabel.Map.t m = function
+        let rec fold_stmts acc_m : Embedded.statement list -> Value.t Lang.Ast.RecordLabel.Map.t m = function
           | [] -> acc_m
           | SUntyped { var ; defn } :: tl ->
             let%bind acc = acc_m in
@@ -194,7 +191,7 @@ let deferred_eval expr input_feeder ~max_step =
           List.fold mut_r.alist ~init:(return None) ~f:(fun acc_m (input, output) ->
             match%bind acc_m with
             | None ->
-              let (b, e) = V.equal input (cast_up v) in
+              let (b, e) = Value.equal input (cast_up v) in
               let%bind () = push_branch (Direction.Bool_direction (b, e)) in
               if b
               then return (Some output)
@@ -220,14 +217,14 @@ let deferred_eval expr input_feeder ~max_step =
     proofs on stern evals. This one is very direct, and it does (most of the time)
     the minimal amount of work to get to whnf.
   *)
-  and stern_eval (expr : Embedded.t) : V.whnf m = 
+  and stern_eval (expr : Embedded.t) : Value.whnf m = 
     match expr with
     | EDefer body -> stern_eval body (* When sternly evaluating a deferred thing, we can just directly eval the thing *)
     | _ ->
       let%bind v = eval ~is_stern:true expr in
       let%bind () = incr_step ~max_step in
       let%bind () = incr_n_stern_steps in
-      V.split v
+      Value.split v
         ~symb:(fun ((VSymbol t) as sym) ->
             let%bind s = get in
             match Time_map.find_opt t s.symbol_env with
@@ -246,7 +243,7 @@ let deferred_eval expr input_feeder ~max_step =
     the cleanup in our stern semantics, where we must evaluate everything and
     keep the smallest error.
   *)
-  and clean_up_deferred (final : V.ok res) : V.ok res s =
+  and clean_up_deferred (final : Value.ok res) : Value.ok res s =
     let%bind s = get in
     match Time_map.choose_opt s.pending_proofs with
     | None -> return final (* done! can finish with how we're told to finish *)
@@ -257,7 +254,7 @@ let deferred_eval expr input_feeder ~max_step =
         (fun e -> clean_up_deferred (E e)) (* deferred proof errored, so it must be the smaller error, so keep it and continue *)
   in
 
-  let begin_stern_loop (expr : Embedded.t) : V.ok res s =
+  let begin_stern_loop (expr : Embedded.t) : Value.ok res s =
     let%bind r =
       handle_error (stern_eval expr)
         (fun v -> return (V v))
@@ -267,3 +264,7 @@ let deferred_eval expr input_feeder ~max_step =
   in
 
   run (res_to_err (begin_stern_loop expr))
+
+let deferred_eval expr input_feeder ~max_step =
+  let (_ : Value.whnf option), (_ : Value.Symbol_map.t), e, p = deferred_interp expr input_feeder ~max_step in
+  e, p

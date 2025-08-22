@@ -1,23 +1,12 @@
-(include_subdirs unqualified)
-
 (library
  (name deferred)
  (public_name jay.deferred)
  (libraries
   core
   lang
-  utils
-  baby
-  interp_common
-  concolic_common
-  preface
-  interpreter
+  deferred_concolic
  )
- (synopsis "Deferred evaluator on embedded-type programs")
+ (synopsis "Deferred interpreter on type-embedded programs")
  (inline_tests)
  (instrumentation (backend landmarks --auto))
- (preprocess
-  (pps
-   ppx_compare
-   ppx_fields_conv
-   ocaml-monadic)))
+)

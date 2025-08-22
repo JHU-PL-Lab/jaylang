@@ -25,7 +25,7 @@ let deval =
   |> Deferred.Main.deval_with_input_sequence inputs
   |> (function
       | Ok v -> Format.printf "Your program evaluated to:\n%s\n" (Deferred.Value.Without_symbols.to_string v)
-      | Error e -> Format.printf "ERROR: the deferred interpreter hit an error:\n%s\n" (Deferred.Err.to_string e)
+      | Error e -> Format.printf "ERROR: the deferred interpreter did not evaluate to a value:\n%s\n" (Deferred.Err.to_string e)
     )
 
 let () = 
