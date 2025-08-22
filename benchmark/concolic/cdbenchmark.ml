@@ -19,11 +19,12 @@ module Basic_test = struct
     ; interp_time : Mtime.Span.t
     ; solve_time : Mtime.Span.t
     ; total_time : Mtime.Span.t
+    ; n_interps  : int
     ; trial : Trial.t
     ; mode : string }
 
   let names =
-    [ " Test Name" ; "Interp Time" ; "Solve Time" ; "Total" ; "Mode" ]
+    [ " Test Name" ; "Interp Time" ; "Solve Time" ; "Total" ; "N-interps" ; "Mode" ]
 
   let to_strings x =
     let span_to_ms_string =
@@ -38,6 +39,7 @@ module Basic_test = struct
     ; span_to_ms_string x.interp_time
     ; span_to_ms_string x.solve_time
     ; span_to_ms_string x.total_time
+    ; Int.to_string x.n_interps
     ; x.mode ]
 
   let make
@@ -53,6 +55,7 @@ module Basic_test = struct
       ; interp_time = Stat.sum_time Stat.Interp_time stat_list
       ; solve_time = Stat.sum_time Stat.Solve_time stat_list
       ; total_time = span (* ignores stats measured total time *)
+      ; n_interps = Stat.sum_count Stat.N_interps stat_list
       ; trial
       ; mode }
 
@@ -68,13 +71,15 @@ module Basic_test = struct
           { acc with
             interp_time = Mtime.Span.add acc.interp_time x.interp_time
           ; solve_time = Mtime.Span.add acc.solve_time x.solve_time
-          ; total_time = Mtime.Span.add acc.total_time x.total_time }
+          ; total_time = Mtime.Span.add acc.total_time x.total_time
+          ; n_interps = acc.n_interps + x.n_interps }
         )
       in
       { sum with
         interp_time = Utils.Time.divide_span sum.interp_time n_trials
       ; solve_time = Utils.Time.divide_span sum.solve_time n_trials
       ; total_time = Utils.Time.divide_span sum.total_time n_trials
+      ; n_interps = sum.n_interps / n_trials
       }
 end 
 
@@ -126,15 +131,16 @@ module Result_table = struct
     (tbl : t)
     : t =
     let t0 = Mtime.Span.zero in
-    let init = t0, t0, t0, 0 in
-    let interp_sum, solve_sum, total_sum, n =
-      List.fold tbl.rows ~init ~f:(fun ((acc_interp_time, acc_solve_time, acc_total_time, n) as acc) row_or_hline ->
+    let init = t0, t0, t0, 0, 0 in
+    let interp_sum, solve_sum, total_sum, total_interps, n =
+      List.fold tbl.rows ~init ~f:(fun ((acc_interp_time, acc_solve_time, acc_total_time, acc_interps, n) as acc) row_or_hline ->
         match row_or_hline with
         | Row row ->
           Mtime.Span.add acc_interp_time row.interp_time
           , Mtime.Span.add acc_solve_time row.solve_time
           , Mtime.Span.add acc_total_time row.total_time
-          , Int.(n + 1)
+          , acc_interps + row.n_interps
+          , n + 1
         | Hline -> acc
       )
     in
@@ -146,6 +152,7 @@ module Result_table = struct
         ; interp_time = Utils.Time.divide_span interp_sum n
         ; solve_time = Utils.Time.divide_span solve_sum n
         ; total_time = Utils.Time.divide_span total_sum n
+        ; n_interps = total_interps / n
       }
     ]
 end
