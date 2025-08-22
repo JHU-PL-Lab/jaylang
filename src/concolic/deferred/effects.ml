@@ -25,7 +25,7 @@ module State = struct
   *)
   type t =
     { time : Timestamp.t
-    ; symbol_env : Value.Symbol_map.t
+    ; symbol_map : Value.Symbol_map.t
     ; pending_proofs : Value.Pending_proofs.t 
     ; n_stern_steps : Step.t
     ; path : k Path.t
@@ -33,7 +33,7 @@ module State = struct
 
   let empty : t =
     { time = Timestamp.initial
-    ; symbol_env = Value.Symbol_map.empty
+    ; symbol_map = Value.Symbol_map.empty
     ; pending_proofs = Value.Pending_proofs.empty
     ; n_stern_steps = Step.zero 
     ; path = Path.empty
@@ -41,7 +41,7 @@ module State = struct
 
   let remove_greater_symbols (s : t) : t =
     { s with
-      symbol_env = Value.Symbol_map.cut (VSymbol s.time) s.symbol_env
+      symbol_map = Value.Symbol_map.cut (VSymbol s.time) s.symbol_map
     ; pending_proofs = Value.Pending_proofs.cut (VSymbol s.time) s.pending_proofs }
 
   let incr_stern_step (s : t) : t =
@@ -126,7 +126,7 @@ let[@inline always] map_deferred_proof (VSymbol t as symb : Value.symb) (f : Lan
             Time_map.union (fun _ _ _ -> failwith "Invariant failure: duplicate timestamp when adding back hidden symbols") 
               final_state.pending_proofs (* Keep all the proofs after f finished running ... *)
               to_add_back (* ... and put back the proofs we hid from f *)
-          ; symbol_env = Time_map.add t v final_state.symbol_env
+          ; symbol_map = Time_map.add t v final_state.symbol_map
           } final_step ()
         ) 
   }
@@ -191,7 +191,7 @@ let type_mismatch (msg : string) : 'a m =
 *)
 
 let lookup (Value.VSymbol t : Value.symb) : Value.whnf option m =
-  { run = fun ~reject:_ ~accept state step () _ -> accept (Time_map.find_opt t state.symbol_env) state step () }
+  { run = fun ~reject:_ ~accept state step () _ -> accept (Time_map.find_opt t state.symbol_map) state step () }
 
 let vanish : 'a m =
   fail_and_filter (fun _ -> Status.Finished)
@@ -227,5 +227,5 @@ let get_input (type a) (make_key : Timestamp.t -> a Key.Timekey.t) (feeder : Tim
 let run (x : 'a m) : 'a option * Value.Symbol_map.t * Status.Eval.t * k Path.t =
   match run x State.empty Read.empty with
   | Ok a, state, _, () ->
-    Some a, state.symbol_env, Status.Finished, state.path
-  | Error e, state, _, () -> None, state.symbol_env, e, state.path
+    Some a, state.symbol_map, Status.Finished, state.path
+  | Error e, state, _, () -> None, state.symbol_map, e, state.path

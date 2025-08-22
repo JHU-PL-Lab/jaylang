@@ -227,7 +227,7 @@ let deferred_interp expr input_feeder ~max_step =
       Value.split v
         ~symb:(fun ((VSymbol t) as sym) ->
             let%bind s = get in
-            match Time_map.find_opt t s.symbol_env with
+            match Time_map.find_opt t s.symbol_map with
             | Some v -> return v
             | None -> map_deferred_proof sym stern_eval
           )
