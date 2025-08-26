@@ -18,6 +18,7 @@
  (synopsis "Concolic evaluator on embedded-type programs")
  (inline_tests)
  (instrumentation (backend landmarks --auto)) ; use `dune build --instrument-with landmarks` to get instrumentation
+ (instrumentation (backend bisect_ppx))
  (preprocess
   (pps
    ppx_sexp_conv

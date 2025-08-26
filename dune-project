@@ -28,6 +28,7 @@
   landmarks-ppx
   alcotest
   alcotest-lwt
+  bisect_ppx
   baby
   psq
   preface

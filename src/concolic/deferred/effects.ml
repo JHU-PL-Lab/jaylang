@@ -65,15 +65,6 @@ end
 include Interp_common.Effects.Make (State) (Utils.Builder.Unit_builder) (Value.Env) (Err)
 
 (*
-  -----------
-  ENVIRONMENT
-  -----------
-*)
-
-let[@inline always] with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : ('a, 'e) t) : ('a, 'e) t =
-  local (Value.Env.add id v) x
-
-(*
   -----
   STATE
   -----
@@ -90,13 +81,15 @@ let[@inline always] with_binding (id : Lang.Ast.Ident.t) (v : Value.t) (x : ('a,
     return a
 
   I sure hope it is.
+
+  Notice how this isn't needed, but it's behavior is inlined into map_deferred_proof.
 *)
-let local_time (time : Timestamp.t) (x : ('a, 'e) t) : ('a, 'e) t =
+(* let local_time (time : Timestamp.t) (x : ('a, 'e) t) : ('a, 'e) t =
   { run = fun ~reject ~accept state step () r ->
     x.run ~reject ~accept:(fun a s step () ->
       accept a { s with time = state.time } step ()
     ) { state with time } step () r
-  }
+  } *)
 
 (*
   TODO: make this filtering much better. We currently actually split the map and union in back,
@@ -190,8 +183,8 @@ let type_mismatch (msg : string) : 'a m =
   ---------------
 *)
 
-let lookup (Value.VSymbol t : Value.symb) : Value.whnf option m =
-  { run = fun ~reject:_ ~accept state step () _ -> accept (Time_map.find_opt t state.symbol_map) state step () }
+(* let lookup (Value.VSymbol t : Value.symb) : Value.whnf option m =
+  { run = fun ~reject:_ ~accept state step () _ -> accept (Time_map.find_opt t state.symbol_map) state step () } *)
 
 let vanish : 'a m =
   fail_and_filter (fun _ -> Status.Finished)
