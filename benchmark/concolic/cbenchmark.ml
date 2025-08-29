@@ -38,7 +38,6 @@ module Report_row (* : Latex_table.ROW *) = struct
         Float.to_string @@
         if Float.(fl < 1.)
         then Float.round_decimal fl ~decimal_digits:2
-        then Float.round_decimal fl ~decimal_digits:2
         else Float.round_significant fl ~significant_digits:2
     in
     [ Filename.basename x.testname |> String.take_while ~f:(Char.(<>) '.') |> Latex_format.texttt
