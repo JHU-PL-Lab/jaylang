@@ -61,7 +61,7 @@ let rec compare_list (type a_) (compare : a_ -> a_ -> int) (l1 : list a_) (l2 : 
   | [] ->
     match l2 with
     | [] -> 0
-    | _ -> 0 - 1
+    | _ -> -1
     end
   | hd :: tl ->
     match l2 with 

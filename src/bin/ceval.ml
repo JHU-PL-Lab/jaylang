@@ -6,6 +6,6 @@
 *)
 
 let () = 
-  match Cmdliner.Cmd.eval_value' Concolic.Driver.ceval with
+  match Cmdliner.Cmd.eval_value' Concolic.Driver.eval with
   | `Ok _ -> ()
   | `Exit i -> exit i

@@ -11,8 +11,6 @@
   currently needed.
 *)
 
-open Core
-
 module type S = sig
   type 'a x
   type t = 
@@ -22,7 +20,8 @@ module type S = sig
   (** Pack [x] into an int [I] case and a bool [B] case. *)
 end
 
-module Make (X : sig type 'a t[@@deriving compare] end) : S with type 'a x := 'a X.t = struct
+module Make (X : Comparable.S1) : S with type 'a x := 'a X.t = struct
+  open Core
   type t =
     | I of int X.t
     | B of bool X.t

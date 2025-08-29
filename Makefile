@@ -1,4 +1,4 @@
-.PHONY: all clean translator jil logclean cbenchmark repl sctest 
+.PHONY: all always clean translator jil logclean cbenchmark repl sctest 
 
 BUILD = _build/default
 BUILD_SRC = _build/default/src
@@ -6,7 +6,10 @@ BUILD_BIN = _build/default/src/bin
 BUILD_TEST = _build/default/src-test
 BENCH_C = benchmark/concolic
 
-docker-build:
+dune-build: always
+	dune build
+
+docker-build: always
 	docker build -t jaylang:latest .
 
 all: ceval interp bjy-cloc ft
@@ -29,6 +32,8 @@ ft:
 
 clean:
 	dune clean
+	rm -rf _coverage/
+	rm *.coverage
 
 logclean:
 	rm -f dot/*
@@ -37,18 +42,35 @@ logclean:
 # testing
 
 # run the fast concolic tests (the ill-typed programs)
+# Follow up with `bisect-ppx-report html` and open the coverage report to view code coverage
 test-fast:
-	dune exec -- src-test/concolic/test_concolic.exe -q
+	dune exec --instrument-with bisect_ppx -- src-test/concolic/test_concolic.exe -q
 
 # run the slow concolic tests (all programs, where well-typed run a long time)
 test-all:
-	dune exec -- src-test/concolic/test_concolic.exe
+	dune exec --instrument-with bisect_ppx -- src-test/concolic/test_concolic.exe
 
 # run the interpreter on all test files
 test-interp:
-	dune exec -- src-test/interp/test_interp.exe
+	dune exec --instrument-with bisect_ppx -- src-test/interp/test_interp.exe
+
+# run the deferred interpreter on dedicated deferred tests (both fast and slow)
+test-deferred:
+	dune exec --instrument-with bisect_ppx -- src-test/deferred/test_deferred.exe
+
+test-cdeval:
+	dune exec --instrument-with bisect_ppx -- src-test/deferred-concolic/test_deferred_concolic.exe -q
+
+test-cdeval-all:
+	dune exec --instrument-with bisect_ppx -- src-test/deferred-concolic/test_deferred_concolic.exe
+
+test-tools:
+	dune exec -- src-test/tools/test_tools.exe
 
 # benchmark
 
 cbenchmark:
 	dune exec --profile=release $(BENCH_C)/cbenchmark.exe -- $(ARGS)
+
+cdbenchmark:
+	dune exec --profile=release $(BENCH_C)/cdbenchmark.exe -- $(ARGS)

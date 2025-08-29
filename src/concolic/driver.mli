@@ -1,29 +1,44 @@
-(**
-  File: driver.mli
-  Purpose: the external interface for starting up the concolic evaluator
 
-  Detailed description:
-    The driver runs the concolic evaluator on either filenames or
-    already-parsed Bluejay programs. The translator is run according
-    to the [do_wrap] named argument, as well as with consideration for
-    all of the provided optional arguments.
+open Common
 
-  Dependencies:
-    Basically everything in the `concolic/` directory.
-*)
+module type S = sig
+  type tape
+  module type DRIVER = sig
+    val test_some_program :
+      options:Options.t ->
+      do_wrap:bool ->
+      do_type_splay:bool ->
+      Lang.Ast.some_program ->
+      Status.Terminal.t * tape
+    (** Performs concolic evaluation on the provided program or times out if the
+        timeout limit was exceeded.  The result is printed to stdout. *)
 
+    val test_some_file :
+      options:Options.t ->
+      do_wrap:bool ->
+      do_type_splay:bool ->
+      Core.Filename.t ->
+      Status.Terminal.t * tape
+    (** Performs concolic evaluation on the program in the provided file or times
+        out if the timeout limit was exceeded.  The result is printed to stdout. *)
 
-type 'a test = ('a, do_wrap:bool -> do_type_splay:bool -> Status.Terminal.t) Options.Arrow.t
+    val eval : Status.Terminal.t Cmdliner.Cmd.t
+    (** [eval] can be run with [Cmdliner] to run [test] on the command line arguments. *)
+  end
 
-val test_bjy : Lang.Ast.Bluejay.pgm test
-(** [test_bjy pgm] is the result of concolic evaluation on [pgm],
-    or timeout if the timeout limit was exceeded. The result is printed
-    to stdout. *)
+  (* This is generative because a new solver contexts are made *)
+  module Make (Key : Smt.Symbol.KEY) (_ : Target_queue.MAKE) (_ : Evaluator.EVAL with type k := Key.t) () : DRIVER
 
-val test : Core.Filename.t test
-(** [test filename do_wrap] is the result of concolic evaluation on the Bluejay
-    program parsed from [filename], or timeout if the timeout limit was
-    exceeded. The result is printed to stdout. *)
+  module Eager : DRIVER
 
-val ceval : Status.Terminal.t Cmdliner.Cmd.t
-(** [ceval] can be run with [Cmdliner] to run [test] on the command line arguments. *)
+  module Deferred : DRIVER
+
+  module Default = Eager
+
+  include DRIVER (* Is Default *)
+end
+
+(* No logging -- anything logged is just ignored, and the final tape is () *)
+include S with type tape = unit
+
+module Of_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) : S with type tape = T.tape

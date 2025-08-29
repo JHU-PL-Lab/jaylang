@@ -18,4 +18,4 @@ let f : (x : if x then bool else { b : bool | b }) -> { i : int | if x then i > 
   fun x ->
     if x
     then 1
-    else (0 - 1)
+    else -1

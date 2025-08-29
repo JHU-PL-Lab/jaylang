@@ -1,0 +1,10 @@
+(tests
+ (names test_tools)
+ (modules
+  test_tools
+  tests_pp_test_files
+  tests_randomly_generated_asts
+  tests_utils)
+ (libraries utils cmdliner alcotest alcotest-lwt metadata concolic)
+ (preprocess
+  (pps ocaml-monadic)))

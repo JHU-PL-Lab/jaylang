@@ -1,0 +1,12 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let _ = defer (assert false) (* we expect to hit this, but our flags don't yet allow us to differentiate the type of error *)
+
+let _ = defer (0 + true)
+
+let y = 0

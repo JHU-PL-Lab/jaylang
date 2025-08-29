@@ -274,7 +274,7 @@ Notes:
     let $candidate = thaw [[tau]].~gen in
     if [[ e_p ]] $candidate
     then $candidate
-    else diverge (* i.e. safely quit *)
+    else vanish (* i.e. safely quit *)
   ; ~check = fun $e ->
     let _ = [[tau]].~check $e in
     if [[ e_p ]] $e
@@ -321,7 +321,7 @@ Because of the desugaring, we only have types and dependent types instead of pol
   }
 
 [[ bottom ]] =
-  { ~gen = freeze @@ diverge (* can't make a value of type bottom, so exit safely *)
+  { ~gen = freeze @@ vanish (* can't make a value of type bottom, so exit safely *)
   ; ~check = fun _ -> abort "Nothing is in bottom"
   ; ~wrap = fun $e -> $e
   }

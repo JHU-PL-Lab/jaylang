@@ -48,7 +48,7 @@ end) = struct
       f a
     )
 
-  let[@landmark] build (m : L.a Expr.t m) : L.a Expr.t =
+  let build (m : L.a Expr.t m) : L.a Expr.t =
     let body, resulting_bindings = run_identity m in
     (* we must fold right because of the ordering of Preface.List.Monoid.combine and how it is added to the tape *)
     List.fold_right resulting_bindings ~init:body ~f:(fun tape body -> L.t_to_expr tape ~body)
@@ -181,12 +181,8 @@ module Embedded_functions = struct
           apply (EVar f) (apply (EVar x) (EVar x))
         ))
     in
-    EFunction { param = f ; body =
-      EAppl
-        { func = body
-        ; arg  = body
-        }
-    }
+    abstract_over_ids [ f ] @@
+      apply body (EDefer body)
 
   (*
     Generic Y-combinator for one function.

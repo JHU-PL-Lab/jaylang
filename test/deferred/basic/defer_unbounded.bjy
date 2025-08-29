@@ -1,0 +1,14 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+(* This expression never finishes ... *)
+let _ = defer (
+  (fun x -> x x) (defer (fun x -> x x))
+)
+
+(* ... so this error cannot happen *)
+let x = assert false

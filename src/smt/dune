@@ -1,0 +1,15 @@
+
+(library
+ (name smt)
+ (public_name jay.smt)
+ (libraries
+  core
+  preface
+  z3
+  utils
+  )
+ (synopsis "SMT module for the Jaylang project")
+ (inline_tests)
+ (instrumentation (backend landmarks --auto))
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_compare ocaml-monadic)))

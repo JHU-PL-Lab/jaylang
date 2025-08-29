@@ -1,0 +1,14 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let a = defer (assert false)
+
+let rec f x = f x
+
+let b = defer (f 3)
+
+let c =  b + a

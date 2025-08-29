@@ -1,0 +1,9 @@
+(library
+ (public_name jay.ppx_local)
+ (name jay_ppx_local)
+ (libraries core ppxlib)
+ (kind ppx_rewriter)
+ (preprocess
+  (pps ppx_deriving.std ppxlib.metaquot)
+ )
+)

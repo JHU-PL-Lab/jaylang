@@ -110,8 +110,8 @@ module Utils = struct
     match stmt with
     | SUntyped { var ; defn } ->
       ELet { var ; defn ; body }
-    | STyped { typed_var ; defn ; do_wrap ; do_check } ->
-      ELetTyped { typed_var ; defn ; body ; do_wrap ; do_check }
+    | STyped { typed_var ; defn ; typed_binding_opts } ->
+      ELetTyped { typed_var ; defn ; body ; typed_binding_opts }
     | SFun fsig ->
       ELetFun { func = fsig ; body }
     | SFunRec fsigs ->

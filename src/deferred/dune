@@ -1,0 +1,14 @@
+(library
+ (name deferred)
+ (public_name jay.deferred)
+ (libraries
+  core
+  lang
+  concolic
+  interp_common
+ )
+ (synopsis "Deferred interpreter on type-embedded programs")
+ (inline_tests)
+ (instrumentation (backend landmarks --auto))
+ (instrumentation (backend bisect_ppx))
+)

@@ -1,38 +1,24 @@
 module type S = sig
-  type 'a t
+  include Utils.Types.MONAD
+  val pause : unit -> unit m
 
-  val pause : unit -> unit t
+  val with_timeout : float -> (unit -> 'a m) -> 'a m
 
-  val with_timeout : float -> (unit -> 'a t) -> 'a t
-
-  val run : 'a t -> 'a
-
-  val return : 'a -> 'a t
-
-  val ( let* ) : 'a t -> ('a -> 'b t) -> 'b t
-
-  val ( >>= ) : 'a t -> ('a -> 'b t) -> 'b t
+  val run : 'a m -> 'a
 end
 
-module Lwt : S with type 'a t = 'a Lwt.t = struct
+module Lwt : S with type 'a m = 'a Lwt.t = struct
   include Lwt
-  let (let*) = (>>=)
+  type 'a m = 'a t
   let with_timeout = Lwt_unix.with_timeout
   let run = Lwt_main.run
 end
 
-module Id : S = struct
-  type 'a t = 'a
-
+module Id : S with type 'a m = 'a = struct
+  include Utils.Identity.Monad
   let pause () = ()
 
   let with_timeout _ f = f ()
 
   let run a = a
-
-  let return a = a
-
-  let ( >>= ) a f = f a
-
-  let (let*) = ( >>= )
 end

@@ -1,0 +1,10 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+let x = defer 0
+
+let y = 1

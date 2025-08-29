@@ -41,12 +41,13 @@ or whatever version(s) you have installed.
 ## Disclaimers
 
 The icon is under the license found at [this](https://uxwing.com/license/) link.
-It has been recolored and mirrored, but it otherwise is not changed.
+It is the wing icon [here](https://uxwing.com/wing-icon/).
+It has been recolored, resized, and mirrored, but it otherwise is not changed.
 
 The icon has been set as a fallback to whatever icon theme you're using. As long
 as your theme does not define an icon for `.bjy` files, the provided icon is used.
 
-The code for this highligheter has basically all been written with Claude 4, an
+The code for this highlighter has basically all been written with Claude 4, an
 AI chatbot. No person claims credit for this syntax highlighter, besides any credit
 that is due for the effort in managing chatbot failures and easing it into a solution
 that works alright.

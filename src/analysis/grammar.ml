@@ -1,24 +1,12 @@
 
 open Core
 open Lang.Ast
+open Interp_common
 
-module Callstack = struct
-  module T = struct
-    type t = Program_point.t list [@@deriving compare, sexp]
-  end
+(* Fixed value for k-consing callstacks *)
+let k = 1
 
-  include T
-
-  let empty : t = []
-
-  let k = 1
-
-  (* inefficient for now and uses fixed k  *)
-  let k_cons : t -> Program_point.t -> t = fun stack callsite ->
-    List.take (callsite :: stack) k
-
-  module Map = Map.Make (T)
-end
+module Stack_map = Map.Make (Callstack)
 
 module Closure = struct
   type t = { body : Embedded.With_program_points.t ; callstack : Callstack.t }
@@ -27,6 +15,8 @@ module Closure = struct
     match Callstack.compare a.callstack b.callstack with
     | 0 -> Poly.compare a.body b.body (* we're willing to do structural comparison on expressions *)
     | x -> x
+  
+  let to_string : t -> string = fun _ -> "«closure»"
 end
 
 module rec Value : sig 
@@ -92,7 +82,7 @@ end = struct
     | VZero -> "0"
     | VTrue -> "true"
     | VFalse -> "false"
-    | VFunClosure { param ; _ } -> Format.sprintf "(fun %s -> <expr>)" (Ident.to_string param)
+    | VFunClosure { param ; body } -> Format.sprintf "(fun %s -> %s)" (Ident.to_string param) (Closure.to_string body)
     | VFrozen _ -> "Frozen <expr>"
     | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
     | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
@@ -360,9 +350,9 @@ and Store : sig
   (** [empty ()] is the empty store. It is suspended only to have a safe value
       in the recursive module cycle. *)
 end = struct
-  type t = Env.t Callstack.Map.t
+  type t = Env.t Stack_map.t
 
-  let compare = Callstack.Map.compare Env.compare
+  let compare = Stack_map.compare Env.compare
 
   let add callstack env store =
     Map.update store callstack ~f:(function
@@ -375,7 +365,7 @@ end = struct
     | Some env -> env
     | None -> failwith "Unhandled error: callstack does not map to any environment"
 
-  let empty () = Callstack.Map.empty
+  let empty () = Stack_map.empty
 end
 
 and M : sig 
@@ -407,8 +397,8 @@ and M : sig
   val choose : 'a list -> 'a m
   (** [choose ls] chooses an element from [ls]. *)
 
-  val vanish : 'a m
-  (** [vanish] is nothing. It simulates divergence. *)
+  val disappear : 'a m
+  (** [disappear] is nothing. It simulates vanishing and stops all further computation on this vein. *)
 
   (*
     -----
@@ -503,7 +493,7 @@ end = struct
 
   let with_call : Program_point.t -> 'a m -> 'a m = fun point x ->
     fun s r ->
-      x s { r with callstack = Callstack.k_cons r.callstack point }
+      x s { r with callstack = Callstack.k_cons k r.callstack point }
 
   let ask_env : Env.t m =
     fun s r -> Ok [ r.env, s ]
@@ -511,21 +501,21 @@ end = struct
   let ask : (Env.t * Callstack.t) m =
     fun s r -> Ok [ (r.env, r.callstack), s ]
 
-  let vanish : 'a m =
+  let disappear : 'a m =
     fun _ _ -> Ok []
 
   (*
-    Log this expression as seen, and vanish if it had already been seen before.
+    Log this expression as seen, and disappear if it had already been seen before.
     We don't log values, but it would cause no (true) harm because the cache is like env.
     It just would cause some harm in efficiency because we woule be logging unnecessarily.
   *)
   let log : Embedded.With_program_points.t -> 'a m -> 'a m = fun expr x ->
     match expr with
-    | EInt _ | EBool _ | EVar _ | EPick_i _ | EPick_b _ | EFunction _ | EFreeze _ -> x (* these are fine to re-evalaute because they are values *)
+    | EInt _ | EBool _ | EVar _ | EPick_i | EPick_b | EFunction _ | EFreeze _ -> x (* these are fine to re-evalaute because they are values *)
     | _ -> (* handle non-values *)
       fun s r ->
         match Cache.put r.cache r.callstack expr r.env s with
-        | `Existed_already -> Ok [] (* equivalent to behavior of `vanish` above *)
+        | `Existed_already -> Ok [] (* equivalent to behavior of `disappear` above *)
         | `Added_to new_cache -> x s { r with cache = new_cache }
 end
 

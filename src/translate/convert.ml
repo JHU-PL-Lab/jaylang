@@ -9,21 +9,48 @@ let cmd_arg_term =
   and+ do_type_splay = value & flag & info ["s"] ~doc:"Splay types on recursive functions" in
   (`Do_wrap do_wrap, `Do_type_splay do_type_splay)
 
-let[@landmark] bjy_to_emb (bjy : Bluejay.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm =
+let des_to_emb (des : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm =
+  let module Names = Translation_tools.Fresh_names.Make () in
+  Embed.embed_pgm (module Names) ~do_wrap ~do_type_splay des
+
+let des_to_many_emb (des : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm Preface.Nonempty_list.t =
+  let module Names = Translation_tools.Fresh_names.Make () in
+  des
+  |> Embed.embed_fragmented (module Names) ~do_wrap ~do_type_splay
+
+let bjy_to_des (bjy : Bluejay.pgm) ~(do_type_splay : bool) : Desugared.pgm =
+  let module Names = Translation_tools.Fresh_names.Make () in
+  Desugar.desugar_pgm (module Names) bjy ~do_type_splay
+
+let bjy_to_emb (bjy : Bluejay.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm =
   let module Names = Translation_tools.Fresh_names.Make () in
   bjy
   |> Desugar.desugar_pgm (module Names) ~do_type_splay
   |> Embed.embed_pgm (module Names) ~do_wrap ~do_type_splay
 
-let[@landmark] bjy_to_many_emb (bjy : Bluejay.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm Preface.Nonempty_list.t =
+let bjy_to_many_emb (bjy : Bluejay.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm Preface.Nonempty_list.t =
   let module Names = Translation_tools.Fresh_names.Make () in
   bjy
-  |> Desugar.desugar_pgm (module Names) ~do_type_splay
-  |> Embed.embed_fragmented (module Names) ~do_wrap ~do_type_splay
-
-let[@landmark] bjy_to_des (bjy : Bluejay.pgm) ~(do_type_splay : bool) : Desugared.pgm =
-  let module Names = Translation_tools.Fresh_names.Make () in
-  Desugar.desugar_pgm (module Names) bjy ~do_type_splay
+  |> bjy_to_des ~do_type_splay
+  |> des_to_many_emb ~do_wrap ~do_type_splay
 
 let bjy_to_erased (bjy : Bluejay.pgm) : Type_erased.pgm =
   Type_erasure.erase bjy
+
+let some_program_to_emb (prog : some_program) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm =
+  match prog with
+  | SomeProgram(BluejayLanguage, bjy_prog) ->
+    bjy_to_emb ~do_wrap ~do_type_splay bjy_prog
+  | SomeProgram(DesugaredLanguage, des_prog) ->
+    des_to_emb ~do_wrap ~do_type_splay des_prog
+  | SomeProgram(EmbeddedLanguage, emb_prog) ->
+    emb_prog
+
+let some_program_to_many_emb (prog : some_program) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm Preface.Nonempty_list.t =
+  match prog with
+  | SomeProgram(BluejayLanguage, bjy_prog) ->
+    bjy_to_many_emb ~do_wrap ~do_type_splay bjy_prog
+  | SomeProgram(DesugaredLanguage, des_prog) ->
+    des_to_many_emb ~do_wrap ~do_type_splay des_prog
+  | SomeProgram(EmbeddedLanguage, emb_prog) ->
+    Last emb_prog

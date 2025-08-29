@@ -1,8 +1,8 @@
-(lang dune 3.16)
+(lang dune 3.17)
 
 (name jay)
 
-(using menhir 2.0)
+(using menhir 3.0)
 
 (generate_opam_files true)
 
@@ -17,21 +17,24 @@
 
 (package
  (name jay)
- (description "Higher-Order Demand-Driven Symbolic Execution")
+ (description "Semantic typing via program translation and symbol execution")
  (depends
   core
   core_unix
   (alcotest :with-test)
   menhir
   lwt
-  lwt_ppx
   landmarks
   landmarks-ppx
   alcotest
   alcotest-lwt
+  bisect_ppx
+  baby
   psq
   preface
+  mtime
   moonpool
+  vector
   z3
   (ocaml-monadic
    (>= 0.4.1))

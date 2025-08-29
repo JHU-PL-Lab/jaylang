@@ -59,7 +59,7 @@ let rec compare_list compare l1 l2 =
   | [] ->
     match l2 with
     | [] -> 0
-    | _ -> 0 - 1
+    | _ -> -1
     end
   | hd :: tl ->
     match l2 with 
@@ -117,7 +117,7 @@ let compare_bool a b =
   then
     if b 
     then 0 (* both true *)
-    else 0 - 1 
+    else -1
   else
     if b
     then 1

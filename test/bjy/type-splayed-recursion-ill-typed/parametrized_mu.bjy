@@ -1,0 +1,22 @@
+(***
+  (
+    (features (Polymorphic_types Mu_types Parametric_types Variants Records Recursive_functions Other))
+    (reasons (Mu_types Parametric_types Other)) ; encoding error of type splaying parametric mu types
+    (speed Fast)
+    (typing Ill_typed) ; only because this test checks for the presence of the bug.
+    (flags "-s")
+  )
+*)
+
+(* The error here is just because type splaying isn't yet compatible with recursive parametric types *)
+
+let t = mu t a.
+  | `Nil of unit
+  | `Cons of { hd : a ; tl : t a }
+
+let rec length (type a) (ls : t a) : int =
+  match ls with
+  | `Nil _ -> 0
+  | `Cons r -> 1 + length a r.tl
+  end
+ 

@@ -1,0 +1,17 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+let x = 0
+
+let _ = defer 10
+
+let _ = defer (defer (assume false)) (* vanishes before we get to assert, so this is well typed *)
+
+let y = 1 + defer (assert false)
+
+let z = y + 10
+

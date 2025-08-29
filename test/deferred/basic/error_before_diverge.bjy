@@ -1,0 +1,11 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let _ = defer (assert false)
+
+(* This runs forever. We want to take breaks from this periodically to run the above line *)
+let res = (fun x -> x x) (fun x -> x x)

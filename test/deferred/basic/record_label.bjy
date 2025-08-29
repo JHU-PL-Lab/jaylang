@@ -1,0 +1,16 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let r = { x = defer (assert false) ; y = 10 }
+
+let v : int = r.y
+
+let u = r.x (* as of here, still is a symbol *)
+
+let _ = assume (v == 11) (* this causes evaluation to vanish *)
+
+(* now during cleanup, r evaluates to an error, so total result is error *)

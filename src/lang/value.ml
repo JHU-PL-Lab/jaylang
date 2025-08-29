@@ -1,48 +1,62 @@
 (**
-  Module [Value].
+   Module [Value].
 
-  This module defines the values for each programming language
-  in this system. It also provides an environment, which is
-  recursive with the values because of closures.
+   This module defines the values for each programming language
+   in this system. It also provides an environment, which is
+   recursive with the values because of closures.
 
-  Individual uses of the programming languages have different
-  requirements, so we parametrize the values stored in the
-  [VInt] and [VBool] constructors, as well as the cell used to
-  wrap the environment in the closures (e.g. Bluejay has recursion
-  and benefits from a lazy environment in its closures).
+   Individual uses of the programming languages have different
+   requirements, so we parametrize the values stored in the
+   [VInt] and [VBool] constructors, as well as the cell used to
+   wrap the environment in the closures (e.g. Bluejay has recursion
+   and benefits from a lazy environment in its closures).
 
-  We use type constraints (from [Ast]) and GADTs to allow
-  subtyping and reuse of constructors.
+   We use type constraints (from [Ast]) and GADTs to allow
+   subtyping and reuse of constructors.
 *)
 
 open Core
 open Ast
 open Constraints
 
-module type V = sig
-  type 'a t
-  val to_string : ('a -> string) -> 'a t -> string
-  val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
-end
-
 module type STORE = sig
   type 'a t
   val empty : 'a t
   val add : Ident.t -> 'a -> 'a t -> 'a t
   val fetch : Ident.t -> 'a t -> 'a option
+
+  val mappings : 'a t -> (Ident.t * 'a) list
 end
 
 module type CELL = sig
   type 'a t
   val put : 'a -> 'a t
   val get : 'a t -> 'a
+
+  val to_string :('a -> string) -> 'a t -> string
 end
+
+let default_to_string_closure_depth =
+  ref @@
+  match Sys.getenv "TO_STRING_CLOSURE_DEPTH" with
+  | Some s ->
+    begin
+      try
+        int_of_string s
+      with
+      | Failure _ ->
+        prerr_endline
+          (Printf.sprintf
+             "Unparseable TO_STRING_CLOSURE_DEPTH env var: %s" s);
+        0
+    end
+  | None -> 0
 
 (*
   V is the payload of int and bool. We do this so that we can
-  inject Z3 expressions into the values of the concolic evaluator.
+  inject Z3 formulas into the values of the concolic evaluator.
 *)
-module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
+module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
   module T = struct
     type _ t =
       (* all languages *)
@@ -55,7 +69,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
       | VModule : 'a t RecordLabel.Map.t -> 'a t
       | VTypeMismatch : 'a t
       | VAbort : 'a t (* this results from `EAbort` or `EAssert e` where e => false *)
-      | VDiverge : 'a t (* this results from `EDiverge` or `EAssume e` where e => false *)
+      | VVanish : 'a t (* this results from `EVanish` or `EAssume e` where e => false *)
       | VUnboundVariable : Ident.t -> 'a t
       (* embedded only *)
       | VId : 'a embedded_only t
@@ -100,32 +114,32 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
 
     let matches : type a. a t -> a Pattern.t -> (a t * Ident.t) list option =
       fun v pattern ->
-        match pattern, v with
-        | PUntouchable id, VUntouchable v -> Some [ v, id ]
-        | _, VUntouchable _ -> None (* untouchable cannot match any *)
-        | PAny, _
-        | PInt, VInt _ 
-        | PBool, VBool _
-        | PUnit, VUnit
-        | PRecord, VRecord _ (* Currently, types match this *)
-        | PModule, VModule _
-        | PFun, VFunClosure _ -> Some []
-        | PType, VRecord m ->
-          if List.for_all Ast_tools.Reserved.[ gen ; check ; wrap ] ~f:(Map.mem m)
-          then Some []
-          else None
-        | PVariable id, _ -> Some [ v, id ]
-        | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
-            when VariantLabel.equal variant_label label ->
-          Some [ payload, payload_id ]
-        | PEmptyList, VList [] -> Some []
-        | PDestructList { hd_id ; tl_id }, VList (v_hd :: v_tl) ->
-          Some [ v_hd, hd_id ; VList v_tl, tl_id ]
-        | _ -> None
+      match pattern, v with
+      | PUntouchable id, VUntouchable v -> Some [ v, id ]
+      | _, VUntouchable _ -> None (* untouchable cannot match any *)
+      | PAny, _
+      | PInt, VInt _ 
+      | PBool, VBool _
+      | PUnit, VUnit
+      | PRecord, VRecord _ (* Currently, types match this *)
+      | PModule, VModule _
+      | PFun, VFunClosure _ -> Some []
+      | PType, VRecord m ->
+        if List.for_all Ast_tools.Reserved.[ gen ; check ; wrap ] ~f:(Map.mem m)
+        then Some []
+        else None
+      | PVariable id, _ -> Some [ v, id ]
+      | PVariant { variant_label ; payload_id }, VVariant { label ; payload }
+        when VariantLabel.equal variant_label label ->
+        Some [ payload, payload_id ]
+      | PEmptyList, VList [] -> Some []
+      | PDestructList { hd_id ; tl_id }, VList (v_hd :: v_tl) ->
+        Some [ v_hd, hd_id ; VList v_tl, tl_id ]
+      | _ -> None
 
     let rec equal : type a. a t -> a t -> bool =
       fun a b ->
-        if phys_equal a b then true else
+      if phys_equal a b then true else
         match a, b with
         | VInt i1, VInt i2 -> V.equal Int.equal i1 i2
         | VBool b1, VBool b2 -> V.equal Bool.equal b1 b2
@@ -142,24 +156,24 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
         | VUntouchable v1, VUntouchable v2 -> equal v1 v2
         | VList l1, VList l2 -> List.equal equal l1 l2
         | VMultiArgFunClosure r1, VMultiArgFunClosure r2 -> begin
-          match Expr.Alist.cons_assocs r1.params r2.params Expr.Alist.empty with
-          | `Bindings bindings -> equal_closure bindings r1.closure r2.closure
-          | `Unequal_lengths _ -> false
-        end
+            match Expr.Alist.cons_assocs r1.params r2.params Expr.Alist.empty with
+            | `Bindings bindings -> equal_closure bindings r1.closure r2.closure
+            | `Unequal_lengths _ -> false
+          end
         | VTypeRecord m1, VTypeRecord m2 -> RecordLabel.Map.equal equal m1 m2
         | VTypeModule l1, VTypeModule l2 -> begin
-          match
-            List.fold2 l1 l2 ~init:(true, []) ~f:(fun (acc_b, acc_l) (RecordLabel label1, c1) (RecordLabel label2, c2) ->
-              if acc_b then
-                equal_closure acc_l c1 c2
-                , Expr.Alist.cons_assoc label1 label2 acc_l
-              else
-                acc_b, acc_l
-            )
-          with
-          | Ok (b, _) -> b
-          | Unequal_lengths -> false
-        end
+            match
+              List.fold2 l1 l2 ~init:(true, []) ~f:(fun (acc_b, acc_l) (RecordLabel label1, c1) (RecordLabel label2, c2) ->
+                  if acc_b then
+                    equal_closure acc_l c1 c2
+                  , Expr.Alist.cons_assoc label1 label2 acc_l
+                  else
+                    acc_b, acc_l
+                )
+            with
+            | Ok (b, _) -> b
+            | Unequal_lengths -> false
+          end
         | VTypeFun r1, VTypeFun r2 ->
           Bool.(=) r1.det r2.det
           && equal r1.domain r2.domain
@@ -171,10 +185,10 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
         | VTypeRefinement r1, VTypeRefinement r2 ->
           equal r1.tau r2.tau && equal r1.predicate r2.predicate
         | VTypeMu r1, VTypeMu r2 -> begin
-          match Expr.Alist.cons_assocs (r1.var :: r1.params) (r2.var :: r2.params) Expr.Alist.empty with
-          | `Bindings bindings -> equal_closure bindings r1.closure r2.closure
-          | `Unequal_lengths _ -> false
-        end
+            match Expr.Alist.cons_assocs (r1.var :: r1.params) (r2.var :: r2.params) Expr.Alist.empty with
+            | `Bindings bindings -> equal_closure bindings r1.closure r2.closure
+            | `Unequal_lengths _ -> false
+          end
         | VTypeVariant l1, VTypeVariant l2 ->
           List.equal (Tuple2.equal ~eq1:VariantTypeLabel.equal ~eq2:equal) l1 l2
         | VTypeSingle v1, VTypeSingle v2 -> equal v1 v2
@@ -185,7 +199,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
         | VUnboundVariable id1, VUnboundVariable id2 -> Ident.equal id1 id2
         | VTypeMismatch, VTypeMismatch
         | VAbort, VAbort
-        | VDiverge, VDiverge
+        | VVanish, VVanish
         | VId, VId 
         | VType, VType
         | VTypeInt, VTypeInt
@@ -200,16 +214,16 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
 
     and equal_closure : type a. Expr.Alist.t -> a closure -> a closure -> bool =
       fun bindings a b ->
-        if phys_equal a b then true else
+      if phys_equal a b then true else
         Expr.compare (fun id1 id2 ->
-          match Expr.Alist.compare_in_t id1 id2 bindings with
-          | `Found x -> x
-          | `Not_found -> begin
-            match Store.fetch id1 (Env_cell.get a.env), Store.fetch id2 (Env_cell.get a.env) with
-            | Some v1, Some v2 -> if equal v1 v2 then 0 else 1 (* doesn't need to be real comparison *)
-            | _, _ -> 1 (* not equal. Just claim 1 *)
-          end
-        ) a.body b.body = 0
+            match Expr.Alist.compare_in_t id1 id2 bindings with
+            | `Found x -> x
+            | `Not_found -> begin
+                match Store.fetch id1 (Env_cell.get a.env), Store.fetch id2 (Env_cell.get a.env) with
+                | Some v1, Some v2 -> if equal v1 v2 then 0 else 1 (* doesn't need to be real comparison *)
+                | _, _ -> 1 (* not equal. Just claim 1 *)
+              end
+          ) a.body b.body = 0
   end
 
   module Env = struct
@@ -221,62 +235,97 @@ module Make (Store : STORE) (Env_cell : CELL) (V : V) = struct
 
   include T
 
-  let rec to_string : type a. a t -> string = function
+  let _closure_depth_counter = ref 0
+
+  let rec _to_string : type a. a t -> string = function
     | VUnit -> "()"
     | VInt i -> V.to_string Int.to_string i
     | VBool b -> V.to_string Bool.to_string b
-    | VFunClosure { param = Ident s ; _ } -> Format.sprintf "(fun %s -> <expr>)" s
-    | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (to_string payload)
-    | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body to_string
+    | VFunClosure { param = Ident s ; closure } -> Format.sprintf "(fun %s -> %s)" s (_closure_to_string closure)
+    | VVariant { label ; payload } -> Format.sprintf "(`%s (%s))" (VariantLabel.to_string label) (_to_string payload)
+    | VRecord record_body -> RecordLabel.record_body_to_string ~sep:"=" record_body _to_string
     | VModule module_body -> 
       Format.sprintf "struct %s end" 
-      (String.concat ~sep:" " @@ List.map (Map.to_alist module_body) ~f:(fun (key, data) -> Format.sprintf "let %s = %s" (RecordLabel.to_string key) (to_string data)))
+        (String.concat ~sep:" " @@ List.map (Map.to_alist module_body) ~f:(fun (key, data) -> Format.sprintf "let %s = %s" (RecordLabel.to_string key) (_to_string data)))
     | VTypeMismatch -> "Type_mismatch"
     | VUnboundVariable Ident v -> Format.sprintf "Unbound_variable %s" v
     | VAbort -> "Abort"
-    | VDiverge -> "Diverge"
+    | VVanish -> "Vanish"
     | VId -> "(fun x -> x)"
-    | VFrozen _ -> "(Freeze <expr>)"
+    | VFrozen e -> Format.sprintf "(Freeze %s)" (_closure_to_string e)
     | VTable { alist } -> 
       Format.sprintf "Table (%s)\n"
-        (String.concat ~sep:" ; " @@ List.map ~f:(fun (k, v) -> Format.sprintf "(%s, %s)" (to_string k) (to_string v)) alist)
-    | VUntouchable v -> Format.sprintf "Untouchable (%s)" (to_string v)
-    | VList ls -> Format.sprintf "[ %s ]" (String.concat ~sep:" ; " @@ List.map ~f:to_string ls)
-    | VMultiArgFunClosure { params ; _ } -> Format.sprintf "(fun %s -> <expr>)" (String.concat ~sep:" ; " @@ List.map ~f:(fun (Ident s) -> s) params)
+        (String.concat ~sep:" ; " @@ List.map ~f:(fun (k, v) -> Format.sprintf "(%s, %s)" (_to_string k) (_to_string v)) alist)
+    | VUntouchable v -> Format.sprintf "Untouchable (%s)" (_to_string v)
+    | VList ls -> Format.sprintf "[ %s ]" (String.concat ~sep:" ; " @@ List.map ~f:_to_string ls)
+    | VMultiArgFunClosure { params ; closure } -> Format.sprintf "(fun %s -> %s)" (String.concat ~sep:" ; " @@ List.map ~f:(fun (Ident s) -> s) params) (_closure_to_string closure)
     | VType -> "type"
     | VTypeInt -> "int"
     | VTypeBool -> "bool"
     | VTypeTop -> "top"
     | VTypeBottom -> "bottom"
     | VTypeUnit -> "unit"
-    | VTypeRecord record_body -> RecordLabel.record_body_to_string ~sep:":" record_body to_string
-    | VTypeModule ls -> Format.sprintf "sig %s end" (String.concat ~sep:" " @@ List.map ls ~f:(fun (label, _) -> Format.sprintf "val %s : <expr>" (RecordLabel.to_string label)))
-    | VTypeFun { domain ; codomain ; det } -> Format.sprintf "(%s %s %s)" (to_string domain) (if det then "-->" else "->") (to_string codomain)
-    | VTypeDepFun { binding = Ident s ; domain ; det ; _ } -> Format.sprintf "((%s : %s) %s <expr>)" s (if det then "-->" else "->") (to_string domain)
-    | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (to_string tau) (to_string predicate)
+    | VTypeRecord record_body -> RecordLabel.record_body_to_string ~sep:":" record_body _to_string
+    | VTypeModule ls -> Format.sprintf "sig %s end" (String.concat ~sep:" " @@ List.map ls ~f:(fun (label, body) -> Format.sprintf "val %s : %s" (RecordLabel.to_string label) (_closure_to_string body)))
+    | VTypeFun { domain ; codomain ; det } -> Format.sprintf "(%s %s %s)" (_to_string domain) (if det then "-->" else "->") (_to_string codomain)
+    | VTypeDepFun { binding = Ident s ; domain ;  det ; codomain } -> Format.sprintf "((%s : %s) %s %s)" s (if det then "-->" else "->") (_to_string domain) (_closure_to_string codomain)
+    | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (_to_string tau) (_to_string predicate)
     | VTypeSingleFun -> Format.sprintf "singlet"
-    | VTypeSingle v -> Format.sprintf "(singlet (%s))" (to_string v)
+    | VTypeSingle v -> Format.sprintf "(singlet (%s))" (_to_string v)
     | VTypeListFun -> Format.sprintf "list"
-    | VTypeList v -> Format.sprintf "(list (%s))" (to_string v)
+    | VTypeList v -> Format.sprintf "(list (%s))" (_to_string v)
     | VTypeIntersect ls ->
       Format.sprintf "(%s)"
-        (String.concat ~sep:" && " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((``%s (%s)) -> %s)" s (to_string tau1) (to_string tau2)))
-    | VTypeMu { var = Ident s ; params ;  _ } -> 
-      Format.sprintf "(Mu %s. <expr>)"
-        (s ^ String.concat ~sep:" " @@ List.map params ~f:Ident.to_string)
+        (String.concat ~sep:" && " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((``%s (%s)) -> %s)" s (_to_string tau1) (_to_string tau2)))
+    | VTypeMu { var = Ident s ; params ; closure } -> 
+      Format.sprintf "(mu %s. %s)"
+        (s ^ String.concat ~sep:" " @@ List.map params ~f:Ident.to_string) (_closure_to_string closure)
     | VTypeVariant ls ->
       Format.sprintf "(%s)"
-        (String.concat ~sep: "| " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(`%s of %s)" s (to_string tau)))
+        (String.concat ~sep: "| " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau) -> Format.sprintf "(`%s of %s)" s (_to_string tau)))
 
+  and _closure_to_string : type a. a closure -> string = fun c ->
+    if !_closure_depth_counter <= 0 then "«closure»" else
+      let () = _closure_depth_counter := !_closure_depth_counter - 1 in
+      let answer =
+        let {body; env} = c in 
+        let env_to_string e =
+          String.concat ~sep:", " (List.map (Store.mappings e) ~f:(fun (Ident x, v) -> 
+              let v_str = _to_string v in
+              Format.sprintf "(%s, %s)" x v_str)) in
+        let body_eval = Expr.to_string body in
+        let env_eval = Env_cell.to_string (env_to_string) env in
+        Format.sprintf "{%s ; %s}" body_eval env_eval
+      in
+      let () = _closure_depth_counter := !_closure_depth_counter + 1 in
+      answer
+
+  let to_string_by_depth : type a. max_closure_depth:int -> a t -> string =
+    fun ~(max_closure_depth:int) v ->
+    let () = _closure_depth_counter := max_closure_depth in
+    _to_string v
+
+  let closure_to_string_by_depth :
+    type a. max_closure_depth:int -> a closure -> string =
+    fun ~(max_closure_depth:int) closure ->
+    let () = _closure_depth_counter := max_closure_depth in
+    _closure_to_string closure
+
+  let to_string : type a. a t -> string = fun v ->
+    to_string_by_depth ~max_closure_depth:!default_to_string_closure_depth v
+
+  let closure_to_string : type a. a closure -> string = fun closure ->
+    closure_to_string_by_depth
+      ~max_closure_depth:!default_to_string_closure_depth closure
 end
 
-module Constrain (C : sig type constrain end) (Store : STORE) (Cell : CELL) (V : V) = struct
+module Constrain (C : sig type constrain end) (Store : STORE) (Cell : CELL) (V : Utils.Equatable.P1) = struct
   module M = Make (Store) (Cell) (V)
 
   module T = struct
     type t = C.constrain M.T.t
   end
-  
+
   include T
 
   let matches = M.matches
@@ -284,10 +333,11 @@ module Constrain (C : sig type constrain end) (Store : STORE) (Cell : CELL) (V :
   let to_string = M.to_string
 
   module Env = struct
+    type value = T.t
     type t = C.constrain M.Env.t
     let empty : t = M.Env.empty
-    let add : Ident.t -> T.t -> t -> t = M.Env.add
-    let fetch : Ident.t -> t -> T.t option = M.Env.fetch
+    let add : Ident.t -> value -> t -> t = M.Env.add
+    let fetch : Ident.t -> t -> value option = M.Env.fetch
   end
 end
 
@@ -313,6 +363,9 @@ module List_store = struct
       | _ :: tl -> loop tl
     in
     loop env
+
+  let[@inline always] mappings (env : 'a t) : (Ident.t * 'a) list =
+    env
 end
 
 module Map_store = struct
@@ -327,12 +380,17 @@ module Map_store = struct
 
   let[@inline always] fetch (id : Ident.t) (env : 'a t) : 'a option =
     Map.find env id
+
+  let[@inline always] mappings (env : 'a t) : (Ident.t * 'a) list =
+    Map.to_alist env
 end
 
 module Lazy_cell = struct
   include Lazy
   let put a = lazy a
   let get x = force x
+
+  let to_string f x = if Lazy.is_val x then f (get x) else "lazy»"
 end
 
 (*

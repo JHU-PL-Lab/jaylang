@@ -1,6 +1,7 @@
 open Core
 open Lang
 open Utils
+open Interpreter
 
 (*
   This just runs some acceptance tests on the interpreter. We
@@ -26,8 +27,9 @@ let testcases_of_filename (testname : Filename.t) : unit Alcotest.test_case list
   let make convert =
     Alcotest.test_case testname `Quick
     @@ fun () ->
-      let bjy = Parse.parse_single_pgm_string @@ In_channel.read_all testname in
-      check (convert bjy)
+    let bjy =
+      Parser.Bluejay.parse_single_pgm_string @@ In_channel.read_all testname in
+    check (convert bjy)
   in
   [ make Translate.Convert.bjy_to_erased ; make Fn.id ; make (Translate.Convert.bjy_to_des ~do_type_splay:false) ; make (Translate.Convert.bjy_to_emb ~do_wrap:true ~do_type_splay:false) ]
 
@@ -36,11 +38,11 @@ let root_dir = "test/bjy/"
 let make_tests (dirs : string list) : unit Alcotest.test list =
   let open List.Let_syntax in
   dirs >>| fun dirname -> 
-    ( dirname
-    , [ root_dir ^ dirname ]
-      |> File_utils.get_all_bjy_files
-      >>= testcases_of_filename
-    )
+  ( dirname
+  , [ root_dir ^ dirname ]
+    |> File_utils.get_all_bjy_files
+    >>= testcases_of_filename
+  )
 
 let () =
   Alcotest.run "interp"
@@ -74,4 +76,4 @@ let () =
     ; "sato-bjy-ill-typed"
     ; "sato-bjy-well-typed"
     ]
-    
+

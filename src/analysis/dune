@@ -6,16 +6,14 @@
  (libraries
   core
   lang
+  interp_common
  )
  (synopsis "Program analysis on embedded-type programs")
  (inline_tests)
+ (instrumentation (backend landmarks --auto))
+ (instrumentation (backend bisect_ppx))
  (preprocess
   (pps
    ppx_sexp_conv
    ppx_compare
-   ocaml-monadic
-   ; lwt_ppx
-   ;bisect_ppx ; should comment when not wanting report because it adds overhead
-   ; for profiling
-   landmarks-ppx
-   --auto)))
+   ocaml-monadic)))

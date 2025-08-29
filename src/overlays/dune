@@ -8,9 +8,10 @@
   z3
   moonpool
   utils
+  smt
   )
- (synopsis "Utils module for the Jaylang project")
+ (synopsis "Library overlays for the Jaylang project")
  (inline_tests)
- (instrumentation
-  (backend landmarks))
- (preprocess (pps ppx_compare ocaml-monadic landmarks-ppx --auto)))
+ (instrumentation (backend landmarks --auto))
+ (instrumentation (backend bisect_ppx))
+ (preprocess (pps ppx_compare ocaml-monadic)))

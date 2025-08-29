@@ -21,5 +21,5 @@ let rec sum ls =
 
 (* The challenge is to generate a list that has at least 10 elements and the sum is 123456 *)
 (* Inspired by the "Some Experiences" section of Giantsios' Erlang concolic evaluator paper *)
-let f (l : list int) : { ls : list int | not (len ls > 10 && sum ls == 123456)} =
+let f (l : list int) : { ls : list int | not (len ls > 10 && sum ls == 123456) } =
   l

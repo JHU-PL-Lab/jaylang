@@ -10,7 +10,7 @@ let type_mismatch s =
 
 module Error_msg = Lang.Value.Error_msg (Value)
 
-let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
+let rec analyze (e : Embedded.With_program_points.t) : Value.t m =
   log e @@
   match e with
   (* immediate *)
@@ -23,8 +23,8 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
   | EVar id -> bind ask_env (Env.find id)
   | EId -> return VId
   (* inputs *)
-  | EPick_i _ -> any_int
-  | EPick_b _ -> any_bool
+  | EPick_i -> any_int
+  | EPick_b -> any_bool
   (* operations *)
   | EBinop { left ; binop ; right } -> begin
     let%bind v1 = analyze left in
@@ -34,6 +34,8 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
   | ENot expr -> bind (analyze expr) not_
   | EIntensionalEqual _ -> failwith "unimplemented"
   (* propagation *)
+  | EDefer { data = expr ; point } ->
+    with_call point (analyze expr)
   | EMatch { subject ; patterns } -> begin
     let%bind v = analyze subject in
     List.find_map patterns ~f:(fun (pat, expr) ->
@@ -108,7 +110,7 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
   end
   | ECase { subject ; cases ; default } -> begin
     match%bind analyze subject with
-    | VNegInt -> vanish (* not ill-typed. Just diverge because there are no negative cases *)
+    | VNegInt -> disappear (* not ill-typed. Just vanish because there are no negative cases *)
     | VZero -> analyze default
     | VPosInt -> (* relying on the assumption that cases are on positive ints *)
       let%bind (_, expr) = choose cases in
@@ -151,11 +153,11 @@ let[@landmark] rec analyze (e : Embedded.With_program_points.t) : Value.t m =
     | v -> type_mismatch @@ Error_msg.thaw_non_frozen v
   end
   (* termination *)
-  | EDiverge _ -> vanish
+  | EVanish _ -> disappear
   | EAbort { data = msg ; point = _ } -> fail @@ Err.abort msg
   (* unhandled and currently ignored *)
   | EDet expr
   | EEscapeDet expr -> analyze expr
   (* unhandled and currently aborting *)
-  | ETable
-  | ETblAppl _ -> failwith "unimplemented analysis on tables"
+  | ETableCreate
+  | ETableAppl _ -> failwith "unimplemented analysis on tables"

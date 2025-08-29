@@ -1,0 +1,13 @@
+
+(tests
+ (names test_deferred)
+ (modules test_deferred)
+ (libraries
+  utils
+  alcotest
+  alcotest-lwt
+  metadata
+  lang
+  deferred
+  translate
+ ))
