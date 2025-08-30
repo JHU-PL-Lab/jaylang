@@ -507,7 +507,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
             fresh_abstraction "depth_mu" @@ fun depth ->
             abstract_over_ids params @@
             let with_beta body = ELet { var = beta ; defn = apply (EVar self) (EBinop { left = EVar depth ; binop = BMinus ; right = EInt 1 }) ; body } in
-            let with_beta_as_stub body = ELet { var = beta ; defn = stub_type ETypeInt ; body } in
+            let with_beta_as_stub body = ELet { var = beta ; defn = stub_type ETypeUnit ; body } in
             make_embedded_type
               { gen = lazy (
                     EIf

@@ -204,10 +204,7 @@ Y =
 
 Notes:
 * If the user is type-splaying their recursive functions, then they'll also expect that recursive types can be cut short
-* This translation is only valid if the original Bluejay program contains no `input`. It is unsound in that case.
-  * Therefore, before we run this translation, we first scan the source code for any `input` and fail as a "parse error" in the case one exists.
 * Notice that this match comes after the desugaring phase, so it is allowed to catch literally anything, including untouchable values
-* Currently, while `unit` is broken, this would be unsound, so we use `int` in its place. But as a TODO, this should be back to `unit` when that is fixed.
 
 ### Variant declarations
 

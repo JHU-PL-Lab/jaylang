@@ -141,6 +141,32 @@ Notes:
 * Each function that does not have types on it is desugared in the normal way.
 * We don't escape any determinism blocks, so this is incomplete in the presence of deterministic functions.
 
+#### When we don't allow recursive calls in the types (which is incomplete anyways):
+
+```ocaml
+(| let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
+    e1
+  and ...
+  and fn (type an_1 ... an_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
+    en
+  in
+  e |) =
+(* first expose the splayed names so that the first layers can use them *)
+let f1 = ((a1_1 : type) -> ... -> (a1_n1 : type) -> (| tau1_1 |) -> ... -> (| tau1_m1 |) -> (| tau1 |)).~gen
+...
+let fn = ((an_1 : type) -> ... -> (an_nn : type) -> (| taun_1 |) -> ... -> (| taun_mn |) -> (| taun |)).~gen
+
+(* then actually check and wrap the real (first layer) implementations, which can call the generated functions above *)
+let f1 : (a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1 = (| e1 |)
+...
+let fn : (an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun = (| en |)
+```
+
+Notes:
+* This only works when all recursive functions have types and when the types don't refer to the mutually recursive functions.
+* TODO: I haven't actually implemented this yet because it's even more restrictive, but it's what we want to sell in the paper.
+
+
 ### Multi-arg functions
 
 ```ocaml
