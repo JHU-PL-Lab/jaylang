@@ -47,7 +47,7 @@ Notes:
 ### Recursive functions
 
 ```ocaml
-(| let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
+(| let rec f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
     e1
   and ...
   and fn (type an_1 ... an_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
@@ -108,7 +108,7 @@ Notes:
 ### Type splayed recursive functions
 
 ```ocaml
-(| let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
+(| let rec f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
     e1
   and ...
   and fn (type an_1 ... an_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
@@ -144,7 +144,7 @@ Notes:
 #### When we don't allow recursive calls in the types (which is incomplete anyways):
 
 ```ocaml
-(| let f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
+(| let rec f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
     e1
   and ...
   and fn (type an_1 ... an_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
