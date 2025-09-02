@@ -253,7 +253,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               build @@
               let%bind nonce = capture ~suffix:"nonce" EPick_i in
               let%bind () = if det then assign tb ETableCreate else return () in
-              return @@fresh_abstraction "arg_arrow_gen" @@ fun arg ->
+              return @@ fresh_abstraction "arg_arrow_gen" @@ fun arg ->
               build @@
               let%bind () = ignore (EVar nonce) in
               let%bind () = ignore (check tau1 (EVar arg)) in
@@ -395,7 +395,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               build @@
               let%bind candidate = capture @@ gen tau in
               let%bind () = ignore @@ EDefer (EIf
-                                                { cond = apply (embed e_p) (EVar candidate)
+                                                { cond = EDet (apply (embed e_p) (EVar candidate))
                                                 ; true_body = EUnit
                                                 ; false_body = EVanish ()
                                                 })
@@ -408,7 +408,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
             let%bind () = ignore @@ check tau (EVar e) in
             return @@ EDefer (
               EIf
-                { cond = apply (embed e_p) (EVar e)
+                { cond = EDet (apply (embed e_p) (EVar e))
                 ; true_body = EUnit
                 ; false_body = EAbort "Failed predicate"
                 }
@@ -554,10 +554,12 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       make_embedded_type
         { gen = lazy (EVar tau)
         ; check = lazy (fresh_abstraction "t_singlet_check" @@ fun t -> 
-                        build @@
-                        let%bind _ = ignore @@ check (EVar tau) (gen (EVar t)) in
-                        return (check (EVar t) (gen (EVar tau)))
-                       )
+            EEscapeDet (
+              build @@
+              let%bind _ = ignore @@ check (EVar tau) (gen (EVar t)) in
+              return (check (EVar t) (gen (EVar tau)))
+            )
+        )
         ; wrap = lazy EId
         }
 

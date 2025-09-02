@@ -269,18 +269,21 @@ Notes:
 [[{ tau | e_p }]] =
   { ~gen = freeze @@
     let $candidate = thaw [[tau]].~gen in
-    if [[ e_p ]] $candidate
+    if det([[ e_p ]] $candidate)
     then $candidate
     else vanish (* i.e. safely quit *)
   ; ~check = fun $e ->
     let _ = [[tau]].~check $e in
-    if [[ e_p ]] $e
+    if det([[ e_p ]] $e)
     then ()
     else abort "Failed predicate"
   ; ~wrap = fun $e ->
     [[tau]].~wrap $e
   }
 ```
+
+Notes:
+* Refinements must run deterministically.
 
 ### Type / polymorphic types
 
@@ -372,9 +375,10 @@ The singleton of a type is just the singleton set containing that type.
 [[singlet]] =
   fun $tau ->
     { ~gen = freeze @@ $tau
-    ; ~check = fun $t ->
+    ; ~check = fun $t -> escape_det(
         let _ =  $tau.~check (thaw $t.~gen) in
         $t.~check (thaw $tau.~gen)
+      )
     ; ~wrap = fun $t -> $t
     }
 ```
@@ -382,6 +386,7 @@ The singleton of a type is just the singleton set containing that type.
 Note:
 * The word `singlet` is used instead of `singleton` because it only works on types. e.g. `singlet 5` is bad, whereas a programmer might expect `singleton 5` to work.
 * The check goes in both directions: it first asks if `t` is a subtype of `tau` (anything that `t` generates is in `tau`) and then that `tau` is a subtype of `t`, giving equality.
+* Since the checker requires generating, but the generated values cannot escape, we escape any determinism block.
 
 ### Intersection types
 
