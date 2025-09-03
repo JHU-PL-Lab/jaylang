@@ -24,7 +24,7 @@ module Report_row (* : Latex_table.ROW *) = struct
     ; metadata     : Metadata.t }
 
   let names =
-    [ "Test Name" ; "Run" ; "Transl" ; "Total" ; "LOC" ]
+    [ "Test Name" ; "Interp" ; "Solve" ; "Total" ; "LOC" ]
     @ (List.map Ttag.V2.all ~f:(fun tag ->
         Latex_format.rotate_90
         @@ Ttag.V2.to_name_with_underline tag
