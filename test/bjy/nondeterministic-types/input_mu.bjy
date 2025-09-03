@@ -1,0 +1,15 @@
+(***
+  (
+    (features (Mu_types Variants Other))
+    (reasons (Mu_types Other))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let t = mu t.
+  if input == 0 (* ERROR: illegal use of input in a type *)
+  then `A of int (* how to tell apart the input to generate an int from the input above? *)
+  else `B of t
+
+let f : t -> unit = fun _ -> () (* error happens here when we try to generate *)

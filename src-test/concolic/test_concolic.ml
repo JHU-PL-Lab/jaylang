@@ -69,5 +69,7 @@ let () =
 
     ; "type-splayed-recursion-ill-typed"
     ; "type-splayed-recursion-well-typed"
+
+    ; "nondeterministic-types"
     ]
     

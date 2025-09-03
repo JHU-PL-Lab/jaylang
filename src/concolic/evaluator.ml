@@ -40,12 +40,13 @@ let make_targets (target : 'k Target.t) (final_path : 'k Path.t) ~(max_tree_dept
 module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (P : Pause.S) (Log : Utils.Logger.FULL with type B.a = Stat.t and type 'a M.m = 'a P.m) = struct
   module Tq = Make_tq (K)
 
+  open Log
+
   (*
     Falls back on all-zero input feeder on first run and default (random) feeder after that.
   *)
   let c_loop_body (e : Lang.Ast.Embedded.t) (eval : K.t eval) (tq : Tq.t) (solve : K.t Smt.Formula.solver)
     ~(max_tree_depth : int) ~(max_step : Interp_common.Step.t) : Status.Terminal.t Log.m =
-    let open Log in
     let is_first_interp = ref true in
     let rec loop tq =
       let%bind () = upper @@ P.pause () in
@@ -100,8 +101,13 @@ module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (P : Pause.S) (Lo
 
   let c_loop ~(options : Options.t) (eval : K.t eval) (solve : K.t Smt.Formula.solver) (e : Lang.Ast.Embedded.t) : Status.Terminal.t Log.m =
     if not options.random then Interp_common.Rand.reset ();
-    let lifted_timeout t f = Log.map_t 
-      (fun m -> P.with_timeout t (fun () -> m)) (f ())
+    let lifted_timeout t f = 
+      let%bind (a, tape) = Log.map_t (fun m ->
+          P.bind m (fun () -> P.with_timeout t f)
+        ) (return ())
+      in
+      let%bind () = Log.tell tape in
+      return a
     in
     lifted_timeout options.global_timeout_sec @@ fun () ->
       let empty_tq = Tq.make options in
@@ -112,4 +118,5 @@ module Make (K : Smt.Symbol.KEY) (Make_tq : Target_queue.MAKE) (P : Pause.S) (Lo
         solve
         ~max_tree_depth:options.max_tree_depth
         ~max_step:(Step options.global_max_step)
+
 end
