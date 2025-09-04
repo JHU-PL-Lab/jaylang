@@ -410,7 +410,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               EIf
                 { cond = EDet (apply (embed e_p) (EVar e))
                 ; true_body = EUnit
-                ; false_body = EAbort "Failed predicate"
+                ; false_body = EAbort (Format.sprintf "Failed predicate: %s" (Expr.to_string e_p))
                 }
             )
           )

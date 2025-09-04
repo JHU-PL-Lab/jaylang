@@ -119,7 +119,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       EIf
         { cond = desugar assert_expr
         ; true_body = EUnit
-        ; false_body = EAbort "Failed assertion"
+        ; false_body = EAbort (Format.sprintf "Failed assertion: %s" (Expr.to_string assert_expr))
         }
     | EAssume assume_expr ->
       EIf
