@@ -131,9 +131,11 @@ let f1 = $r.f1
 ...
 let fn = $r.fn
 (* then actually check and wrap the real implementations, which can call the generated functions above *)
-let f1 : (a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1 = (| e1 |)
+let f1 : (a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1 = 
+  fun a1_1 -> ... -> fun a1_n1 -> fun x1_1 -> ... -> fun x1_m1 -> (| e1 |)
 ...
-let fn : (an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun = (| en |)
+let fn : (an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun = 
+  fun an_1 -> ... -> fun an_nn -> fun xn_1 -> ... -> fun xn_mn -> (| en |)
 ```
 
 Notes:
@@ -157,14 +159,39 @@ let f1 = ((a1_1 : type) -> ... -> (a1_n1 : type) -> (| tau1_1 |) -> ... -> (| ta
 let fn = ((an_1 : type) -> ... -> (an_nn : type) -> (| taun_1 |) -> ... -> (| taun_mn |) -> (| taun |)).~gen
 
 (* then actually check and wrap the real (first layer) implementations, which can call the generated functions above *)
-let f1 : (a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1 = (| e1 |)
-...
-let fn : (an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun = (| en |)
+let f1 : (a1_1 : type) -> ... -> (a1_n1 : type) -> tau1_1 -> ... -> tau1_m1 -> tau1 = 
+  fun a1_1 -> ... -> fun a1_n1 -> fun x1_1 -> ... -> fun x1_m1 -> (| e1 |)
+...                                                                                   
+let fn : (an_1 : type) -> ... -> (an_nn : type) -> taun_1 -> ... -> taun_mn -> taun = 
+  fun an_1 -> ... -> fun an_nn -> fun xn_1 -> ... -> fun xn_mn -> (| en |)
 ```
 
 Notes:
 * This only works when all recursive functions have types and when the types don't refer to the mutually recursive functions.
 * TODO: I haven't actually implemented this yet because it's even more restrictive, but it's what we want to sell in the paper.
+
+This is identical to
+
+```ocaml
+(| let rec f1 (type a1_1 ... a1_n1) (x1_1 : tau1_1) ... (x1_m1 : tau1_m1) : tau1 =
+    e1
+  and ...
+  and fn (type an_1 ... an_nn) (xn_1 : taun_1) ... (xn_mn : taun_mn) : taun =
+    en
+  in
+  e |) =
+let $t1 = (a1_1 : type) -> ... -> (a1_n1 : type) -> (| tau1_1 |) -> ... -> (| tau1_m1 |) -> (| tau1 |)
+...
+let $tn = (an_1 : type) -> ... -> (an_nn : type) -> (| taun_1 |) -> ... -> (| taun_mn |) -> (| taun |)
+
+let f1 : $t1 -> ... -> $tn -> $t1 = 
+  fun f1 -> ... -> fun fn -> 
+    fun a1_1 -> ... -> fun a1_n1 -> fun x1_1 -> ... -> fun x1_m1 -> (| e1 |)
+...                                                            
+let fn : $t1 -> ... -> $tn -> $tn = 
+  fun f1 -> ... -> fun fn -> 
+    fun an_1 -> ... -> fun an_nn -> fun xn_1 -> ... -> fun xn_mn -> (| en |)
+```
 
 
 ### Multi-arg functions
