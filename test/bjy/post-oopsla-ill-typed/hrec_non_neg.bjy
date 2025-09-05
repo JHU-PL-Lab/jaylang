@@ -1,0 +1,22 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions Higher_order_functions Usage_error))
+    (reasons (Refinement_types Higher_order_functions Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+(*
+  This type is inspired by soft-contracts hrec.
+*)
+
+let non_neg = { i : int | i >= 0 }
+
+let rec f (g : int -> non_neg) (x : non_neg) : non_neg =
+  if x <= 0
+  then g x
+  else f (fun x -> f g x) (g x)
+
+let main (n : non_neg) : non_neg =
+  f (fun x -> x + 1) n (* ERROR: (fun x -> x + 1) doesn't take any int to non-neg *)

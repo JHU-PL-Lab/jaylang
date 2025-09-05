@@ -1,0 +1,36 @@
+(***
+  (
+    (features (Recursive_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s -p")
+  )
+*)
+
+
+let is_empty ls = 
+  match ls with
+  | [] -> true
+  | _ :: _ -> false
+  end
+
+let rec reverse (type a) (dependent l : list a) (dependent ac : list a) : { r : list a | is_empty r == (is_empty l && is_empty ac) } =
+  match l with
+  | [] -> ac
+  | hd :: tl -> reverse a tl (hd :: ac)
+  end
+
+let rec mk_list (dependent n : int) : { ls : list int | if n < 0 then is_empty ls else not (is_empty ls) } =
+  if n < 0
+  then []
+  else n :: mk_list (n - 1)
+
+let main (len : int) : int =
+  let xs = mk_list len in
+  if not (len < 0)
+  then
+    match reverse int xs [] with
+    | hd :: _ -> hd
+    end
+  else
+    0

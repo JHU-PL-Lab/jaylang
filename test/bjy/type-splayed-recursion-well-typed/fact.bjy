@@ -13,7 +13,7 @@
 *)
 
 (* let rec fact 
-  (n <- { i : int | i >= 0 })
+  (dependent n : { i : int | i >= 0 })
   : { x : int | x == if n == 0 then 0 else if n == 1 then 1 else n * fact (n - 1) }
   =
   if n == 0 then

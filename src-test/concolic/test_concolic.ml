@@ -64,6 +64,8 @@ let () =
     ; "soft-contract-ill-typed"
     ; "soft-contract-well-typed"
 
+    ; "soft-contract-splayed-well-typed"
+
     ; "sato-bjy-ill-typed"
     ; "sato-bjy-well-typed"
 
