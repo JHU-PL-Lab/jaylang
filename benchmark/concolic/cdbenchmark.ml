@@ -1,6 +1,10 @@
 
 open Core
-open Concolic_common
+open Concolic.Common
+
+module Driver = Concolic.Driver.Of_logger (Utils.Logger.Transformer_of_builder (Utils.Dlist.Specialize (Stat)))
+
+type tape = Driver.tape
 
 module Basic_test = struct
   module Trial = struct
@@ -12,19 +16,20 @@ module Basic_test = struct
   type[@warning "-69"] t =
     { testname : Filename.t
     (* ; test_result : Status.Terminal.t *)
-    ; interp_time : Time_float.Span.t
-    ; solve_time : Time_float.Span.t
-    ; total_time : Time_float.Span.t
+    ; interp_time : Mtime.Span.t
+    ; solve_time : Mtime.Span.t
+    ; total_time : Mtime.Span.t
+    ; n_interps  : int
     ; trial : Trial.t
     ; mode : string }
 
   let names =
-    [ " Test Name" ; "Interp Time" ; "Solve Time" ; "Total" ; "Mode" ]
+    [ " Test Name" ; "Interp Time" ; "Solve Time" ; "Total" ; "N-interps" ; "Mode" ]
 
   let to_strings x =
     let span_to_ms_string =
       fun span ->
-        let fl = Time_float.Span.to_ms span in
+        let fl = Utils.Time.span_to_ms span in
         Float.to_string @@
         if Float.(fl < 1.)
         then Float.round_decimal fl ~decimal_digits:2
@@ -34,29 +39,25 @@ module Basic_test = struct
     ; span_to_ms_string x.interp_time
     ; span_to_ms_string x.solve_time
     ; span_to_ms_string x.total_time
+    ; Int.to_string x.n_interps
     ; x.mode ]
 
   let make
     (trial : Trial.t)
     (mode : string)
-    (runtest : Lang.Ast.some_program -> Status.Terminal.t) (* promises to update interp and solve time *)
+    (runtest : Lang.Ast.some_program -> Status.Terminal.t * tape) (* promises to update interp and solve time *)
     (testname : Filename.t)
     : t =
-    let interp0 = Utils.Safe_cell.get Concolic.Evaluator.global_runtime in
-    let solve0 = Utils.Safe_cell.get Concolic.Evaluator.global_solvetime in
-    let t0 = Caml_unix.gettimeofday () in
-    let source = Lang.Parser.parse_program_from_file testname in
-    let _ : Status.Terminal.t = runtest source in
-    let t1 = Caml_unix.gettimeofday () in
-    let interp1 = Utils.Safe_cell.get Concolic.Evaluator.global_runtime in
-    let solve1 = Utils.Safe_cell.get Concolic.Evaluator.global_solvetime in
-    { testname
-    (* ; test_result *)
-    ; interp_time = Time_float.Span.of_sec (interp1 -. interp0)
-    ; solve_time = Time_float.Span.of_sec (solve1 -. solve0)
-    ; total_time = Time_float.Span.of_sec (t1 -. t0)
-    ; trial
-    ; mode }
+    let source = Lang.Parser.parse_program_from_file testname in (* span should maybe include this *)
+    let span, (_, tape) = Utils.Time.time runtest source in
+    let stat_list = tape [] in
+      { testname
+      ; interp_time = Stat.sum_time Stat.Interp_time stat_list
+      ; solve_time = Stat.sum_time Stat.Solve_time stat_list
+      ; total_time = span (* ignores stats measured total time *)
+      ; n_interps = Stat.sum_count Stat.N_interps stat_list
+      ; trial
+      ; mode }
 
   let average (tests : t list) : t =
     match tests with
@@ -68,15 +69,18 @@ module Basic_test = struct
       let sum =
         List.fold tl ~init ~f:(fun acc x ->
           { acc with
-            interp_time = Time_float.Span.(acc.interp_time + x.interp_time)
-          ; solve_time = Time_float.Span.(acc.solve_time + x.solve_time)
-          ; total_time = Time_float.Span.(acc.total_time + x.total_time) }
+            interp_time = Mtime.Span.add acc.interp_time x.interp_time
+          ; solve_time = Mtime.Span.add acc.solve_time x.solve_time
+          ; total_time = Mtime.Span.add acc.total_time x.total_time
+          ; n_interps = acc.n_interps + x.n_interps }
         )
       in
       { sum with
-        interp_time = Time_float.Span.(sum.interp_time / (Int.to_float n_trials))
-      ; solve_time = Time_float.Span.(sum.solve_time / (Int.to_float n_trials))
-      ; total_time = Time_float.Span.(sum.total_time / (Int.to_float n_trials)) }
+        interp_time = Utils.Time.divide_span sum.interp_time n_trials
+      ; solve_time = Utils.Time.divide_span sum.solve_time n_trials
+      ; total_time = Utils.Time.divide_span sum.total_time n_trials
+      ; n_interps = sum.n_interps / n_trials
+      }
 end 
 
 module Result_table = struct
@@ -94,7 +98,7 @@ module Result_table = struct
     ?(avg_only : bool = true)
     (mode : string)
     (n_trials : int)
-    (runtest : Lang.Ast.some_program -> Status.Terminal.t)
+    (runtest : Lang.Ast.some_program -> Status.Terminal.t * tape)
     (testname : Filename.t)
     : t =
     Latex_tbl.append_rows empty (
@@ -113,7 +117,7 @@ module Result_table = struct
     (mode : string)
     (n_trials : int)
     (dirs : Filename.t list)
-    (runtest : Lang.Ast.some_program -> Status.Terminal.t)
+    (runtest : Lang.Ast.some_program -> Status.Terminal.t * tape)
     : t =
     let open List.Let_syntax in
     dirs
@@ -126,17 +130,17 @@ module Result_table = struct
     (mode : string)
     (tbl : t)
     : t =
-    let open Time_float.Span in
-    let t0 = Time_float.Span.zero in
-    let init = t0, t0, t0, 0 in
-    let interp_sum, solve_sum, total_sum, n =
-      List.fold tbl.rows ~init ~f:(fun ((acc_interp_time, acc_solve_time, acc_total_time, n) as acc) row_or_hline ->
+    let t0 = Mtime.Span.zero in
+    let init = t0, t0, t0, 0, 0 in
+    let interp_sum, solve_sum, total_sum, total_interps, n =
+      List.fold tbl.rows ~init ~f:(fun ((acc_interp_time, acc_solve_time, acc_total_time, acc_interps, n) as acc) row_or_hline ->
         match row_or_hline with
         | Row row ->
-          acc_interp_time + row.interp_time
-          , acc_solve_time + row.solve_time
-          , acc_total_time + row.total_time
-          , Int.(n + 1)
+          Mtime.Span.add acc_interp_time row.interp_time
+          , Mtime.Span.add acc_solve_time row.solve_time
+          , Mtime.Span.add acc_total_time row.total_time
+          , acc_interps + row.n_interps
+          , n + 1
         | Hline -> acc
       )
     in
@@ -145,9 +149,10 @@ module Result_table = struct
           testname = mode ^ " average" 
         ; trial = Average
         ; mode
-        ; interp_time = interp_sum / Int.to_float n
-        ; solve_time = solve_sum / Int.to_float n
-        ; total_time = total_sum / Int.to_float n
+        ; interp_time = Utils.Time.divide_span interp_sum n
+        ; solve_time = Utils.Time.divide_span solve_sum n
+        ; total_time = Utils.Time.divide_span total_sum n
+        ; n_interps = total_interps / n
       }
     ]
 end
@@ -233,14 +238,14 @@ let run () =
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
   let runtest_eager pgm =
-    Concolic.Driver.Eager.test_some_program
+    Driver.Eager.test_some_program
       ~options:{ options with random = true }
       ~do_wrap:true        (* always wrap during benchmarking *)
       ~do_type_splay:false (* never type splay during benchmarking *)
       pgm
   in
   let runtest_deferred pgm =
-    Concolic.Driver.Deferred.test_some_program
+    Driver.Deferred.test_some_program
       ~options:{ options with random = true }
       ~do_wrap:true        (* always wrap during benchmarking *)
       ~do_type_splay:false (* never type splay during benchmarking *)

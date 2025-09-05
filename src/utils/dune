@@ -8,8 +8,11 @@
   core_unix
   core_unix.sys_unix
   preface
+  mtime
+  mtime.clock.os
   )
  (synopsis "Utils module for the Jaylang project")
  (inline_tests)
  (instrumentation (backend landmarks --auto))
+ (instrumentation (backend bisect_ppx))
  (preprocess (pps ppx_compare ocaml-monadic)))

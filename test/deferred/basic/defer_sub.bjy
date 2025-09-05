@@ -1,3 +1,10 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
 let a = defer (assert false)
 
 let rec f x = f x

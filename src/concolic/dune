@@ -1,4 +1,4 @@
-(include_subdirs unqualified)
+(include_subdirs qualified)
 
 (library
  (name concolic)
@@ -8,16 +8,20 @@
   lwt
   lwt.unix
   translate
+  interpreter
   cmdliner
-  concolic_common
-  eager_concolic
-  deferred
+  interp_common
+  baby
+  psq
+  mtime
  )
  (synopsis "Concolic evaluator on embedded-type programs")
  (inline_tests)
  (instrumentation (backend landmarks --auto)) ; use `dune build --instrument-with landmarks` to get instrumentation
+ (instrumentation (backend bisect_ppx))
  (preprocess
   (pps
    ppx_sexp_conv
    ppx_compare
+   ppx_variants_conv
    ocaml-monadic)))

@@ -1,5 +1,5 @@
 
-open Concolic_common
+open Common
 
 (*
   ------------
@@ -7,9 +7,7 @@ open Concolic_common
   ------------
 *)
 
-type 'a m
-val bind : 'a m -> ('a -> 'b m) -> 'b m
-val return : 'a -> 'a m
+include Utils.Types.MONAD
 
 (*
   -------------

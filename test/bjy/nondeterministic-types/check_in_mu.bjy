@@ -1,0 +1,17 @@
+(***
+  (
+    (features (Mu_types Other))
+    (speed Fast)
+    (typing Well_typed)
+  )
+*)
+
+(*
+  Running this checker should be allowed inside a refinement because the generated thing
+  does not escape.
+
+  It does mean that a generator can fail, but that's not that bad. We allow it.
+*)
+let t = { i : int | let f (type a) (x : a) : a = x in true }
+
+let f : t -> t = fun x -> x

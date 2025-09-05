@@ -13,7 +13,7 @@ let t = mu t.
   | `Y of unit
 
 let t2 = mu t2.
-  | `X of (mu t3. int)
+  | `X of (mu t3. unit)
   | `Y of unit
 
 let f (x : t) : t2 =

@@ -1,8 +1,7 @@
 
 open Core
-open Lang.Ast
 open Interp_common
-open Concolic_common
+open Common
 
 type k = Step.t
 
@@ -25,13 +24,13 @@ module Err = struct
   include Status.Eval
   let fail_on_nondeterminism_misuse (s : State.t) : t * State.t =
     Status.Found_abort (State.inputs s, "Nondeterminism used when not allowed."), s
-  let fail_on_fetch (id : Ident.t) (s : State.t) : t * State.t =
+  let fail_on_fetch (id : Lang.Ast.Ident.t) (s : State.t) : t * State.t =
     Status.Unbound_variable (State.inputs s, id), s
   let fail_on_max_step (_step : int) (s : State.t) : t * State.t =
     Status.Reached_max_step, s
 end
 
-include Interp_common.Effects.Make (State) (Value.Env) (Err)
+include Interp_common.Effects.Make (State) (Utils.Builder.Unit_builder) (Value.Env) (Err)
 
 let abort (msg : string) : 'a m =
   let%bind s = get in
@@ -66,6 +65,6 @@ let get_input (type a) (make_key : Step.t -> a Feeder.Key.t) (feeder : Step.t In
 
 let run (x : 'a m) : Status.Eval.t * k Path.t =
   match run x State.empty Read.empty with
-  | Ok _, state, _ ->
+  | Ok _, state, _, () ->
     Status.Finished, state.path
-  | Error e, state, _ -> e, state.path
+  | Error e, state, _, () -> e, state.path

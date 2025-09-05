@@ -1,0 +1,13 @@
+(***
+  (
+    (features (Refinement_types Other))
+    (reasons (Refinement_types Other))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+(* ERROR: illegal use of input in a refinement *)
+let t = { i : int | if input == 0 then true else false }
+
+let f : t -> unit = fun _ -> () (* error happens here when we try to generate *)

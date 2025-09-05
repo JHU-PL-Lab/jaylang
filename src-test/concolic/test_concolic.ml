@@ -18,7 +18,7 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
   @@ fun () ->
     Cmdliner.Cmd.eval_value' ~argv:(Array.append [| ""; testname; "-t"; "10.0" |] metadata.flags) Driver.eval
     |> begin function
-      | `Ok status -> Concolic_common.Status.is_error_found status
+      | `Ok status -> Concolic.Common.Status.is_error_found status
       | `Exit i -> raise @@ Invalid_argument (Format.sprintf "Test couldn't evaluate and finished with exit code %d." i)
     end
     |> Bool.(=) is_error_expected
@@ -69,5 +69,7 @@ let () =
 
     ; "type-splayed-recursion-ill-typed"
     ; "type-splayed-recursion-well-typed"
+
+    ; "nondeterministic-types"
     ]
     

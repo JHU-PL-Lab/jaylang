@@ -1,0 +1,13 @@
+(***
+  (
+    (features (Refinement_types Other))
+    (reasons (Refinement_types Other))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let f (g : int -> bool) : bool =
+  let t = { i : int | g i } in (* ERROR: nondeterministic type *)
+  let h : t -> t = fun x -> x in
+  true

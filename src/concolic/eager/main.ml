@@ -2,7 +2,7 @@
 open Core
 open Lang.Ast
 open Lang.Ast.Expr
-open Concolic_common
+open Common
 
 module Error_msg = Lang.Value.Error_msg (Value)
 

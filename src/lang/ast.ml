@@ -267,7 +267,7 @@ module Program_point = struct
 end
 
 module Expr = struct
-  module type Cell_sig = sig
+  module type CELL = sig
     type 'a t [@@deriving compare]
     val to_string : ('a -> string) -> 'a t -> string
     val to_sexp : ('a -> Sexp.t) -> 'a t -> Sexp.t
@@ -282,7 +282,7 @@ module Expr = struct
       abort
       vanish
   *)
-  module Make (Cell : Cell_sig) = struct
+  module Make (Cell : CELL) = struct
     type _ t =
       (* all languages. 'a is unconstrained *)
       | EUnit : 'a t

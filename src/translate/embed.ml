@@ -8,6 +8,9 @@ open Translation_tools
 open Ast_tools
 open Ast_tools.Utils
 
+let splay_depth = ref 3
+let rec_var_pick = ref 123456
+
 module LetMonad (Names : Fresh_names.S) = struct
   module Binding = struct
     type a = Constraints.embedded
@@ -250,7 +253,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               build @@
               let%bind nonce = capture ~suffix:"nonce" EPick_i in
               let%bind () = if det then assign tb ETableCreate else return () in
-              return @@fresh_abstraction "arg_arrow_gen" @@ fun arg ->
+              return @@ fresh_abstraction "arg_arrow_gen" @@ fun arg ->
               build @@
               let%bind () = ignore (EVar nonce) in
               let%bind () = ignore (check tau1 (EVar arg)) in
@@ -392,7 +395,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               build @@
               let%bind candidate = capture @@ gen tau in
               let%bind () = ignore @@ EDefer (EIf
-                                                { cond = apply (embed e_p) (EVar candidate)
+                                                { cond = EDet (apply (embed e_p) (EVar candidate))
                                                 ; true_body = EUnit
                                                 ; false_body = EVanish ()
                                                 })
@@ -405,7 +408,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
             let%bind () = ignore @@ check tau (EVar e) in
             return @@ EDefer (
               EIf
-                { cond = apply (embed e_p) (EVar e)
+                { cond = EDet (apply (embed e_p) (EVar e))
                 ; true_body = EUnit
                 ; false_body = EAbort "Failed predicate"
                 }
@@ -449,7 +452,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               | [], _ | _, [] -> of_case_list e_variant_ls (* either was empty, so just put all flat *)
               | _ ->
                 EIf
-                  { cond = EBinop { left = EPick_i ; binop = BEqual ; right = EInt 10 } (* unlikely but not THAT unlikely to choose *)
+                  { cond = EBinop { left = EPick_i ; binop = BEqual ; right = EInt !rec_var_pick }
                   ; true_body = of_case_list unlikely
                   ; false_body = of_case_list likely
                   }
@@ -504,7 +507,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
             fresh_abstraction "depth_mu" @@ fun depth ->
             abstract_over_ids params @@
             let with_beta body = ELet { var = beta ; defn = apply (EVar self) (EBinop { left = EVar depth ; binop = BMinus ; right = EInt 1 }) ; body } in
-            let with_beta_as_stub body = ELet { var = beta ; defn = stub_type ETypeInt ; body } in
+            let with_beta_as_stub body = ELet { var = beta ; defn = stub_type ETypeUnit ; body } in
             make_embedded_type
               { gen = lazy (
                     EIf
@@ -529,8 +532,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                             )
               }
           in
-          (* initial depth is hardcoded to be 3 *)
-          appl_list Embedded_functions.y_1 [ body ; (EInt 3) ]
+          appl_list Embedded_functions.y_1 [ body ; (EInt !splay_depth) ]
       in
       let _ = Stack.pop_exn cur_mu_vars in
       res
@@ -552,10 +554,12 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       make_embedded_type
         { gen = lazy (EVar tau)
         ; check = lazy (fresh_abstraction "t_singlet_check" @@ fun t -> 
-                        build @@
-                        let%bind _ = ignore @@ check (EVar tau) (gen (EVar t)) in
-                        return (check (EVar t) (gen (EVar tau)))
-                       )
+            EEscapeDet (
+              build @@
+              let%bind _ = ignore @@ check (EVar tau) (gen (EVar t)) in
+              return (check (EVar t) (gen (EVar tau)))
+            )
+        )
         ; wrap = lazy EId
         }
 

@@ -22,12 +22,6 @@ module type Computation = sig
         
         NOTE: This function is expected to be run in parallel on many
         threads, so it should be thread-safe. *)
-
-    val run_with_internal_timeout : t -> Compute_result.t
-    (** [run_with_internal_timeout t] does the work on [t] and has
-        its own timer to stop the computation at timeout.
-        
-        NOTE: This function does not need to be thread-safe. *)
   end
 
   val timeout_sec : float
@@ -38,7 +32,7 @@ end
 module Process (C : Computation) : sig
   val process_all : C.Work.t Preface.Nonempty_list.t -> C.Compute_result.t
   (** [process_all work_items] runs the computation on all items in
-      [work_items] at once. If there is only one item, then no domains
-      are spawned. Otherwise, each items gets its own domain. *)
+      [work_items] at once. Each item gets its own domain even if there is just
+      one work item. *)
 end
 

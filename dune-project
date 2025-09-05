@@ -1,4 +1,4 @@
-(lang dune 3.16)
+(lang dune 3.17)
 
 (name jay)
 
@@ -17,7 +17,7 @@
 
 (package
  (name jay)
- (description "Higher-Order Demand-Driven Symbolic Execution")
+ (description "Semantic typing via program translation and symbol execution")
  (depends
   core
   core_unix
@@ -28,9 +28,11 @@
   landmarks-ppx
   alcotest
   alcotest-lwt
+  bisect_ppx
   baby
   psq
   preface
+  mtime
   moonpool
   vector
   z3

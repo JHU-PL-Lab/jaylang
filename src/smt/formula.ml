@@ -164,9 +164,14 @@ module Make_transformer (X : S) = struct
     | Binop (op, e1, e2) -> X.binop op (transform e1) (transform e2)
 end
 
+type 'k solver = (bool, 'k) t list -> 'k Solution.t
+
 module Make_solver (X : SOLVABLE) = struct
   module M = Make_transformer (X)
 
   let solve (exprs : (bool, 'k) t list) : 'k Solution.t =
-    X.solve [ M.transform @@ and_ exprs ]
+    match and_ exprs with
+    | Const_bool false -> Unsat
+    | Const_bool true -> Sat Model.empty
+    | e -> X.solve [ M.transform e ]
 end
