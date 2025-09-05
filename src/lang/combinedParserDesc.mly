@@ -70,20 +70,20 @@ the language and which lines are erased.
 %token EQUAL_EQUAL
 %token NOT_EQUAL
 %token PIPELINE
-(*! scope bluejay desugared !*)
+%token UNIT_KEYWORD
 %token BOOL_KEYWORD
+%token INT_KEYWORD
+%token TYPE
+(*! scope bluejay desugared !*)
 %token BOTTOM_KEYWORD
 %token COLON
 %token INPUT
-%token INT_KEYWORD
 %token LONG_ARROW
 %token MU
 %token OF
 %token SIG
 %token SINGLET_KEYWORD
 %token TOP_KEYWORD
-%token TYPE
-%token UNIT_KEYWORD
 %token VAL
 (*! endscope !*)
 (*! scope bluejay !*)
@@ -121,9 +121,11 @@ the language and which lines are erased.
 %token TABLE_CREATE
 %token TABLE_APPL
 %token DET
-%token ESCAPEDET
+%token ESCAPE_DET
 %token INTENSIONAL_EQUAL
 %token UNTOUCHABLE
+%token RECORD
+%token MODULE
 (*! endscope !*)
 
 /*
@@ -194,8 +196,8 @@ statement:
       { STyped { typed_var = { var = fst $2 ; tau = snd $2 };
                  defn = $6;
                  typed_binding_opts =
-                    TBDesugared { do_wrap = Option.is_none $3;
-                                  do_check = Option.is_none $4;
+                    TBDesugared { do_check = Option.is_none $3;
+                                  do_wrap = Option.is_none $4;
                                 }
                } : statement
       }
@@ -250,8 +252,8 @@ expr:
                     defn = $6;
                     body = $8;
                     typed_binding_opts = TBDesugared
-                        { do_wrap = Option.is_none $3;
-                          do_check = Option.is_none $4;
+                        { do_check = Option.is_none $3;
+                          do_wrap = Option.is_none $4;
                         }
                   } : t
       }
@@ -275,8 +277,8 @@ expr:
   | MATCH expr WITH PIPE? match_expr_list END
       { EMatch { subject = $2 ; patterns = $5 } : t }
   (*! scope embedded !*)
-  | CASE expr WITH PIPE? case_expr_list DEFAULT expr END
-      { ECase { subject = $2; cases = $5; default = $7 } }
+  | CASE expr WITH PIPE case_body END
+      { ECase { subject = $2; cases = fst $5; default = snd $5 } }
   | TABLE_APPL OPEN_PAREN expr COMMA expr COMMA expr CLOSE_PAREN
       { ETableAppl { tbl = $3; gen = $5; arg = $7; } }
   | INTENSIONAL_EQUAL OPEN_PAREN expr COMMA expr CLOSE_PAREN
@@ -309,7 +311,7 @@ expr:
   (*! scope bluejay !*)
   | expr AMPERSAND expr
       { (* We need to restrict these expressions to the form
-            `Foo τ -> τ'
+            `Foo of τ -> τ'
            in order to build our AST.  This is a bit tricky, since Menhir
            doesn't have the lookahead necessary to do so.  We'll just let Menhir
            parse whatever expressions it likes here and then yell if we get
@@ -319,6 +321,9 @@ expr:
            themselves.
       *)
         let extract (e : t) : (VariantTypeLabel.t * t * t) list =
+          let failure (s : string) =
+            prerr_endline s; flush stderr; failwith s
+          in
           match e with
           | ETypeIntersect xs -> xs
           | ETypeFun { domain = ETypeVariant [(lbl,tIn)];
@@ -328,13 +333,13 @@ expr:
                      } ->
             [(lbl, tIn, tOut)]
           | ETypeFun { det = true; _ } ->
-            failwith "TODO: error message: deterministic variable"
+            failure "TODO: error message: deterministic variable"
           | ETypeFun { dep = `Binding _; _ } ->
-            failwith "TODO: error message: dependent variable"
+            failure "TODO: error message: dependent variable"
           | ETypeFun { domain = ETypeVariant (_::_::_); _ } ->
-            failwith "TODO: error message: multiple arguments"
+            failure "TODO: error message: multiple arguments"
           | _ ->
-            failwith "TODO: error message: not a function type"
+            failure "TODO: error message: not a function type"
         in
         ETypeIntersect (extract $1 @ extract $3) : t
       }
@@ -409,8 +414,6 @@ appl_expr:
   (*! scope desugared embedded !*)
   | ABORT ident
       { let Ident s = $2 in EAbort s : t }
-  | VANISH primary_expr
-      { EVanish () : t }
   (*! endscope !*)
   (*! scope desugared !*)
   | GEN primary_expr
@@ -423,7 +426,7 @@ appl_expr:
       { EThaw $2 : t }
   | DET primary_expr
       { EDet $2 : t }
-  | ESCAPEDET primary_expr
+  | ESCAPE_DET primary_expr
       { EEscapeDet $2 : t }
   | UNTOUCHABLE primary_expr
       { EUntouchable $2 : t }
@@ -445,6 +448,10 @@ primary_expr:
   (*! scope bluejay desugared !*)
   | INPUT
       { EInput : t }
+  (*! endscope !*)
+  (*! scope desugared embedded !*)
+  | VANISH
+      { EVanish () : t }
   (*! endscope !*)
   (*! scope embedded !*)
   | PICK_I
@@ -644,11 +651,11 @@ case_expr:
   | INT ARROW expr
       { ($1, $3) : (int * t) }
 
-case_expr_list:
-  | case_expr PIPE
-      { [$1] : (int * t) list }
-  | case_expr PIPE case_expr_list
-      { $1::$3 : (int * t) list }
+case_body:
+  | case_expr PIPE case_body
+      { ($1 :: fst $3, snd $3) : (int * t) list * t }
+  | DEFAULT ARROW expr
+      { ([], $3) : (int * t) list * t }
 
 (*! endscope !*)
 
@@ -658,6 +665,16 @@ pattern:
   (*! scope bluejay !*)
   | OPEN_BRACKET CLOSE_BRACKET { PEmptyList }
   | l_ident DOUBLE_COLON l_ident { PDestructList { hd_id = $1 ; tl_id = $3 } }
+  (*! endscope !*)
+  (*! scope embedded !*)
+  | INT_KEYWORD { PInt }
+  | BOOL_KEYWORD { PBool }
+  | TYPE { PType }
+  | RECORD { PRecord }
+  | MODULE { PModule }
+  | FUNCTION { PFun }
+  | UNIT_KEYWORD { PUnit }
+  | UNTOUCHABLE l_ident { PUntouchable $2 }
   (*! endscope !*)
   | OPEN_PAREN pattern CLOSE_PAREN { $2 }
 ;

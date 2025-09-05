@@ -64,6 +64,9 @@ test-cdeval-all:
 test-tools:
 	dune exec -- src-test/tools/test_tools.exe
 
+sandbox:
+	dune build src-sandbox/sandbox/sandbox.exe
+
 # benchmark
 
 cbenchmark:

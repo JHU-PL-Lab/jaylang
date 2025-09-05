@@ -89,19 +89,19 @@ rule token = parse
 | ">"                  { GREATER }
 | ">="                 { GREATER_EQUAL }
 | "|>"                 { PIPELINE }
+| "bool"               { BOOL_KEYWORD }
+| "int"                { INT_KEYWORD }
+| "unit"               { UNIT_KEYWORD }
 (*! scope bluejay desugared !*)
 | "-->"                { LONG_ARROW }
-| "bool"               { BOOL_KEYWORD }
 | "bottom"             { BOTTOM_KEYWORD }
 | "input"              { INPUT }
-| "int"                { INT_KEYWORD }
 | "mu"                 { MU }
 | "of"                 { OF }
 | "sig"                { SIG }
 | "singlet"            { SINGLET_KEYWORD }
 | "top"                { TOP_KEYWORD }
 | "type"               { TYPE }
-| "unit"               { UNIT_KEYWORD }
 | "val"                { VAL }
 (*! endscope !*)
 (*! scope bluejay !*)
@@ -116,11 +116,13 @@ rule token = parse
 | "list"               { LIST }
 | "rec"                { REC }
 (*! endscope !*)
-(*! scope desugared !*)
+(*! scope desugared embedded !*)
+| "#vanish"            { VANISH }
 | "#abort"             { ABORT }
+(*! endscope !*)
+(*! scope desugared !*)
 | "#no_check"          { NO_CHECK }
 | "#no_wrap"           { NO_WRAP }
-| "#vanish"            { VANISH }
 | "#gen"               { GEN }
 (*! endscope !*)
 (*! scope embedded !*)
@@ -133,12 +135,14 @@ rule token = parse
 | "#thaw"              { THAW }
 | "#id"                { ID }
 | "#ignore"            { IGNORE }
-| "#tableCreate"       { TABLE_CREATE }
-| "#tableAppl"         { TABLE_APPL }
+| "#table_create"      { TABLE_CREATE }
+| "#table_appl"        { TABLE_APPL }
 | "#det"               { DET }
-| "#escapedet"         { ESCAPEDET }
-| "#intensionalEqual"  { INTENSIONAL_EQUAL }
+| "#escape_det"        { ESCAPE_DET }
+| "#intensional_equal" { INTENSIONAL_EQUAL }
 | "#untouchable"       { UNTOUCHABLE }
+| "#record"            { RECORD }
+| "#module"            { MODULE }
 (*! endscope !*)
 | digit+ as n          { INT (int_of_string n) }
 | ident_start ident_cont* as s     { IDENTIFIER s }

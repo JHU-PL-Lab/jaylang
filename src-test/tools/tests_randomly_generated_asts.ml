@@ -6,6 +6,43 @@ open Lang.Ast.Constraints
 
 open Tests_utils
 
+let keywords = [
+  "and";
+  "assert";
+  "assume";
+  "bool";
+  "bottom";
+  "defer";
+  "dep";
+  "dependent";
+  "else";
+  "end";
+  "false";
+  "fun";
+  "function";
+  "if";
+  "in";
+  "input";
+  "int";
+  "let";
+  "list";
+  "match";
+  "mu";
+  "not";
+  "of";
+  "rec";
+  "sig";
+  "singlet";
+  "struct";
+  "then";
+  "top";
+  "true";
+  "type";
+  "unit";
+  "val";
+  "with";
+]
+
 let make_list (n : int) (f : int -> 'a) : 'a list =
   let rec loop i =
     if i = 0 then [] else (f (n-i)) :: (loop (i-1))
@@ -70,7 +107,11 @@ let pick_string
 
 let pick_ident
     ?(min_len:int=1) ?(max_len:int=5) ~(ctx : 'a context) () : Ident.t =
-  Ident(pick_string ~min_len ~max_len ~ctx ())
+  let rec loop () =
+    let s = pick_string ~min_len ~max_len ~ctx () in
+    if List.mem ~equal:String.equal keywords s then loop () else s
+  in
+  Ident(loop ())
 
 let pick_record_label
     ?(min_len:int=1) ?(max_len:int=5) ~(ctx : 'a context) () : RecordLabel.t =
@@ -382,7 +423,7 @@ let rand_EAssume : 'a expr_gen = fun ~ctx ->
 
 let rand_EMultiArgFunction : 'a expr_gen = fun ~ctx ->
   EMultiArgFunction
-    { params = pick_list ~ctx (fun () -> pick_ident ~ctx ());
+    { params = pick_list ~min_len:2 ~ctx (fun () -> pick_ident ~ctx ());
       body = pick_expr ~ctx;
     }
 
@@ -757,6 +798,7 @@ let make_test_from_generators
     )
   in
   make_test_case_from_ast
+    ~shrink:true
     (Printf.sprintf "%s_%04d" test_name test_index)
     parser
     ast_gen
