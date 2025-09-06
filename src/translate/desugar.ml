@@ -65,7 +65,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
         match binop with
         | BAnd -> EIf { cond = desugar left ; true_body = desugar right ; false_body = EBool false }
         | BOr -> EIf { cond = desugar left ; true_body = EBool true ; false_body = desugar right }
-        | BDivide | BModulus -> 
+        | (BDivide | BModulus) when match right with EInt _ -> false | _ -> true -> (* protect with branch when right is anything but an int literal *)
           build @@
           let v = Names.fresh_id () in
           let%bind () = assign v @@ desugar right in
