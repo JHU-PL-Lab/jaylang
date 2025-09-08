@@ -1,0 +1,16 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Parametric_types Recursive_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s")
+  )
+*)
+
+(*
+  This test is a provably well-typed version of `mem`, but the spirit of `mem` has been ruined.
+*)
+let rec mk_list (dependent x : int) (n : int) : list { i : int | i == x } = 
+  if n < 0
+  then []
+  else x :: mk_list x (n - 1)

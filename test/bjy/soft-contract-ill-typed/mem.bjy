@@ -14,15 +14,12 @@ let rec mem x xs =
   | hd :: tl -> hd == x || mem x tl
   end
 
-let ret_type x =
-  { l : list int |
-    match l with  
+let rec mk_list (dependent x : int) (n : int) : { l : list int |
+    match l with
     | [] -> true
-    | a :: b -> mem x l
+    | _ :: _ -> mem x l
     end
-  }
-
-let rec mk_list (dependent x : int) (n : int) : ret_type x = 
+  } =
   if n < 0
   then []
   else n :: mk_list x (n - 1) (*ERROR : the `n :: ...` should be `x :: ...` *)
