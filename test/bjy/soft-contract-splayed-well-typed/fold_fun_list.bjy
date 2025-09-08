@@ -1,0 +1,29 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions Higher_order_functions))
+    (speed Slow) ; Takes 2 seconds to fully exhaust
+    (typing Well_typed)
+    (flags "-s -p -d 50")
+  )
+*)
+
+let t = (x : int) --> { y : int | y >= x }
+
+let rec mk_list (n : int) : list t =
+  if n <= 0
+  then []   
+  else (fun m -> m + n) :: mk_list (n - 1)
+
+let rec foldr (type a acc) (f : a -> acc -> acc) (z : acc) (xs : list a) : acc =
+  match xs with
+  | [] -> z
+  | x :: xss -> f x (foldr a acc f z xss)
+  end
+
+let compose f g =
+  fun x ->
+    f (g x)
+
+let main (n : int) : { int --> int | fun f -> f 0 >= 0 } =
+  let xs = mk_list n in
+  foldr t t compose (fun x -> x) xs

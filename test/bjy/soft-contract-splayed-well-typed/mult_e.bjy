@@ -1,12 +1,15 @@
 (***
   (
     (features (Recursive_functions))
-    (speed Slow) 
+    (speed Fast) 
     (typing Well_typed)
+    (flags "-s -p")
   )
 *)
 
-let rec mult (x : int) (y : int) : int =
+let non_neg = { i : int | i >= 0 }
+
+let rec mult (dep x : non_neg) (dep y : non_neg) : { z : int | z >= x * y } =
   if x <= 0 || y <= 0
   then 0
   else x + mult x (y - 1)

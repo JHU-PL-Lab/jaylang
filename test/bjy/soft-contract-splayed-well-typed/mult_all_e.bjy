@@ -1,0 +1,24 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s")
+  )
+*)
+
+let non_neg = { i : int | i >= 0 }
+
+(* This refinement (added for sake of type splaying) sort of feels like cheating through the challenge. *)
+let rec mult (dependent x : non_neg) (dependent y : non_neg) : { z : int | z >= x * y } =
+  if x <= 0 || y <= 0
+  then 0
+  else x + mult x (y - 1)
+
+let h y =
+  let b = (y + y <= mult y y)
+  in
+  b
+
+let main (n : int | n > 1) : { b : bool | b } =
+  h n

@@ -1,0 +1,28 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s -p")
+  )
+*)
+
+let is_cons xs =
+  match xs with
+  | hd :: tl -> true
+  | _ -> false
+  end
+
+let rec argmin_acc (type a) (f : a -> int) (x : a) (y : int) (xs : list a) : a =
+  match xs with
+  | [] -> x
+  | hd :: tl ->
+    if y < f hd
+    then argmin_acc a f x y tl
+    else argmin_acc a f hd (f hd) tl
+  end
+
+let argmin (type a) (f : a -> int) (xs : { list a | is_cons }) : a =
+  match xs with
+  | hd :: tl -> argmin_acc a f hd (f hd) tl
+  end

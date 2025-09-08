@@ -14,6 +14,7 @@ let rec len (type a) (ls : list a) : { i : int | i >= 0 } =
   | _ :: tl -> 1 + len a tl
   end
 
+(* ERROR: this calls a splayed `len`, which means the refinement is nondeterministic. BAD! Type error *)
 let long_list a = { ls : list a | len a ls > 1 }
 
 (*

@@ -1,0 +1,22 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s -p")
+  )
+*)
+
+(* Like the `mult` tests, adding this refinement feels like cheating the challenge. *)
+let rec sum (dependent x : int) : { i : int | x < 0 || i >= x * (x + 1) / 2 } =
+  if x <= 0
+  then 0
+  else x + sum (x - 1)
+
+let h y =
+  let b = y + y <= sum y
+  in
+  b
+
+let main (n : int | n > 2) : { b : bool | b } =
+  h n

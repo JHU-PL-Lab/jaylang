@@ -16,7 +16,7 @@ let g (_ : bool) (y : bool | y) : unit =
 
 let rec f x y =
   if x
-  then f x x
+  then f y x
   else g x y
 
 let main =

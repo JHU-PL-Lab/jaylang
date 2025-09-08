@@ -1,0 +1,4 @@
+
+This directory contains soft-contract tests to which more types must be added in order to use type splaying.
+
+Any test which worked naturally with type splaying and needed no additional typing is in soft-contract-well-typed/.

@@ -20,7 +20,7 @@ let rec reverse (type a) (dependent l : list a) (dependent ac : list a) : { r : 
   | hd :: tl -> reverse a tl (hd :: ac)
   end
 
-let rec mk_list (dependent n : int) : { ls : list int | if n < 0 then is_empty ls else not (is_empty ls) } =
+let rec mk_list (dependent n : int) : { ls : list int | (n < 0) == is_empty ls } =
   if n < 0
   then []
   else n :: mk_list (n - 1)

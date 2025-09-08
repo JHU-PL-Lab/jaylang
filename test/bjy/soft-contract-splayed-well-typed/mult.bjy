@@ -1,0 +1,18 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Records Recursive_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s -p")
+  )
+*)
+
+let non_neg = { i : int | i >= 0 }
+
+let rec mult (dependent n : non_neg) (dependent m : non_neg) : { i : int | i >= n * m } =
+  if n <= 0 || m <= 0
+  then 0
+  else n + mult n (m - 1)
+
+let sqr (dependent n : int | n > 1) : { c : int | c >= n + 1 } =
+  mult n n
