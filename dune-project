@@ -1,4 +1,4 @@
-(lang dune 3.17)
+(lang dune 3.20)
 
 (name jay)
 
@@ -17,7 +17,7 @@
 
 (package
  (name jay)
- (description "Semantic typing via program translation and symbol execution")
+ (description "Semantic typing via program translation and symbolic execution")
  (depends
   core
   core_unix
