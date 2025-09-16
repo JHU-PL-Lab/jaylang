@@ -38,7 +38,7 @@ let () =
       ]
   in
   let rand_tests =
-    make_rand_tests 30
+    make_rand_tests 100
   in
   Lang.Value.default_to_string_closure_depth := Int.max_int;
   Alcotest.run "tools"

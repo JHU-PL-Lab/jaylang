@@ -101,9 +101,9 @@ rule token = parse
 | "sig"                { SIG }
 | "singlet"            { SINGLET_KEYWORD }
 | "top"                { TOP_KEYWORD }
-| "type"               { TYPE }
 | "val"                { VAL }
 (*! endscope !*)
+| "type"               { TYPE }
 (*! scope bluejay !*)
 | "["                  { OPEN_BRACKET }
 | "]"                  { CLOSE_BRACKET }

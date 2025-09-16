@@ -23,9 +23,7 @@ let do_test
     (ast : a statement list)
   : a test_result =
   let ast1 = ast in
-  let ast_text_1 = 
-    String.concat ~sep:"\n\n" (List.map ast1 ~f:(statement_to_string))
-  in
+  let ast_text_1 = Lang.Ast.Program.to_string ast1 in
   try
     let ast2 = parse ast_text_1 in
     if compare
@@ -78,9 +76,9 @@ let make_test_case_from_ast
       if shrink then
         let shrunken_ast : a Lang.Ast.Expr.statement list =
           Lang.Shrink.shrink
-            (fun (ast : a Lang.Ast.Expr.statement list) ->
-               (not @@ List.is_empty ast) &&
-               (not @@ is_success @@ do_test parse ast))
+            (fun (new_ast : a Lang.Ast.Expr.statement list) ->
+               (not @@ List.is_empty new_ast) &&
+               (not @@ is_success @@ do_test parse new_ast))
             (Lang.Shrink.NodeTypeList Lang.Shrink.NodeTypeStatement)
             ast
         in

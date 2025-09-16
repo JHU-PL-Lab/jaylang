@@ -1011,7 +1011,7 @@ module Expr = struct
       | EIgnore _ -> toplevel_expr (* simply sugar for `let _ = ignored in body` but is more efficient *)
       | ETableCreate -> primary_atomic
       | ETableAppl _ -> 1
-      | EDet _ -> application_like
+      | EDet _ -> primary_atomic
       | EEscapeDet _ -> application_like
       | EIntensionalEqual _ -> self_delimiting
       | EUntouchable _ -> application_like
@@ -1191,11 +1191,18 @@ module Expr = struct
         let codomain_txt = ppp_gt codomain in
         Format.sprintf "(%s %s %s)" domain_txt arrow_txt codomain_txt
       | ETypeRefinement { tau ; predicate } ->
-        let tau_eval = to_string tau in
+        (* Special case: variant type needs parentheses *)
+        let tau_eval =
+          (match tau with
+           | ETypeVariant _ -> fun s -> "(" ^ s ^ ")"
+           | _ -> fun s -> s
+          )
+            (to_string tau)
+        in
         let predicate_eval = to_string predicate in
-        Format.sprintf "{%s |%s}" tau_eval predicate_eval
+        Format.sprintf "{ %s | %s }" tau_eval predicate_eval
       | ETypeMu { var = Ident s ; params ; body } ->
-        Format.sprintf "mu %s. %s" (
+        Format.sprintf "(mu %s. %s)" (
           s ^ " " ^ String.concat ~sep:" " @@
           List.map params ~f:Ident.to_string)
           (to_string body)
@@ -1310,6 +1317,9 @@ module Program = struct
   open Expr
 
   type 'a t = 'a statement list
+
+  let to_string (pgm : 'a t) : string =
+    String.concat ~sep:"\n\n" (List.map pgm ~f:(statement_to_string))
 end
 
 module Embedded = struct

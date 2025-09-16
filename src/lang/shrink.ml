@@ -110,8 +110,10 @@ let mk_holes_for_funsig (type lang) (funsig : lang Expr.funsig)
   | Expr.FUntyped { func_id; params; defn } ->
     [ (defn, fun defn -> Expr.FUntyped { func_id; params; defn }) ]
   | Expr.FTyped { type_vars; func_id; params; ret_type; defn } ->
-    (defn,
-     fun defn -> Expr.FTyped { type_vars; func_id; params; ret_type; defn }) ::
+    (ret_type, fun ret_type ->
+        Expr.FTyped { type_vars; func_id; params; ret_type; defn }) ::
+    (defn, fun defn ->
+        Expr.FTyped { type_vars; func_id; params; ret_type; defn }) ::
     Utils.List_utils.map_in_context params ~f:(
       fun ~before ~after ~idx:_ ~item:param ->
         match param with
@@ -522,49 +524,25 @@ let enumerate_deep_points
                   (
                     match hole_type with
                     | NodeTypeExpr ->
-                      evil_log (
-                        Printf.sprintf "~~ (hole node):\n%s\n\n"
-                          (Expr.to_string hole_node);
-                      );
-                      evil_log_list "hole_points"
-                        (enumerate_shallow_expr_points hole_node
-                         |> List.map ~f:(fun x -> `Wrapper x));
                       enumerate_shallow_expr_points hole_node
-                      |> List.map ~f:(fun y ->
-                          match y with
-                          | SomeTransformPoint y_inner ->
-                            SomeTransformPoint (
-                              transform_compose x_inner y_inner)
-                        )
                     | NodeTypePattern ->
                       enumerate_shallow_pattern_points hole_node
-                      |> List.map ~f:(fun y ->
-                          match y with
-                          | SomeTransformPoint y_inner ->
-                            SomeTransformPoint (
-                              transform_compose x_inner y_inner)
-                        )
                     | NodeTypeStatement ->
                       enumerate_shallow_statement_points hole_node
-                      |> List.map ~f:(fun y ->
-                          match y with
-                          | SomeTransformPoint y_inner ->
-                            SomeTransformPoint (
-                              transform_compose x_inner y_inner)
-                        )
                     | NodeTypeList el_ty ->
                       enumerate_shallow_list_points el_ty hole_node
-                      |> List.map ~f:(fun y ->
-                          match y with
-                          | SomeTransformPoint y_inner ->
-                            SomeTransformPoint (
-                              transform_compose x_inner y_inner)
-                        )
                   )
+                  |> List.map ~f:(fun y ->
+                      match y with
+                      | SomeTransformPoint y_inner ->
+                        SomeTransformPoint (
+                          transform_compose x_inner y_inner)
+                    )
                   |> List.map ~f:(fun x -> `Destruct x)
                 end
               in
-              let () = evil_log_list "new_items" new_items in
+              evil_log (Printf.sprintf "%d new items\n" (List.length new_items));
+              (* let () = evil_log_list "new_items" new_items in *)
               handle (new_items :: [`Result x] :: new_queue)
         in handle)
 
@@ -588,9 +566,41 @@ type 'lang transformers = {
 let default_transformers = {
   expr_transformers = [
     (fun _ -> [EInt 0]);
+    (fun (type lang) (e : lang Expr.t) ->
+       enumerate_shallow_expr_points e
+       |> List.filter_map ~f:(
+         fun stp ->
+           let (SomeTransformPoint (type hole)
+                  (TransformPoint
+                     { hole_type;
+                       encloser_type = _;
+                       hole_node;
+                       context_fn = _}
+                   : (lang, lang Expr.t, hole) transform_point)) = stp in
+           match hole_type with
+           | NodeTypeExpr ->
+             Some (hole_node : lang Expr.t)
+           | NodeTypeList _ | NodeTypePattern | NodeTypeStatement -> None
+       )
+    );
   ];
   pattern_transformers = [];
-  statement_transformers = [];
+  statement_transformers = [
+    (fun (type lang) (stmt : lang Expr.statement) : lang Expr.statement list ->
+       match stmt with
+       | SFunRec funsigs ->
+         Utils.List_utils.map_in_context funsigs ~f:(
+           fun ~before ~after ~idx:_ ~item:_ ->
+             before @ after
+         )
+         |> List.map ~f:(fun funsigs' ->
+             match funsigs' with
+             | [funsig'] -> Expr.SFun funsig'
+             | _ -> Expr.SFunRec funsigs'
+           )
+       | _ -> []
+    )
+  ];
   list_transformers = [
     (fun lst ->
        Utils.List_utils.map_in_context lst ~f:(
@@ -628,18 +638,16 @@ let shrink (type lang node)
     (node : node)
   : node =
   (* TODO: delete this logging chunk *)
-  begin
-    let rec show : 'a. (lang, 'a) node_type -> 'a -> string =
-      fun (type a) (xt : (lang, a) node_type) (x : a) ->
-        match xt with
-        | NodeTypeExpr -> Expr.to_string x
-        | NodeTypePattern -> Pattern.to_string x
-        | NodeTypeStatement -> Expr.statement_to_string x
-        | NodeTypeList et ->
-          String.concat ~sep:"\n\n" (List.map x ~f:(fun e -> show et e))
-    in
-    evil_log (Printf.sprintf "----------------------------------\n\n%s" (show node_type node));
-  end;
+  let rec show : 'a. (lang, 'a) node_type -> 'a -> string =
+    fun (type a) (xt : (lang, a) node_type) (x : a) ->
+      match xt with
+      | NodeTypeExpr -> Expr.to_string x
+      | NodeTypePattern -> Pattern.to_string x
+      | NodeTypeStatement -> Expr.statement_to_string x
+      | NodeTypeList et ->
+        String.concat ~sep:"\n\n" (List.map x ~f:(fun e -> show et e))
+  in
+  evil_log (Printf.sprintf "----------------------------------\n\n%s" (show node_type node));
   let rec loop
       ~(predicate : node -> bool)
       ~(filter : lang replacement_filter option)
@@ -658,11 +666,21 @@ let shrink (type lang node)
           List.compare (node_compare el_ty) x y
     in
     let points = enumerate_deep_points node_type node in
+    let log_point_idx = ref 0 in
+    let log_transformer_idx = ref 0 in
+    let log_transformation_idx = ref 0 in
+    let log_idx_str () =
+      Printf.sprintf "point %d, transformer %d, transformation %d"
+        !log_point_idx !log_transformer_idx !log_transformation_idx
+    in
     let next : node option =
       Sequence.fold_until points
         ~init:()
         ~finish:(fun () -> None)
         ~f:(fun () point ->
+            log_point_idx := !log_point_idx + 1;
+            log_transformer_idx := 0;
+            log_transformation_idx := 0;
             let SomeTransformPoint (type hole) (TransformPoint {
                 hole_type;
                 encloser_type=_;
@@ -678,20 +696,44 @@ let shrink (type lang node)
             in
             let reduced_ast_opt =
               Utils.List_utils.take_first_mapped transforms ~f:(fun transform ->
+                  log_transformer_idx := !log_transformer_idx + 1;
+                  log_transformation_idx := 0;
                   Utils.List_utils.take_first_mapped (transform hole_node) ~f:(
                     fun transformed_hole_node ->
+                      log_transformation_idx := !log_transformation_idx + 1;
                       let transformed_encloser =
                         context_fn transformed_hole_node
                       in
-                      let accept =
-                        node_compare node_type node transformed_encloser <> 0 &&
-                        predicate transformed_encloser &&
+                      let accept_comparison = 
+                        node_compare node_type node transformed_encloser <> 0
+                      in
+                      let accept_predicate =
+                        predicate transformed_encloser
+                      in
+                      let accept_filter =
                         match filter with
                         | None -> true
                         | Some filter ->
                           filter.replacement_filter node_type
                             ~old_node:node ~new_node:transformed_encloser
                       in
+                      let accept =
+                        accept_comparison &&
+                        accept_predicate &&
+                        accept_filter
+                      in
+                      evil_log (Printf.sprintf "###result###### %s: %s\n"
+                                  (log_idx_str ())
+                                  ( if not accept_comparison then
+                                      "rejected (same node)"
+                                    else if not accept_predicate then
+                                      "rejected (predicate failed)"
+                                    else if not accept_filter then
+                                      "rejected (filtered)"
+                                    else
+                                      "accepted"
+                                  )
+                               );
                       if accept then
                         Some transformed_encloser
                       else
@@ -705,8 +747,9 @@ let shrink (type lang node)
           )
     in
     match next with
-    | None -> node
+    | None -> evil_log "########### No reduction found"; node
     | Some new_node ->
+      evil_log (Printf.sprintf "########### Reduced:\n\n%s\n\n##### to\n\n%s\n\n########### Now looping..." (show node_type node) (show node_type new_node));
       loop
         ~predicate
         ~filter
