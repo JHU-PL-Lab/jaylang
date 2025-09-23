@@ -1,0 +1,17 @@
+(***
+  (
+    (features (Polymorphic_types Recursive_functions Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s")
+  )
+*)
+
+let rec filter (type a) (ls : list a) (f : a -> bool) : list a =
+  match ls with
+  | [] -> []
+  | hd :: tl ->
+    if f hd
+    then hd :: filter a tl f
+    else filter a tl f
+  end

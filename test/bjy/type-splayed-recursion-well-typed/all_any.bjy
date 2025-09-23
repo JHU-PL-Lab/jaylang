@@ -1,0 +1,20 @@
+(***
+  (
+    (features (Polymorphic_types Recursive_functions Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s -p")
+  )
+*)
+
+let rec all (type a) (p : a -> bool) (xs : list a) : bool =
+  match xs with
+  | [] -> true
+  | hd :: tl -> p hd && not (any a (fun x -> not (p x)) tl)
+  end
+
+and any (type a) (p : a -> bool) (xs : list a) : bool =
+  match xs with
+  | [] -> false
+  | hd :: tl -> p hd || not (all a (fun x -> not (p x)) tl)
+  end

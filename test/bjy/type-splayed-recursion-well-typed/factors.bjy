@@ -1,7 +1,7 @@
 (***
   (
     (features (Refinement_types Dependent_types Recursive_functions))
-    (speed Slow) ; not that slow, but like 0.1 seconds is a little slow
+    (speed Fast)
     (typing Well_typed)
     (flags "-s")
   )

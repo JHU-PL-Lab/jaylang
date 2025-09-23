@@ -1,7 +1,7 @@
 (***
   (
     (features (Polymorphic_types Refinement_types Recursive_functions Higher_order_functions))
-    (speed Fast) ; b/c type splaying
+    (speed Fast) ; b/c type splaying. This needs splay depth 3 on recursive types to be complete
     (typing Well_typed)
     (flags "-s")
   )

@@ -1,0 +1,14 @@
+(***
+  (
+    (features (Polymorphic_types Recursive_functions Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s")
+  )
+*)
+
+let rec compose_list (type a) (fs : list (a -> a)) : a -> a =
+  match fs with
+  | [] -> fun x -> x
+  | f :: tl -> fun x -> f (compose_list a tl x)
+  end

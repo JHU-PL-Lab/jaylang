@@ -1,0 +1,17 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Recursive_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s -p")
+  )
+*)
+
+let rec gcd (dependent a : int | a > 0) (dependent b : int | b > 0) : { x : int | x > 0 && x <= a && x <= b } =
+  let rem = a % b in
+  if rem == 0
+  then b
+  else gcd b rem
+
+let lcm (dependent n : int | n > 0) (dependent m : int | m > 0) : { x : int | x >= n && x >= m } =
+  n * m / gcd n m

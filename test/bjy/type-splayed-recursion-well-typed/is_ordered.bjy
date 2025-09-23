@@ -1,0 +1,20 @@
+(***
+  (
+    (features (Polymorphic_types Recursive_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "-s")
+  )
+*)
+
+(* Any refinements for orderedness will not work because they are recursive,
+   so here we just use OCaml-like, non-refined types. *)
+let rec is_ordered (type a) (ls : list a) (cmp : a -> a -> int) : bool =
+  match ls with
+  | [] -> true
+  | x :: tl ->
+    match tl with
+    | [] -> true
+    | y :: _ -> cmp x y < 1 && is_ordered a tl cmp
+    end
+  end

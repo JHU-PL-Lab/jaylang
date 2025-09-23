@@ -1,0 +1,46 @@
+(***
+  (
+    (features (Polymorphic_types Mu_types Parametric_types Variants Records Recursive_functions))
+    (speed Slow) ; about 20 seconds while splay depth is 3
+    (typing Well_typed)
+    (flags "-s -p")
+  )
+*)
+
+let t a = mu t.
+  | `Leaf of unit
+  | `Branch of
+    { item : a
+    ; left : t
+    ; right : t }
+
+let rec fold_left (type a acc) (f : acc -> a -> acc) (init : acc) (tree : t a) : acc =
+  match tree with
+  | `Leaf _ -> init
+  | `Branch b ->
+    fold_left a acc f (f (fold_left a acc f init b.left) b.item) b.right 
+  end
+
+(* Slow usage of fold_left. *)
+let is_ordered (type a) (tree : t a) (compare : a -> a -> int) : bool =
+  let res =
+    fold_left a (
+      | `Empty of unit
+      | `Not_ordered of unit
+      | `Ordered_with_min of a
+    ) (fun acc a -> 
+      match acc with
+      | `Not_ordered _ -> `Not_ordered ()
+      | `Empty _ -> `Ordered_with_min a
+      | `Ordered_with_min m ->
+          if compare a m > 0
+          then `Ordered_with_min a
+          else `Not_ordered ()
+      end
+    ) (`Empty ()) tree
+  in
+  match res with
+  | `Empty _ -> true
+  | `Ordered_with_min _ -> true
+  | `Not_ordered _ -> false
+  end
