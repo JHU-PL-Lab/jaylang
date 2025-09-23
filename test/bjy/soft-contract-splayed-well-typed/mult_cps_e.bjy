@@ -1,8 +1,9 @@
 (***
   (
     (features (Refinement_types Recursive_functions Higher_order_functions))
-    (speed Slow)
+    (speed Fast)
     (typing Well_typed)
+    (flags "-s")
   )
 *)
 
@@ -12,7 +13,7 @@ let acc z m =
 let non_neg = { i : int | i >= 0 }
 
 let rec mult (dependent x : non_neg) (dependent y : non_neg) 
-  : let t = { z : int | z >= x * y } in (non_neg -> t) -> t =
+  : let t = { z : int | z >= x * y } in (t -> t) -> t =
   fun k ->
     if x <= 0 || y <= 0
     then k 0
@@ -21,5 +22,5 @@ let rec mult (dependent x : non_neg) (dependent y : non_neg)
 let check w =
   w
 
-let main (n : int) : int =
+let main (n : non_neg) : int =
   mult 100 n check

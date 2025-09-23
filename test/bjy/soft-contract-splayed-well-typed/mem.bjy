@@ -2,12 +2,21 @@
   (
     (features (Refinement_types Dependent_types Parametric_types Recursive_functions))
     (speed Fast)
-    (typing Well_typed) ; we wish this could be well-typed, but currently it can't be
+    (typing Well_typed)
     (flags "-s")
   )
 *)
 
-let rec mem (x : int) (xs : list int) : bool =
+(*
+  This test is a provably well-typed version of `mem`, but the spirit of `mem` has been ruined.
+  The commented code below is the version we wish could work, but it can't with splaying.
+*)
+let rec mk_list (dependent x : int) (n : int) : list { i : int | i == x } = 
+  if n < 0
+  then []
+  else x :: mk_list x (n - 1)
+
+(* let rec mem (x : int) (xs : list int) : bool =
   match xs with
   | [] -> false
   | hd :: tl -> hd == x || mem x tl
@@ -31,3 +40,4 @@ let rec mk_list (dependent x : int) (n : int) : { l : list int |
   if n < 0
   then []
   else x :: mk_list x (n - 1)
+ *)
