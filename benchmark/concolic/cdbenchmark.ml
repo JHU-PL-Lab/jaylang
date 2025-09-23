@@ -166,68 +166,6 @@ let cdbench_args =
   and+ dirs = value & opt (list ~sep:' ' dir) [ "test/bjy/oopsla-24-benchmarks-ill-typed" ] & info ["dirs"] ~doc:"Directories to benchmark" in
   n_trials, dirs
 
-(* let run () =
-  let open Cmdliner in
-  let open Cmdliner.Term.Syntax in
-  Cmd.v (Cmd.info "cbenchmark") @@
-  let+ options = Options.cmd_arg_term
-  and+ n_trials, dirs = cdbench_args in
-  let oc_null = Out_channel.create "/dev/null" in
-  Format.set_formatter_out_channel oc_null;
-  let runtest pgm =
-    let test_program = 
-      match mode with
-      | `Eager -> Concolic.Driver.test_some_program
-      | `Deferred -> Deferred.Cmain.test_some_program
-    in
-    test_program
-      ~options
-      ~do_wrap:true        (* always wrap during benchmarking *)
-      ~do_type_splay:false (* never type splay during benchmarking *)
-      pgm
-  in
-  let tbl = Result_table.of_dirs n_trials dirs runtest in
-  let times =
-    List.filter_map tbl.rows ~f:(function
-        | Row row -> Some (Time_float.Span.to_ms row.total_time)
-        | Hline -> None
-      )
-  in
-  let mean =
-    let total = List.fold times ~init:0.0 ~f:(+.) in
-    total /. Int.to_float (List.length times)
-  in
-  let median =
-    List.sort times ~compare:Float.compare
-    |> Fn.flip List.nth_exn (List.length times / 2)
-  in
-  Format.set_formatter_out_channel Out_channel.stdout;
-  tbl
-  |> Latex_tbl.show ~hum
-  |> Format.printf "%s\n";
-  Format.printf "Mean time of all tests: %fms\nMedian time of all tests: %fms\n" 
-    mean 
-    median;
-  Format.printf "Total interpretation time: %fs\nTotal solving time: %fs\n"
-    (Utils.Safe_cell.get Concolic.Evaluator.global_runtime) 
-    (Utils.Safe_cell.get Concolic.Evaluator.global_solvetime) *)
-
-(*
-  Common directories to benchmark include
-
-    "test/bjy/soft-contract-ill-typed"
-    "test/bjy/deep-type-error"
-    "test/bjy/oopsla-24-tests-ill-typed"; "test/bjy/sato-bjy-ill-typed"
-    "test/bjy/interp-ill-typed"
-
-  To test multiple directories, put them in single quotes and separate by spaces.
-*)
-
-(* let () =
-  match Cmdliner.Cmd.eval_value' @@ run () with
-  | `Ok _ -> ()
-  | `Exit i -> exit i *)
-
 let run () =
   let open Cmdliner in
   let open Cmdliner.Term.Syntax in
@@ -254,48 +192,11 @@ let run () =
   let eager_results = of_dirs "Eager" n_trials dirs runtest_eager |> Result_table.add_average "Eager" in
   let deferred_results = of_dirs "Deferred" n_trials dirs runtest_deferred |> Result_table.add_average "Deferred" in
   let results = Latex_tbl.concat eager_results deferred_results in
-  (* let results = of_dirs n_trials dirs runtest1 runtest2 in
-  let ctimes = List.map results ~f:(fun ls -> float_of_string (List.nth_exn ls 5)) in
-  let dtimes = List.map results ~f:(fun ls -> float_of_string (List.nth_exn ls 8)) in
-  let cinterps = List.map results ~f:(fun ls -> float_of_string (List.nth_exn ls 3)) in
-  let csolves = List.map results ~f:(fun ls -> float_of_string (List.nth_exn ls 4)) in
-  let dinterps = List.map results ~f:(fun ls -> float_of_string (List.nth_exn ls 6)) in
-  let dsolves = List.map results ~f:(fun ls -> float_of_string (List.nth_exn ls 7)) in
-  let cmean =
-    let total = List.fold ctimes ~init:0.0 ~f:(+.) in
-    total /. Int.to_float (List.length ctimes)
-  in
-  let dmean =
-    let total = List.fold dtimes ~init:0.0 ~f:(+.) in
-    total /. Int.to_float (List.length ctimes)
-  in
-  let cmedian =
-    List.sort ctimes ~compare:Float.compare
-    |> Fn.flip List.nth_exn (List.length ctimes / 2)
-  in
-  let dmedian =
-    List.sort dtimes ~compare:Float.compare
-    |> Fn.flip List.nth_exn (List.length ctimes / 2)
-  in *)
   (* Testing is done, so we can set back the stdout channel *)
   Format.set_formatter_out_channel Out_channel.stdout;
   results 
   |> Latex_tbl.show ~hum:true
   |> Format.printf "\n%s\n"
-  (* Format.printf "Mean time of concolic tests: %fms\nMedian time of concolic tests: %fms\n" 
-    cmean 
-    cmedian;
-  Format.printf "Mean time of deferred tests: %fms\nMedian time of deferred tests: %fms\n" 
-    dmean 
-    dmedian;
-  Format.printf "Total concolic interpretation time: %fs\nTotal concolic solving time: %fs\n"
-    (List.fold cinterps ~init:0.0 ~f:(+.))
-    (List.fold csolves ~init:0.0 ~f:(+.));
-  Format.printf "Total deferred interpretation time: %fs\nTotal deferred solving time: %fs\n"
-    (List.fold dinterps ~init:0.0 ~f:(+.))
-    (List.fold dsolves ~init:0.0 ~f:(+.));
-
-  save "testname.csv" results *)
 
 (*
   Common directories to benchmark include
