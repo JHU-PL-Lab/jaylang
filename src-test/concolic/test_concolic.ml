@@ -41,6 +41,9 @@ let () =
     [ "oopsla-26-ill-typed"
     ; "oopsla-26-well-typed"
 
+    ; "ocaml-ill-typed"
+    ; "ocaml-well-typed"
+
     (* ; "deep-type-error" *)
 
     (* ; "interp-ill-typed" *)

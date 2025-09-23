@@ -1,0 +1,41 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions Subtyping))
+    (reasons (Polymorphic_types Modules Subtyping Higher_order_functions))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+(*
+  This test is taken from OCaml:
+    testsuite/tests/typing-modules/functors.ml
+*)
+
+let M : sig
+  val F : sig end -> (X : sig
+      val T : type
+      val inner = sig
+          val t : type
+          val M : t
+        end
+      val F : (X : inner) -> (T -> T -> T) -> sig
+          val res = X.t
+        end
+      val Y : sig
+        val t = T -> T -> T
+        val M : T -> T -> T
+      end
+    end) -> (X.F (X.Y) (X.Y.M)).res
+end = struct
+  (*
+    ERROR: the first argument is a subtype of the one stated above, so this function
+      is a supertype.
+      There is also another error covered in the second version of this test, isolated
+      from this error.
+  *)
+  let F (_ : sig val wrong : type end) (dependent X :
+      sig val T : type end
+    ) (Res : X.T) (Res : X.T) (Res : X.T) : X.T = Res
+end

@@ -1,0 +1,26 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+  This is a well-typed test is adapted from ill-typed OCaml:
+    testsuite/tests/typing-modules/functors.ml
+*)
+
+let M : sig
+  val F : (X : sig
+      val T : type
+      val t = T -> T -> T
+      val M : t
+    end) -> X.T -> X.T -> X.T
+end = struct
+  let F (dependent X : sig
+      val t : type
+      val M : t
+    end) : X.t = X.M
+end

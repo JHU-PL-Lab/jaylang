@@ -1,0 +1,38 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions Usage_error))
+    (reasons (Modules Parametric_types Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+(*
+  This test is taken from OCaml:
+    testsuite/tests/typing-modules/functors.ml
+*)
+
+let F (dependent A : sig val t : type --> type end)
+  (B : sig
+    val t : type --> type
+    val f : (a : type) -> A.t a -> t a
+  end) : sig end = struct end
+
+(* The definition of `F` and its application belows disagree on
+    the arity of `t`, we should not equate the two types *)
+
+(*
+  This is especially obvious in Bluejay, where higher arity types are
+  just functions. But I leave the comments from the OCaml tests because
+  they're fun :)
+*)
+
+let _ = F
+  (struct
+    let t = unit    (* this is bogus! *)
+  end)
+  (struct
+    let t = unit    (* this was originally missing, but I've put it in to isolate the error *)
+    let f _ x = x   (* this is bogus! *) 
+  end)

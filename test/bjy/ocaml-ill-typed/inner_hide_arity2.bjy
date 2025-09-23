@@ -1,0 +1,40 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions Subtyping))
+    (reasons (Polymorphic_types Modules Higher_order_functions))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+(*
+  This test is taken from OCaml:
+    testsuite/tests/typing-modules/functors.ml
+*)
+
+let M : sig
+  val F : sig end -> (X : sig
+      val T : type
+      val inner = sig
+          val t : type
+          val M : t
+        end
+      val F : (X : inner) -> (T -> T -> T) -> sig
+          val res = X.t
+        end
+      val Y : sig
+        val t = T -> T -> T
+        val M : T -> T -> T
+      end
+    end) -> (X.F (X.Y) (X.Y.M)).res
+end = struct
+  (*
+    ERROR: There is one extra `Res` argument. 
+      (T -> T -> T) is the whole type expected, but below is
+      (T -> T -> T -> T) because of the return type.
+  *)
+  let F (_ : sig end) (dependent X :
+      sig val T : type end
+    ) (Res : X.T) (Res : X.T) (Res : X.T) : X.T = Res
+end

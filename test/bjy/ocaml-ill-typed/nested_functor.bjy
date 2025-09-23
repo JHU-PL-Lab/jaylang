@@ -1,0 +1,29 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions))
+    (reasons (Polymorphic_types Modules))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+(*
+  This test is taken from OCaml:
+    testsuite/tests/typing-modules/functors.ml
+*)
+
+let M : sig
+  val F : (X : (A : sig val xa : type end) -> (B : sig val xz : type end) -> sig end)
+    -> (Y : (A : sig val ya : type end) -> (B : sig val yb : type end) -> sig end)
+    -> (Z : (A : sig val za : type end) -> (B : sig val zb : type end) -> sig end)
+    -> sig end
+end = struct
+  (* Note these don't need to be called dependent, but in the spirit of functors, we say they are *)
+  let F
+    (dependent X : (A : sig val xa : type end) -> (B : sig val xz : type end) -> sig end)
+    (dependent Y : (A : sig val ya : type end) -> (B : sig val ybb : type end) -> sig end) (* ERROR: should be `yb`, not `ybb` *)
+    (dependent Z : (A : sig val za : type end) -> (B : sig val zbb : type end) -> sig end)
+    : sig end
+    = struct end
+end

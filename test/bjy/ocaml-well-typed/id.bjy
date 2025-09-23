@@ -1,0 +1,19 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types First_class_types Records Higher_order_functions))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+  This test is taken from OCaml:
+    testsuite/tests/typing-poly/poly.ml
+*)
+
+let t = { id : (a : type) -> a -> a }
+
+let id _ x = x
+
+let _ : t = id t { id = id }

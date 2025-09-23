@@ -1,0 +1,30 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules First_class_types))
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+  This test is taken from OCaml:
+    testsuite/tests/typing-modules/functors.ml
+*)
+
+(* We don't have "module type of", so we have to write this out *)
+let TF = (X : sig
+  val witness : type
+  val t : type (* we should add subtypes so we can say this is a subtype of sig end, and that way it's definitely a module type *)
+  val M : t
+end) -> X.t
+
+let F : TF = fun X -> X.M
+
+let PF = struct
+  let witness = bottom (* arbitrary, usuable type *)
+  let t = TF
+  let M = F
+end
+
+let U = F (PF) (PF) (PF)

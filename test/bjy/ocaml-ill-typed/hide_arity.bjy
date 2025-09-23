@@ -1,0 +1,28 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions))
+    (reasons (Polymorphic_types Modules First_class_types Higher_order_functions))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+(*
+  This test is taken from OCaml:
+    testsuite/tests/typing-modules/functors.ml
+*)
+
+let M : sig
+  val F :
+    (X : sig
+      val x : type
+      val t = (Y : sig val y : type end)
+        -> (Z : sig val z : type end)
+        -> sig end
+    end) -> X.t
+end = struct
+  (* ERROR: this is missing Y *)
+  let F (X : sig val x : type end) (Z : sig val z : type end) : sig end =
+    struct end
+end

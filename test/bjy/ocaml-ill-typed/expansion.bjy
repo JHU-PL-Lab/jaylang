@@ -1,0 +1,26 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions Usage_error))
+    (reasons (Dependent_types Modules Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+(*
+  This test is taken from OCaml:
+    testsuite/tests/typing-modules/functors.ml
+*)
+
+let With_expansion
+  (dependent A : sig val t : type val M : t end)
+  (dependent B : sig val t = A.t end) : B.t = A.M
+
+(*
+  ERROR: the second argument should be a module
+*)
+let R = With_expansion (struct
+  let M _ _ = struct end
+  let t = unit -> unit -> sig end
+  end) () () ()

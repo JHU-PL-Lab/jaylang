@@ -1,0 +1,46 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions))
+    (reasons (Modules))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+(*
+  This test is taken from OCaml:
+    testsuite/tests/typing-modules/functors.ml
+*)
+
+let arg = sig val arg : type end
+let A = struct let arg = bottom end (* abitrary, unusable type *)
+
+let Add_one_ = struct
+  let M (_ : arg) : arg = A
+  let t = arg -> arg (* we don't have "module type of", so I have to spell this out *)
+end
+
+let Add_one = struct
+  let witness = bottom 
+  let M = Add_one_.M
+  let t = Add_one_.t
+end
+
+let Add_three = struct
+  let M (_ : arg) (_ : arg) (_ : arg) : arg = A
+  let t = arg -> arg -> arg -> arg
+  let witness = bottom
+end
+
+(* This type and the next module are taken from abstract_module_type *)
+let TF = (X : sig
+  val witness : type
+  val t : type (* we should add subtypes so we can say this is a subtype of sig end, and that way it's definitely a module type *)
+  val M : t
+end) -> X.t
+
+let F : TF = fun X -> X.M
+
+(* ERROR: (Add_one_) is an extra argument, and it is lacking witness. If it did have witness, the last (A) would be application to a non function *)
+let Choose_one = F (Add_one_) (Add_three) (A) (A) (A)

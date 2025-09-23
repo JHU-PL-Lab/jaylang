@@ -1,0 +1,28 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions))
+    (reasons (Modules Higher_order_functions))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+(*
+  This test is taken from OCaml:
+    testsuite/tests/typing-modules/functors.ml
+*)
+
+let M : sig
+  val F : (X : sig
+      val T : type
+      val t = T -> T -> T
+      val M : t
+    end) -> X.T -> X.T -> X.T
+end = struct
+  let F (Wrong : sig val wrong : type end) (* ERROR: Wrong is an extra argument *)
+    (dependent X : sig
+        val t : type
+        val M : t
+    end) : X.t = X.M
+end
