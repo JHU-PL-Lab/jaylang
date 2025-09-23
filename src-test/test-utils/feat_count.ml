@@ -76,7 +76,7 @@ let () =
   ; "limitations"
   ; "oopsla-24-benchmarks-ill-typed"
   ; "oopsla-24-tests-ill-typed" (* trivial errors *)
-  ; "post-oopsla-ill-typed"
+  ; "oopsla-26-ill-typed"
   ; "sato-bjy-ill-typed"  (* trivial errors *)
   ; "soft-contract-ill-typed"
   ]

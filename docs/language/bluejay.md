@@ -541,4 +541,4 @@ For slightly more involved programs, see
 
 And for tests that push the limits as we currently know them, see
 * `functors-well-typed` (and `-ill-typed`)
-* `post-oopsla-well-typed` ..
+* `oopsla-26-well-typed` ..

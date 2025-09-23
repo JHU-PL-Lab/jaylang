@@ -38,8 +38,8 @@ let make_tests (dirs : string list) : unit Alcotest.test list =
 let () =
   Alcotest.run "concolic"
   @@ make_tests
-    [ "post-oopsla-ill-typed"
-    ; "post-oopsla-well-typed"
+    [ "oopsla-26-ill-typed"
+    ; "oopsla-26-well-typed"
 
     (* ; "deep-type-error" *)
 
