@@ -501,10 +501,10 @@ primary_expr:
   | OPEN_BRACE expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $2 ; predicate = $4 } : t }
   (*! endscope !*)
-  | STRUCT statement_list END
+  | STRUCT list(statement) END (* may be empty *)
       { EModule $2 : t }
   (*! scope bluejay desugared !*)
-  | SIG nonempty_list(val_item) END
+  | SIG list(val_item) END
       { ETypeModule $2 : t }
   | record_type_or_refinement
       { $1 : t }
