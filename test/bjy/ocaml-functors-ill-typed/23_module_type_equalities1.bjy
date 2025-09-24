@@ -1,0 +1,15 @@
+
+(*
+module M: sig
+  module type S = sig type t end
+end = struct
+  module type S = sig type s type t end
+end;;
+*)
+
+let M : sig
+  val S = sig val t : type end
+end = struct
+  (* ERROR: This S is a subtype of the S above. It is not equivalent. *)
+  let S = sig val s : type val t : type end
+end

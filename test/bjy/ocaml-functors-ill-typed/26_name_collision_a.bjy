@@ -1,0 +1,28 @@
+
+(*
+module type a
+
+module F(X:a) = struct type t end
+module M = struct
+  module type a
+  module G(P: sig module X:a end) = struct
+    open P
+    type t = F(X).t
+  end
+end
+*)
+
+let a = abstract
+
+let F (X : a) : sig val t : type end = 
+  struct let t = abstract end
+
+(* a is existential in the original test, so I choose to make it an argument here *)
+let M (a : type) : sig end = struct
+  let a = a
+
+  let G (P : sig val X : a end) : sig end = struct
+    let X = P.X (* we don't have "open", so we must hand-write all from P *)
+    let U = F (X) (* ERROR: this a is allowed to be anything, but above it was fixed *)
+  end
+end

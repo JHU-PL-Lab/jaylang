@@ -1,0 +1,18 @@
+
+(*
+module A = struct type a end
+module B = struct type b end
+
+module K = List(A)(B)
+*)
+
+let List = struct
+  let t = list
+end
+
+let A = struct let a = abstract end
+let B = struct let b = abstract end
+
+let K = List(A)(B)
+
+(* There's not any well-typed version of this program that makes sense and is not extremely trivial *)

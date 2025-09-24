@@ -1,0 +1,44 @@
+
+(*
+module F
+    (A:sig type x type y end)
+    (B:sig type x = A.x end)
+    (C:sig type y = A.y end)
+= struct end
+
+module M = struct
+  module N = struct
+    type x
+    type y
+  end
+end
+
+
+module Defs = struct
+  module X = struct type x = M.N.x end
+  module Y = struct type y = M.N.y end
+end
+module Missing_X = F(M.N)(Defs.Y)
+*)
+
+let F
+    (dependent A : sig val x : type val y : type end)
+    (dependent B : sig val x = A.x end)
+    (dependent C : sig val y = A.y end)
+  : sig end
+  = struct end
+
+let M = struct
+  let N = struct
+    let x = abstract
+    let y = abstract
+  end
+end
+
+let Defs = struct
+  let X = struct let x = M.N.x end
+  let Y = struct let y = M.N.y end
+end
+
+(* ERROR: the second argument defines a type y, which should be type x *)
+let Missing_X = F(M.N)(Defs.Y)

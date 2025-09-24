@@ -1,0 +1,30 @@
+
+let Shape_arg = struct
+  let M1 (Arg1 : sig end) : sig val S1 : singlet (sig val t : type end) end = struct
+    let S1 = sig
+      val t : type
+    end
+  end
+
+  let S2 = sig
+    val Make : (Arg2 : sig end) -> (M1(Arg2)).S1
+  end
+
+  let M2 : S2 = struct
+    let Make Arg3 = struct
+      let t = `T of unit
+    end
+  end
+
+  let M3 (dep Arg4 : sig end) : sig val S3 : singlet (sig val t : singlet (M2.Make(Arg4)).t end) end = struct
+    let S3 = sig
+      val t : singlet ((M2.Make(Arg4)).t)
+    end
+  end
+
+  let M4 (dep Arg5 : sig end) : (M3(Arg5)).S3 = struct
+    let M5 = M2.Make (Arg5)
+
+    let t = M5.t
+  end
+end

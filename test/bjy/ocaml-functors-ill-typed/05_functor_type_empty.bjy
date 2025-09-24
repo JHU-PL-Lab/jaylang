@@ -1,0 +1,14 @@
+
+(*
+module type f = functor (X:empty)(Y:empty) -> empty
+module F: f =
+  functor(X:empty)(Y:empty)(Z:empty) -> Empty
+*)
+
+let empty = sig end
+let Empty = struct end
+
+let f = (X : empty) -> (Y : empty) -> empty
+
+(* ERROR: the type f does not have a Z argument *)
+let F : f = fun X Y Z -> Empty

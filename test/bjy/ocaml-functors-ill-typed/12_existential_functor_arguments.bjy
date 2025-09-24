@@ -1,0 +1,23 @@
+
+(*
+module F(Ctx: sig
+  module type t
+  module type u
+  module X:t
+  module Y:u
+end) = struct
+  open Ctx
+  module F(A:t)(B:u) = struct end
+  module M = F(Y)(X)
+end
+*)
+
+let F (Ctx : sig
+  val t : type (* these types are existential and are the types of the functor arguments below *)
+  val u : type
+  val X : t
+  val Y : u
+end) : sig end = struct
+  let F(A:Ctx.t)(B:Ctx.u) : sig end = struct end
+  let M = F(Ctx.Y)(Ctx.X) (* ERROR: the arguments are reversed *)
+end

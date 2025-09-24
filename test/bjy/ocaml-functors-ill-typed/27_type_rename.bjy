@@ -1,0 +1,21 @@
+
+(*
+module type a
+
+module M: sig module F: functor(X:a)(Y:a) -> sig end end =
+ struct
+  module type aa = a
+  module type a
+  module F(X:aa)(Y:a) = struct end
+end
+*)
+
+let a = abstract
+
+let M : sig val F : (X : a) -> (Y : a) -> sig end end =
+ struct
+  let aa = a
+  let a = abstract
+  (* ERROR: the new a is different from aa *)
+  let F (X : aa) (Y : a) : sig end = struct end
+end

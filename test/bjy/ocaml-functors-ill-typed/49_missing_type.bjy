@@ -1,0 +1,20 @@
+
+(*
+module G
+    (A : sig type 'a t = 'a * 'a end)
+    (B : sig
+       val f : 'a A.t -> 'a
+     end) =
+struct end
+
+module R = G(struct end)(struct let f (x,_) = x end)
+*)
+
+let G
+  (dependent A : sig val t : singlet ((a : type) -> { fst : a ; snd : a }) end)
+  (dependent B : sig val f : (a : type) -> A.t a -> a end)
+  : sig end =
+  struct end
+
+(* ERROR: first arg is empty when it should define a type *)
+let R = G(struct end)(struct let f _ x = x.fst end)

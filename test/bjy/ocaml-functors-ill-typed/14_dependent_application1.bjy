@@ -1,0 +1,37 @@
+
+(*
+module type x = sig type x end
+module type y = sig type y end
+
+module X: x = struct type x end
+module Y: y = struct type y end
+
+module F
+    (A:sig type x type y end)
+    (B:sig type x = A.x end)
+    (C:sig type y = A.y end)
+= struct end
+module K = struct include X include Y end
+module M = F(K)(struct type x = K.x end)( (* struct type z = K.y end *) )
+*)
+
+let x = sig val x : type end
+let y = sig val y : type end
+
+let X : x = struct let x = abstract end
+let Y : y = struct let y = abstract end
+
+let F
+    (dependent A : sig val x : type val y : type end)
+    (dependent B : sig val x = A.x end)
+    (dependent C : sig val y = A.y end)
+  : sig end
+  = struct end
+
+let K = struct 
+  let x = X.x (* we don't have include, so we must manually copy from the modules above *)
+  let y = Y.y 
+end
+
+(* ERROR: the final unit argument (because the body is commented) is not a module *)
+let M = F(K)(struct let x = K.x end)( (* struct let z = K.y end *) )

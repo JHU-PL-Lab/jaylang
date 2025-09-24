@@ -1,0 +1,15 @@
+
+(*
+module M: sig
+  module F: functor(X:sig type x end)(X:sig type y end) -> sig end
+end = struct
+ module F(X:sig type y end) = struct end
+end
+*)
+
+let M : sig
+  val F : (X : sig val x : type end) -> (X : sig val y : type end) -> sig end
+end = struct
+  (* ERROR: F should have one more argument *)
+  let F (X : sig val y : type end) : sig end = struct end
+end

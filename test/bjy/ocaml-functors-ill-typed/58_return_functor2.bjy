@@ -1,0 +1,14 @@
+(*
+module type a
+
+module type empty = sig end
+
+module F(X:a -> a): empty = X
+*)
+
+let a = abstract
+
+let empty = sig end
+
+(* ERROR: X is a functor, not the empty module *)
+let F (X : a -> a) : empty = X

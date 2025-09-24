@@ -9,8 +9,16 @@
 *)
 
 (*
-  This test is taken from OCaml:
-    testsuite/tests/typing-modules/functors.ml
+module With_expansion
+    (A: sig module type t module M:t end)
+    (B:sig module type t = A.t end) = (A.M:B.t)
+
+module R' = With_expansion(struct
+    module M()() = struct end
+    module type t = module type of M
+  end)
+    ()
+    ()
 *)
 
 let With_expansion
@@ -20,7 +28,7 @@ let With_expansion
 (*
   ERROR: the second argument should be a module
 *)
-let R = With_expansion (struct
+let R_ = With_expansion (struct
   let M _ _ = struct end
   let t = unit -> unit -> sig end
   end) () () ()

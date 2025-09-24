@@ -9,8 +9,26 @@
 *)
 
 (*
-  This test is taken from OCaml:
-    testsuite/tests/typing-modules/functors.ml
+module H
+    (X:sig
+       type 'a t
+       type 'a s
+     end)
+    (Y: sig
+       val f: 'a X.s -> 'a
+     end)
+= struct end
+
+
+module _ =
+  H
+    (struct
+      type t (** this is wrong*)
+      type 'a s = 'a (** this matches the expected type *)
+    end)
+    (struct
+      let f x = x   (* this is fine *)
+    end)
 *)
 
 let H (dependent X : sig
@@ -22,7 +40,7 @@ end) : sig end = struct end
 
 let _ = H
   (struct
-    let t = unit (* ERROR: this is wrong arity *)
+    let t = abstract (* ERROR: this is wrong arity *)
     let s a = a (* this matches the expected type *)
   end)
   (struct

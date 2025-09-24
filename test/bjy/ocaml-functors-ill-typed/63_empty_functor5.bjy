@@ -1,0 +1,16 @@
+
+(*
+module type a = sig type a end
+
+module type empty = sig end
+
+module F(X:a): sig module F:empty -> empty end = struct module F = X end
+*)
+
+
+let a = sig val a : type end
+
+let empty = sig end
+
+(* ERROR: `a` is not a functor *)
+let F (X : a) : sig val F : empty -> empty end = struct let F = X end

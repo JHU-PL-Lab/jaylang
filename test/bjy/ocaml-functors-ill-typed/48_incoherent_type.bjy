@@ -9,8 +9,25 @@
 *)
 
 (*
-  This test is taken from OCaml:
-    testsuite/tests/typing-modules/functors.ml
+module F
+    (A : sig type 'a t end)
+    (B : sig
+       type 'a t
+       val f : 'a A.t -> 'a t
+     end) =
+struct end
+
+(** The definition of `F` and its application belows disagree on
+    the arity of `t`, we should not equate the two types *)
+
+include
+  F
+    (struct
+      type t = unit   (* this is bogus! *)
+    end)
+    (struct
+      let f x = x   (* this is bogus! *)
+    end)
 *)
 
 let F (dependent A : sig val t : type --> type end)
@@ -19,13 +36,8 @@ let F (dependent A : sig val t : type --> type end)
     val f : (a : type) -> A.t a -> t a
   end) : sig end = struct end
 
-(* The definition of `F` and its application belows disagree on
-    the arity of `t`, we should not equate the two types *)
-
 (*
-  This is especially obvious in Bluejay, where higher arity types are
-  just functions. But I leave the comments from the OCaml tests because
-  they're fun :)
+  This error is especially obvious in Bluejay, where higher arity types are just functions.
 *)
 
 let _ = F

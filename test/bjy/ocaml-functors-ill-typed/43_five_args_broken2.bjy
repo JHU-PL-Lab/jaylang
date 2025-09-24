@@ -1,0 +1,50 @@
+
+(*
+module type A = sig type a end
+module A = struct type a end
+module type B = sig type b end
+module B = struct type b end
+
+module type ty = sig type t end
+module TY = struct type t end
+
+module type Ext = sig module type T module X : T end
+
+module AExt = struct module type T = A module X = A end
+module FiveArgsExt = struct
+  module type T = ty -> ty -> ty -> ty -> ty -> sig end
+  module X : T =
+    functor (_ : ty) (_ : ty) (_ : ty) (_ : ty) (_ : ty) -> struct end
+end
+
+module Bar (W : A) (X : Ext) (Y : B) (Z : Ext) = Z.X
+
+type broken2 = Bar(A)(FiveArgsExt)(TY)(TY)(TY)(TY)(TY).a
+*)
+
+let a = sig val a : type end
+let A = struct let a = abstract end
+
+let b = sig val b : type end
+let B = struct let b = abstract end
+
+let ty = sig val t : type end
+let TY = struct let t = abstract end
+
+let Ext = sig val T : type val X : T end
+
+let AExt = struct let T = a let X = A end
+
+let FiveArgsExt = struct
+  let T = ty -> ty -> ty -> ty -> ty -> sig end
+  let X : T =
+    let F (_ : ty) (_ : ty) (_ : ty) (_ : ty) (_ : ty) : sig end =
+      struct end
+    in
+    F
+end
+
+let Bar (W : a) (X : Ext) (Y : b) (dep Z : Ext) : Z.T = Z.X
+
+(* ERROR: TY does not have a type `b`, and all the other TY don't match Ext module type *)
+let broken2 = (Bar(A)(FiveArgsExt)(TY)(TY)(TY)(TY)(TY)).a

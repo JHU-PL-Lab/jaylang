@@ -1,0 +1,27 @@
+
+(*
+module A = struct type a end
+
+let f (x:Set.Make(Set)(A).t) = x
+*)
+
+(* Set up some code to emulate sets *)
+let ORD = sig
+  val t : type (* zero-arity type *)
+  val compare : t -> t -> int
+end
+
+let Set = struct
+  let t a = list a (* arbitrary set type (a type constructor) *)
+  let compare cmp x y = 0 (* ignore implementation of compare *)
+
+  let Make (Ord : ORD) : ORD = struct
+    let t = t Ord.t (* nonrec reference to the above *)
+    let compare a b = compare Ord.compare a b (* nonrec reference to the above *)
+  end
+end
+
+let A = struct let a = abstract end
+
+(* ERROR: an extra argument to Make, and Set's type has the wrong arity, and A isn't even ordered *)
+let f (x : (Set.Make(Set)(A)).t) : top = x

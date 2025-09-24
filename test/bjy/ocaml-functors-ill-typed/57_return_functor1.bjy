@@ -1,0 +1,11 @@
+
+(*
+module type a
+
+module F(X:a -> a): a = X
+*)
+
+let a = abstract
+
+(* ERROR: a functor can't be an abstract module type *)
+let F (X : a -> a) : a = X

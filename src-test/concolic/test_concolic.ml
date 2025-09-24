@@ -41,8 +41,8 @@ let () =
     [ "oopsla-26-ill-typed"
     ; "oopsla-26-well-typed"
 
-    ; "ocaml-ill-typed"
-    ; "ocaml-well-typed"
+    ; "ocaml-functors-ill-typed"
+    ; "ocaml-functors-well-typed"
 
     (* ; "deep-type-error" *)
 

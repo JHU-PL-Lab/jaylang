@@ -1,0 +1,25 @@
+
+(*
+module F
+    (A:sig type x type y end)
+    (B:sig type x = A.x end)
+    (C:sig type y = A.y end)
+= struct end
+
+module X = struct type x = int end
+module Y = struct type y = float end
+module Missing_X_bis = F(struct type x = int type y = float end)(Y)
+*)
+
+let F
+    (dependent A : sig val x : type val y : type end)
+    (dependent B : sig val x = A.x end)
+    (dependent C : sig val y = A.y end)
+  : sig end
+  = struct end
+
+let X = struct let x = int end
+let Y = struct let y = bool end (* the OCaml test uses float here, but Bluejay doesn't have floats *)
+
+(* ERROR: Y does not have a type x *)
+let Missing_X_bis = F(struct let x = int let y = bool end)(Y)

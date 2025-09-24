@@ -9,12 +9,27 @@
 *)
 
 (*
-  This test is taken from OCaml:
-    testsuite/tests/typing-modules/functors.ml
+module type arg = sig type arg end
+module A = struct type arg end
+
+module Add_one' = struct
+  module M(_:arg) = A
+  module type t = module type of M
+end
+
+module Add_one = struct type witness include Add_one' end
+
+module Add_three = struct
+  module M(_:arg)(_:arg)(_:arg) = A
+  module type t = module type of M
+  type witness
+end
+
+module Mislead_chosen_one = F(Add_one)(Add_three)(A)(A)(A)
 *)
 
 let arg = sig val arg : type end
-let A = struct let arg = bottom end (* abitrary, unusable type *)
+let A = struct let arg = abstract end
 
 let Add_one_ = struct
   let M (_ : arg) : arg = A
@@ -22,7 +37,7 @@ let Add_one_ = struct
 end
 
 let Add_one = struct
-  let witness = bottom 
+  let witness = abstract 
   let M = Add_one_.M
   let t = Add_one_.t
 end
@@ -30,7 +45,7 @@ end
 let Add_three = struct
   let M (_ : arg) (_ : arg) (_ : arg) : arg = A
   let t = arg -> arg -> arg -> arg
-  let witness = bottom
+  let witness = abstract
 end
 
 (* This type and the next module are taken from abstract_module_type *)
@@ -42,5 +57,5 @@ end) -> X.t
 
 let F : TF = fun X -> X.M
 
-(* ERROR: (Add_one_) is an extra argument, and it is lacking witness. If it did have witness, the last (A) would be application to a non function *)
-let Choose_one = F (Add_one_) (Add_three) (A) (A) (A)
+(* ERROR: Add_one causes the remaining arguments to be ill-typed. The only remaining arg should be (A) *)
+let Mislead_chosen_one = F (Add_one) (Add_three) (A) (A) (A)

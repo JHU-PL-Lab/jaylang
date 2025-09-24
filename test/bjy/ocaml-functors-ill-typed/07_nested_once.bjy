@@ -1,0 +1,13 @@
+
+(*
+module M : sig module F: functor (X:sig end) -> sig end end =
+  struct
+    module F(X:sig type t end) = struct end
+  end
+*)
+
+let M : sig val F : (X : sig end) -> sig end end =
+  struct
+    (* ERROR: X is a subtype of the X above, so this F is a supertype *)
+    let F (X : sig val t : type end) : sig end = struct end
+  end

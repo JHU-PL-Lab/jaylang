@@ -12,7 +12,7 @@
         (features (<test feature list>))
         (reasons (<test reason list>))
         (speed <Fast or Slow>)
-        (typing <Well_typed or Ill_typed>)
+        (typing <Well_typed or Ill_typed or Exhausted>)
         (flags "<some string containing the argv flags to ceval>")
       )
     *)
@@ -34,7 +34,12 @@ module Test_speed = struct
 end
 
 module Typing = struct
-  type t = Well_typed | Ill_typed [@@deriving sexp]
+  type t = Well_typed | Ill_typed (*| Exhausted*) [@@deriving sexp]
+  (*
+    Well-typed : no error gets found 
+    Ill-typed  : some error gets found
+    Exhausted  : the program is proven well-typed by exhausting all paths
+  *)
 end
 
 module Flags = struct

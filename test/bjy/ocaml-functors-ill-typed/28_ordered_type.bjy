@@ -1,0 +1,15 @@
+
+(*
+module X: functor ( X: sig end) -> sig end = functor(X: Set.OrderedType) -> struct end
+*)
+
+let ORDERED_TYPE = sig
+  val t : type
+  val compare : t -> t -> int
+end
+
+let X : (X : sig end) -> sig end = 
+  let F (X : ORDERED_TYPE) : sig end =
+    struct end
+  in
+  F (* ERROR: F is a supertype of the declared type *)

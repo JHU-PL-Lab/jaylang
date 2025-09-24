@@ -9,8 +9,27 @@
 *)
 
 (*
-  This test is taken from OCaml:
-    testsuite/tests/typing-modules/functors.ml
+module M: sig
+  module F(_:sig end)(X:
+           sig
+             module type T
+             module type inner = sig
+               module type t
+               module M: t
+             end
+             module F(X: inner)(_:T -> T->T):
+             sig module type res = X.t end
+             module Y: sig
+               module type t = T -> T -> T
+               module M(X:T)(Y:T): T
+             end
+           end):
+    X.F(X.Y)(X.Y.M).res
+end = struct
+  module F(_:sig type wrong end) (X:
+             sig  module type T end
+          )(Res: X.T)(Res: X.T)(Res: X.T) = Res
+end
 *)
 
 let M : sig
@@ -32,8 +51,7 @@ end = struct
   (*
     ERROR: the first argument is a subtype of the one stated above, so this function
       is a supertype.
-      There is also another error covered in the second version of this test, isolated
-      from this error.
+      There is also an extra `Res` argument.
   *)
   let F (_ : sig val wrong : type end) (dependent X :
       sig val T : type end

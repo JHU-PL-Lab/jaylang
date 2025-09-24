@@ -1,0 +1,23 @@
+
+(*
+module F(X:sig type t end)(Y:sig type t = Y of X.t end)(Z:sig type t = Z of X.t end) = struct end
+
+module X = struct type t = U end
+module Y = struct type t = Y of int end
+module Z = struct type t = Z of int end
+
+module Error=F(X)(struct type t = int end)(Y)(Z)
+*)
+
+let F (dependent X : sig val t : type end)
+  (Y : sig val t = `Y of X.t end)
+  (Z : sig val t = `Z of X.t end)
+  : sig end
+  = struct end
+
+let X = struct let t = `U of unit end
+let Y = struct let t = `Y of int end
+let Z = struct let t = `Z of int end
+
+(* ERROR: second the arguments don't depend on X as they should *)
+let Error = F(X)(struct let t = int end)(Y)(Z)

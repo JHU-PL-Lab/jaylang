@@ -1,0 +1,13 @@
+
+(*
+module F(X:empty) = struct end
+module R =
+  F(struct end)();;
+*)
+
+let empty = sig end
+
+let F(X:empty) : sig end = struct end
+
+(* ERROR: there is an extra unit argument *)
+let R = F(struct end)()

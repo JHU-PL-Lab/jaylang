@@ -1,0 +1,29 @@
+
+(*
+module _: sig
+  module F: functor (X: sig type 'a t = 'a * 'a end)(Y: sig type 'a t = 'a X.t * 'a list end) -> sig end
+end = struct
+  module F(X: sig type 'a t = 'a list end)(Y: sig type 'a t = ('a * 'a) * 'a X.t end) = struct end
+end
+*)
+
+let _ : sig
+  val F : (X : sig val t : (a : type) --> singlet { fst : a ; snd : a } end)
+    -> (Y : sig val t : (a : type) --> singlet { fst : X.t a ; snd : list a } end) -> sig end
+end = struct
+  let F (dep X : sig val t : (a : type) --> singlet (list a) end) (* ERROR: this is the wrong type *)
+    (Y : sig val t : (a : type) --> singlet { fst : { fst : a ; snd : a } ; snd : X.t a } end) (* this is fine, considering the above line *)
+    : sig end
+    = struct end
+end
+
+(* This well-typed version will need splaying because of the use of lists *)
+(* let _ : sig
+  val F : (X : sig val t : (a : type) --> singlet { fst : a ; snd : a } end)
+    -> (Y : sig val t : (a : type) --> singlet { fst : X.t a ; snd : list a } end) -> sig end
+end = struct
+  let F (dep X : sig val t : (a : type) --> singlet { fst : a ; snd : a } end)
+    (Y : sig val t : (a : type) --> singlet { fst : X.t a ; snd : list a } end)
+    : sig end
+    = struct end
+end *)

@@ -1,0 +1,43 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules First_class_types))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+
+(*
+module F(X:sig type witness module type t module M:t end) = X.M
+
+module PF = struct
+  type witness
+  module type t = module type of F
+  module M = F
+end
+
+module U = F(PF)(PF)(PF)
+
+module W = F(PF)(PF)(PF)(PF)(PF)(F)
+*)
+
+(* We don't have "module type of", so we have to write this out *)
+let TF = (X : sig
+  val witness : type
+  val t : type
+  val M : t
+end) -> X.t
+
+let F : TF = fun X -> X.M
+
+let PF = struct
+  let witness = abstract
+  let t = TF
+  let M = F
+end
+
+let U = F(PF)(PF)(PF)
+
+(* ERROR: the final argument F should be a module, not a function *)
+let W = F(PF)(PF)(PF)(PF)(PF)(F)

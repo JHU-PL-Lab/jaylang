@@ -1,0 +1,16 @@
+
+(*
+module type A = sig type a end
+
+module F()(X:empty)()(Y:A) = struct end
+module R =
+  F(struct end[@warning "-73"])(struct end)(struct end[@warning "-73"])();;
+*)
+
+let A = sig val a : type end
+let empty = sig end
+
+let F(_ : unit)(X:empty)(_ : unit)(Y:A) : sig end = struct end
+
+(* ERROR: first and third arguments should be unit *)
+let R = F(struct end)(struct end)(struct end)()

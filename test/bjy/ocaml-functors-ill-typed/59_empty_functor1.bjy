@@ -1,0 +1,14 @@
+
+(*
+module type empty = sig end
+module Empty = struct end
+
+module F_empty(_:empty) = Empty
+module M: empty = F_empty
+*)
+
+let empty = sig end
+let Empty = struct end
+
+let F_empty (_ : empty) : empty = Empty
+let M : empty = F_empty (* ERROR: a functor is not an empty module *)

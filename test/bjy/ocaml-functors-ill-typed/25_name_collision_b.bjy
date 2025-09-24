@@ -1,0 +1,34 @@
+
+(*
+module type b
+
+module type x = sig type x end
+module type y = sig type y end
+
+module F(X:x)(B:b)(Y:y) = struct type t end
+module M = struct
+  module type b
+  module G(P: sig module B:b end) = struct
+    open P
+    module U = F(struct type x end)(B)(struct type w end)
+  end
+end
+*)
+
+let b = abstract
+
+let x = sig val x : type end
+let y = sig val y : type end
+
+let F (X : x) (B : b) (Y : y) : sig val t : type end = 
+  struct let t = abstract end
+
+let M = struct
+  let b = abstract
+
+  let G (P : sig val B : b end) : sig end = struct
+    let B = P.B (* we don't have "open", so we must hand-write all from P *)
+    (* ERROR: this b is allowed to be anything, but above it was fixed *)
+    let U = F (struct let x = abstract end) (B) (struct let w = abstract end)
+  end
+end

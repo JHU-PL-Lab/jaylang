@@ -9,8 +9,20 @@
 *)
 
 (*
-  This test is taken from OCaml:
-    testsuite/tests/typing-modules/functors.ml
+module M: sig
+  module F(X: sig
+      module type T
+      module type t = T -> T -> T
+      module M: t
+    end
+          )(_:X.T)(_:X.T): X.T
+end = struct
+  module F (Wrong: sig type wrong end)
+      (X: sig
+         module type t
+         module M: t
+       end)  = (X.M : X.t)
+end
 *)
 
 let M : sig

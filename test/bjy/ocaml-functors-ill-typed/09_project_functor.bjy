@@ -1,0 +1,28 @@
+
+
+(*
+module type x = sig type x end
+module type z = sig type z end
+
+module X: x = struct type x end
+module Z: z = struct type z end
+
+module F(X:sig type x end)(Y:sig type y end)(Z:sig type z end) = struct
+    type t = X of X.x | Y of Y.y | Z of Z.z
+end
+type u = F(X)(Z).t
+*)
+
+let x = sig val x : type end
+let z = sig val z : type end
+
+let X : x = struct let x = abstract end
+let Z : z = struct let z = abstract end
+
+let F (dep X : sig val x : type end) (dep Y : sig val y : type end) (dep Z : sig val z : type end) : sig
+  val t : type
+end = struct
+  let t = `X of X.x | `Y of Y.y | `Z of Z.z
+end
+
+let u = (F(X)(Z)).t

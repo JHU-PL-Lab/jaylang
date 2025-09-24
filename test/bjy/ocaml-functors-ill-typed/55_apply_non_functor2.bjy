@@ -1,0 +1,12 @@
+
+(*
+module B = struct type b end
+
+module Error = (struct end)(B)
+*)
+
+let B = struct let b = abstract end
+
+let Error = (struct end)(B)
+
+(* There's not any well-typed version of this program that makes sense and is not extremely trivial *)

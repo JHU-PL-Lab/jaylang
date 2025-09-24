@@ -1,0 +1,22 @@
+
+(*
+module type a
+module type b
+module type c
+
+module type f = functor (X:a)(Y:b) -> c
+module F:f = functor (X:a)(Y:b)(Z:c) -> Empty
+*)
+
+let a = abstract
+let b = abstract
+let c = abstract
+
+let f = (X : a) -> (Y : b) -> c
+
+(* ERROR: the Z is an extra argument, and also, the empty module is not necessarily of type c *)
+let F : f = 
+  let F (Z : a) (Y : b) (Z : c) : sig end = 
+    struct end
+  in
+  F

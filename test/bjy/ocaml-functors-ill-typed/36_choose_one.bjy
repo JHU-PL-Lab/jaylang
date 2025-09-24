@@ -1,28 +1,43 @@
 (***
   (
     (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions))
+    (reasons (Modules))
     (speed Fast)
-    (typing Well_typed)
+    (typing Ill_typed)
     (flags "")
   )
 *)
 
 (*
-  This is a well-typed test is adapted from ill-typed OCaml:
-    testsuite/tests/typing-modules/functors.ml
+module type arg = sig type arg end
+module A = struct type arg end
+
+module Add_one' = struct
+  module M(_:arg) = A
+  module type t = module type of M
+end
+
+module Add_one = struct type witness include Add_one' end
+
+module Add_three = struct
+  module M(_:arg)(_:arg)(_:arg) = A
+  module type t = module type of M
+  type witness
+end
+
+module Choose_one = F(Add_one')(Add_three)(A)(A)(A)
 *)
 
 let arg = sig val arg : type end
-let A = struct let arg = bottom end (* abitrary, unusable type *)
+let A = struct let arg = abstract end
 
 let Add_one_ = struct
-  let witness = int
   let M (_ : arg) : arg = A
   let t = arg -> arg (* we don't have "module type of", so I have to spell this out *)
 end
 
 let Add_one = struct
-  let witness = bottom 
+  let witness = abstract 
   let M = Add_one_.M
   let t = Add_one_.t
 end
@@ -30,7 +45,7 @@ end
 let Add_three = struct
   let M (_ : arg) (_ : arg) (_ : arg) : arg = A
   let t = arg -> arg -> arg -> arg
-  let witness = bottom
+  let witness = abstract
 end
 
 (* This type and the next module are taken from abstract_module_type *)
@@ -42,4 +57,5 @@ end) -> X.t
 
 let F : TF = fun X -> X.M
 
-let Choose_one = F (Add_three) (A) (A) (A)
+(* ERROR: (Add_one_) is an extra argument, and it is lacking witness. If it did have witness, the last (A) would be application to a non function *)
+let Choose_one = F (Add_one_) (Add_three) (A) (A) (A)
