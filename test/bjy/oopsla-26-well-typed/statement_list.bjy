@@ -2,7 +2,7 @@
   (
     (features (Polymorphic_types Recursive_functions Higher_order_functions))
     (speed Slow)
-    (typing Well_typed)
+    (typing Exhausted)
     (flags "-s -p") ; not actually that slow with these flags
   )
 *)

@@ -6,7 +6,7 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
   let is_error_expected = 
     match metadata.typing with
     | Ill_typed -> true
-    | Well_typed -> false
+    | Well_typed | Exhausted -> false
   in
   let speed_level =
     match metadata.speed with

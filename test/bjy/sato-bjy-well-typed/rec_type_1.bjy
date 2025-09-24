@@ -2,7 +2,7 @@
   (
     (features (Mu_types Variants Records))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
     (flags "-s")
   )
 *)

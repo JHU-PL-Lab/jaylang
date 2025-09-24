@@ -2,7 +2,7 @@
   (
     (features (Polymorphic_types Dependent_types First_class_types Records Higher_order_functions))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
     (flags "")
   )
 *)

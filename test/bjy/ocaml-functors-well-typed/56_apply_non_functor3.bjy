@@ -1,8 +1,8 @@
 (***
   (
     (speed Slow) ; 0.2 seconds, about
-    (typing Well_typed)
-    (flags "")
+    (typing Exhausted)
+    (flags "-s")
   )
 *)
 

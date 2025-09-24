@@ -2,7 +2,7 @@
   (
     (features (Higher_order_functions))
     (speed Fast)
-    (typing well_typed)
+    (typing Exhausted)
   )
 *)
 

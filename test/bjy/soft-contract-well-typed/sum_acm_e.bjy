@@ -2,7 +2,7 @@
   (
     (features (Recursive_functions Higher_order_functions Other)) ; Other is assertions
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 

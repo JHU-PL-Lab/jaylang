@@ -2,7 +2,7 @@
   (
     (features (Polymorphic_types Higher_order_functions))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 (* Polymorphic compose *)

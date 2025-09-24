@@ -1,8 +1,8 @@
 (***
   (
     (features (Polymorphic_types Parametric_types Records Higher_order_functions))
-    (speed Slow) ; uses list type, so will be slow to exhaust. But it's fast with type splaying
-    (typing Well_typed)
+    (speed Fast) ; uses list type, so will be slow to exhaust. But it's fast with type splaying
+    (typing Exhausted)
     (flags "-s")
   )
 *)

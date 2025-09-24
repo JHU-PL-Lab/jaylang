@@ -34,7 +34,7 @@ module Test_speed = struct
 end
 
 module Typing = struct
-  type t = Well_typed | Ill_typed (*| Exhausted*) [@@deriving sexp]
+  type t = Well_typed | Ill_typed | Exhausted [@@deriving sexp]
   (*
     Well-typed : no error gets found 
     Ill-typed  : some error gets found
@@ -59,8 +59,8 @@ end
 type t =
   { features : Ttag.V2.t list  [@default []]
   ; reasons  : Ttag.V2.t list  [@default []]
-  ; speed    : Test_speed.t [@default Slow]
-  ; typing   : Typing.t     [@default Well_typed]
+  ; speed    : Test_speed.t [@default Fast]
+  ; typing   : Typing.t     [@default Exhausted]
   ; flags    : Flags.t [@default [||]]
   } [@@deriving sexp]
 

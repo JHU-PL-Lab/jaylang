@@ -2,7 +2,7 @@
   (
     (features (Polymorphic_types Dependent_types Parametric_types First_class_types Recursive_functions))
     (speed Fast) ; b/c type splaying
-    (typing Well_typed)
+    (typing Exhausted)
     (flags "-s")
   )
 *)

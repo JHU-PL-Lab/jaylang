@@ -2,7 +2,7 @@
   (
     (features (Refinement_types Modules Records Higher_order_functions OOP_style))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 

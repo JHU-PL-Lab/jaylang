@@ -2,7 +2,7 @@
   (
     (features (Refinement_types Mu_types Variants Records Recursive_functions))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 (* This is an avl tree program; where insert on balanced tree returns a balanced tree. *)

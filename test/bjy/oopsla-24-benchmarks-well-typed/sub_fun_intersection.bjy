@@ -2,7 +2,7 @@
   (
     (features (Refinement_types Dependent_types Higher_order_functions Variants Records Subtyping))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 (* subtyping of refined intersection type. *)

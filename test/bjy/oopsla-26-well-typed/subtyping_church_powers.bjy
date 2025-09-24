@@ -2,7 +2,7 @@
   (
     (features (Records Recursive_functions Subtyping))
     (speed Fast) ; only because type splaying
-    (typing Well_typed)
+    (typing Exhausted)
     (flags "-s")
   )
 *)

@@ -2,7 +2,7 @@
   (
     (features (Polymorphic_types Variants))
     (speed Fast) ; b/c type splaying
-    (typing Well_typed)
+    (typing Exhausted)
     (flags "-s")
   )
 *)

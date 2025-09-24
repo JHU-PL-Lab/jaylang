@@ -14,7 +14,7 @@ let testcases_of_filename (testname : Filename.t) : unit Alcotest.test_case list
   let is_error_expected = 
     match metadata.typing with
     | Ill_typed -> true
-    | Well_typed -> false
+    | Well_typed | Exhausted -> false
   in
   let check pgm =
     let is_error = Interp.V.is_error (Interp.eval_pgm pgm) in

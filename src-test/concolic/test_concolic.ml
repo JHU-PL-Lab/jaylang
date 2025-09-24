@@ -4,11 +4,6 @@ open Utils
 
 let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case = 
   let metadata = Metadata.of_bjy_file testname in
-  let is_error_expected = 
-    match metadata.typing with
-    | Ill_typed -> true
-    | Well_typed -> false
-  in
   let speed_level =
     match metadata.speed with
     | Slow -> `Slow
@@ -17,12 +12,20 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
   Alcotest.test_case testname speed_level
   @@ fun () ->
     Cmdliner.Cmd.eval_value' ~argv:(Array.append [| ""; testname; "-t"; "10.0" |] metadata.flags) Driver.eval
-    |> begin function
-      | `Ok status -> Concolic.Common.Status.is_error_found status
+    |> function
+      | `Ok status -> begin
+        let answer = Common.Status.Terminal.to_answer status in
+        let res =
+          match metadata.typing, answer with
+          | Metadata.Typing.Ill_typed, Common.Answer.Ill_typed
+          | Exhausted, Well_typed (* A program is exhaused iff the concolic answer is that the program is well-typed *)
+          | Well_typed, Unknown (* if concolic evaluator is unsure, we take that as well-typed *)
+          | Well_typed, Well_typed -> true (* answer is allowable with expected typing *)
+          | _ -> false
+        in
+        Alcotest.check Alcotest.bool "bjy concolic" true res
+      end
       | `Exit i -> raise @@ Invalid_argument (Format.sprintf "Test couldn't evaluate and finished with exit code %d." i)
-    end
-    |> Bool.(=) is_error_expected
-    |> Alcotest.check Alcotest.bool "bjy concolic" true
 
 let root_dir = "test/bjy/"
 

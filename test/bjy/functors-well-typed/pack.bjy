@@ -2,7 +2,7 @@
   (
     (features (Polymorphic_types Dependent_types Modules Parametric_types Deterministic_functions Variants))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 

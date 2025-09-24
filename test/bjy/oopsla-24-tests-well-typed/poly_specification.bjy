@@ -2,7 +2,7 @@
   (
     (features (Polymorphic_types))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 

@@ -1,8 +1,8 @@
 (***
   (
     (features (Polymorphic_types Refinement_types Mu_types Variants Records Recursive_functions))
-    (speed Slow)
-    (typing well_typed)
+    (speed Fast)
+    (typing Exhausted)
   )
 *)
 

@@ -2,7 +2,7 @@
   (
     (features (Recursive_functions))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
     (flags "-s")
   )
 *)

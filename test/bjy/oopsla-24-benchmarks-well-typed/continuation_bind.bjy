@@ -2,7 +2,7 @@
   (
     (features (Polymorphic_types Parametric_types Records Higher_order_functions))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 (* Continuation monad *)

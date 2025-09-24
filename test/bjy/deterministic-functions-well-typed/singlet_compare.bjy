@@ -2,7 +2,7 @@
   (
     (features (Deterministic_functions First_class_types Higher_order_functions))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 

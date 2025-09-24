@@ -1,8 +1,8 @@
 (***
   (
     (features (Records Higher_order_functions OOP_style))
-    (speed Slow)
-    (typing Well_typed)
+    (speed Fast)
+    (typing Exhausted)
   )
 *)
 

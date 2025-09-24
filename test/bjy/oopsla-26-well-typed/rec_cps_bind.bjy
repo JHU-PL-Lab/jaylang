@@ -2,7 +2,7 @@
   (
     (features (Polymorphic_types Refinement_types Parametric_types Records Recursive_functions Higher_order_functions))
     (speed Slow)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 

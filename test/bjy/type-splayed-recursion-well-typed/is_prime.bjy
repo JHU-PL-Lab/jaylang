@@ -2,7 +2,7 @@
   (
     (features (Refinement_types Recursive_functions))
     (speed Slow) ; not that slow, but the modulus and division in z3 solving takes a bit of time -- total 0.2s for this test
-    (typing Well_typed)
+    (typing Exhausted)
     (flags "-s")
   )
 *)

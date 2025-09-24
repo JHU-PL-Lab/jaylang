@@ -2,7 +2,7 @@
   (
     (features (Polymorphic_types Refinement_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions Higher_order_functions))
     (speed Fast) ; because no recursion
-    (typing Well_typed)
+    (typing Exhausted)
     (flags "")
   )
 *)

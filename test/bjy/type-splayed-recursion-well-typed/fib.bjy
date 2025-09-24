@@ -2,7 +2,7 @@
   (
     (features (Recursive_functions))
     (speed Fast) ; fast only with type splaying
-    (typing Well_typed)
+    (typing Exhausted)
     (flags "-s")
   )
 *)
