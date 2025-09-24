@@ -23,7 +23,7 @@ let is_hit ({ branch = target_branch ; path } : t) (root : Root.t) : bool =
   in
   trace_path root path.forward_path
 
-let[@landmarks] to_formulas ({ branch = target_branch ; path } : t) (root : Root.t) : Z3.Expr.expr list =
+let[@landmark] to_formulas ({ branch = target_branch ; path } : t) (root : Root.t) : Z3.Expr.expr list =
   let rec trace_path acc node = function
     | next_branch :: tl ->
       let next_child = Node.get_child_exn node next_branch in

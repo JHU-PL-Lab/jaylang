@@ -5,7 +5,7 @@
  (instrumentation
   (backend landmarks))
  (preprocess
-  (pps ppx_jane ppx_deriving.show landmarks-ppx --auto)))
+  (pps ppx_jane ppx_deriving.show)))
 
 (env
  (dev

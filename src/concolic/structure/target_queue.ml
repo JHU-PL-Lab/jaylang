@@ -88,19 +88,10 @@ module DFS =
       | None -> return @@ Q.push target default_prio q (* queue was empty *)
       | Some (_, best_prio) -> return @@ Q.push target (best_prio - 1) q (* push with better, lower prio *)
 
-    let push_list (x : t) (ls : Target.t list) : t =
-      List.fold  
-        ls
-        ~init:x
-        ~f:push_one
-
     let pop (Dfs q : t) : (Target.t * t) option =
       match Q.pop q with
       | None -> None
       | Some ((target, _), q) -> Some (target, return q)
-
-    let is_empty (Dfs q : t) : bool =
-      Q.is_empty q
 
     let remove (Dfs q : t) (target : Target.t) : t =
       return @@ Q.remove target q

@@ -7,9 +7,6 @@ open Concolic_exceptions.Make (Session.Symbolic)
 module ILog = Dj_common.Log.Export.ILog
 module CLog = Dj_common.Log.Export.CLog
 
-(* Ident for conditional bool. *)
-let cond_fid b = if b then Ident "$tt" else Ident "$ff"
-
 (*
   ------------------------------
   BEGIN HELPERS TO READ FROM ENV   
@@ -32,11 +29,6 @@ module Fetch =
       match fetch_val env vx with
       | Direct v -> v
       | _ -> failwith "eval to non direct value" (* TODO: add type mismatch here *)
-
-    let fetch_val_to_bool env vx : bool =
-      match fetch_val env vx with
-      | Direct (Value_bool b) -> b
-      | _ -> failwith "eval to non bool" (* TODO: add type mismatch here *)
 
     let check_pattern env vx pattern : bool =
       match (fetch_val env vx, pattern) with

@@ -38,9 +38,6 @@ module T =
     
     let other_direction { branch_ident ; direction } : t =
       { branch_ident ; direction = Direction.other_direction direction }
-
-    let (^-) (Ast.Ident a) b = Ast.Ident (a ^ "-" ^ b)
-
   end
 
 include T

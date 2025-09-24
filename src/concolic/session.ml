@@ -103,28 +103,23 @@ let accum_symbolic (x : t) (sym : Symbolic.t) : t =
   ; status       = new_status
   ; last_sym     = Some dead_sym }
 
-let [@landmarks] check_solver solver =
+let [@landmark] check_solver solver =
   Z3.Solver.check solver []
 
-let [@landmarks] make_solver () =
+let [@landmark] make_solver () =
   Z3.Solver.mk_solver Sudu.ctx None
 
 (* based on the landmarks, it's taking about as long to make the solver and load it as it is to solve *)
 (* This motivates a change to use the internal stack *)
-let [@landmarks] load_solver solver formulas =
+let [@landmark] load_solver solver formulas =
   Z3.Solver.add solver formulas;
   solver
-
-(* This shows it might be faster to not load any formulas but just run 'check' *)
-let[@landmarks] check_solver' formulas =
-  let new_solver = Z3.Solver.mk_solver Sudu.ctx None in
-  Z3.Solver.check new_solver formulas
 
 let apply_options_symbolic (x : t) (sym : Symbolic.t) : Symbolic.t =
   Options.Fun.appl Symbolic.with_options x.options sym
 
 (* $ OCAML_LANDMARKS=on ./_build/... *)
-let[@landmarks] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] =
+let[@landmark] next (x : t) : [ `Done of Status.t | `Next of (t * Symbolic.t * Concrete.t) ] =
   let pop_kind =
     match x.last_sym with
     | Some s when Symbolic.Dead.is_reach_max_step s -> Target_queue.Pop_kind.BFS (* only does BFS when last symbolic run reached max step *)

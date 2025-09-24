@@ -9,11 +9,6 @@ module Status =
       | Type_mismatch of (Jil_input.t list [@compare.ignore])
       | Finished_interpretation of { pruned : bool }
       [@@deriving compare, sexp]
-
-    let prune (x : t) : t =
-      match x with
-      | Finished_interpretation _ -> Finished_interpretation { pruned = true }
-      | _ -> x
   end
 
 
@@ -29,14 +24,6 @@ module Node_stack =
     (* To avoid extra children and to keep the stack a single path, begin with only the formulas (and discard the children) from root. *)
     let of_root (root : Root.t) : t =
       Last (Root.with_formulas Root.empty root.formulas)
-
-    let hd_node : t -> Root.t = function
-      | Last node -> node
-      | Cons (child, _) -> Child.to_node_exn child
-
-    let hd_branch : t -> Branch.Or_global.t = function
-      | Last _ -> Branch.Or_global.Global
-      | Cons (child, _) -> Branch (Branch.Runtime.to_ast_branch child.branch)
 
     let map_hd (stack : t) ~(f : Node.t -> Node.t) : t =
       match stack with
@@ -309,7 +296,7 @@ module Dead =
   end
 
 (* Note that other side of all new targets are all the new hits *)
-let[@landmarks] finish (x : t) (tree : Root.t) : Dead.t =
+let[@landmark] finish (x : t) (tree : Root.t) : Dead.t =
   Dead.of_sym_session x tree
 
 let make (root : Root.t) (target : Target.t) : t =

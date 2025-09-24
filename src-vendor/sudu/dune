@@ -2,6 +2,4 @@
  (public_name sudu)
  (libraries core fmt logs z3)
  (instrumentation
-  (backend landmarks))
-  (preprocess
-  (pps landmarks-ppx --auto)))
+  (backend landmarks)))

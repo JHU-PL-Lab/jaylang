@@ -21,16 +21,12 @@
   dj_common
   sudu
   psq) ; psq added for queue of target branches
- (instrumentation
-  (backend landmarks))
+ (instrumentation (backend landmarks --auto))
  (synopsis "dbmc is demand-driven bounded model checking")
  (inline_tests)
  (preprocess
   (pps
    ppx_jane
    ppx_deriving.show
-   lwt_ppx
-   ; for profiling
-   landmarks-ppx
-   --auto)))
+   lwt_ppx)))
 

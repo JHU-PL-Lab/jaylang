@@ -143,7 +143,7 @@ benchmark:
 
 cbenchmark:
 	make cj
-	dune exec $(BENCH_C)/cbenchmark.exe
+	dune exec --profile=release $(BENCH_C)/cbenchmark.exe
 
 benchmark-icfp-artifact:
 	dune exec $(BENCH_D)/benchmark.exe -- -e dbmc -f $(BENCH_D)/icfp20-artifact.s
