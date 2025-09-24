@@ -42,12 +42,6 @@ let create_job_state (config : Global_config.t) : job_state =
     job_queue = Scheduler.create ~cmp:job_key_compare ();
   }
 
-let reset_job_state job_state =
-  (match job_state.unroll with
-  | S_dbmc unroll -> Unrolls.U_dbmc.reset unroll
-  | S_ddse unroll -> Unrolls.U_ddse.reset unroll) ;
-  Scheduler.reset job_state.job_queue
-
 let create_solve_state () : solve_state =
   {
     phis_staging = [];
@@ -55,12 +49,6 @@ let create_solve_state () : solve_state =
     smt_lists = Hashtbl.create (module Lookup_key);
     solver = Z3.Solver.mk_solver Solver.ctx None;
   }
-
-let reset_solve_state solve_state =
-  solve_state.phis_staging <- [] ;
-  solve_state.phis_added <- [] ;
-  Hashtbl.clear solve_state.smt_lists ;
-  Z3.Solver.reset solve_state.solver
 
 let create_stat_state () : stat_state =
   {
@@ -71,13 +59,6 @@ let create_stat_state () : stat_state =
     check_infos = [];
   }
 
-let reset_stat_state (stat_state : stat_state) =
-  Hash_set.clear stat_state.lookup_alert ;
-  Hashtbl.clear stat_state.rstk_picked ;
-  Hashtbl.clear stat_state.rstk_stat_map ;
-  Hashtbl.clear stat_state.block_stat_map ;
-  stat_state.check_infos <- []
-
 let create_search_state (root_node : Search_graph.node) : search_state =
   {
     root_node = ref root_node;
@@ -86,19 +67,6 @@ let create_search_state (root_node : Search_graph.node) : search_state =
     lookup_created = Hash_set.create (module Lookup_key);
     input_nodes = Hash_set.create (module Lookup_key);
   }
-
-let reset_search_state (info : info) (search_state : search_state) =
-  search_state.root_node := info.root_node_info ;
-  search_state.tree_size <- 1 ;
-  Hashtbl.clear search_state.lookup_detail_map ;
-  Hash_set.clear search_state.lookup_created ;
-  Hash_set.clear search_state.input_nodes
-
-let reset_mutable_state (config : Global_config.t) (info : info) (state : t) =
-  reset_job_state state.job ;
-  reset_solve_state state.solve ;
-  reset_search_state info state.search ;
-  reset_stat_state state.stat
 
 let create (config : Global_config.t) program =
   Solver.set_timeout_sec Solver.ctx config.timeout ;
