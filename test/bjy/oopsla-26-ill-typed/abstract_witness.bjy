@@ -1,0 +1,27 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Modules First_class_types))
+    (reasons (Polymorphic_types Dependent_types First_class_types))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+let W = sig
+  val witness : type
+end
+
+let A = struct
+  let witness = abstract
+end
+
+let B = struct
+  let witness = abstract
+end
+
+let F (dependent X : W) (dependent Y : sig val witness : singlet X.witness end) : sig end =
+  struct end
+
+let M = F(A)(B)
+

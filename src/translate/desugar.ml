@@ -181,6 +181,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
         ; dep = `Binding x
         ; det = false
         }
+    (* Abstract type *)
+    | EAbstractType -> EGen EType
     (* Functions *)
     | EMultiArgFunction { params ; body } ->
       abstract_over_ids params (desugar body)

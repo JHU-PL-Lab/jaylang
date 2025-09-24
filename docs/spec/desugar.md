@@ -259,6 +259,15 @@ Notes:
         | `V_n _ -> tau_n' |)
 ```
 
+## Abstract types
+
+```ocaml
+(| abstract |) = type.~gen
+```
+
+Notes:
+* An abstract type is just a type without a definition, so we can generate a polymorphic type to stand in.
+
 ## Assert/assume
 
 ### Without forall/exists

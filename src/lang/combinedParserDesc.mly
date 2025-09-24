@@ -98,6 +98,7 @@ the language and which lines are erased.
 %token LIST
 %token OPEN_BRACKET
 %token REC
+%token ABSTRACT
 (*! endscope !*)
 (*! scope desugared embedded !*)
 %token ABORT
@@ -473,6 +474,8 @@ primary_expr:
   (*! scope bluejay !*)
   | LIST
       { ETypeList : t }
+  | ABSTRACT
+      { EAbstractType : t }
   (*! endscope !*)
   (*! scope bluejay desugared !*)
   | SINGLET_KEYWORD

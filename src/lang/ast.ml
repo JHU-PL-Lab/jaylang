@@ -302,6 +302,7 @@ module Expr = struct
       | ELetFun : { func : 'a funsig ; body : 'a t } -> 'a bluejay_or_type_erased t
       | ELetFunRec : { funcs : 'a funsig list ; body : 'a t } -> 'a bluejay_or_type_erased t
       (* bluejay only *)
+      | EAbstractType : 'a bluejay_only t
       | ETypeList : 'a bluejay_only t
       | ETypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
 
@@ -413,6 +414,7 @@ module Expr = struct
             | ETypeBool, ETypeBool
             | ETypeTop, ETypeTop
             | ETypeBottom, ETypeBottom
+            | EAbstractType, EAbstractType
             | ETypeList, ETypeList
             | ETypeSingle, ETypeSingle
             | EUnit, EUnit
@@ -739,6 +741,7 @@ module Expr = struct
       | ELetFun _ -> toplevel_expr
       | ELetFunRec _ -> toplevel_expr
       (* bluejay only *)
+      | EAbstractType -> primary_atomic
       | ETypeList ->  0
       | ETypeIntersect _ -> intersect_type_op
 
@@ -930,6 +933,7 @@ module Expr = struct
            List.map funcs ~f:(funsig_to_string))
           (to_string body)
       (* bluejay only *)
+      | EAbstractType -> "abstract"
       | ETypeList -> "list"
       | ETypeIntersect ls ->
         String.concat ~sep:" & " @@
@@ -1224,7 +1228,7 @@ module Bluejay = struct
     | EInput -> false
     (* leaves *)
     | EInt _ | EBool _ | EVar _ | EType | ETypeInt
-    | ETypeBool | ETypeTop | ETypeBottom
+    | ETypeBool | ETypeTop | ETypeBottom | EAbstractType
     | ETypeSingle | ETypeList | EUnit | ETypeUnit -> true
     (* one subexpression *)
     | EProject { record = e ; label = _ }

@@ -95,7 +95,8 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
       | VTypeVariant : (VariantTypeLabel.t * 'a t) list -> 'a bluejay_or_desugared t
       | VTypeSingleFun : 'a bluejay_or_desugared t
       | VTypeSingle : 'a t -> 'a bluejay_or_desugared t
-      (* types in bluejay only *)
+      (* bluejay only *)
+      | VAbstractType : int -> 'a bluejay_only t
       | VTypeListFun : 'a bluejay_only t
       | VTypeList : 'a t -> 'a bluejay_only t
       | VTypeIntersect : (VariantTypeLabel.t * 'a t * 'a t) list -> 'a bluejay_only t
@@ -196,6 +197,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
         | VTypeIntersect l1, VTypeIntersect l2 ->
           List.equal (Tuple3.equal ~eq1:VariantTypeLabel.equal ~eq2:equal ~eq3:equal) l1 l2
         (* intensionally equal *)
+        | VAbstractType i1, VAbstractType i2 -> i1 = i2
         | VUnboundVariable id1, VUnboundVariable id2 -> Ident.equal id1 id2
         | VTypeMismatch, VTypeMismatch
         | VAbort, VAbort
@@ -274,6 +276,7 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
     | VTypeSingle v -> Format.sprintf "(singlet (%s))" (_to_string v)
     | VTypeListFun -> Format.sprintf "list"
     | VTypeList v -> Format.sprintf "(list (%s))" (_to_string v)
+    | VAbstractType i -> Format.sprintf "(abstract %d)" i
     | VTypeIntersect ls ->
       Format.sprintf "(%s)"
         (String.concat ~sep:" && " @@ List.map ls ~f:(fun (VariantTypeLabel Ident s, tau1, tau2) -> Format.sprintf "((``%s (%s)) -> %s)" s (_to_string tau1) (_to_string tau2)))

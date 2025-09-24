@@ -74,8 +74,8 @@ The full feature list of Bluejay is the following.
 * `bool`
 * `list tau` for a type `tau`. The type function `list` is first class.
 * `singlet tau` for a type `tau`. The type function `singlet` is first class. `singlet tau` is the type whose only member is the type `tau`.
-* `type`, the type of a type.
-* `top`, the type of everything, whose generated member is an usable value, but everthing checks against `top`.
+* `type`, the type of a type. The user may use the value `abstract` as a generated member of `type`.
+* `top`, the type of everything, whose generated member is an unusable value, but everthing checks against `top`.
 * `bottom`, the subtype of everything, which has no members.
 * `unit`, the type containing the terminal value `()`.
 * `{ l_1 : tau_1 ; ... ; l_n : tau_n }`, record types.

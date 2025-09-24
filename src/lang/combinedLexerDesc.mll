@@ -115,6 +115,7 @@ rule token = parse
 | "dep"                { DEP }
 | "list"               { LIST }
 | "rec"                { REC }
+| "abstract"           { ABSTRACT }
 (*! endscope !*)
 (*! scope desugared !*)
 | "#abort"             { ABORT }
