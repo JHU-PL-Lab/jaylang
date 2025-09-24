@@ -1,0 +1,41 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module type Arg = sig
+    module type A
+    module type Honorificabilitudinitatibus
+    module X:   Honorificabilitudinitatibus
+    module Y:   A
+end
+
+module F(A:Arg)
+= struct
+  open A
+  module G(X:A)(Y:A)(_:A)(Z:A) = struct end
+  type u = G(X)(Y)(X)(Y)(X).t
+end;;
+*)
+
+let Arg = sig
+  val A : type
+  val Honorificabilitudinitatibus : type
+  val X : Honorificabilitudinitatibus
+  val Y : A
+end
+
+let F (A : Arg) : sig end = struct
+  (* open A *) (* We can't open in Bluejay, so we have to redefine*)
+  let Honorificabilitudinitatibus = A.Honorificabilitudinitatibus
+  let X = A.X
+  let Y = A.Y
+  let A = A.A
+  
+  let G(X:A)(Y:A)(_:A)(Z:A) : sig val t : type end = struct let t = A end
+  let u = (G(Y)(Y)(Y)(Y)).t
+end

@@ -1,7 +1,5 @@
 (***
   (
-    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions Usage_error))
-    (reasons (Dependent_types Modules Usage_error))
     (speed Fast)
     (typing Ill_typed)
     (flags "")
@@ -31,4 +29,4 @@ let With_expansion
 let R_ = With_expansion (struct
   let M _ _ = struct end
   let t = unit -> unit -> sig end
-  end) () () ()
+  end) () ()

@@ -1,0 +1,23 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module X: functor ( X: sig end) -> sig end = functor(X: Set.OrderedType) -> struct end
+*)
+
+let ORDERED_TYPE = sig
+  val t : type
+  val compare : t -> t -> int
+end
+
+(* Flip the types so that we have a subtype *)
+let X : (X : ORDERED_TYPE) -> sig end = 
+  let F (X : sig end) : sig end =
+    struct end
+  in
+  F

@@ -1,12 +1,10 @@
 (***
   (
-    (features (Polymorphic_types Dependent_types Modules First_class_types))
     (speed Fast)
     (typing Ill_typed)
     (flags "")
   )
 *)
-
 
 (*
 module F(X:sig type witness module type t module M:t end) = X.M

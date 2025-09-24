@@ -1,7 +1,5 @@
 (***
   (
-    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions Usage_error))
-    (reasons (Dependent_types Modules Usage_error))
     (speed Fast)
     (typing Ill_typed)
     (flags "")

@@ -1,3 +1,10 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
 
 
 (*
@@ -25,4 +32,5 @@ end = struct
   let t = `X of X.x | `Y of Y.y | `Z of Z.z
 end
 
+(* ERROR: you can't project a type from a functor. This is also applied wrong *)
 let u = (F(X)(Z)).t

@@ -1,0 +1,31 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module type x = sig type x end
+
+module type empty = sig end
+module Empty = struct end
+
+module F_empty(_:empty) = Empty
+
+module G(X:empty) = Empty
+
+module B = G(F_empty)
+*)
+
+let x = sig val x : type end
+
+let empty = sig end
+let Empty = struct end
+
+let F_empty (_ : empty) : empty = Empty
+
+let G (X : empty) : empty = Empty
+
+let B = G(F_empty Empty)

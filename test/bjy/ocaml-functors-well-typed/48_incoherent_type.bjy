@@ -1,0 +1,44 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module F
+    (A : sig type 'a t end)
+    (B : sig
+       type 'a t
+       val f : 'a A.t -> 'a t
+     end) =
+struct end
+
+(** The definition of `F` and its application belows disagree on
+    the arity of `t`, we should not equate the two types *)
+
+include
+  F
+    (struct
+      type t = unit   (* this is bogus! *)
+    end)
+    (struct
+      let f x = x   (* this is bogus! *)
+    end)
+*)
+
+let F (dependent A : sig val t : type --> type end)
+  (B : sig
+    val t : type --> type
+    val f : (a : type) -> A.t a -> t a
+  end) : sig end = struct end
+
+let _ = F
+  (struct
+    let t = fun _ -> unit
+  end)
+  (struct
+    let t = fun _ -> unit
+    let f _ x = x
+  end)

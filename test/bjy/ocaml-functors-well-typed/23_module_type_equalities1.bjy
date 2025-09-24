@@ -1,0 +1,21 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module M: sig
+  module type S = sig type t end
+end = struct
+  module type S = sig type s type t end
+end;;
+*)
+
+let M : sig
+  val S = sig val t : type end
+end = struct
+  let S = sig val t : type end
+end

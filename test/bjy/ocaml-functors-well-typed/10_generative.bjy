@@ -1,0 +1,21 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module F()(X:sig type t end) = struct end
+module M = F()()
+*)
+
+(*
+  Bluejay doesn't have a difference between generative and applicative functors, 
+  but there _is_ a distinction between unit and a module, so this test is still
+  an error.
+*)
+let F (_ : unit) (X : sig val t : type end) : sig end = struct end
+
+let M = F()(struct let t = unit end)

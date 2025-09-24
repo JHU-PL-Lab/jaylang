@@ -1,0 +1,16 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module F(X:sig type t end) = struct end
+module M = F(struct type x end)
+*)
+
+let F (X : sig val t : type end) : sig end = struct end
+
+let M = F (struct let t = abstract end)

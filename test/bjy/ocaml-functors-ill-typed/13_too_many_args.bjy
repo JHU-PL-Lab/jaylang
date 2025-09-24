@@ -1,3 +1,10 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
 
 (*
 module Ord = struct type t = unit let compare _ _ = 0 end

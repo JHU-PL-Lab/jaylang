@@ -1,0 +1,34 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module type a
+
+module F(X:a) = struct type t end
+module M = struct
+  module type a
+  module G(P: sig module X:a end) = struct
+    open P
+    type t = F(X).t
+  end
+end
+*)
+
+let a = abstract
+
+let F (X : a) : sig val t : type end = 
+  struct let t = abstract end
+
+let M = struct
+  let a = a (* fix the error by aliasing a *)
+
+  let G (P : sig val X : a end) : sig end = struct
+    let X = P.X (* we don't have "open", so we must hand-write all from P *)
+    let U = F (X)
+  end
+end

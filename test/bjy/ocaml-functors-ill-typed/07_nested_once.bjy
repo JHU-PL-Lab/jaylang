@@ -1,3 +1,10 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
 
 (*
 module M : sig module F: functor (X:sig end) -> sig end end =

@@ -1,7 +1,5 @@
 (***
   (
-    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions))
-    (reasons (Modules))
     (speed Fast)
     (typing Ill_typed)
     (flags "")
@@ -24,6 +22,8 @@ module Add_three = struct
   module type t = module type of M
   type witness
 end
+
+module F(X:sig type witness module type t module M:t end) = X.M
 
 module Choose_one = F(Add_one')(Add_three)(A)(A)(A)
 *)

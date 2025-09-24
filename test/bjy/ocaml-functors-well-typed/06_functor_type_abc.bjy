@@ -1,0 +1,28 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module type a
+module type b
+module type c
+
+module type f = functor (X:a)(Y:b) -> c
+module F:f = functor (X:a)(Y:b)(Z:c) -> Empty
+*)
+
+let a = abstract
+let b = abstract
+let c = abstract
+
+let f = (X : a) -> (Y : b) -> (Z : c) -> c
+
+let F : f = 
+  let F (Z : a) (Y : b) (Z : c) : c = 
+    Z
+  in
+  F

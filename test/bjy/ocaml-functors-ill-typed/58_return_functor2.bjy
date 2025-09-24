@@ -1,3 +1,10 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
 (*
 module type a
 
@@ -12,3 +19,5 @@ let empty = sig end
 
 (* ERROR: X is a functor, not the empty module *)
 let F (X : a -> a) : empty = X
+
+(* We argue there's no sensible well-typed version of this test that keeps the meaning *)

@@ -1,0 +1,57 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module A: sig
+  module B: sig
+    module C: sig
+      module D: sig
+        module E: sig
+          module F: sig type x end -> sig type y end
+          -> sig type z end -> sig type w end -> sig end
+        end
+      end
+    end
+  end
+end = struct
+  module B = struct
+    module C = struct
+      module D = struct
+        module E = struct
+          module F(X:sig type x end)(Y:sig type y' end)
+            (W:sig type w end) = struct end
+        end
+      end
+    end
+  end
+end
+*)
+
+let A : sig
+  val B : sig
+    val C : sig
+      val D : sig
+        val E : sig
+          val F : sig val x : type end -> sig val y : type end
+            -> sig val z : type end -> sig val w : type end -> sig end
+        end
+      end
+    end
+  end
+end = struct
+  let B = struct
+    let C = struct
+      let D = struct
+        let E = struct
+          let F (X : sig val x : type end) (Y : sig val y : type end)
+            (Z : sig val z : type end) (W : sig val w : type end) : sig end = struct end 
+        end
+      end
+    end
+  end
+end

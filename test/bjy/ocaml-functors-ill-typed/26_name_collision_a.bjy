@@ -1,3 +1,10 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
 
 (*
 module type a
@@ -17,9 +24,8 @@ let a = abstract
 let F (X : a) : sig val t : type end = 
   struct let t = abstract end
 
-(* a is existential in the original test, so I choose to make it an argument here *)
-let M (a : type) : sig end = struct
-  let a = a
+let M = struct
+  let a = abstract
 
   let G (P : sig val X : a end) : sig end = struct
     let X = P.X (* we don't have "open", so we must hand-write all from P *)

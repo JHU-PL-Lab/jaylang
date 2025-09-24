@@ -1,7 +1,5 @@
 (***
   (
-    (features (Polymorphic_types Dependent_types Modules Parametric_types First_class_types Deterministic_functions))
-    (reasons (Parametric_types))
     (speed Fast)
     (typing Ill_typed)
     (flags "")

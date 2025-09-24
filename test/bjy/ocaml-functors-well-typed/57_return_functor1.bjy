@@ -1,0 +1,17 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module type a
+
+module F(X:a -> a): a = X
+*)
+
+let a = abstract
+
+let F (X : a -> a) (x : a) : a = X x

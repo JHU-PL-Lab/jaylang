@@ -1,7 +1,5 @@
 (***
   (
-    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions Usage_error))
-    (reasons (Dependent_types Modules Usage_error))
     (speed Fast)
     (typing Well_typed)
     (flags "")
@@ -9,8 +7,17 @@
 *)
 
 (*
-  This is a well-typed test is adapted from ill-typed OCaml:
-    testsuite/tests/typing-modules/functors.ml
+module With_expansion
+    (A: sig module type t module M:t end)
+    (B:sig module type t = A.t end) = (A.M:B.t)
+
+module R = With_expansion(struct
+    module M()() = struct end
+    module type t = module type of M
+  end)
+    ()
+    ()
+    ()
 *)
 
 let With_expansion
@@ -23,3 +30,5 @@ let R = With_expansion (struct
 end) (struct
   let t = unit -> unit -> sig end
 end) () ()
+
+(* The second version of this test has the same well-typed program *)

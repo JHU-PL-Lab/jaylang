@@ -1,6 +1,5 @@
 (***
   (
-    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions))
     (speed Fast)
     (typing Well_typed)
     (flags "")
@@ -8,15 +7,29 @@
 *)
 
 (*
-  This is a well-typed test is adapted from ill-typed OCaml:
-    testsuite/tests/typing-modules/functors.ml
+module type arg = sig type arg end
+module A = struct type arg end
+
+module Add_one' = struct
+  module M(_:arg) = A
+  module type t = module type of M
+end
+
+module Add_one = struct type witness include Add_one' end
+
+module Add_three = struct
+  module M(_:arg)(_:arg)(_:arg) = A
+  module type t = module type of M
+  type witness
+end
+
+module Mislead_chosen_one = F(Add_one)(Add_three)(A)(A)(A)
 *)
 
 let arg = sig val arg : type end
 let A = struct let arg = abstract end
 
 let Add_one_ = struct
-  let witness = abstract
   let M (_ : arg) : arg = A
   let t = arg -> arg (* we don't have "module type of", so I have to spell this out *)
 end
@@ -36,10 +49,10 @@ end
 (* This type and the next module are taken from abstract_module_type *)
 let TF = (X : sig
   val witness : type
-  val t : type (* we would like to have subtypes so we can say this is a subtype of sig end, and that way it's definitely a module type *)
+  val t : type
   val M : t
 end) -> X.t
 
 let F : TF = fun X -> X.M
 
-let Choose_one = F (Add_three) (A) (A) (A)
+let Mislead_chosen_one = F (Add_one) (A)

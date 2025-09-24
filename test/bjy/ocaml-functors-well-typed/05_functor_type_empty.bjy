@@ -1,0 +1,20 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module type f = functor (X:empty)(Y:empty) -> empty
+module F: f =
+  functor(X:empty)(Y:empty)(Z:empty) -> Empty
+*)
+
+let empty = sig end
+let Empty = struct end
+
+let f = (X : empty) -> (Y : empty) -> empty
+
+let F : f = fun X Y -> Empty

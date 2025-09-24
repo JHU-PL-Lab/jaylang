@@ -1,0 +1,26 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module type f =
+  functor(B:sig type x type y type u=x type v=y end)(Y:sig type yu = Y of B.u end)(Z:sig type zv = Z of B.v end)
+    -> sig end
+module F: f = functor (X:sig include x include y end)(Z:sig type zv = Z of X.y end) -> struct end
+*)
+
+let f =
+  (B : sig val x : type val y : type val u = x val v = y end)
+  -> (Y : sig val yu = `Y of B.u end) 
+  -> (Z : sig val zv = `Z of B.v end)
+  -> sig end
+
+(* The original test included module types, but we have to hand-write them.
+  It doesn't seem to kill the spirit of the test, though. *)
+let F (dep X : sig val x : type val y : type end) (Y : sig val yu = `Y of X.x end) (Z : sig val zv = `Z of X.y end) : sig end = struct end
+
+let _ : f = F

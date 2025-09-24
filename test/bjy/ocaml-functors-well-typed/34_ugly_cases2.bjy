@@ -1,0 +1,51 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module type s = functor
+  (X: sig type when_ type shall type we type three type meet type again end)
+  (Y:sig type in_ val thunder:in_ val lightning: in_ type rain end)
+  (Z:sig type when_ type the type hurlyburly's type done_  end)
+  (Z:sig type when_ type the type battle's type lost type and_ type won end)
+  (W:sig type that type will type be type ere type the_ type set type of_ type sun end)
+  (S: sig type where type the type place end)
+  (R: sig type upon type the type heath end)
+-> sig end
+module F: s = functor
+  (X: sig type when_ type shall type we type tree type meet type again end)
+  (Y:sig type in_ val thunder:in_ val lightning: in_ type pain end)
+  (Z:sig type when_ type the type hurlyburly's type gone  end)
+  (Z:sig type when_ type the type battle's type last type and_ type won end)
+  (W:sig type that type will type be type the type era type set type of_ type sun end)
+  (S: sig type where type the type lace end)
+  (R: sig type upon type the type heart end)
+  -> struct end
+*)
+
+let s = (X : sig val when_ : type val shall : type val we : type val three : type val meet : type val again :type end)
+  -> (Y : sig val in_ : type val thunder : in_ val lightning : in_ val rain : type end)
+  -> (Z : sig val when_ : type val the : type val hurlyburlys : type val done_ : type  end)
+  -> (Z : sig val when_ : type val the : type val battles : type val lost : type val and_ : type val won : type end)
+  -> (W : sig val that : type val will : type val be : type val ere : type val the_ : type val set : type val of_ : type val sun : type end)
+  -> (S : sig val where : type val the : type val place : type end)
+  -> (R : sig val upon : type val the : type val heath : type end)
+  -> sig end
+
+let F : s =
+  let F
+    (X : sig val when_ : type val shall : type val we : type val three : type val meet : type val again : type end)
+    (Y : sig val in_ : type val thunder : in_ val lightning : in_ val rain : type end)
+    (Z : sig val when_ : type val the : type val hurlyburlys : type val done_ : type end)
+    (Z : sig val when_ : type val the : type val battles : type val lost : type val and_ : type val won : type end)
+    (W : sig val that : type val will : type val be : type val ere : type val the_ : type val set : type val of_ : type val sun : type end)
+    (S : sig val where : type val the : type val place : type end)
+    (R : sig val upon : type val the : type val heath : type end)
+    : sig end
+    = struct end
+  in
+  F

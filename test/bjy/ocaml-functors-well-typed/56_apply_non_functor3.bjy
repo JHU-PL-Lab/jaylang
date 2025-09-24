@@ -1,0 +1,38 @@
+(***
+  (
+    (speed Slow) ; 0.2 seconds, about
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module A = struct type a end
+
+let f (x:Set.Make(Set)(A).t) = x
+*)
+
+(* Set up some code to emulate sets *)
+let ORD = sig
+  val t : type (* zero-arity type *)
+  val compare : t -> t -> int
+end
+
+let Set = struct
+  let t a = list a (* arbitrary set type (a type constructor) *)
+  let compare cmp x y = 0 (* ignore implementation of compare *)
+
+  let Make Ord = struct
+    let t = t Ord.t (* nonrec reference to the above *)
+    let compare a b = compare Ord.compare a b (* nonrec reference to the above *)
+  end
+end
+
+let A = struct let a = abstract end
+
+let A_ = struct
+  let t = A.a
+  let compare _ _ = 0
+end
+
+let f (x : (Set.Make(Set.Make(A_))).t) : top = x

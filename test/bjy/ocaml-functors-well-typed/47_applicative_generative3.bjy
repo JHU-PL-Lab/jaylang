@@ -1,0 +1,19 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module F(X:empty) = struct end
+module R =
+  F(struct end)();;
+*)
+
+let empty = sig end
+
+let F(X:empty) : sig end = struct end
+
+let R = F(struct end)

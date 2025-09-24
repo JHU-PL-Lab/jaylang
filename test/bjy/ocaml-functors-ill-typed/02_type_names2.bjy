@@ -1,3 +1,10 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
 (*
 module type x = sig type x end
 module type y = sig type y end
@@ -32,5 +39,5 @@ let W : w = struct let w = abstract end
 
 let F (X : x) (Y : y) (Z : z) : empty = struct end
 
-(* ERROR: the argumet should have a type x *)
+(* ERROR: the argument should have a type x *)
 let M = F (W)

@@ -1,0 +1,46 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module H
+    (X:sig
+       type 'a t
+       type 'a s
+     end)
+    (Y: sig
+       val f: 'a X.s -> 'a
+     end)
+= struct end
+
+
+module _ =
+  H
+    (struct
+      type t (** this is wrong*)
+      type 'a s = 'a (** this matches the expected type *)
+    end)
+    (struct
+      let f x = x   (* this is fine *)
+    end)
+*)
+
+let H (dependent X : sig
+  val t : type --> type
+  val s : type --> type
+end) (Y : sig
+  val f : (a : type) -> X.s a -> a
+end) : sig end = struct end
+
+let _ = H
+  (struct
+    let t = fun a -> a
+    let s a = a (* this matches the expected type *)
+  end)
+  (struct
+    let f _ x = x   (* this is fine *)
+  end)

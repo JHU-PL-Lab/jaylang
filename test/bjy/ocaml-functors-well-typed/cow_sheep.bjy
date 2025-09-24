@@ -1,3 +1,10 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
 
 (*
   This test is not from OCaml's typing suite. It is from here:

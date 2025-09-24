@@ -1,3 +1,10 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
 
 (*
 module G
@@ -11,7 +18,7 @@ module R = G(struct end)(struct let f (x,_) = x end)
 *)
 
 let G
-  (dependent A : sig val t : singlet ((a : type) -> { fst : a ; snd : a }) end)
+  (dependent A : sig val t : (a : type) --> singlet { fst : a ; snd : a } end)
   (dependent B : sig val f : (a : type) -> A.t a -> a end)
   : sig end =
   struct end

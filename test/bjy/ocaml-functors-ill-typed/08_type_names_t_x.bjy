@@ -1,3 +1,10 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
 
 (*
 module F(X:sig type t end) = struct end
@@ -6,5 +13,5 @@ module M = F(struct type x end)
 
 let F (X : sig val t : type end) : sig end = struct end
 
-(* ERROR: the type should be call t, not x*)
+(* ERROR: the type should be called t, not x*)
 let M = F (struct let x = abstract end)

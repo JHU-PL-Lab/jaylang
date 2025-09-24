@@ -1,0 +1,29 @@
+(***
+  (
+    (speed Fast)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+(*
+module Ord = struct type t = unit let compare _ _ = 0 end
+module M = Map.Make(Ord)(Ord)
+*)
+
+let ORD = sig
+  val t : type
+  val compare : t -> t -> int
+end
+
+(* dummy map module *)
+let Map = struct
+  let Make (Ord : ORD) : sig end = struct
+    let t = `Map of Ord.t
+    let add _ _ _ = ()
+  end
+end
+
+let Ord = struct let t = unit let compare _ _ = 0 end
+
+let M = Map.Make(Ord)

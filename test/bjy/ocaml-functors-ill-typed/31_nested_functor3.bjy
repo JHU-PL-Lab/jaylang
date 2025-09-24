@@ -1,7 +1,5 @@
 (***
   (
-    (features (Polymorphic_types Dependent_types Modules First_class_types Higher_order_functions))
-    (reasons (Polymorphic_types Modules))
     (speed Fast)
     (typing Ill_typed)
     (flags "")
@@ -44,7 +42,7 @@ end = struct
   (* Note these don't need to be called dependent, but in the spirit of functors, we say they are *)
   let F
     (dependent X : (A : sig val xaa : type end) -> (B : sig val xz : type end) -> sig end) (* ERROR: should be `xa`, not `xaa` *)
-    (dependent Y : (A : sig val ya : type end) -> (B : sig val ybb : type end) -> sig end) (* and more errors here and below *)
+    (dependent Y : (A : sig val ya : type end) -> (B : sig val ybb : type end) -> sig end)
     (dependent Z : (A : sig val za : type end) -> (B : sig val zbb : type end) -> sig end)
     : sig end
     = struct end
