@@ -1,6 +1,6 @@
 (***
   (
-    (speed Slow) ; 0.2 seconds, about
+    (speed Fast)
     (typing Exhausted)
     (flags "-s")
   )

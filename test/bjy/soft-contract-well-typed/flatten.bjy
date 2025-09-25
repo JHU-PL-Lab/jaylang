@@ -1,8 +1,9 @@
 (***
   (
     (features (Polymorphic_types Mu_types Variants Recursive_functions))
-    (speed Slow)
-    (typing Well_typed)
+    (speed Slow) ; the any_type is just expensive and blows up to insane levels at depth > 2
+    (typing Exhausted)
+    (flags "-s -p")
   )
 *)
 (* flatten the input down to just a list of ints and bools *)

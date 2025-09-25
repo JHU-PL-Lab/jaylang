@@ -1,13 +1,13 @@
 (***
   (
     (features (Polymorphic_types Recursive_functions))
-    (speed Slow) ; like 0.3 seconds. Slower than I want when running fast tests
-    (typing Well_typed)
+    (speed Fast)
+    (typing Exhausted)
     (flags "-s")
   )
 *)
 
-(* A little tough because of the nested typed statements *)
+(* A little tougher because of the nested typed statements *)
 let reverse (type a) (ls : list a) : list a =
   let rec rev (acc : list a) (ls : list a) : list a =
     match ls with

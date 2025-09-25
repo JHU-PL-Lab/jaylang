@@ -1,8 +1,9 @@
 (***
   (
     (features (Refinement_types Dependent_types Modules First_class_types Variants Records Recursive_functions))
-    (speed Slow)
-    (typing Well_typed)
+    (speed Slow) ; would be very fast, I think, if we had parallelism inside modules
+    (typing Exhausted)
+    (flags "-s")
   )
 *)
 
@@ -62,7 +63,7 @@ end = fun X -> struct
     | `B y -> y
     end
 
-  let rec extract_list ls =
+  let rec extract_list (ls : list t) : list x =
     match ls with
     | [] -> []
     | hd :: tl -> extract hd :: extract_list tl

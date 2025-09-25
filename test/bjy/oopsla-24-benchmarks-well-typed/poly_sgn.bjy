@@ -3,7 +3,7 @@
     (features (Polymorphic_types Variants Records Recursive_functions Higher_order_functions))
     (speed Slow) ; like 0.2 seconds
     (typing Exhausted)
-    (flags "-s")
+    (flags "-s -p")
   )
 *)
 

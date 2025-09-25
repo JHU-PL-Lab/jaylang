@@ -1,8 +1,8 @@
 (***
   (
     (features (Polymorphic_types Mu_types Parametric_types Variants Records Recursive_functions))
-    (speed Slow) ; about 20 seconds while splay depth is 3
-    (typing Well_typed) ; won't exhaust if there is a short test timeout
+    (speed Slow) ; about 2 seconds
+    (typing Exhausted)
     (flags "-s -p")
   )
 *)

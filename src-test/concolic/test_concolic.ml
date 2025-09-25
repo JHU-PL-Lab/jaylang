@@ -49,8 +49,8 @@ let () =
 
     (* ; "deep-type-error" *)
 
-    (* ; "interp-ill-typed" *)
-    (* ; "interp-well-typed" *)
+    ; "interp-ill-typed"
+    ; "interp-well-typed"
 
     ; "edge-cases-ill-typed"
     ; "edge-cases-well-typed"

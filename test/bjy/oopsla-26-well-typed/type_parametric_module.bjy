@@ -1,7 +1,7 @@
 (***
   (
     (features (Polymorphic_types Dependent_types Modules First_class_types))
-    (speed Slow) ; pretty quick with type splaying, but I'll call it slow because it's a few tenths of a second
+    (speed Fast)
     (typing Exhausted)
     (flags "-s")
   )

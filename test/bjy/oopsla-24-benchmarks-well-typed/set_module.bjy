@@ -1,8 +1,9 @@
 (***
   (
     (features (Polymorphic_types Modules Recursive_functions Higher_order_functions))
-    (speed Slow)
-    (typing Well_typed)
+    (speed Slow) ; single digit seconds because no parallelism in modules
+    (typing Exhausted)
+    (flags "-s")
   )
 *)
 
@@ -19,7 +20,7 @@ end = fun a -> struct
 
   let add x s = x :: s 
 
-  let rec remove x s equal = 
+  let rec remove (x : a) (s : t) (equal : a -> a -> bool) : t = 
     match s with
     | [] -> []
     | hd :: tl ->
@@ -28,7 +29,7 @@ end = fun a -> struct
       else hd :: remove x tl equal
     end
 
-  let rec contains x s equal = 
+  let rec contains (x : a) (s : t) (equal : a -> a -> bool) : bool = 
     match s with
     | [] -> false
     | hd :: tl ->

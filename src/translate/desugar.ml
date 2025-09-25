@@ -51,7 +51,7 @@ module LetMonad = struct
     tell { ty ; var ; defn }
 end
 
-let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_splay : bool) : Desugared.pgm =
+let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_splay : Splay.t) : Desugared.pgm =
   let module Names = (val names) in
   let open LetMonad in
 
@@ -243,7 +243,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       List.map func_comps ~f:(fun comps ->
           abstract_over_ids f_names @@
           match comps.tau_opt with
-          | Some tau when do_type_splay -> EGen tau
+          | Some tau when Splay.is_yes do_type_splay -> EGen tau
           | _ ->
             (* default behavior uses the actual function body *)
             build @@
@@ -260,7 +260,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
         make_stmt ~do_wrap:true ~do_check:true ~tau_opt:None comps.func_id
         @@ proj (EVar r) (RecordLabel.RecordLabel comps.func_id)
        ) @ (func_comps >>| fun comps ->
-            if Option.is_some comps.tau_opt && do_type_splay
+            if Option.is_some comps.tau_opt && Splay.is_yes do_type_splay
             then
               make_stmt ~do_wrap:true ~do_check:true ~tau_opt:comps.tau_opt comps.func_id (
                 abstract_over_ids comps.params comps.defn (* actual definition of function *)

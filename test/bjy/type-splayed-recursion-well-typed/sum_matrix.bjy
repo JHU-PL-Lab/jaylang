@@ -1,8 +1,8 @@
 (***
   (
     (features (Polymorphic_types Recursive_functions Higher_order_functions))
-    (speed Slow) ; a little slow because of nestedness
-    (typing Well_typed)
+    (speed Fast)
+    (typing Exhausted)
     (flags "-s -p")
   )
 *)

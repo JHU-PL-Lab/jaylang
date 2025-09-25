@@ -8,14 +8,14 @@ module type S = sig
     val test_some_program :
       options:Options.t ->
       do_wrap:bool ->
-      do_type_splay:bool ->
+      do_type_splay:Translate.Splay.t ->
       Lang.Ast.some_program ->
       Status.Terminal.t * tape
 
     val test_some_file :
       options:Options.t ->
       do_wrap:bool ->
-      do_type_splay:bool ->
+      do_type_splay:Translate.Splay.t ->
       Core.Filename.t ->
       Status.Terminal.t * tape
 
@@ -40,14 +40,14 @@ module Of_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) : S with 
     val test_some_program :
       options:Options.t ->
       do_wrap:bool ->
-      do_type_splay:bool ->
+      do_type_splay:Translate.Splay.t ->
       Lang.Ast.some_program ->
       Status.Terminal.t * tape
 
     val test_some_file :
       options:Options.t ->
       do_wrap:bool ->
-      do_type_splay:bool ->
+      do_type_splay:Translate.Splay.t ->
       Core.Filename.t ->
       Status.Terminal.t * tape
 
@@ -129,29 +129,51 @@ module Of_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) : S with 
       ----------------
     *)
 
-    let test_some_program :
+    let test_without_printing :
       options:Options.t ->
       do_wrap:bool ->
-      do_type_splay:bool ->
+      do_type_splay:Translate.Splay.t ->
       Lang.Ast.some_program ->
       Status.Terminal.t * tape =
       fun ~options ~do_wrap ~do_type_splay program ->
-      let status, tape =
-        if options.in_parallel
-        then
-          let pgms = Translate.Convert.some_program_to_many_emb program ~do_wrap ~do_type_splay in
-          match pgms with
-          | Last pgm -> 
-            (* Nothing to do in parallel if only one program *)
-            test_with_timeout ~options @@ Lang.Ast_tools.Utils.pgm_to_module pgm
-          | _ ->
-            let module C = Compute (struct let options = options end) in
-            let module P = Overlays.Computation_pool.Process (C) in
-            let status_m = P.process_all @@ Preface.Nonempty_list.map Lang.Ast_tools.Utils.pgm_to_module pgms in
-            Log.run status_m
-        else
-          let pgm = Translate.Convert.some_program_to_emb program ~do_wrap ~do_type_splay in
+      if options.in_parallel
+      then
+        let pgms = Translate.Convert.some_program_to_many_emb program ~do_wrap ~do_type_splay in
+        match pgms with
+        | Last pgm -> 
+          (* Nothing to do in parallel if only one program *)
           test_with_timeout ~options @@ Lang.Ast_tools.Utils.pgm_to_module pgm
+        | _ ->
+          let module C = Compute (struct let options = options end) in
+          let module P = Overlays.Computation_pool.Process (C) in
+          let status_m = P.process_all @@ Preface.Nonempty_list.map Lang.Ast_tools.Utils.pgm_to_module pgms in
+          Log.run status_m
+      else
+        let pgm = Translate.Convert.some_program_to_emb program ~do_wrap ~do_type_splay in
+        test_with_timeout ~options @@ Lang.Ast_tools.Utils.pgm_to_module pgm
+
+    let test_some_program :
+      options:Options.t ->
+      do_wrap:bool ->
+      do_type_splay:Translate.Splay.t ->
+      Lang.Ast.some_program ->
+      Status.Terminal.t * tape =
+      fun ~options ~do_wrap ~do_type_splay program ->
+      let status, tape = 
+        match do_type_splay with
+        | No -> test_without_printing ~options ~do_wrap ~do_type_splay program
+        | Yes_with_depth max_depth ->
+          (* Try depth 1 first and work up to max depth, which was the depth provided. *)
+          let rec loop cur_depth =
+            let status, tape =
+              test_without_printing ~options ~do_wrap ~do_type_splay:(Yes_with_depth cur_depth) program
+            in
+            (* Done if we did the max depth or there was no error, which means there's also no error at one level deeper *)
+            if cur_depth >= max_depth || not (Common.Status.is_error_found status)
+            then status, tape
+            else loop (cur_depth + 1)
+          in
+          loop 1
       in
       Format.printf "%s\n" (Status.to_loud_string status);
       status, tape
@@ -163,7 +185,7 @@ module Of_logger (T : Utils.Logger.TRANSFORMER with type B.a = Stat.t) : S with 
     *)
 
     let test_some_file :
-      options:Options.t -> do_wrap:bool -> do_type_splay:bool -> Filename.t ->
+      options:Options.t -> do_wrap:bool -> do_type_splay:Translate.Splay.t -> Filename.t ->
       Status.Terminal.t * tape =
       fun ~options ~do_wrap ~do_type_splay filename ->
       test_some_program

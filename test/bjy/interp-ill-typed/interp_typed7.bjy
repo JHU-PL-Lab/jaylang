@@ -2,7 +2,7 @@
   (
     (features (Refinement_types Modules Mu_types Parametric_types First_class_types Variants Records Recursive_functions Higher_order_functions Usage_error))
     (reasons (Recursive_functions Usage_error Mu_types Variants))
-    (speed Fast)
+    (speed Slow) ; a few seconds
     (typing Ill_typed)
   )
 *)

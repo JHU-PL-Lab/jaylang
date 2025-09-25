@@ -179,14 +179,14 @@ let run () =
     Driver.Eager.test_some_program
       ~options:{ options with random = true }
       ~do_wrap:true        (* always wrap during benchmarking *)
-      ~do_type_splay:false (* never type splay during benchmarking *)
+      ~do_type_splay:No    (* never type splay during benchmarking *)
       pgm
   in
   let runtest_deferred pgm =
     Driver.Deferred.test_some_program
       ~options:{ options with random = true }
       ~do_wrap:true        (* always wrap during benchmarking *)
-      ~do_type_splay:false (* never type splay during benchmarking *)
+      ~do_type_splay:No    (* never type splay during benchmarking *)
       pgm
   in
   let eager_results = of_dirs "Eager" n_trials dirs runtest_eager |> Result_table.add_average "Eager" in

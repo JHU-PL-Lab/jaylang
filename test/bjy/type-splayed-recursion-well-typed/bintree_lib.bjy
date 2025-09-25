@@ -1,7 +1,7 @@
 (***
   (
     (features (Polymorphic_types Mu_types Parametric_types Variants Records Recursive_functions))
-    (speed Slow) ; would be faster if we didn't search the type so deeply. But currently, this is REALLY slow at depth 3 -- about 30 seconds
+    (speed Slow) ; about 30 seconds
     (typing Well_typed)
     (flags "-s -p")
   )
@@ -37,8 +37,11 @@ let abs x =
   then -1 * x
   else x
 
-(* This is just expensive. It takes 30 seconds, but it works. It's expensive because we search the type so deeply *)
-(* If there were fewer calls to recursive functions, or if we didn't search so deep, this would be faster. *)
+(*
+  Everything below is just expensive because the functions make so many recursive calls inside themselves.
+  This means lots of generating trees.
+*)
+
 let rec is_balanced (type a) (tree : t a) : bool =
   match tree with
   | `Leaf _ -> true

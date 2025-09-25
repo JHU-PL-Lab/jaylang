@@ -169,7 +169,7 @@ let run () =
     test_program
       ~options
       ~do_wrap:true        (* always wrap during benchmarking *)
-      ~do_type_splay:false (* never type splay during benchmarking *)
+      ~do_type_splay:No    (* never type splay during benchmarking *)
       pgm
   in
   let tbl = Result_table.of_dirs n_trials dirs runtest in

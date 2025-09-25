@@ -32,7 +32,7 @@ let testcases_of_filename (testname : Filename.t) : unit Alcotest.test_case list
     check (convert bjy)
   in
   (* Any program using `abstract` cannot be executed in desugared mode because it's meant purely as an intermediate step. Just never run the desugared interpreter. *)
-  [ make Translate.Convert.bjy_to_erased ; make Fn.id (*; make (Translate.Convert.bjy_to_des ~do_type_splay:false)*) ; make (Translate.Convert.bjy_to_emb ~do_wrap:true ~do_type_splay:false) ]
+  [ make Translate.Convert.bjy_to_erased ; make Fn.id (*; make (Translate.Convert.bjy_to_des ~do_type_splay:No)*) ; make (Translate.Convert.bjy_to_emb ~do_wrap:true ~do_type_splay:No) ]
 
 let root_dir = "test/bjy/"
 

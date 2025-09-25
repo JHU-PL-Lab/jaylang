@@ -8,7 +8,6 @@ open Translation_tools
 open Ast_tools
 open Ast_tools.Utils
 
-let splay_depth = ref 3
 let rec_var_pick = ref 123456
 
 module LetMonad (Names : Fresh_names.S) = struct
@@ -165,7 +164,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   in
   loop expr
 
-let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm =
+let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : Splay.t) : Embedded.pgm =
   let module E = Embedded_type (struct let do_wrap = do_wrap end) in
   let module Names = (val names) in
   let open LetMonad (Names) in
@@ -482,8 +481,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     | ETypeMu { var = beta ; params ; body = tau } ->
       Stack.push cur_mu_vars beta;
       let res =
-        if not do_type_splay
-        then (* standard translation, allowing arbitrary depth in recursive types *)
+        match do_type_splay with
+        | No -> (* standard translation, allowing arbitrary depth in recursive types *)
           EThaw (apply Embedded_functions.y_freeze_thaw @@ 
                  fresh_abstraction "self_mu" @@ fun self ->
                  EFreeze (
@@ -496,7 +495,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                        }
                    )
                 )
-        else (* limit recursive depth of generated members in this type *)
+        | Yes_with_depth splay_depth -> (* limit recursive depth of generated members in this type *)
           let gend = Names.fresh_id ~suffix:"gend" () in
           let v = Names.fresh_id ~suffix:"v" () in
           let stub_type t =
@@ -532,7 +531,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                             )
               }
           in
-          appl_list Embedded_functions.y_1 [ body ; (EInt !splay_depth) ]
+          appl_list Embedded_functions.y_1 [ body ; (EInt splay_depth) ]
       in
       let _ = Stack.pop_exn cur_mu_vars in
       res
@@ -650,6 +649,6 @@ let split_checks (stmt_ls : Desugared.statement list) : Desugared.pgm Preface.No
   | None -> Preface.Nonempty_list.Last stmt_ls
   | Some pgm_ls -> pgm_ls
 
-let embed_fragmented (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm Preface.Nonempty_list.t =
+let embed_fragmented (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : Splay.t) : Embedded.pgm Preface.Nonempty_list.t =
   Preface.Nonempty_list.map (fun pgm -> embed_pgm names pgm ~do_wrap ~do_type_splay)
   @@ split_checks pgm
