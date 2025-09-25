@@ -1,0 +1,11 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+let identity (type a) (x :a) : a = x
+
+let _ = identity [int] 42
+let _ = identity [bool] true

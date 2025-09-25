@@ -1,0 +1,13 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+(* basic shadowing test *)
+let x = 10 
+let x = 20 (*shadows previous test*)
+let result1 : int = x 
+let _ = assert (result1 == 20)
+

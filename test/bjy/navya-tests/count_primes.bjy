@@ -1,0 +1,27 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+let is_prime (n : int) : bool = 
+  let rec check_divisors (i : int) : bool = 
+    if i * i > n 
+    then true 
+    else if n % i == 0 
+    then false 
+    else check_divisors (i + 1)
+  in 
+  if n <= 1 then false else check_divisors 2
+
+
+let rec count_primes_up_to (n : int) : { count : int | count >= 0 } =
+  let rec count_helper (current : int) (acc : int) : int =
+    if current > n
+    then acc
+    else if is_prime current
+    then count_helper (current + 1) (acc + 1)
+    else count_helper (current + 1) acc
+  in
+  count_helper 2 0

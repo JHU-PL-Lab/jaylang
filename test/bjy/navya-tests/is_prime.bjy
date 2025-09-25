@@ -1,0 +1,20 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+let is_prime (dependent n : int | n > 1): bool = 
+  let rec check_divisors (dependent i : int | i > 1 && i * i <= n) : bool = 
+    if i * i > n 
+    then true 
+    else if n % i == 0 
+    then false 
+    else check_divisors (i + 1)
+  in 
+  check_divisors 2 
+
+let _ = assert (is_prime 17 == true)
+let _ = assert (is_prime 15 == false)
+

@@ -67,6 +67,9 @@ test-cdeval-all:
 test-tools:
 	dune exec -- src-test/tools/test_tools.exe
 
+test-basic:
+	dune exec -- src-test/basic-bluejay/test_basic_bluejay.exe
+
 # benchmark
 
 cbenchmark:
