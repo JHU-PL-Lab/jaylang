@@ -1,0 +1,29 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Dependent_types Mu_types Parametric_types First_class_types Recursive_functions Higher_order_functions))
+    (speed Slow)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
+
+let t a = mu t n. 
+  if n == 0
+  then a
+  else a -> t (n - 1)
+
+let f (dep n : int | n >= 0) (g : t bool n) : bool =
+  let rec loop i =
+    if i < 1
+    then g
+    else loop (i - 1) (i % 2 == 0)
+  in
+  loop n
+
+let xor a b = not (a && b || not a && not b)
+
+let b : { b : bool | not b } =
+  f 4 (
+    fun b1 b2 b3 b4 ->
+      xor b1 (xor b2 (xor b3 b4))
+  )
