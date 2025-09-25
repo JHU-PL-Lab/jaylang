@@ -7,8 +7,8 @@
   )
 *)
 
-(* ERROR: S.t is a function, not a type, so singlet does not work on it *)
-let F : (S : sig val t : type -> type end) -> (sig val t : singlet S.t end) =
+(* ERROR: S.t is a function, not a type, so singletype does not work on it *)
+let F : (S : sig val t : type -> type end) -> (sig val t : singletype S.t end) =
   fun S -> struct
     let t = S.t
   end

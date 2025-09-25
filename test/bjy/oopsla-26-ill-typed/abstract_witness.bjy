@@ -20,7 +20,7 @@ let B = struct
   let witness = abstract
 end
 
-let F (dependent X : W) (dependent Y : sig val witness : singlet X.witness end) : sig end =
+let F (dependent X : W) (dependent Y : sig val witness : singletype X.witness end) : sig end =
   struct end
 
 let M = F(A)(B)

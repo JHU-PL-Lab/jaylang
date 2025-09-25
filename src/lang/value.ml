@@ -272,8 +272,8 @@ module Make (Store : STORE) (Env_cell : CELL) (V : Utils.Equatable.P1) = struct
     | VTypeFun { domain ; codomain ; det } -> Format.sprintf "(%s %s %s)" (_to_string domain) (if det then "-->" else "->") (_to_string codomain)
     | VTypeDepFun { binding = Ident s ; domain ;  det ; codomain } -> Format.sprintf "((%s : %s) %s %s)" s (if det then "-->" else "->") (_to_string domain) (_closure_to_string codomain)
     | VTypeRefinement { tau ; predicate } -> Format.sprintf "{ %s | %s }" (_to_string tau) (_to_string predicate)
-    | VTypeSingleFun -> Format.sprintf "singlet"
-    | VTypeSingle v -> Format.sprintf "(singlet (%s))" (_to_string v)
+    | VTypeSingleFun -> Format.sprintf "singletype"
+    | VTypeSingle v -> Format.sprintf "(singletype (%s))" (_to_string v)
     | VTypeListFun -> Format.sprintf "list"
     | VTypeList v -> Format.sprintf "(list (%s))" (_to_string v)
     | VAbstractType i -> Format.sprintf "(abstract %d)" i

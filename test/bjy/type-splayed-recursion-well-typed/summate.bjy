@@ -7,7 +7,7 @@
   )
 *)
 
-let rec summate (n : int | n >= 0) : int =
+let rec summate (dep n : int | n >= 0) : { m : int | m == (n * (n + 1)) / 2 } =
   if n == 0 
   then 0 
   else n + summate (n - 1)

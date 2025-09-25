@@ -1,8 +1,9 @@
 (***
   (
     (features (Polymorphic_types Variants Records Recursive_functions Higher_order_functions))
-    (speed Slow)
-    (typing Well_typed)
+    (speed Slow) ; like 0.2 seconds
+    (typing Exhausted)
+    (flags "-s")
   )
 *)
 
@@ -18,7 +19,7 @@ let rec list_count (type a_) (ls : list a_) (f : a_ -> bool) : int =
 
 (* Computes sgn of permutation *)
 let sgn (type a_) (ls : list a_) (compare : a_ -> a_ -> int) : sign =
-  let rec num_inversions l =
+  let rec num_inversions (l : list a_) : int =
     match l with
     | [] -> 0
     | hd :: tl -> list_count a_ tl (fun x -> compare x hd < 0) + num_inversions tl 

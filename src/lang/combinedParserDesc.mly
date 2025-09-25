@@ -80,7 +80,7 @@ the language and which lines are erased.
 %token MU
 %token OF
 %token SIG
-%token SINGLET_KEYWORD
+%token SINGLETYPE_KEYWORD
 %token TOP_KEYWORD
 %token TYPE
 %token UNIT_KEYWORD
@@ -478,7 +478,7 @@ primary_expr:
       { EAbstractType : t }
   (*! endscope !*)
   (*! scope bluejay desugared !*)
-  | SINGLET_KEYWORD
+  | SINGLETYPE_KEYWORD
       { ETypeSingle : t }
   (*! endscope !*)
   (* braces/parens *)
@@ -588,7 +588,7 @@ param_list:
 (*! scope bluejay desugared !*)
 
 /* val x : t (* for module types *) */
-/* val t = tau (* pure simple sugar for val t : singlet tau *) */
+/* val t = tau (* pure simple sugar for val t : singletype tau *) */
 val_item:
   | VAL record_type_item { $2 }
   | VAL record_label EQUALS expr { $2, EAppl { func = ETypeSingle ; arg = $4 } : RecordLabel.t * t }

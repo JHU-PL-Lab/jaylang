@@ -39,7 +39,7 @@ end
 *)
 
 let Shape_arg = struct
-  let M1 (Arg1 : sig end) : sig val S1 : singlet (sig val t : type end) end = struct
+  let M1 (Arg1 : sig end) : sig val S1 : singletype (sig val t : type end) end = struct
     let S1 = sig
       val t : type
     end
@@ -55,9 +55,9 @@ let Shape_arg = struct
     end
   end
 
-  let M3 (dep Arg4 : sig end) : sig val S3 : singlet (sig val t : singlet (M2.Make(Arg4)).t end) end = struct
+  let M3 (dep Arg4 : sig end) : sig val S3 : singletype (sig val t : singletype (M2.Make(Arg4)).t end) end = struct
     let S3 = sig
-      val t : singlet ((M2.Make(Arg4)).t)
+      val t : singletype ((M2.Make(Arg4)).t)
     end
   end
 

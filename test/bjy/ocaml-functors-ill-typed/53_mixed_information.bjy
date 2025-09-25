@@ -15,11 +15,11 @@ end
 *)
 
 let _ : sig
-  val F : (X : sig val t : (a : type) --> singlet { fst : a ; snd : a } end)
-    -> (Y : sig val t : (a : type) --> singlet { fst : X.t a ; snd : list a } end) -> sig end
+  val F : (X : sig val t : (a : type) --> singletype { fst : a ; snd : a } end)
+    -> (Y : sig val t : (a : type) --> singletype { fst : X.t a ; snd : list a } end) -> sig end
 end = struct
-  let F (dep X : sig val t : (a : type) --> singlet (list a) end) (* ERROR: this is the wrong type *)
-    (Y : sig val t : (a : type) --> singlet { fst : { fst : a ; snd : a } ; snd : X.t a } end) (* this is fine, considering the above line *)
+  let F (dep X : sig val t : (a : type) --> singletype (list a) end) (* ERROR: this is the wrong type *)
+    (Y : sig val t : (a : type) --> singletype { fst : { fst : a ; snd : a } ; snd : X.t a } end) (* this is fine, considering the above line *)
     : sig end
     = struct end
 end

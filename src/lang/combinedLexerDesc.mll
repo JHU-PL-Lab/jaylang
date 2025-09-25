@@ -98,7 +98,7 @@ rule token = parse
 | "mu"                 { MU }
 | "of"                 { OF }
 | "sig"                { SIG }
-| "singlet"            { SINGLET_KEYWORD }
+| "singletype"         { SINGLETYPE_KEYWORD }
 | "top"                { TOP_KEYWORD }
 | "type"               { TYPE }
 | "unit"               { UNIT_KEYWORD }

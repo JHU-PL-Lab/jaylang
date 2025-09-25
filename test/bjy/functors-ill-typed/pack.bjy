@@ -29,7 +29,7 @@ let Make : (X : sig val t : type --> type val compare : (a : type) -> t a -> t a
       ERROR: didn't apply int here, or bool in the second case.
       This is more like "separate" than "pack", but it still doesn't make sense.
 
-      A similar error is to accidentally use `singlet (X.t int)` (in both S and here),
+      A similar error is to accidentally use `singletype (X.t int)` (in both S and here),
       and leave `compare` unchanged. That would just be on the wrong level of types.
     *)
     let t = 

@@ -36,7 +36,7 @@ end |
   What's crazy is that this is a monad
 *)
 let T : MONAD = struct
-  let m = singlet
+  let m = singletype
   let return a _ = a
   let bind _ b _ _ = b
 end

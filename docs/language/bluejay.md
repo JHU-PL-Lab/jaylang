@@ -45,7 +45,7 @@ let MONAD = sig
 end
 
 let Derive_bind (dep M : MONAD) : sig
-  val m : (a : type) -> singlet (M.m a)
+  val m : (a : type) -> singletype (M.m a)
   val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b
 end = struct
   let m = M.m
@@ -73,7 +73,7 @@ The full feature list of Bluejay is the following.
 * `int`
 * `bool`
 * `list tau` for a type `tau`. The type function `list` is first class.
-* `singlet tau` for a type `tau`. The type function `singlet` is first class. `singlet tau` is the type whose only member is the type `tau`.
+* `singletype tau` for a type `tau`. The type function `singletype` is first class. `singletype tau` is the type whose only member is the type `tau`.
 * `type`, the type of a type. The user may use the value `abstract` as a generated member of `type`.
 * `top`, the type of everything, whose generated member is an unusable value, but everthing checks against `top`.
 * `bottom`, the subtype of everything, which has no members.
@@ -294,11 +294,11 @@ unit          (* the terminal type whose only member is () *)
 type          (* type of types *)
 top           (* everything has type top *)
 bottom        (* nothing has type bottom *)
-singlet t     (* the type containing only t for some type t *)
+singletype t     (* the type containing only t for some type t *)
 list t        (* the type of lists of t for some type t *)
 ```
 
-`singlet` and `list` are first class: they do not need an argument applied where they are written.
+`singletype` and `list` are first class: they do not need an argument applied where they are written.
 
 #### Refinement types
 
@@ -489,11 +489,11 @@ end
 let _ : S = M   (* use the above module type to check against M *)
 
 let _ : sig
-  val t = int   (* sugar for val t : singlet int, i.e. t is int *)
+  val t = int   (* sugar for val t : singletype int, i.e. t is int *)
 end = M
 
 let _ : sig
-  val t : singlet int (* this is identical to the above *)
+  val t : singletype int (* this is identical to the above *)
 end = M
 ```
 

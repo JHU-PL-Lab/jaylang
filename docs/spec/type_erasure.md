@@ -72,7 +72,7 @@ Type functions need to accept parameters to preserve the semantics of their mean
 ```ocaml
 <| list |> = fun _ -> ()
 
-<| singlet |> = fun _ -> ()
+<| singletype |> = fun _ -> ()
 ```
 
 ## Recursive types

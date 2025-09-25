@@ -32,13 +32,13 @@ end
 let Make : (Monad : MONAD) -> (Tape : MONOID) -> sig
   val tape = Tape.t
 
-  val with_tape : (a : type) -> singlet { a : a ; tape : tape }
+  val with_tape : (a : type) -> singletype { a : a ; tape : tape }
 
-  (* Note this is inherently deterministic because singlet has one member *)
-  val monad : (a : type) -> singlet (Monad.m a)
+  (* Note this is inherently deterministic because singletype has one member *)
+  val monad : (a : type) -> singletype (Monad.m a)
 
   (* same here *)
-  val t : (a : type) -> singlet (monad (with_tape a))
+  val t : (a : type) -> singletype (monad (with_tape a))
 
   val run : (a : type) -> t a -> monad (with_tape a)
 

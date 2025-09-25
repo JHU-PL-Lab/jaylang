@@ -553,7 +553,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       abstract_over_ids [tau] @@
       make_embedded_type
         { gen = lazy (EVar tau)
-        ; check = lazy (fresh_abstraction "t_singlet_check" @@ fun t -> 
+        ; check = lazy (fresh_abstraction "t_singletype_check" @@ fun t -> 
             EEscapeDet (
               build @@
               let%bind _ = ignore @@ check (EVar tau) (gen (EVar t)) in

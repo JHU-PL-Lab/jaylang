@@ -10,13 +10,13 @@
   Here is how we assert that X.t is the returned t
 *)
 let F : (X : sig val t : type --> type end) -> sig
-  val t : (a : type) -> singlet (X.t a) (* like an eta equivalence, right? *)
+  val t : (a : type) -> singletype (X.t a) (* like an eta equivalence, right? *)
 end = fun X -> struct
   let t = X.t
 end
 
 (*
-  Even though singlet checks for equality, let's check one more time
+  Even though singletype checks for equality, let's check one more time
 *)
 let _ =
   let X = struct let t a = { a : a } end in
@@ -29,7 +29,7 @@ let _ =
 (*
   This is saying that Y.t = X.t, and we check that it is still type --> type.
 *)
-let F : (X : sig val t : type --> type end) -> (Y : sig val t : (a : type) -> singlet (X.t a) end) -> sig
+let F : (X : sig val t : type --> type end) -> (Y : sig val t : (a : type) -> singletype (X.t a) end) -> sig
   val t : type --> type
 end = fun X Y -> struct
   let t = Y.t

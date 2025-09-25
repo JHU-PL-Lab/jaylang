@@ -7,7 +7,7 @@
 *)
 
 let M : sig 
-  val t : singlet int
+  val t : singletype int
   val f : t -> t
 end = struct
   let t = int 

@@ -1,8 +1,9 @@
 (***
   (
     (features (Refinement_types Recursive_functions Higher_order_functions Subtyping))
-    (speed Slow)
-    (typing Well_typed)
+    (speed Fast)
+    (typing Exhausted)
+    (flags "-s")
   )
 *)
 
@@ -12,7 +13,7 @@ let zero_type : type = { i : int | i == 0 }
 let appl_zero (g : zero_type -> bool) (_ : zero_type) : bool =
   g 0
 
-let rec f n zero_arg =
+let rec f (n : int) (zero_arg : zero_type) : bool =
   if n <= 0
   then true
   else appl_zero (f (n - 1)) zero_arg

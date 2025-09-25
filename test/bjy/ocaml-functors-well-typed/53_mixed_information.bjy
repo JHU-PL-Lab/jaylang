@@ -16,11 +16,11 @@ end
 
 (* This well-typed version will need splaying because of the use of lists *)
 let _ : sig
-  val F : (X : sig val t : (a : type) --> singlet { fst : a ; snd : a } end)
-    -> (Y : sig val t : (a : type) --> singlet { fst : X.t a ; snd : list a } end) -> sig end
+  val F : (X : sig val t : (a : type) --> singletype { fst : a ; snd : a } end)
+    -> (Y : sig val t : (a : type) --> singletype { fst : X.t a ; snd : list a } end) -> sig end
 end = struct
-  let F (dep X : sig val t : (a : type) --> singlet { fst : a ; snd : a } end)
-    (Y : sig val t : (a : type) --> singlet { fst : X.t a ; snd : list a } end)
+  let F (dep X : sig val t : (a : type) --> singletype { fst : a ; snd : a } end)
+    (Y : sig val t : (a : type) --> singletype { fst : X.t a ; snd : list a } end)
     : sig end
     = struct end
 end

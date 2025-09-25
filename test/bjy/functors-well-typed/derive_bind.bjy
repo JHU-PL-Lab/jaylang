@@ -49,7 +49,7 @@ let Id_example : BASIC = struct
 end
 
 let Derive_bind (dep M : BASIC) : sig
-  val m : (a : type) -> singlet (M.m a)
+  val m : (a : type) -> singletype (M.m a)
   val bind : (a : type) -> (b : type) -> m a -> (a -> m b) -> m b
 end = struct
   let m = M.m

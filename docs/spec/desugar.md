@@ -381,12 +381,12 @@ Notes:
 Notes:
 * This means `e'` is evaluated first, which is a somewhat unintuitive evaluation order, and it motivates actually having the pipelining operator in the language, or desugaring to `(fun a b -> b a) e e'`
 
-### Singlet in module types
+### Singletype in module types
 
 ```ocaml
 (* as a line in a module type *)
 (| val t = tau |) =
-  (| val t : singlet (tau) |)
+  (| val t : singletype (tau) |)
 ```
 
 Notes:
