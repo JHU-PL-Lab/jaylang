@@ -32,4 +32,4 @@ end = struct
   let t = `X of X.x | `Y of Y.y | `Z of Z.z
 end
 
-let u = (F(X)(struct let y= abstract end)(Z)).t
+let u = (F(X)(struct let y = abstract end)(Z)).t

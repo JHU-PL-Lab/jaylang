@@ -8,12 +8,32 @@
   )
 *)
 
+(*
+module type W = sig
+  type witness
+end
+
+module A = struct
+  type witness
+end
+
+module B = struct
+  type witness
+end
+
+module F (X : W) (Y : sig type witness = X.witness end) : sig end = struct end
+
+(* The user would expect this to fail *)
+module M = F(A)(B)
+*)
+
 let W = sig
   val witness : type
 end
 
+(* We use `abstract` to get the same _behavior_ as OCaml's empty types, but it is not a literal translation *)
 let A = struct
-  let witness = abstract
+  let witness = abstract (* this witness is now some new polymorphic type *)
 end
 
 let B = struct
@@ -23,5 +43,6 @@ end
 let F (dependent X : W) (dependent Y : sig val witness : singletype X.witness end) : sig end =
   struct end
 
+(* This rightfully fails. If instead of `witness` we used `bottom`, then this would vanish and look safe, which is not what we want *)
 let M = F(A)(B)
 

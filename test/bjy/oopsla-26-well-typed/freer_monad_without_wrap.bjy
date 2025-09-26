@@ -7,13 +7,10 @@
   )
 *)
 
-let ty n =
-  let rec loop i =
-    if i <= 0
-    then type
-    else type --> loop (i - 1)
-  in
-  loop n
+let rec ty n =
+  if n <= 0
+  then type
+  else type --> ty (n - 1)
 
 let ty1 = ty 1
 

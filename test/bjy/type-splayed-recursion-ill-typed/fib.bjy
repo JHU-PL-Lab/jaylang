@@ -1,0 +1,19 @@
+(***
+  (
+    (features (Recursive_functions Other))
+    (reasons (Recursive_functions Other)) ; type splaying is incomplete
+    (speed Fast)
+    (typing Ill_typed) ; only because of incompleteness
+    (flags "-s")
+  )
+*)
+
+let rec fib (n : int) : int =
+  if n == 0 then
+    0
+  else if n == 1 then
+    1
+  else
+    let answer = fib (n - 1) + fib (n - 2) in
+    let _ = assert (answer > 0) in (* the codomain of `fib` would need to be refined for this assertion to pass while type splaying *)
+    answer
