@@ -1,0 +1,40 @@
+(***
+  (
+    (features (Polymorphic_types Modules Recursive_functions Higher_order_functions))
+    (speed Slow) ; single digit seconds because no parallelism in modules
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let Set : (a : type) -> sig
+  val t : type
+  val emptyset : t
+  val add : a -> t -> t
+  val remove : a -> t -> (a -> a -> bool) -> t
+  val contains : a -> t -> (a -> a -> bool) -> bool
+end = fun a -> struct
+  let t = list a
+
+  let emptyset = []
+
+  let add x s = x :: s 
+
+  let rec remove (x : a) (s : t) (equal : a -> a -> bool) : t = 
+    match s with
+    | [] -> []
+    | hd :: tl ->
+      if equal hd x
+      then tl
+      else hd :: remove x tl equal
+    end
+
+  let rec contains (x : a) (s : t) (equal : a -> a -> bool) : bool = 
+    match s with
+    | [] -> false
+    | hd :: tl ->
+      if equal x hd
+      then true
+      else contains x tl equal
+    end
+end

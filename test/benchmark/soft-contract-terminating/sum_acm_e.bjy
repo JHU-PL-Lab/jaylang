@@ -1,0 +1,16 @@
+(***
+  (
+    (features (Recursive_functions Higher_order_functions Other)) ; Other is assertions
+    (speed Fast)
+    (typing Exhausted)
+  )
+*)
+
+let rec sum x y k =
+  if x <= 0
+  then k y
+  else sum (x - 1) (x + y) k
+
+let check x = assert (x >= 100)
+
+let res = sum 14 0 check

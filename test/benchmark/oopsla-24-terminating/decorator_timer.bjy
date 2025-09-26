@@ -1,0 +1,33 @@
+(***
+  (
+    (features (Records Higher_order_functions OOP_style))
+    (speed Fast)
+    (typing Exhausted)
+  )
+*)
+
+let t =
+  { f : int -> bool
+  ; g : int -> int
+  ; x : bool }
+
+(* Dummy implementation because we don't have side effects *)
+let get_current_time _ = 0
+
+(* Dummy implementation because we don't have side effects *)
+let print _ = 0
+
+let make_timer_decorator (x : t) : t =
+  let time f =
+    fun a ->
+      let t0 = get_current_time true in
+      let r = f a in
+      let t1 = get_current_time true in
+      let _ = print (t1 - t0) in
+      r
+  in
+  { f = time x.f
+  ; g = time x.g
+  ; x = x.x
+  }
+  

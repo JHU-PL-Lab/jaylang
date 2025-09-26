@@ -1,0 +1,23 @@
+(***
+  (
+    (features (Polymorphic_types Higher_order_functions))
+    (speed Fast)
+    (typing Exhausted)
+  )
+*)
+(* Polymorphic compose *)
+
+let compose (type a b c) (b_c : b -> c) (a_b : a -> b) (a_ : a) : c =
+  b_c (a_b a_)
+
+let id (type a) (a_ : a) : a =
+  a_
+  
+let r =
+  compose
+    int
+    int
+    int
+    (id int)
+    (id int)
+    4 

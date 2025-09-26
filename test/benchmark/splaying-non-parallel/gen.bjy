@@ -1,0 +1,25 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types First_class_types))
+    (speed Fast) ; only if we use type splaying
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+
+(* this is how we gen an `a` when splaying types *)
+let rec gen (dependent a : type) : a =
+  gen a
+
+(*
+  The recursive function is desugared to call a generated version of itself
+  instead of its actual self so that we get termination.
+
+  Above, without the splaying, doesn't terminate, so it is well-typed.
+  With it, it is well-typed.
+
+  But with it, we have made function to generate a member of any type.
+*)
+
+let _ : int = gen int

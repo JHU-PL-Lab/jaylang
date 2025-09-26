@@ -1,0 +1,23 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions Higher_order_functions))
+    (speed Fast) ; b/c type splaying
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let is_nonempty ls =
+  match ls with
+  | [] -> false
+  | _ -> true
+  end
+
+let rec foldr1 (type a_) (f : a_ -> a_ -> a_) (xs : { list a_ | is_nonempty }) : a_ =
+  match xs with
+  | z :: zs ->
+    match zs with
+    | [] -> z
+    | _ -> f z (foldr1 a_ f zs)
+    end 
+  end

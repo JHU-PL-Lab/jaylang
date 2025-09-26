@@ -21,31 +21,31 @@ module Report_row (* : Latex_table.ROW *) = struct
     ; total_time  : Mtime.Span.t
     ; trial       : Trial.t
     (* ; lines_of_code     : int *) (* not needed because is derived from the testname *)
-    ; metadata     : Metadata.t }
+    ; metadata     : Metadata.t[@warning "-69"] }
 
   let names =
     [ "Test Name" ; "Interp" ; "Solve" ; "Total" ; "LOC" ]
-    @ (List.map Ttag.V2.all ~f:(fun tag ->
+    (* @ (List.map Ttag.V2.all ~f:(fun tag ->
         Latex_format.rotate_90
         @@ Ttag.V2.to_name_with_underline tag
       )
-      )
+      ) *)
 
   let to_strings x =
     let span_to_ms_string =
       fun span ->
         let fl = Utils.Time.span_to_ms span in
-        Float.to_string @@
-        if Float.(fl < 1.)
+        Float.to_string @@ Float.round_decimal fl ~decimal_digits:2
+        (* if Float.(fl < 1.)
         then Float.round_decimal fl ~decimal_digits:2
-        else Float.round_significant fl ~significant_digits:2
+        else Float.round_significant fl ~significant_digits:2 *)
     in
     [ Filename.basename x.testname |> String.take_while ~f:(Char.(<>) '.') |> Latex_format.texttt
     ; span_to_ms_string x.interp_time
     ; span_to_ms_string x.solve_time
     ; span_to_ms_string x.total_time
     ; Int.to_string (Utils.Cloc_lib.count_bjy_lines x.testname) ]
-    @ (
+    (* @ (
       match Metadata.tags_of_t x.metadata with
       | `Sorted_list ls ->
         List.map ls ~f:(function
@@ -56,7 +56,7 @@ module Report_row (* : Latex_table.ROW *) = struct
               |> Char.to_string
               |> Latex_format.red
           )
-    )
+    ) *)
 
   let of_testname
       (n_trials : int)
@@ -65,16 +65,24 @@ module Report_row (* : Latex_table.ROW *) = struct
     : t list =
     assert (n_trials > 0);
     let metadata = Metadata.of_bjy_file testname in
+    let _parse_time, source = Utils.Time.time Lang.Parser.parse_program_from_file testname in
     let test_one (n : int) : t =
-      let parse_time, source = Utils.Time.time Lang.Parser.parse_program_from_file testname in
+      Gc.minor ();
+      (* let parse_time, source = Utils.Time.time Lang.Parser.parse_program_from_file testname in *)
       let run_time, (test_result, tape) = Utils.Time.time runtest source in
+      (* begin
+        match test_result with
+        | Concolic.Common.Status.Exhausted_full_tree -> ()
+        | _ -> assert false
+      end; *)
       let stat_list = tape [] in
       let row =
         { testname
         ; test_result
         ; interp_time = Stat.sum_time Stat.Interp_time stat_list
         ; solve_time = Stat.sum_time Stat.Solve_time stat_list
-        ; total_time = Mtime.Span.add parse_time run_time (* ignores stats measured total time *)
+        ; total_time = run_time
+        (* Mtime.Span.add parse_time run_time ignores stats measured total time *)
         ; trial = Number n
         ; metadata }
       in
@@ -138,8 +146,8 @@ module Result_table = struct
         ; [ little_space ] (* solve time *)
         ; [ little_space ;  Vertical_line_to_right ] (* total time *)
         ; [ little_space ; Vertical_line_to_right ] (* loc *) ]
-        @
-        List.init (List.length Ttag.V2.all) ~f:(fun _ -> [ little_space ]) 
+        (* @
+        List.init (List.length Ttag.V2.all) ~f:(fun _ -> [ little_space ])  *)
     }
 end
 
@@ -157,6 +165,7 @@ let run () =
   let open Cmdliner.Term.Syntax in
   Cmd.v (Cmd.info "cbenchmark") @@
   let+ options = Options.cmd_arg_term
+  and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
   and+ n_trials, dirs, mode, hum = cbench_args in
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
@@ -168,8 +177,8 @@ let run () =
     in
     test_program
       ~options
-      ~do_wrap:true        (* always wrap during benchmarking *)
-      ~do_type_splay:No    (* never type splay during benchmarking *)
+      ~do_wrap
+      ~do_type_splay
       pgm
   in
   let tbl = Result_table.of_dirs n_trials dirs runtest in

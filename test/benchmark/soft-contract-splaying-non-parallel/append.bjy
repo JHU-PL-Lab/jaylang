@@ -1,0 +1,20 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions))
+    (speed Fast) ; only because of type splaying
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let is_nonempty ls =
+  match ls with
+  | [] -> false
+  | _ -> true
+  end
+
+let rec append (type a_) (a : list a_) (b : { list a_ | is_nonempty }) : { list a_ | is_nonempty } =
+  match a with
+  | [] -> b
+  | hd :: tl -> hd :: append a_ tl b
+  end

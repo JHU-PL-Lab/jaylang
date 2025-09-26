@@ -1,0 +1,23 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions))
+    (speed Fast) ; b/c type splaying
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let is_nonempty ls = 
+  match ls with
+  | [] -> false
+  | _ -> true
+  end
+
+let rec lastpair (type a_) (x : { list a_ | is_nonempty }) : { list a_ | is_nonempty } =
+  match x with
+  | h :: xs ->
+    match xs with
+    | [] -> [ h ]
+    | _ -> lastpair a_ xs
+    end
+  end

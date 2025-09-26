@@ -1,0 +1,61 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Records Recursive_functions))
+    (speed Slow) ; A few seconds
+    (typing Exhausted)
+    (flags "-s -p")
+  )
+*)
+
+let non_neg = { i : int | i >= 0 }
+
+let rec split_list (type a) (ls : list a) (n : non_neg) : { first_n : list a ; remaining : list a } =
+  if n == 0
+  then { first_n = [] ; remaining = ls }
+  else
+    match ls with
+    | [] -> { first_n = [] ; remaining = [] }
+    | hd :: tl ->
+      let r = split_list a tl (n - 1) in
+      { first_n = hd :: r.first_n ; remaining = r.remaining }
+    end
+
+let rec list_length (type a) (ls : list a) : non_neg =
+  match ls with
+  | [] -> 0
+  | _ :: tl -> 1 + list_length a tl
+  end
+
+let rec merge (type a) (p : list a) (q : list a) (cmp : a -> a -> int) : list a =
+  match p with
+  | [] -> q
+  | x :: p_tl ->
+    match q with
+    | [] -> p
+    | y :: q_tl ->
+      if cmp x y < 0
+      then x :: merge a p_tl q cmp
+      else y :: merge a p q_tl cmp
+    end
+  end
+
+(*
+  We cannot verify that this correctly sorts if we are type splaying.
+  But simple ocaml-like types like this work well.
+
+  Note that because this calls wrapped functions above, this is testing
+  that we have correctly wrapped stubbed recursive types.
+*)
+let rec merge_sort (type a) (ls : list a) (cmp : a -> a -> int) : list a =
+  match ls with
+  | [] -> []
+  | hd :: tl ->
+    match tl with 
+    | [] -> [ hd ]
+    | _ ->
+      let r = split_list a ls (list_length a ls / 2) in
+      let sorted_left = merge_sort a r.first_n cmp in
+      let sorted_right = merge_sort a r.remaining cmp in
+      merge a sorted_left sorted_right cmp
+    end
+  end

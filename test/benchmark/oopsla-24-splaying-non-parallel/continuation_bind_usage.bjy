@@ -1,0 +1,40 @@
+(***
+  (
+    (features (Polymorphic_types Parametric_types Records Higher_order_functions))
+    (speed Fast) ; uses list type, so will be slow to exhaust. But it's fast with type splaying
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+(* Continuation monad -- improper use of bind *)
+
+let (t : type -> type -> type) = fun a r -> { continuation : (a -> r) -> r }
+
+let bind (type a_ b_ r_) (ar_r : t a_ r_) : (a_ -> t b_ r_) -> t b_ r_ = 
+  fun a_br_r ->
+    { continuation = 
+      fun br -> ar_r.continuation (fun a -> (a_br_r a).continuation br)
+    }
+
+let r = { r : int }
+
+let x =
+  { continuation =
+    fun ir ->
+      { r = (ir 0).r + 1 } }
+
+let f =
+  fun i ->
+    { continuation =
+      fun lir ->
+        lir [ i ]
+    }
+
+let y = bind int (list int) r x f
+
+let z = y.continuation (fun ls ->
+  match ls with
+  | [] -> { r = 0 }
+  | hd :: tl -> { r = hd }
+  end
+)

@@ -1,0 +1,22 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Recursive_functions))
+    (speed Fast)
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let pos_int = { i : int | i > 0 }
+
+(* This could be `list pos_int`, but it adds enough branches that we need to increase depth to fully exhaust *)
+let factors (n : pos_int) : list int =
+  let rec factors (dependent i : pos_int) : list { k : int | k >= i } =
+    if i > n then
+      []
+    else if n % i == 0 then
+      i :: factors (i + 1)
+    else
+      factors (i + 1)
+  in
+  factors 1

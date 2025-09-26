@@ -1,0 +1,31 @@
+(***
+  (
+    (features (Polymorphic_types Recursive_functions Higher_order_functions))
+    (speed Fast) ; b/c type splaying and parallelism
+    (typing Exhausted)
+    (flags "-s -p")
+  )
+*)
+
+(* No error in this. It is here to slow down the concolic evaluator and make a bigger haystack in which to find the needle *)
+let rec fold2 (type a_ b_ acc_) (ls1 : list a_) (ls2 : list b_) (init : acc_) (f : acc_ -> a_ -> b_ -> acc_) : acc_ =
+  match ls1 with
+  | [] -> init
+  | hd1 :: tl1 ->
+    match ls2 with
+    | [] -> init
+    | hd2 :: tl2 ->
+      fold2 a_ b_ acc_ tl1 tl2 (f init hd1 hd2) f
+    end
+  end
+
+let rec map2 (type a_ b_ c_) (ls1 : list a_) (ls2 : list b_) (f : a_ -> b_ -> c_) : list c_ =
+  match ls1 with
+  | [] -> []
+  | hd1 :: tl1 -> 
+    match ls2 with
+    | [] -> []
+    | hd2 :: tl2 -> 
+      f hd1 hd2 :: map2 a_ b_ c_ tl1 tl2 f
+    end
+  end

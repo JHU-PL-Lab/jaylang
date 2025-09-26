@@ -1,0 +1,15 @@
+(***
+  (
+    (features (Polymorphic_types Recursive_functions))
+    (speed Fast) ; b/c type splaying
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let rec f (type a_) (a : a_) (i : int) : a_ =
+  if i == 0
+  then a 
+  else f a_ a (i - 1)
+
+let _ = f int 1 2

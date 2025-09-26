@@ -1,0 +1,19 @@
+(***
+  (
+    (features (Polymorphic_types Recursive_functions Higher_order_functions))
+    (speed Fast)
+    (typing Exhausted)
+    (flags "-s -p")
+  )
+*)
+
+let rec fold_left (type a acc) (f : acc -> a -> acc) (init : acc) (ls : list a) : acc =
+  match ls with
+  | [] -> init
+  | hd :: tl -> fold_left a acc f (f init hd) tl
+  end
+
+let sum_matrix (m : list (list int)) : int =
+  fold_left (list int) int (fun acc row ->
+    acc + fold_left int int (fun a b -> a + b) 0 row
+  ) 0 m

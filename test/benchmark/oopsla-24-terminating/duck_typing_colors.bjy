@@ -1,0 +1,50 @@
+(***
+  (
+    (features (Refinement_types Modules Records Higher_order_functions OOP_style))
+    (speed Fast)
+    (typing Exhausted)
+  )
+*)
+
+let T = sig
+  val t : type
+end
+
+let Color : T = struct
+  let t = { int | fun i -> i >= 0 && i < 256 }
+end
+
+let Point : T = struct
+  let t =
+    { x : int
+    ; y : int
+    ; get_deg : unit -> int
+    }
+end
+
+let Colored_point : T = struct
+  let t =
+    { x : int
+    ; y : int
+    ; get_deg : unit -> int
+    ; c : Color.t }
+end
+
+let obj : Colored_point.t =
+  let ob =
+    fun self ->
+      { x = 10
+      ; y = 20
+      ; get_deg = 
+        fun _ ->
+          let s = (self self) in
+          let tan = s.y / s.x in
+          tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 (* approx arctan with taylor expansion *)
+      ; c = 255 }
+  in
+  ob ob
+
+let get_color (p : Colored_point.t) : Color.t =
+  p.c
+
+let result = get_color obj

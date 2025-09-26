@@ -1,0 +1,18 @@
+(***
+  (
+    (features (Polymorphic_types Variants))
+    (speed Fast)
+    (typing Exhausted)
+  )
+*)
+
+let f =
+  fun x ->
+    x
+
+let g (type a_) (x : a_) (y : int) : `A of a_ | `I of int =
+  if y == 0
+  then `A (f x)
+  else `I y
+
+let z = g int 10 0

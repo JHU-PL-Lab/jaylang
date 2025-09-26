@@ -1,0 +1,18 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Recursive_functions))
+    (speed Fast) 
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let non_neg = { i : int | i >= 0 }
+
+(*
+  The recursive call has a strong refinement (like factors test), but when can check that.
+*)
+let rec range (dep a : non_neg) (dep b : non_neg | b >= a) : list { x : int | a <= x && x < b } =
+  if a == b
+  then []
+  else a :: range (a + 1) b

@@ -1,0 +1,18 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Higher_order_functions))
+    (speed Fast)
+    (typing Exhausted)
+  )
+*)
+
+let max max2 x y z =
+  max2 y z
+
+let f x y =
+  if x >= y
+  then x
+  else y
+
+let main (dependent x : int) (y : int) (z : int) : { c : int | c == f x c } =
+  max f y x z 

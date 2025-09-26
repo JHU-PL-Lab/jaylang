@@ -1,0 +1,35 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (speed Fast) ; fast only if we use type splaying
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+(*
+  Type splaying is not helpful here because the refinement has a recursive call,
+  which, in order to generate a satisfying member, must make another recursive call.
+*)
+
+(* let rec fact 
+  (dependent n : { i : int | i >= 0 })
+  : { x : int | x == if n == 0 then 0 else if n == 1 then 1 else n * fact (n - 1) }
+  =
+  if n == 0 then
+    0
+  else if n == 1 then
+    1
+  else
+    n * fact (n - 1) *)
+
+(*
+  This works well though. No problems here.
+*)
+let rec fact (n : int | n >= 0) : { x : int | x >= 0 } =
+  if n == 0 then
+    0
+  else if n == 1 then
+    1
+  else
+    n * fact (n - 1)

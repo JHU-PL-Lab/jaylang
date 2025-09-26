@@ -1,0 +1,16 @@
+(***
+  (
+    (features (Dependent_types Variants)) ; intersection type is dependent type
+    (speed Fast)
+    (typing Exhausted)
+  )
+*)
+
+let t : type = ((`Int of int) -> int) & ((`Bool of bool) -> bool)
+
+let f : t = 
+  fun x ->
+    match x with
+    | `Int i -> i + 1
+    | `Bool b -> not b
+    end

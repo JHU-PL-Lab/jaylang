@@ -1,0 +1,29 @@
+(***
+  (
+    (features (Polymorphic_types Mu_types Variants Recursive_functions))
+    (speed Slow) ; the any_type is just expensive and blows up to insane levels at depth > 2
+    (typing Exhausted)
+    (flags "-s -p")
+  )
+*)
+(* flatten the input down to just a list of ints and bools *)
+
+let any_type a = mu t.
+  | `L of list t
+  | `A of a
+
+let rec append (type a_) (a : list a_) (b : list a_) : list a_ =
+  match a with
+  | [] -> b
+  | hd :: tl -> hd :: append a_ tl b
+  end
+
+let rec flatten (type a_) (x : any_type a_) : list a_ =
+  match x with
+  | `L ls ->
+    match ls with
+    | [] -> []
+    | hd :: tl -> append a_ (flatten a_ hd) (flatten a_ (`L tl))
+    end
+  | `A a -> [ a ]
+  end

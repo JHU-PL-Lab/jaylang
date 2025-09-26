@@ -1,0 +1,22 @@
+(***
+  (
+    (features (Refinement_types))
+    (speed Fast) ; only with type splaying
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let nonempty_int_list =
+  { ls : list int | 
+    match ls with
+    | [] -> false
+    | _ -> true
+    end
+  }
+
+(*
+  The refinement doesn't get put into the stub, so this check can pass.
+*)
+let f (ls : nonempty_int_list) : { list int | fun _ -> true } =
+  ls

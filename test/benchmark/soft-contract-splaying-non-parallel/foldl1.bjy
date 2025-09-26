@@ -1,0 +1,23 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions Higher_order_functions))
+    (speed Fast) ; b/c type splaying. This needs splay depth 3 on recursive types to be complete
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let is_nonempty ls =
+  match ls with
+  | [] -> false
+  | _ -> true
+  end
+
+let rec foldl1 (type a_) (f : a_ -> a_ -> a_) (xs : { list a_ | is_nonempty } ) : a_ =
+  match xs with
+  | z :: zs ->
+    match zs with 
+    | [] -> z
+    | z1 :: tl -> foldl1 a_ f ((f z z1) :: tl)
+    end
+  end

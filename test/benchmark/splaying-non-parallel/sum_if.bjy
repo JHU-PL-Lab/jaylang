@@ -1,0 +1,30 @@
+(***
+  (
+    (features (Recursive_functions))
+    (speed Fast)
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+(* This test is taken from Real World OCaml *)
+
+let is_empty ls =
+  match ls with
+  | [] -> true
+  | _ :: _ -> false
+  end
+
+let hd_exn ls = 
+  match ls with
+  | hd :: _ -> hd
+  end
+
+let tl_exn ls =
+  match ls with
+  | _ :: tl -> tl
+  end
+
+let rec sum_if (l : list int) : int =
+  if is_empty l then 0
+  else hd_exn l + sum_if (tl_exn l)

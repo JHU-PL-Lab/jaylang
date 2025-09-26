@@ -1,0 +1,30 @@
+(***
+  (
+    (features (Polymorphic_types Variants Records Recursive_functions Higher_order_functions))
+    (speed Slow) ; like 0.2 seconds
+    (typing Exhausted)
+    (flags "-s -p")
+  )
+*)
+
+let sign : type = `Even of { even : bool } | `Odd of { odd : bool }
+
+let rec list_count (type a_) (ls : list a_) (f : a_ -> bool) : int =
+  match ls with
+  | [] -> 0
+  | hd :: tl ->
+    let a = if f hd then 1 else 0 in
+    a + list_count a_ tl f
+  end
+
+(* Computes sgn of permutation *)
+let sgn (type a_) (ls : list a_) (compare : a_ -> a_ -> int) : sign =
+  let rec num_inversions (l : list a_) : int =
+    match l with
+    | [] -> 0
+    | hd :: tl -> list_count a_ tl (fun x -> compare x hd < 0) + num_inversions tl 
+    end
+  in
+  if num_inversions ls % 2 == 0
+  then `Even { even = true }
+  else `Odd { odd = true }

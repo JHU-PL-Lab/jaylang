@@ -1,0 +1,14 @@
+(***
+  (
+    (features (Recursive_functions Higher_order_functions))
+    (speed Fast) ; b/c type splaying
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let rec foldr (f : int -> bool -> bool) (z : bool) (xs : list int) : bool =
+  match xs with
+  | [] -> z
+  | xx :: xxs -> f xx (foldr f z xxs)
+  end

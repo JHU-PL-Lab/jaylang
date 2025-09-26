@@ -1,0 +1,90 @@
+(***
+  (
+    (features (Polymorphic_types Mu_types Parametric_types Variants Records Recursive_functions))
+    (speed Slow) ; about 30 seconds
+    (typing Well_typed)
+    (flags "-s -p")
+  )
+*)
+
+(* Here is a little library defining binary trees. *)
+(* This file is the combination of several other tests in this directory. *)
+
+let t a = mu t.
+  | `Leaf of unit
+  | `Branch of
+    { item : a
+    ; left : t
+    ; right : t }
+
+let rec size (type a) (tree : t a) : int =
+  match tree with
+  | `Leaf _ -> 0
+  | `Branch b -> size a b.left + size a b.right + 1
+  end
+
+let rec height (type a) (tree : t a) : int =
+  match tree with
+  | `Leaf _ -> 0
+  | `Branch b ->
+    let l = height a b.left in
+    let r = height a b.right in
+    1 + if l > r then l else r
+  end
+
+let abs x = 
+  if x < 0
+  then -1 * x
+  else x
+
+(*
+  Everything below is just expensive because the functions make so many recursive calls inside themselves.
+  This means lots of generating trees.
+*)
+
+let rec is_balanced (type a) (tree : t a) : bool =
+  match tree with
+  | `Leaf _ -> true
+  | `Branch b -> 
+    abs (height a b.left - height a b.right) <= 1
+    && is_balanced a b.left
+    && is_balanced a b.right
+  end
+
+let rec map (type a b) (f : a -> b) (tree : t a) : t b =
+  match tree with
+  | `Leaf _ -> `Leaf ()
+  | `Branch r -> 
+    `Branch { item = f r.item ; left = map a b f r.left ; right = map a b f r.right }
+  end
+
+let rec fold_left (type a acc) (f : acc -> a -> acc) (init : acc) (tree : t a) : acc =
+  match tree with
+  | `Leaf _ -> init
+  | `Branch b ->
+    fold_left a acc f (f (fold_left a acc f init b.left) b.item) b.right 
+  end
+
+(* Slow usage of fold_left. *)
+let is_ordered (type a) (tree : t a) (compare : a -> a -> int) : bool =
+  let res =
+    fold_left a (
+      | `Empty of unit
+      | `Not_ordered of unit
+      | `Ordered_with_min of a
+    ) (fun acc a -> 
+      match acc with
+      | `Not_ordered _ -> `Not_ordered ()
+      | `Empty _ -> `Ordered_with_min a
+      | `Ordered_with_min m ->
+          if compare a m > 0
+          then `Ordered_with_min a
+          else `Not_ordered ()
+      end
+    ) (`Empty ()) tree
+  in
+  match res with
+  | `Empty _ -> true
+  | `Ordered_with_min _ -> true
+  | `Not_ordered _ -> false
+  end

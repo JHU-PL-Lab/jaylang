@@ -1,0 +1,30 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions Higher_order_functions))
+    (speed Fast)
+    (typing Exhausted)
+  )
+*)
+
+let zero_type = { i : int | i == 0 }
+
+let c x = ()
+
+let b x =
+  fun y ->
+    x 1
+
+let a (x : zero_type -> unit) (y : int -> unit) (q : zero_type) : unit =
+  let _ = x 0 in
+  y 0
+
+let rec f n x q =
+  if n <= 0
+  then x q
+  else a x (fun p -> f (n - 1) (fun dummy -> b x dummy) p) q
+
+let s n q =
+  f n c q
+
+let main (n : zero_type) : unit =
+  s n n

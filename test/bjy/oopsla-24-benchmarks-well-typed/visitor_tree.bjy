@@ -44,13 +44,10 @@ let Client : T 3 = struct
     ; accept : Visitor.t a result_type -> result_type }
 end
 
-let make_list f n = 
-  let rec loop i =
-    if i == 0
-    then []
-    else f n :: loop (i - 1)
-  in
-  loop n
+let rec make_list (type a) (f : int -> a) (n : int) : list a = 
+  if n == 0
+  then []
+  else f n :: make_list a f (n - 1)
 
 (* Makes big tree recursively with many children *)
 let rec make_tree (n : int) : Tree.t int =
@@ -61,7 +58,7 @@ let rec make_tree (n : int) : Tree.t int =
       else
         `Node
         { v = n
-        ; children = make_list make_tree (n - 1) }
+        ; children = make_list (Tree.t int) make_tree (n - 1) }
   in
   ob ob
 

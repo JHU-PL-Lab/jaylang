@@ -1,0 +1,43 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Parametric_types Recursive_functions))
+    (speed Fast)
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+(*
+  This test is a provably well-typed version of `mem`, but the spirit of `mem` has been ruined.
+  The commented code below is the version we wish could work, but it can't with splaying.
+*)
+let rec mk_list (dependent x : int) (n : int) : list { i : int | i == x } = 
+  if n < 0
+  then []
+  else x :: mk_list x (n - 1)
+
+(* let rec mem (x : int) (xs : list int) : bool =
+  match xs with
+  | [] -> false
+  | hd :: tl -> hd == x || mem x tl
+  end
+
+(*
+  The problem is the recursive call. The recursive call just makes an int list using recursive mem as 
+  a predicate, which obviously cannot work.
+
+  But since it should always find the item at the front of the list, I feel like this should work. I think
+  it has to do with generating the list for the recursive call, which is unconstrained until it calls mem
+  on it, which will need to generate a boolean. We'd have to push the refinement into the list parameter for
+  this to work, which is not in the spirit of the test.
+*)
+let rec mk_list (dependent x : int) (n : int) : { l : list int |
+    match l with
+    | [] -> true
+    | _ :: _ -> mem x l
+    end
+  } =
+  if n < 0
+  then []
+  else x :: mk_list x (n - 1)
+ *)

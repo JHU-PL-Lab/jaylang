@@ -1,0 +1,23 @@
+(***
+  (
+    (features (Refinement_types Mu_types Variants Records Recursive_functions))
+    (speed Fast)
+    (typing Exhausted) ; nicely, splaying covers this one
+    (flags "-s")
+  )
+*)
+
+let t = mu t.
+  | `Node of { left : t ; right : t }
+  | `Leaf of { leaf : bool }
+
+let max x y =
+  if x > y
+  then x
+  else y
+
+let rec depth (tree : t) : { i : int | i >= 0 } =
+  match tree with
+  | `Leaf leaf -> 0
+  | `Node node -> 1 + max (depth node.left) (depth node.right)
+  end

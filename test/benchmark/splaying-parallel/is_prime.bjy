@@ -1,0 +1,16 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (speed Slow) ; not that slow, but the modulus and division in z3 solving takes a bit of time -- total 0.2s for this test
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let prime_candidate = { i : int | i > 1 }
+
+let is_prime (n : prime_candidate) : bool =
+  let rec aux (p : prime_candidate) : bool =
+    (p * p > n) || ((n % p) <> 0 && aux (p + 2))
+  in
+  n == 2 || ((n % 2) <> 0 && aux 3)
