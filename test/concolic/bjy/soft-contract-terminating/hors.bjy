@@ -1,0 +1,39 @@
+# This is another well-typed version of `hors`
+
+let unit_type = {: empty_label : int :} # treat as empty_record
+in
+
+let zero_type = {. int | fun i -> i == 0 }
+in
+
+let (unit : unit_type) = { empty_label = 0 }
+in
+
+let c x = unit
+in
+
+let b x =
+  fun y ->
+    x 1
+in
+
+let a (x : zero_type -> unit_type) (y : int -> unit_type) (q : zero_type) : unit_type =
+  let ignore = x 0 in
+  y 0
+in
+
+let rec f n x q =
+  if n <= 0
+  then x q
+  else a x (fun p -> f (n - 1) (fun ignore -> b x ignore) p) q
+in
+
+let s n q =
+  f n c q
+in
+
+let main (n : zero_type) : unit_type =
+  s n n
+in
+
+main

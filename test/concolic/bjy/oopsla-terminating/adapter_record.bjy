@@ -1,0 +1,39 @@
+
+let int_wrapper = {: value : int :}
+in
+
+let t =
+  {: square : int -> int
+  ,  add_x : int -> int
+  ,  x : int :}
+in
+
+let ob =
+  fun x -> 
+    fun self ->
+      { square = fun i -> i * i
+      , add_x = fun i -> i + (self self).x
+      , x = x }
+in
+
+let ob_5 = ob 5
+in
+
+let (obj : t) = ob_5 ob_5
+in
+
+let adapter obj =
+  let s =
+    fun self ->
+      { square = fun i_w -> { value = obj.square i_w.value }
+      , add_x = fun i_w -> { value = obj.add_x i_w.value }
+      , x = { value = obj.x } }
+  in
+  s s
+in
+
+let (x : int_wrapper) = (adapter obj).square { value = 36 }
+in
+
+x
+ 

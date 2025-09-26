@@ -16,16 +16,10 @@ module Report_row (* : Latex_table.ROW *) =
       ; total_time                  : Time_float.Span.t
       ; trial                       : Trial.t
       ; lines_of_code               : int
-      ; features                    : Ttag.t list
-      ; reasons                     : Ttag.t list }
+      }
 
     let names =
       [ "Test Name" ; "Total" ; "LOC" ]
-      @ (List.map Ttag.all ~f:(fun tag ->
-          Format.sprintf "\\rot{%s}" (* assume \rot has been defined to rotate column headers 90 degrees *)
-          @@ Ttag.to_string_with_underline tag
-        )
-      )
 
     let to_strings x =
       let span_to_ms_string =
@@ -39,21 +33,6 @@ module Report_row (* : Latex_table.ROW *) =
       [ Filename.basename x.testname |> String.take_while ~f:(Char.(<>) '.') |> Latex_format.texttt
       ; span_to_ms_string x.total_time
       ; Int.to_string x.lines_of_code ]
-      @ (
-        Ttag.all
-        |> List.map ~f:(fun tag ->
-          if List.mem x.reasons tag ~equal:Ttag.equal
-          then
-            (* sanity check that reasons is subset of features *)
-            let _ = assert (List.mem x.features tag ~equal:Ttag.equal) in
-            Format.sprintf "\\red{%s}" (* assume \red{%s} is \textcolor{red}{%s} *)
-            @@ Ttag.to_string_short tag
-          else
-            if List.mem x.features tag ~equal:Ttag.equal
-            then Ttag.to_string_short tag
-            else "--"
-        )
-      )
 
     let of_testname (n_trials : int) (testname : Filename.t) : t list =
       assert (n_trials > 0);
@@ -65,8 +44,13 @@ module Report_row (* : Latex_table.ROW *) =
       let test_one (n : int) : t =
         let t0 = Caml_unix.gettimeofday () in
         let test_result =
-          Concolic.Driver.test_expr source ~global_timeout_sec:90.0 ~random:true
+          Concolic.Driver.test_expr source ~global_timeout_sec:90.0 ~max_tree_depth:1000 ~global_max_step:1000000 ~random:true
         in
+        begin
+          match test_result with
+          | Exhausted -> ()
+          | _ -> assert false (* program was not proven well-typed *)
+        end;
         let t1 = Caml_unix.gettimeofday () in
         let row =
           { testname
@@ -74,8 +58,7 @@ module Report_row (* : Latex_table.ROW *) =
           ; total_time = Time_float.Span.of_sec (t1 -. t0)
           ; trial = Number n
           ; lines_of_code = Cloc_lib.count_bjy_lines testname
-          ; features = Ttag.features testname
-          ; reasons = Ttag.reasons testname }
+           }
         in
         row
       in
@@ -89,8 +72,6 @@ module Report_row (* : Latex_table.ROW *) =
             ; total_time = Time_float.Span.of_sec 0.0
             ; trial = Average
             ; lines_of_code = Cloc_lib.count_bjy_lines testname (* won't even average the remaining fields out. Just pre-calculate it *)
-            ; features = Ttag.features testname
-            ; reasons = Ttag.reasons testname
           }
           ~f:(fun acc x ->
             { acc with (* sum up *)
@@ -124,8 +105,6 @@ module Result_table =
         [ [ Latex_tbl.Col_option.Right_align ; Vertical_line_to_right ]
         ; [ little_space ; Vertical_line_to_right ] (* total time *)
         ; [ little_space ; Vertical_line_to_right ] (* loc *) ]
-        @
-        List.init (List.length Ttag.all) ~f:(fun _ -> [ little_space ]) 
       }
   end
 
@@ -134,7 +113,7 @@ let run dirs =
     let oc_null = Out_channel.create "/dev/null" in
     Format.set_formatter_out_channel oc_null;
     dirs
-    |> Result_table.of_dirs 250
+    |> Result_table.of_dirs 10
     |> Latex_tbl.show
   in
   Format.set_formatter_out_channel Out_channel.stdout;
@@ -142,7 +121,9 @@ let run dirs =
 
 let () =
   (* run [ "test/concolic/bjy/oopsla-24-benchmarks-ill-typed" ]; *)
-  run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ];
+  (* run [ "test/concolic/bjy/scheme-pldi-2015-ill-typed" ]; *)
+  run [ "test/concolic/bjy/oopsla-terminating" ];
+  (* run [ "test/concolic/bjy/soft-contract-terminating" ]; *)
   (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ]; *)
   (* run [ "test/concolic/bjy/deep-type-error" ] *)
   (* run [ "test/concolic/bjy/oopsla-24-tests-ill-typed" ; "test/concolic/bjy/sato-bjy-ill-typed" ] *)
