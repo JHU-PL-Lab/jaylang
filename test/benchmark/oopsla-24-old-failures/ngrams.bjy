@@ -1,0 +1,112 @@
+(***
+  (
+    (features (Polymorphic_types Mu_types Refinement_types Dependent_types Parametric_types First_class_types Records Recursive_functions Higher_order_functions ))
+    (reasons (Polymorphic_types Records))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let t = mu t n.
+  if n <= 0
+  then type
+  else type -> t (n - 1)
+
+let pos_int : t 0 = { int | fun i -> i > 0 }
+
+(* Parametric map *)
+let map : t 2 = fun a b -> a -> b
+
+(* Parametric bag *)
+let bag : t 1 = list
+
+let rec len ls = 
+  match ls with
+  | [] -> 0
+  | hd :: tl -> 1 + len tl
+  end
+
+let ngram : int -> t 1 = fun n a -> { list a | fun ls -> (len ls == n) && n >= 0 }
+
+let distribution : int -> t 1 = fun n a -> map (ngram (n - 1) a) (bag a)
+
+let rec take n =
+  fun l ->
+    if n == 0 then [] else 
+    let _ = assert (n >= 0) in
+    match l with
+    | [] -> []
+    | hd :: tl ->
+      if n == 1
+      then [ hd ]
+      else hd :: take (n - 1) tl
+    end
+
+let make_ngrams n =
+  fun ls ->
+    let rec loop l m =
+      match l with
+      | [] -> []
+      | hd :: tl ->
+        if m < n
+        then []
+        else take n l :: loop tl (m - 1)
+      end
+    in
+    loop ls (len ls)
+
+let rec compare_list compare l1 l2 =
+  match l1 with
+  | [] ->
+    match l2 with
+    | [] -> 0
+    | _ -> -1
+    end
+  | hd :: tl ->
+    match l2 with 
+    | [] -> 1
+    | hd2 :: tl2 ->
+      let c = compare hd hd2 in
+      if c == 0
+      then compare_list compare tl tl2
+      else c
+    end
+  end
+
+let tuple a b = { fst : a ; snd : b }
+
+let rec last_exn ls = 
+  match ls with
+  | hd :: tl ->
+    match tl with
+    | [] -> hd
+    | _ -> last_exn tl
+    end
+  end
+
+let bag_map_of_list tup_list =
+  fun compare ->
+    fun a ->
+      let rec loop l =
+        match l with
+        | [] -> []
+        | hd :: tl ->
+          if compare hd.fst a == 0
+          then hd.snd :: loop tl
+          else loop tl
+        end
+      in
+      loop tup_list
+
+let make_dist (type a_) (dep n : pos_int) (l : list a_) (compare : a_ -> a_ -> int) : distribution n a_ =
+  let ngrams = make_ngrams n l in
+  let tup_of_ng ng =
+    { fst = last_exn ng ; snd = take (n - 1) ng } (* ERROR: fst and snd are switched here. fst here is a_; but we use compare_list below *)
+  in
+  let rec map_ng_to_tups ls =
+    match ls with
+    | [] -> []
+    | ng :: tl -> tup_of_ng ng :: map_ng_to_tups tl
+    end
+  in
+  bag_map_of_list (map_ng_to_tups ngrams) (compare_list compare)

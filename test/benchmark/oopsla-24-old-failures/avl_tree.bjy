@@ -1,0 +1,166 @@
+(***
+  (
+    (features (Refinement_types Mu_types Variants Records Recursive_functions))
+    (reasons (Refinement_types Mu_types Recursive_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+(* This is an avl tree program; where insert on balanced tree returns a balanced tree *)
+(* There is a type error in `insert`. See the comment *)
+
+let t : type = mu t. 
+  | `Leaf of int
+  | `Node of { left : t ; right : t ; item : int }
+
+let empty = `Leaf 00
+
+let max a b =
+  if a > b
+  then a
+  else b
+
+let rec height x =
+  match x with
+  | `Leaf _ -> 0
+  | `Node node -> max (height node.left) (height node.right) + 1
+  end
+
+let is_leaf x =
+  match x with
+  | `Leaf _ -> true
+  | _ -> false
+  end
+
+let item_exn x =
+  match x with
+  | `Node node -> node.item
+  end
+
+let left_exn x =
+  match x with
+  | `Node node -> node.left
+  end
+
+let right_exn x =
+  match x with
+  | `Node node -> node.right
+  end
+
+let balance_factor x =
+  match x with
+  | `Leaf _ -> 0
+  | `Node node -> height node.left - height node.right
+  end
+
+let abs a =
+  if a > 0
+  then a
+  else (0 - a)
+
+let bind x f = 
+  match x with
+  | `Some y -> f y
+  | `None _ -> x
+  end
+
+(* Checks balancedness in linear time by computing height and balance at same time and level *)
+let is_balanced x =
+  let rec get_height x =
+    match x with
+    | `Leaf _ -> `Some 0
+    | `Node node ->
+      let%bind left_height = get_height node.left in
+      let%bind right_height = get_height node.right in
+      if abs (left_height - right_height) < 2
+      then `Some (max left_height right_height + 1)
+      else `None ()
+    end
+  in
+  match get_height x with
+  | `Some _ -> true
+  | `None _ -> false
+  end
+
+let is_bst x = 
+  let rec to_list x acc =
+    match x with
+    | `Node node -> to_list node.left (node.item :: (to_list node.right acc))
+    | `Leaf _ -> acc
+    end
+  in
+  let rec is_increasing_strictly ls =
+    match ls with
+    | [] -> true
+    | hd :: tl ->
+      match tl with
+      | [] -> true
+      | next :: _ -> hd < next && is_increasing_strictly tl
+      end
+    end
+  in
+  is_increasing_strictly (to_list x [])
+
+let avl_tree = { tree : t | is_balanced tree && is_bst tree }
+
+let create_node item left right =
+  `Node { item = item ; left = left ; right = right }
+
+let rotate_left x = 
+  match x with
+  | `Node node ->
+    match node.right with
+    | `Node right_node -> 
+      create_node right_node.item (create_node node.item node.left right_node.left) right_node.right
+    end
+  end
+
+let rotate_right x = 
+  match x with
+  | `Node node ->
+    match node.left with
+    | `Node left_node ->
+      create_node left_node.item left_node.left (create_node node.item left_node.right node.right)
+    end 
+  end
+
+let rotate_left_right x =
+  match x with
+  | `Node node -> rotate_right (create_node node.item (rotate_left node.left) node.right)
+  end
+
+let rotate_right_left x =
+  match x with
+  | `Node node -> rotate_left (create_node node.item node.left (rotate_right node.right))
+  end
+
+let rec insert (tree : avl_tree) (i : int) : avl_tree =
+  let rebalance i node =
+    let bf = balance_factor node in
+    if bf > 1
+    then
+      if i < item_exn (left_exn node)
+      then rotate_left node           (* ERROR HERE! should be rotate_right *)
+      else rotate_left_right node
+    else
+      if bf < -1
+      then
+        if i > item_exn (right_exn node)
+        then rotate_left node
+        else rotate_right_left node
+      else
+        node
+  in
+  match tree with
+  | `Leaf _ -> create_node i empty empty
+  | `Node node ->
+    let new_node =
+      if i < node.item 
+      then create_node node.item (insert node.left i) node.right
+      else
+        if i > node.item
+        then create_node node.item node.left (insert node.right i)
+        else tree
+    in
+    rebalance i new_node
+  end

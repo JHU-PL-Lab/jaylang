@@ -1,0 +1,47 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Mu_types Variants Records Recursive_functions))
+    (reasons (Refinement_types Mu_types Recursive_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let coord : type =
+  { x : int
+  ; y : int }
+
+let t : type = mu t.
+  { parent : `Some of t | `None of unit
+  ; relative_coord : coord }
+
+let is_coord_nonzero c = 
+  not (c.x == 0) && not (c.y == 0)
+
+let coord_equal a b =
+  a.x == b.x && a.y == b.y
+
+let has_parent x = 
+  match x.parent with
+  | `Some _ -> true
+  | _ -> false
+  end
+
+let rec get_abs_coord (dependent r : t)
+  : 
+  { abs_coord : coord |
+    match r.parent with
+    | `Some p ->
+      if is_coord_nonzero (get_abs_coord p) (* Note: recursive call here *)
+      then not (coord_equal abs_coord r.relative_coord)
+      else true
+    | `None _ -> true
+    end
+  }
+  =
+  match r.parent with
+  | `Some parent -> 
+    let c = parent.relative_coord in (* ERROR: should be `get_abs_coord parent` *)
+    { x = c.x + r.relative_coord.x ; y = c.y + r.relative_coord.y }
+  | `None _ -> r.relative_coord
+  end
