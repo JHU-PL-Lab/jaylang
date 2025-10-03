@@ -1,0 +1,52 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+(*
+module type a
+
+module M: sig
+  type t
+  module Inner: sig type t end
+  module F
+      (A:a)
+      (X:sig val f: t val h:int end)
+      (A:a)
+      (Y:sig val f: Inner.t val h:int end)
+
+ :sig end
+end = struct
+  type t
+  module Inner= struct type t end
+  module F
+      (X:sig val f: t val h:int end)
+      (A:a)
+      (Y:sig val f: Inner.t val h:int end)
+  = struct end
+end
+*)
+
+let a = abstract
+
+let M : sig
+  val t : type
+  val Inner : sig val t : type end
+  val F : (A : a)
+      -> (X : sig val f : t val h : int end)
+      -> (A : a)
+      -> (Y : sig val f : Inner.t val h : int end)
+      -> sig end
+end = struct
+  let t = abstract
+  let Inner = struct let t = abstract end
+  let F (* ERROR: missing first argument A *)
+    (X : sig val f : t val h : int end)
+    (A : a)
+    (Y : sig val f : Inner.t val h : int end)
+    : sig end
+    = struct end
+end

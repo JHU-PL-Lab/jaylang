@@ -8,7 +8,7 @@
 *)
 
 (*
-  This test is a provably well-typed version of `mem`, but the spirit of `mem` has been ruined.
+  This test is a provably well-typed version of `mem`, but the refinement had to be pushed into the type.
   The commented code below is the version we wish could work, but it can't with splaying.
 *)
 let rec mk_list (dependent x : int) (n : int) : list { i : int | i == x } = 
