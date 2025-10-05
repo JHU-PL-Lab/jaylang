@@ -1,18 +1,16 @@
 (***
   (
-    (features (Refinement_types Recursive_functions))
+    (features (Recursive_functions))
     (speed Fast)
     (typing Exhausted)
   )
 *)
 
-(* effectively assert that x is true *)
-let h (x : bool | x) : unit =
-  ()
+let h x =
+  assert x
 
-(* .. but y is true *)
-let g (_ : bool) (y : bool | y) : unit =
-  ()
+let g _ y =
+  assert y
 
 let rec f x y =
   if x

@@ -7,19 +7,15 @@
   )
 *)
 
-let T = sig
-  val t : type
-end
-
-let Color : T = struct
+let Color = struct
   let t = { int | fun i -> i >= 0 && i < 256 }
 end
 
-let Common_state : T = struct
+let Common_state = struct
   let t = { c : Color.t } (* Say color is the heavy data we need to offload onto a common state *)
 end
 
-let Unique_state : T = struct
+let Unique_state = struct
   let t =
     { x : int
     ; y : int

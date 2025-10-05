@@ -8,15 +8,11 @@
 *)
 (* The well-typed version of this is the same as the well-typed of duck_typing_colors1 *)
 
-let T = sig
-  val t : type
-end
-
-let Color : T = struct
+let Color = struct
   let t = { int | fun i -> i >= 0 && i < 256 }
 end
 
-let Point : T = struct
+let Point = struct
   let t =
     { x : int
     ; y : int
@@ -24,7 +20,7 @@ let Point : T = struct
     }
 end
 
-let Colored_point : T = struct
+let Colored_point = struct
   let t =
     { x : int
     ; y : int

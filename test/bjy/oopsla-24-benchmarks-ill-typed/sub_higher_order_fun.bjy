@@ -8,7 +8,7 @@
 *)
 (* subtyping of functions on records *)
 
-let t : type = ({ a : int ; b : bool } -> { x : list int }) -> { y : list bool }
+let t = ({ a : int ; b : bool } -> { x : list int }) -> { y : list bool }
 
 let f (a : { a : int  } -> { x : list int }) : { y : list bool } =
   match (a { a = 0 }).x with

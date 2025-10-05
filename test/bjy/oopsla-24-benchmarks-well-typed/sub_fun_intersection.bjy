@@ -7,10 +7,10 @@
 *)
 (* subtyping of refined intersection type. *)
 
-let t : type = { f : ((`Int of int) -> int) & ((`Bool of bool) -> bool) | f (`Bool true) }
+let t = { f : ((`Int of int) -> int) & ((`Bool of bool) -> bool) | f (`Bool true) }
 
 (* this is a subtype of t *)
-let f : t =
+let f =
   fun x ->
     match x with
     | `Bool b -> true

@@ -7,11 +7,10 @@
   )
 *)
 
-let t : type -> type -> int -> type =
-  fun a b i ->
-    if i % 2 == 0
-    then b
-    else a
+let t a b i =
+  if i % 2 == 0
+  then b
+  else a
 
 (* 'a and 'b alternate by call here; so can't assume 'a stays the same in recursive calls *)
 let rec f (type a_ b_) (dependent i : int) (a : a_) (b : b_) : t a_ b_ i =

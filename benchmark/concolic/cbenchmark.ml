@@ -20,16 +20,10 @@ module Report_row (* : Latex_table.ROW *) = struct
     ; solve_time  : Mtime.Span.t
     ; total_time  : Mtime.Span.t
     ; trial       : Trial.t
-    (* ; lines_of_code     : int *) (* not needed because is derived from the testname *)
     ; metadata     : Metadata.t[@warning "-69"] }
 
   let names =
     [ "Test Name" ; "Interp" ; "Solve" ; "Total" ; "LOC" ]
-    (* @ (List.map Ttag.V2.all ~f:(fun tag ->
-        Latex_format.rotate_90
-        @@ Ttag.V2.to_name_with_underline tag
-      )
-      ) *)
 
   let to_strings x =
     let span_to_ms_string =
@@ -45,18 +39,6 @@ module Report_row (* : Latex_table.ROW *) = struct
     ; span_to_ms_string x.solve_time
     ; span_to_ms_string x.total_time
     ; Int.to_string (Utils.Cloc_lib.count_bjy_lines x.testname) ]
-    (* @ (
-      match Metadata.tags_of_t x.metadata with
-      | `Sorted_list ls ->
-        List.map ls ~f:(function
-            | `Absent -> "--"
-            | `Feature tag -> Ttag.V2.to_char tag |> Char.to_string
-            | `Reason tag ->
-              Ttag.V2.to_char tag
-              |> Char.to_string
-              |> Latex_format.red
-          )
-    ) *)
 
   let of_testname
       (n_trials : int)
@@ -146,8 +128,6 @@ module Result_table = struct
         ; [ little_space ] (* solve time *)
         ; [ little_space ;  Vertical_line_to_right ] (* total time *)
         ; [ little_space ; Vertical_line_to_right ] (* loc *) ]
-        (* @
-        List.init (List.length Ttag.V2.all) ~f:(fun _ -> [ little_space ])  *)
     }
 end
 
@@ -170,12 +150,12 @@ let run () =
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
   let runtest pgm =
-    let test_program = 
+    (* let test_program = 
       match mode with
       | `Eager -> Driver.Eager.test_some_program
       | `Deferred -> Driver.Eager.test_some_program
-    in
-    test_program
+    in *)
+    Driver.Eager.test_some_program
       ~options
       ~do_wrap
       ~do_type_splay
@@ -222,4 +202,3 @@ let () =
   match Cmdliner.Cmd.eval_value' @@ run () with
   | `Ok _ -> ()
   | `Exit i -> exit i
-

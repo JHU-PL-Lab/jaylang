@@ -235,40 +235,53 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
     This is useful for both desugaring statements and expressions.
   *)
   and desugar_rec_funs_to_stmt_list (fsigs : bluejay funsig list) : Desugared.statement list =
-    let (>>|) = List.Let_syntax.(>>|) in
-    let func_comps = fsigs >>| funsig_to_components in
-    let f_names = func_comps >>| fun r -> r.func_id in
-    let r = Names.fresh_id ~suffix:"r" () in
-    let defns =
-      List.map func_comps ~f:(fun comps ->
-          abstract_over_ids f_names @@
-          match comps.tau_opt with
-          | Some tau when Splay.is_yes do_type_splay -> EGen tau
-          | _ ->
-            (* default behavior uses the actual function body *)
-            build @@
-            let%bind () = assign ~ty:(Binding.Ty.typed_of_tau_opt ~do_check:false comps.tau_opt) comps.func_id (
-                abstract_over_ids comps.params comps.defn
-              )
-            in
-            return (EVar comps.func_id)
-        )
-    in
-    Expr.SUntyped { var = r ; defn = appl_list (Desugared_functions.y_n f_names) defns }
-    :: (func_comps >>| fun comps ->
-        (* do_check and do_wrap are unused arguments in this case because we don't provide the type *)
-        make_stmt ~do_wrap:true ~do_check:true ~tau_opt:None comps.func_id
-        @@ proj (EVar r) (RecordLabel.RecordLabel comps.func_id)
-       ) @ (func_comps >>| fun comps ->
-            if Option.is_some comps.tau_opt && Splay.is_yes do_type_splay
-            then
-              make_stmt ~do_wrap:true ~do_check:true ~tau_opt:comps.tau_opt comps.func_id (
-                abstract_over_ids comps.params comps.defn (* actual definition of function *)
-              )
-            else
-              (* no type or not splaying, so the actual definition was used above, so just project out from the record *)
-              make_stmt ~do_wrap:false ~do_check:true ~tau_opt:comps.tau_opt comps.func_id (EVar comps.func_id)
-           )
+    match fsigs with
+    | [ (FTyped _) as f ] when Splay.is_yes do_type_splay ->
+      let comps = funsig_to_components f in
+      let tau = Option.value_exn comps.tau_opt in
+      List.return @@
+      Expr.STyped { typed_var = { var = comps.func_id ; tau } ; typed_binding_opts = 
+        TBDesugared { do_wrap = true ; do_check = true }
+      ; defn =
+        apply
+          (abstract_over_ids (comps.func_id :: comps.params) comps.defn)
+          (EGen tau)
+      }
+    | _ -> 
+      let (>>|) = List.Let_syntax.(>>|) in
+      let func_comps = fsigs >>| funsig_to_components in
+      let f_names = func_comps >>| fun r -> r.func_id in
+      let r = Names.fresh_id ~suffix:"r" () in
+      let defns =
+        List.map func_comps ~f:(fun comps ->
+            abstract_over_ids f_names @@
+            match comps.tau_opt with
+            | Some tau when Splay.is_yes do_type_splay -> EGen tau
+            | _ ->
+              (* default behavior uses the actual function body *)
+              build @@
+              let%bind () = assign ~ty:(Binding.Ty.typed_of_tau_opt ~do_check:false comps.tau_opt) comps.func_id (
+                  abstract_over_ids comps.params comps.defn
+                )
+              in
+              return (EVar comps.func_id)
+          )
+      in
+      Expr.SUntyped { var = r ; defn = appl_list (Desugared_functions.y_n f_names) defns }
+      :: (func_comps >>| fun comps ->
+          (* do_check and do_wrap are unused arguments in this case because we don't provide the type *)
+          make_stmt ~do_wrap:true ~do_check:true ~tau_opt:None comps.func_id
+          @@ proj (EVar r) (RecordLabel.RecordLabel comps.func_id)
+        ) @ (func_comps >>| fun comps ->
+              if Option.is_some comps.tau_opt && Splay.is_yes do_type_splay
+              then
+                make_stmt ~do_wrap:true ~do_check:true ~tau_opt:comps.tau_opt comps.func_id (
+                  abstract_over_ids comps.params comps.defn (* actual definition of function *)
+                )
+              else
+                (* no type or not splaying, so the actual definition was used above, so just project out from the record *)
+                make_stmt ~do_wrap:false ~do_check:true ~tau_opt:comps.tau_opt comps.func_id (EVar comps.func_id)
+            )
 
   and desugar_statement (stmt : Bluejay.statement) : Desugared.statement list =
     let open List.Let_syntax in

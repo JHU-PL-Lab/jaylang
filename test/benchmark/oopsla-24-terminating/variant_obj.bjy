@@ -6,7 +6,7 @@
   )
 *)
 
-let t : type = (((`A of unit) -> int) & ((`B of unit) -> int) & ((`C of int) -> list int))
+let t = (((`A of unit) -> int) & ((`B of unit) -> int) & ((`C of int) -> list int))
 
 let obj : t =
   let ob =
