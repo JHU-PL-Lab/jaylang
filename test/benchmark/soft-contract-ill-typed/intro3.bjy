@@ -1,0 +1,19 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Higher_order_functions Usage_error))
+    (reasons (Refinement_types Dependent_types Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let f x g =
+  g (x + 1)
+
+let h (dependent z : int) (y : int | z > y) : unit = (* ERROR: should be `z < y` instead of other way around *)
+  ()
+
+let main (n : int) : unit =
+  if n > 0
+  then f n (h n)
+  else ()

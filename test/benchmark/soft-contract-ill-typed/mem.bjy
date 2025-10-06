@@ -1,0 +1,25 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Parametric_types Recursive_functions))
+    (reasons (Refinement_types Dependent_types Recursive_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+(* type-error is that mk_list should contain x; but it doesn't *)
+
+let rec mem x xs =
+  match xs with
+  | [] -> false
+  | hd :: tl -> hd == x || mem x tl
+  end
+
+let rec mk_list (dependent x : int) (n : int) : { l : list int |
+    match l with
+    | [] -> true
+    | _ :: _ -> mem x l
+    end
+  } =
+  if n < 0
+  then []
+  else n :: mk_list x (n - 1) (*ERROR : the `n :: ...` should be `x :: ...` *)

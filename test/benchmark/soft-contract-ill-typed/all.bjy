@@ -1,0 +1,18 @@
+(***
+  (
+    (features (Polymorphic_types Recursive_functions Higher_order_functions Return_error))
+    (reasons (Polymorphic_types Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let rec all (type a_) (p : a_ -> a_) (xs : list a_) : bool =
+  match xs with
+  | [] -> true
+  | x :: xss -> 
+    match xss with
+    | [] -> p x (* ERROR: this needs to be a boolean *)
+    | _ -> (p x) && (all a_ p xss)
+    end
+  end

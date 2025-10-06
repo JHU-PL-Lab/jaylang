@@ -1,0 +1,19 @@
+(***
+  (
+    (features (Polymorphic_types))
+    (reasons (Polymorphic_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let f =
+  fun x ->
+    x + 1
+
+let g (type a_) (x : a_) (y : int) : int =
+  if y == 0
+  then f x (* ERROR: polymorphic variable applied where int is expected because it is used in `+ 1` *)
+  else y
+
+let z = g int 10 0

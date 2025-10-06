@@ -1,0 +1,20 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Higher_order_functions))
+    (reasons (Refinement_types Dependent_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+(* error is that max is not performed on `x` but predicate relies on x *)
+
+let max max2 x y z =
+  max2 y z
+
+let f x y =
+  if x >= y
+  then x
+  else y
+
+let main (dependent x : int) (y : int) (z : int) : { c : int | c == f x c } =
+  max f x y z (* ERROR: should be `max f y x z` *)

@@ -1,0 +1,20 @@
+(***
+  (
+    (features (Polymorphic_types Dependent_types Variants)) ; intersection type is dependent type
+    (reasons (Polymorphic_types Variants))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let t : type = ((`Int of int) -> int) & ((`Bool of bool) -> bool)
+
+let f : t = 
+  let g (type a_) (x : a_) : a_ =
+    match x with
+    | `Int i -> i + 1 (* ERROR: matching (formerly a sort of type casing) on polymorphic type *)
+    | `Bool b -> not b
+    | _ -> x
+    end
+  in
+  g (* Also error here -- no good type to put here  *)

@@ -1,0 +1,22 @@
+(***
+  (
+    (features (Dependent_types Variants OOP_style))
+    (reasons (Dependent_types OOP_style)) ; "intersection type" is dep arrow, and when checking it, we hit the error
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let t = (((`A of unit) -> int) & ((`B of unit) -> int) & ((`C of int) -> list int))
+
+let obj : t =
+  let ob =
+    fun self ->
+      fun arg ->
+        match arg with
+        | `A u -> self self (`B ()) + 10
+        | `B u -> 0
+        | `C i -> self self (`A ()) :: self (`B ()) :: [ i ] (* ERROR: forgot to self-apply on `B call *)
+        end
+  in
+  ob ob

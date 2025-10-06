@@ -1,0 +1,20 @@
+(***
+  (
+    (features (Polymorphic_types Parametric_types Records Higher_order_functions Usage_error))
+    (reasons (Polymorphic_types Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+(* Continuation monad -- improper definition of bind *)
+
+let t : type -> type -> type = fun a r -> { continuation : (a -> r) -> r }
+
+let bind (type a_ b_ r_) (ar_r : t a_ r_) : (a_ -> t b_ r_) -> t b_ r_ =
+  fun a_br_r ->
+    { continuation = 
+      fun br -> ar_r.continuation (fun a -> (a_br_r (br a)).continuation br) (* ERROR: should be `a_br_r a` *)
+    }
+
+let int_bind (type b_ r_) (i_br_r : int -> t b_ r_) : t b_ r_ =
+  bind int b_ r_ { continuation = fun ir -> ir 0 } i_br_r

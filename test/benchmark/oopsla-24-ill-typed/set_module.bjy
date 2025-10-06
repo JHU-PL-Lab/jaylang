@@ -1,0 +1,40 @@
+(***
+  (
+    (features (Polymorphic_types Modules Recursive_functions Higher_order_functions Return_error))
+    (reasons (Modules Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let Set : (a : type) -> sig
+  val t : type
+  val emptyset : t
+  val add : a -> t -> t
+  val remove : a -> t -> (a -> a -> bool) -> t
+  val contains : a -> t -> (a -> a -> bool) -> bool
+end = fun a -> struct
+  let t = list a
+
+  let emptyset = []
+
+  let add x s = x :: s 
+
+  let rec remove x s equal = 
+    match s with
+    | [] -> []
+    | hd :: tl ->
+      if equal hd x
+      then tl
+      else hd (* ERROR: should recursively call on tl *)
+    end
+
+  let rec contains x s equal = 
+    match s with
+    | [] -> false
+    | hd :: tl ->
+      if equal x hd
+      then true
+      else contains x tl equal
+    end
+end

@@ -1,0 +1,21 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions))
+    (reasons (Refinement_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+(* predicate violated because can return empty list *)
+
+let is_nonempty ls = 
+  match ls with
+  | [] -> false
+  | _ -> true
+  end
+
+let rec lastpair (type a_) (x : { list a_ | is_nonempty }) : { list a_ | is_nonempty } =
+  match x with
+  | [] -> [] (* ERROR: this is empty when returned is supposed to be nonempty *)
+  | h :: xs -> lastpair a_ xs 
+  end

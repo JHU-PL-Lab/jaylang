@@ -1,0 +1,28 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Higher_order_functions Variants Records Subtyping Return_error))
+    (reasons (Dependent_types Subtyping Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+(* "subtyping" of refined intersection type. *)
+
+let t = { f : ((`Int of int) -> int) & ((`Bool of bool) -> bool) | f (`Bool true) }
+
+(* this is a subtype of t *)
+let f =
+  fun x ->
+    match x with
+    | `Bool b -> true
+    | `Int i -> i
+    | _ -> 1 :: 2 :: []
+    end
+
+let g (h : t) : t =
+  let k (i : int) : int =
+    h (`Int i)
+  in
+  k (* ERROR: this is not a subtype of t *)
+
+let x = g f (* well-typed function application here. Error is in body of g *)

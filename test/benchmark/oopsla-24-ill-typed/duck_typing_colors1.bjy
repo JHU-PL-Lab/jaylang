@@ -1,0 +1,47 @@
+(***
+  (
+    (features (Refinement_types Modules Records Higher_order_functions OOP_style))
+    (reasons (Records OOP_style))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let Color = struct
+  let t = { int | fun i -> i >= 0 && i < 256 }
+end
+
+let Point = struct
+  let t =
+    { x : int
+    ; y : int
+    ; get_deg : unit -> int
+    }
+end
+
+let Colored_point = struct
+  let t =
+    { x : int
+    ; y : int
+    ; get_deg : unit -> int
+    ; c : Color.t }
+end
+
+let obj : Colored_point.t =
+  let ob =
+    fun self ->
+      { x = 10
+      ; y = 20
+      ; get_deg = 
+        fun _ ->
+          let s = (self self) in
+          let tan = s.y / s.x in
+          tan - (tan * tan * tan) / 3 + (tan * tan * tan * tan * tan) / 5 (* approx arctan with taylor expansion *)
+      ; c = 255 }
+  in
+  ob ob
+
+let get_color (p : Point.t) : Color.t =
+  p.c (* ERROR: should have required Colored_point *)
+
+let result = get_color obj (* this application is fine. Error is in `get_color`   *)

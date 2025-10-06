@@ -1,0 +1,32 @@
+(***
+  (
+    (features (Mu_types Variants Records Higher_order_functions OOP_style))
+    (reasons (Variants)) ; due to missing match case
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let city = { population : int }
+
+let shop = { inventory : int }
+
+let sight = { is_open : bool }
+
+let node_kind = `City of city | `Shop of shop | `Sight of sight
+
+let node = mu t. { kind : node_kind ; neighbors : list t }
+
+let result_type = { result : int }
+
+let visitor =
+  { visit_city : city -> result_type
+  ; visit_shop : shop -> result_type
+  ; visit_sight : sight -> result_type }
+
+let visit (v : visitor) (start_node : node) : result_type =
+  match start_node.kind with
+  | `City c -> v.visit_city c
+  | `Shop s -> v.visit_shop s
+  (* ERROR: missing `Sight case *)
+  end

@@ -1,0 +1,17 @@
+(***
+  (
+    (features (Refinement_types Dependent_types Records Recursive_functions Return_error))
+    (reasons (Refinement_types Dependent_types Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let rec mult (n : int) (m : int) : { i : int | i >= 0 } =
+  if n <= 0 || m <= 0
+  then 0
+  else n + mult n (m - 1)
+
+(* ERROR: `n` as 0 or 1 fails predicate. `n > 1` fixes *)
+let sqr (dependent n : int) : { c : int | c >= n + 1 } =
+  mult n n

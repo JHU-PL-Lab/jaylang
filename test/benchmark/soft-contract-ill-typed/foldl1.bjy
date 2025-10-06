@@ -1,0 +1,19 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions Higher_order_functions Other))
+    (reasons (Other)) ; missing match case
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+(* error is that input list xs should be nonempty *)
+
+let rec foldl1 (type a_) (f : a_ -> a_ -> a_) (xs : list a_) : a_ =
+  match xs with
+  | z :: zs ->
+    match zs with 
+    | [] -> z
+    | z1 :: tl -> foldl1 a_ f ((f z z1) :: tl)
+    end
+  end
+  (* ERROR: `xs` could be empty. We are missing a match case *)

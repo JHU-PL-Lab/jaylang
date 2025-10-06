@@ -1,0 +1,24 @@
+(***
+  (
+    (features (Recursive_functions Usage_error))
+    (reasons (Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let h x =
+  assert x
+
+let g _ f =
+  assert y  
+
+let rec f x y =
+  if x
+  then f y y (* ERROR: this is f false false => g false false => assert false *)
+  else g x y
+
+let main =
+  if 0 < 1
+  then f (0 < 1) (1 < 0)
+  else h (1 < 0)

@@ -1,0 +1,19 @@
+(***
+  (
+    (features (Records Higher_order_functions Subtyping))
+    (reasons (Higher_order_functions Subtyping))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+(* subtyping of functions on records *)
+
+let t = ({ a : int ; b : bool } -> { x : list int }) -> { y : list bool }
+
+let f (a : { a : int  } -> { x : list int }) : { y : list bool } =
+  match (a { a = 0 }).x with
+  | [] -> { y = [] }
+  | hd :: tl -> if hd == 0 then { y = [ false ] } else { y = [ true ] }
+  end
+
+let g : t = f (* ERROR: f is supertype of t; not subtype *)
