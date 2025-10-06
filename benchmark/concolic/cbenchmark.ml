@@ -146,7 +146,7 @@ let run () =
   Cmd.v (Cmd.info "cbenchmark") @@
   let+ options = Options.cmd_arg_term
   and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
-  and+ n_trials, dirs, mode, hum = cbench_args in
+  and+ n_trials, dirs, _mode, hum = cbench_args in
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
   let runtest pgm =

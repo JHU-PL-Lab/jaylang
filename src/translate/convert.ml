@@ -7,7 +7,7 @@ let cmd_arg_term =
   let open Cmdliner.Arg in
   let+ do_wrap = value & opt (enum ["yes", true ; "no", false]) true & info ["w"] ~doc:"Wrap flag: yes or no. Default is yes."
   and+ splay = value & flag & info ["s"] ~doc:"Splay types on recursive functions"
-  and+ depth = value & opt int 4 & info ["y"] ~doc:"Depth to generate recursive types if type-splaying is on. Default is 4." in
+  and+ depth = value & opt int 3 & info ["y"] ~doc:"Depth to generate recursive types if type-splaying is on. Default is 3." in
   (`Do_wrap do_wrap, `Do_type_splay (if splay then Splay.Yes_with_depth depth else No))
 
 let des_to_emb (des : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : Splay.t) : Embedded.pgm =
