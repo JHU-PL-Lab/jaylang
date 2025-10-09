@@ -1,0 +1,14 @@
+(***
+  (
+    (features (Recursive_functions Refinement_types Dependent_types))
+    (speed Fast)
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let rec mult (dep x : int) (dep y : int) : { i : int | i == x * y } =
+  if x == 1 then y else y + mult (x - 1) y
+
+let double (dep n : int | n > 0) : { m : int | m > n } =
+  mult n 2

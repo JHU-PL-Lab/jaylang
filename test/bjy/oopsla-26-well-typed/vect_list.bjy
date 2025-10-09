@@ -1,0 +1,23 @@
+(***
+  (
+    (speed Slow)
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+let nat = { n : int | n >= 0 }
+
+let rec length (type a) (ls : list a) : nat =
+  match ls with
+  | [] -> 0
+  | _ :: tl -> 1 + length a tl
+  end
+
+let vect : type --> int --> type = fun a n -> { ls : list a | length a ls == n }
+
+let rec app (type a) (dep n : nat) (dep m : nat) (xs : vect a n) (ys : vect a m) : vect a (n + m) =
+  match xs with
+  | [] -> ys
+  | hd :: tl -> hd :: app a (n - 1) m tl ys
+  end

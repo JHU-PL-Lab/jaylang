@@ -1,0 +1,37 @@
+(***
+  (
+    (speed Slow)
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+let nat = mu nat.
+  | `Z of unit
+  | `S of nat
+
+let rec plus (x : nat) (y : nat) : nat =
+  match x with
+  | `Z _ -> y
+  | `S k -> `S (plus k y)
+  end
+
+let pred_exn x =
+  match x with
+  | `S k -> k
+  end
+
+let vect a = mu vect n.
+  match n with
+  | `Z _ -> (`Nil of unit)
+  | `S k -> `Cons of {
+    hd : a
+  ; tl : vect k
+  }
+  end
+
+let rec app (type a) (dep n : nat) (dep m : nat) (xs : vect a n) (ys : vect a m) : vect a (plus n m) =
+  match xs with
+  | `Nil _ -> ys
+  | `Cons r -> `Cons { hd = r.hd ; tl = app a (pred_exn n) m r.tl ys }
+  end

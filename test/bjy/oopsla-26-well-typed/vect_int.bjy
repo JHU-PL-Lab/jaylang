@@ -1,0 +1,23 @@
+(***
+  (
+    (speed Slow)
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+let nat = { n : int | n >= 0 }
+
+let vect : type --> int --> type = fun a -> mu vect n.
+  if n == 0
+  then `Nil of unit
+  else `Cons of { 
+    hd : a 
+  ; tl : vect (n - 1)
+  }
+
+let rec app (type a) (dep n : nat) (dep m : nat) (xs : vect a n) (ys : vect a m) : vect a (n + m) =
+  match xs with
+  | `Nil _ -> ys
+  | `Cons r -> `Cons { hd = r.hd ; tl = app a (n - 1) m r.tl ys }
+  end
