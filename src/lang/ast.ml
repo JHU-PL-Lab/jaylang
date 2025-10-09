@@ -1184,6 +1184,12 @@ module Desugared = struct
   type pgm = desugared Program.t
   type pattern = desugared Pattern.t
   type statement = desugared Expr.statement
+
+  let turn_off_check (stmt : statement) : statement =
+    match stmt with
+    | SUntyped _ -> stmt
+    | STyped ({typed_binding_opts = TBDesugared r ; _} as st) ->
+      STyped { st with typed_binding_opts = TBDesugared { r with do_check = false } }
 end
 
 module Type_erased = struct

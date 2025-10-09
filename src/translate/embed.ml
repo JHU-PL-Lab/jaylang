@@ -620,13 +620,6 @@ let split_checks (stmt_ls : Desugared.statement list) : Desugared.pgm Preface.No
     | STyped { typed_binding_opts = TBDesugared { do_check ; _ } ; _ } ->
       do_check
   in
-  let turn_off_check (stmt : Desugared.statement) : Desugared.statement =
-    match stmt with
-    | SUntyped _ -> stmt
-    | STyped ({typed_binding_opts = TBDesugared r ; _} as st) ->
-      STyped { st with
-               typed_binding_opts = TBDesugared { r with do_check = false } }
-  in
   (*
     Now for each statement with a check, we want to return the program with only that check on.
   *)
@@ -639,9 +632,9 @@ let split_checks (stmt_ls : Desugared.statement list) : Desugared.pgm Preface.No
         let new_pgm =
           prev_stmts
           @ [ stmt ]
-          @ List.map tl ~f:turn_off_check
+          @ List.map tl ~f:Desugared.turn_off_check
         in
-        go (new_pgm :: pgms) (prev_stmts @ [ turn_off_check stmt ]) tl
+        go (new_pgm :: pgms) (prev_stmts @ [ Desugared.turn_off_check stmt ]) tl
       else
         go pgms (prev_stmts @ [ stmt ]) tl
   in
