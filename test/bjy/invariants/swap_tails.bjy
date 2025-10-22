@@ -1,0 +1,46 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let llist a = mu t.
+  | `Empty of unit
+  | `Cons of sig
+    val hd : a
+    val tl : t
+    val n : { i : int |
+      let inv l = 
+        match l with
+        | `Empty _ -> i == 1
+        | `Cons m -> i == m.n + 1
+        end
+      in
+      match tl with
+      | `Stub l -> inv l
+      | `Stub_unit _ -> true
+      | _ -> inv tl
+      end
+    }
+  end
+
+let length (type a) (l : llist a) : int =
+  match l with
+  | `Empty _ -> 0
+  | `Cons m -> m.n
+  end
+
+let break (dep l1 : llist int | length int l1 > 0) (l2 : llist int | length int l2 > 0) : llist int =
+  match l1 with
+  | `Cons m ->
+    let stubbed_tl = m.tl in (* suppose stub length (k) is 1, so the tl of l1 is a stub *)
+    match l2 with
+    | `Cons m2 ->
+      `Cons struct
+        let hd = m2.hd
+        let tl = stubbed_tl (* swap the tails! The lengths shouldn't line up *)
+        let n = m2.n
+      end
+    end
+  end

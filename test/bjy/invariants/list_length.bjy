@@ -1,0 +1,59 @@
+(***
+  (
+    (speed Slow)
+    (typing Exhausted)
+    (flags "-s -p")
+  )
+*)
+
+let llist a = mu t.
+  | `Empty of unit
+  | `Cons of sig
+    val hd : a
+    val tl : t
+    val n : { i : int |
+      let invariant l = 
+        match l with
+        | `Empty _ -> i == 1
+        | `Cons m -> i == m.n + 1
+        end
+      in
+      match tl with
+      | `Stub l -> invariant l
+      | `Stub_unit _ -> true
+      | _ -> invariant tl
+      end
+    }
+  end
+
+let length (type a) (l : llist a) : int =
+  match l with
+  | `Empty _ -> 0
+  | `Cons m -> m.n
+  end
+
+let cons (type a) (x : a) (l : llist a) : llist a =
+  match l with
+  | `Empty _ -> `Cons struct
+      let hd = x
+      let tl = `Empty ()
+      let n = 1
+    end
+  | `Cons m -> `Cons struct
+      let hd = x
+      let tl = l
+      let n = m.n + 1
+    end
+  end
+
+let rec copy (type a) (dep l : llist a) : { ls : llist a | length a ls == length a l } = 
+  match l with
+  | `Empty _ -> `Empty ()
+  | `Cons m -> cons a m.hd (copy a m.tl)
+  end
+
+let rec append (type a) (dep l1 : llist a) (dep l2 : llist a) : { ls : llist a | length a ls == length a l1 + length a l2 } = 
+  match l1 with
+  | `Empty _ -> l2
+  | `Cons m -> cons a m.hd (append a m.tl l2)
+  end

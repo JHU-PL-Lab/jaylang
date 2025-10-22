@@ -1,0 +1,87 @@
+(***
+  (
+    (speed Slow)
+    (typing Exhausted)
+    (flags "-s -p -w no")
+  )
+*)
+
+let tuid a = a --> int
+
+let flist (type a acc) (uid : tuid acc) (f : acc -> a -> acc) (init: acc) : type = mu t.
+  | `Empty of unit
+  | `Cons of sig
+    val hd : a
+    val tl : t
+    val accumulant : { accum : acc |
+      let invariant l =
+        match l with
+        | `Empty _ -> uid accum == uid (f init hd)
+        | `Cons m -> uid accum == uid (f m.accumulant hd)
+        end
+      in
+      match tl with
+      | `Stub l -> invariant l
+      | `Stub_unit _ -> true
+      | l -> invariant l
+      end
+    }
+  end
+
+let fcons (type a acc) (dep uid : tuid acc) (dep f : acc --> a --> acc) (dep init : acc) (x : a) (l : flist a acc uid f init) : flist a acc uid f init = 
+  match l with
+  | `Empty _ -> `Cons struct let hd = x let tl = `Empty () let accumulant = f init x end
+  | `Cons m -> `Cons struct 
+      let hd = x 
+      let tl = l
+      let accumulant = f m.accumulant x
+    end
+  end
+
+let fprop (type a acc) (dep uid : tuid acc) (dep f : acc --> a --> acc) (dep init : acc) (l : flist a acc uid f init) : acc = 
+  match l with
+  | `Empty _ -> init
+  | `Cons m -> m.accumulant
+  end
+
+let fsingleton (type a acc) (dep uid : tuid acc) (dep f : acc --> a --> acc) (dep init : acc) (x : a) : flist a acc uid f init =
+  `Cons struct let hd = x let tl = `Empty() let accumulant = f init x end
+
+(* test by making llist (length list) *)
+
+let uid = fun x -> x
+
+let llist : (a : type) -> type = fun a ->
+  flist a int uid (fun accum elt -> accum + 1) 0
+
+let lcons (type a) (x : a) (l : llist a) : llist a = 
+  fcons a int uid (fun accum elt -> accum + 1) 0 x l
+
+let length (type a) (l : llist a) : int = 
+  fprop a int uid (fun accum elt -> accum + 1) 0 l
+
+(* Some things that are slow: these call functions that call splayed functions. But those splayed functions get to evaluate for a layer! This means we go too deep to be efficient! *)
+(* let rec copy (type a) (dep l : llist a) : { ls : llist a | length a ls == length a l } = 
+  match l with
+  | `Empty _ -> `Empty ()
+  | `Cons m -> lcons a m.hd (copy a m.tl)
+  end *)
+
+(* let rec append (type a) (dep l1 : llist a) (dep l2 : llist a) : { ls : llist a | length a ls == length a l1 + length a l2 } = 
+  match l1 with
+  | `Empty _ -> l2
+  | `Cons m -> lcons a m.hd (append a m.tl l2)
+  end *)
+
+let rec list_to_flist (type a acc) (dep uid : tuid acc) (dep f : acc --> a --> acc) (dep init : acc) (l : list a) : flist a acc uid f init = 
+  match l with 
+  | [] -> `Empty ()
+  | x :: xs -> fcons a acc uid f init x (list_to_flist a acc uid f init xs)
+    (* It is much more expensive to use singleton because we search a level deeper in all stubbed things. We don't handle that well yet! So don't use singleton! *)
+    (* match xs with 
+    | [] -> (fsingleton a acc uid f init) x  (* using special singleton maker above for no good reason except to use it *)
+    | _ :: _ -> fcons a acc uid f init x (list_to_flist a acc uid f init xs)
+    end *)
+  end
+
+     

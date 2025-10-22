@@ -1,0 +1,103 @@
+(***
+  (
+    (speed Slow)
+    (typing Exhausted)
+    (flags "-s -p")
+  )
+*)
+
+(* let slist a lt = mu t.
+  | `Empty of unit
+  | `Cons of sig
+    val tl : t
+    val hd : { x : a |
+      match tl with
+      | `Stub _ -> true
+      | `Stub_unit _ -> true
+      | `Empty _ -> true
+      | `Cons m -> lt x m.hd
+      end
+    }
+  end
+
+(*
+  We want to encode transitivity, which needs a forall.
+*)
+let t a = {
+  f : a --> a --> bool |
+    (* Want to say "forall x, y ..." *)
+}
+
+
+let rec insert (type a) (dep lt : a --> a --> bool) (ls : slist a lt) (x : a) : slist a lt =
+  match ls with
+  | `Empty _ -> `Cons struct
+      let hd = x
+      let tl = `Empty ()
+    end
+  | `Cons m ->
+    let y = m.hd in
+    let tl = m.tl in
+    if lt x y
+    then `Cons struct
+      let hd = x
+      let tl = ls
+    end else `Cons struct
+      let hd = y 
+      let tl = insert a lt tl x
+    end
+  end *)
+
+let olist = mu t.
+  | `Empty of unit
+  | `Cons of sig
+    val tl : t
+    val hd : { x : int |
+      match tl with
+      | `Stub _ -> true
+      | `Stub_unit _ -> true
+      | `Empty _ -> true
+      | `Cons m -> x <= m.hd
+      end
+    }
+  end
+
+let cons (dep x : int) (l_in : olist | 
+  match l_in with
+  | `Empty _ -> true
+  | `Cons m -> x <= m.hd
+  end
+) : olist =
+  `Cons struct
+    let hd = x
+    let tl = l_in
+  end
+
+let min x y =
+  if x < y then x else y
+
+let rec insert_int (dep l_in : olist) (dep x : int) : { l_out : olist |
+  match l_out with
+  | `Empty _ -> false
+  | `Cons m_out ->
+    m_out.hd == 
+      match l_in with
+      | `Empty _ -> x
+      | `Cons m_in -> min x m_in.hd
+      end
+  end
+ } =
+  match l_in with
+  | `Empty _ -> `Cons struct
+      let hd = x
+      let tl = `Empty ()
+    end
+  | `Cons m ->
+    let y = m.hd in
+    let tl = m.tl in
+    if x <= y
+    then
+      cons x l_in
+    else 
+      cons y (insert_int tl x)
+  end
