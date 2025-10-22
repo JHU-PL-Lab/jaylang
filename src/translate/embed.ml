@@ -285,11 +285,11 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
             in
             match dep with
             | `Binding x ->
-              let%bind () = assign x @@ wrap tau1 (EVar arg) in
+              let%bind () = assign x @@ (*wrap tau1*) (EVar arg) in
               return (wrap tau2 (apply (EVar e) (EVar x)))
             | `No ->
               return @@ wrap tau2 (
-                apply (EVar e) (wrap tau1 (EVar arg))
+                apply (EVar e) ((*wrap tau1*) (EVar arg))
               )
           )
         }
@@ -409,7 +409,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               EIf
                 { cond = EDet (apply (embed e_p) (EVar e))
                 ; true_body = EUnit
-                ; false_body = EAbort (Format.sprintf "Failed predicate: %s" (Expr.to_string e_p))
+                ; false_body = EAbort (Format.sprintf "Failed predicate on variable %s: %s" (let Ident s = e in s) (Expr.to_string e_p))
                 }
             )
           )
