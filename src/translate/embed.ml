@@ -255,7 +255,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               return @@ fresh_abstraction "arg_arrow_gen" @@ fun arg ->
               build @@
               let%bind () = ignore (EVar nonce) in
-              let%bind () = ignore (check tau1 (EVar arg)) in
+              let%bind () = ignore (EDefer (check tau1 (EVar arg))) in
               let%bind () =
                 match dep with 
                 | `Binding x -> assign x (EVar arg)
@@ -426,20 +426,26 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       in
       make_embedded_type
         { gen = lazy (
-              let of_case_list = function
+              let of_case_list do_defer = function
                 | [] -> failwith "invalid empty variant"
-                | [ (label, tau) ] -> EVariant { label ; payload = EDefer (gen tau) } (* no case needed on one variant *)
+                | [ (label, tau) ] -> EVariant { label ; payload = 
+                    if do_defer then EDefer (gen tau) else gen tau
+                  } (* no case needed on one variant *)
                 | ls ->
                   ECase
                     { subject = EPick_i
                     ; cases =
                         List.tl_exn ls
                         |> List.mapi ~f:(fun i (label, tau) ->
-                            i + 1, EVariant { label ; payload = EDefer (gen tau) }
+                            i + 1, EVariant { label ; payload = 
+                              if do_defer then EDefer (gen tau) else gen tau
+                            }
                           )
                     ; default = 
                         let (last_label, last_tau) = List.hd_exn ls in
-                        EVariant { label = last_label ; payload = EDefer (gen last_tau) }
+                        EVariant { label = last_label ; payload = 
+                          if do_defer then EDefer (gen last_tau) else gen last_tau
+                        }
                     }
               in
               let unlikely, likely =
@@ -448,12 +454,13 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                   )
               in
               match unlikely, likely with
-              | [], _ | _, [] -> of_case_list e_variant_ls (* either was empty, so just put all flat *)
+              | [], l -> of_case_list false l
+              | l, [] -> of_case_list true l
               | _ ->
                 EIf
                   { cond = EBinop { left = EPick_i ; binop = BEqual ; right = EInt !rec_var_pick }
-                  ; true_body = of_case_list unlikely
-                  ; false_body = of_case_list likely
+                  ; true_body = of_case_list true unlikely
+                  ; false_body = of_case_list false likely
                   }
 
             )
@@ -473,7 +480,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                                           let v = Names.fresh_id () in
                                           List.map e_variant_ls ~f:(fun (variant_label, tau) ->
                                               PVariant { variant_label ; payload_id = v }
-                                            , EVariant { label = variant_label ; payload = wrap tau (EVar v) }
+                                            , EVariant { label = variant_label ; payload = EDefer (wrap tau (EVar v)) }
                                             )
                    }  
           ) 
