@@ -136,9 +136,9 @@ let cbench_args =
   let open Cmdliner.Arg in
   let+ n_trials = value & opt int 50 & info ["trials"] ~doc:"Number of trials"
   and+ dirs = value & opt (list ~sep:' ' dir) [ "test/bjy/oopsla-24-benchmarks-ill-typed" ] & info ["dirs"] ~doc:"Directories to benchmark"
-  and+ mode = value & opt (enum ["eager", `Eager ; "deferred", `Deferred]) `Eager & info ["mode"] ~doc:"Mode: eager or deferred. Default is eager"
+  (* and+ mode = value & opt (enum ["eager", `Eager ; "deferred", `Deferred]) `Eager & info ["mode"] ~doc:"Mode: eager or deferred. Default is eager" *)
   and+ hum = value & flag & info ["h"] ~doc:"Show human readable output" in
-  n_trials, dirs, mode, hum
+  n_trials, dirs, (*mode,*) hum
 
 let run () =
   let open Cmdliner in
@@ -146,7 +146,7 @@ let run () =
   Cmd.v (Cmd.info "cbenchmark") @@
   let+ options = Options.cmd_arg_term
   and+ `Do_wrap do_wrap, `Do_type_splay do_type_splay = Translate.Convert.cmd_arg_term
-  and+ n_trials, dirs, _mode, hum = cbench_args in
+  and+ n_trials, dirs, (*mode,*) hum = cbench_args in
   let oc_null = Out_channel.create "/dev/null" in
   Format.set_formatter_out_channel oc_null;
   let runtest pgm =
