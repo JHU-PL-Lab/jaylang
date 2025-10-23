@@ -138,6 +138,7 @@ let eager_eval
         | BGeq         , VInt (n1, e1)  , VInt (n2, e2)              -> k (v_bool (n1 >= n2)) e1 e2 Greater_than_eq
         | BOr          , VBool (b1, e1) , VBool (b2, e2)             -> k (v_bool (b1 || b2)) e1 e2 Or
         | BAnd         , VBool (b1, e1) , VBool (b2, e2)             -> return @@ VBool (b1 && b2, Smt.Formula.and_ [ e1 ; e2 ])
+        | BEqual       , VUntouchable r1, VUntouchable r2 -> return (VBool (Value.equal r1 r2))
         | _ -> type_mismatch @@ Error_msg.bad_binop vleft binop vright
       end
     | ENot e_not_body -> begin

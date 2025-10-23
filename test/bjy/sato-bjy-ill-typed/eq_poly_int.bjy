@@ -1,0 +1,11 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let f (type a) (x : a) (y : int) : bool =
+  if x == y (* ERROR: type mismatch *)
+  then true
+  else false
