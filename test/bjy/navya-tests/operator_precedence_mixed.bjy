@@ -1,0 +1,15 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+let p1 : int = (2 + 3) * 4
+let _ = assert (p1 == 20)
+
+let p2 : int = 2 * (3 + 4)
+let _ = assert (p2 == 14)
+
+let p3 : int = (10 - 2) * 3
+let _ = assert (p3 == 24)

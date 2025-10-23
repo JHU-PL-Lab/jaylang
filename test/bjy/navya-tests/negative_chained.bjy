@@ -1,0 +1,16 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+(* negative chained operations with mixed signs*)
+let chain1 : int = 20 / 4 / 2 
+let _ = assert(chain1 == 2)
+
+let chain2 : int = (0 - 20) / 4 / 2
+let _ = assert(chain2 == -2) 
+
+let chain3 : int = 20 % 7 % 3
+let _ = assert(chain3 == 0)

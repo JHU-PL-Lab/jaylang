@@ -1,0 +1,14 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+(* test for when shadowing is in modules - simple*)
+let M1 = struct 
+  let x = 1
+  let x = 2
+  let get_x = x
+end
+let module_shadow_test : int = M1.get_x (*should be 2*)

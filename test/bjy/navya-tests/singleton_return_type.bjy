@@ -1,0 +1,9 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+let inject (x : int) : singlet x = x 
+let _ = inject 7 

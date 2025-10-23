@@ -1,0 +1,10 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+(* division and modulus in refinement types *)
+let positive_div (x : int | x > 0) (y : int | y > 0) : int = x / y 
+let safe_mod (x : int) (y : int | y > 0) : { r : int | r >= 0 && r < y} = x % y 

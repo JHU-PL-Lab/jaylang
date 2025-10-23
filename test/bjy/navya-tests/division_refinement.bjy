@@ -1,0 +1,8 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+let safe_positive_div (x : int | x > 0) (y : int | y > 0) : {r : int | r > 0} = x / y 

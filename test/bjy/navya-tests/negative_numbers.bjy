@@ -1,0 +1,13 @@
+(***
+  (
+    (typing Well_typed)
+    (flags "-p")
+  )
+*)
+
+(* testing operations on negative numbers*)
+let n1 : int = 0 - 5 + 3
+let _ = assert (n1 == -2)
+
+let n2 : int = (0 - 5) * 3
+let _ = assert (n2 == -15)
