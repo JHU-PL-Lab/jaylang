@@ -1,0 +1,1 @@
+let f (g : (int -> int) -> int) : int = 0

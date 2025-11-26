@@ -1,0 +1,146 @@
+let string = list int
+let eof=-1
+
+let Token =
+  | `TokMult of ()
+  | `TokPlus of ()
+  | `TokInt of string
+  | `TokVar of string
+  | `TokMinus of ()
+  | `TokOpenParen of ()
+  | `TokCloseParen of ()
+  | `TokLet of ()
+  | `TokIn of ()
+  | `TokEqual of ()
+  | `TokAfter of ()
+  | `TokBefore of ()
+  | `Invalid of ()
+
+let Tree = | `EInt of int| `EVar of string| `EBinaryOp of  {e1:Tree; e2:Tree}
+| `EOpPlus of {e1:Tree; e2:Tree} | `EOpMinus of {e1:Tree; e2:Tree} | `OpTimes of  {e1:Tree; e2:Tree} 
+| `EUnaryOp of Tree| `EAfter of Tree | `EBefore of Tree | `ELet of {var: string; e1:Tree; e2:Tree}
+| `Invalid of ()
+
+let TokResult = `Success of {s:string; tok:Token} | `Failure of int
+
+let pure x = `Success x
+
+let bind x f = 
+    match x with 
+    | `Failure _ -> x
+    | `Success y -> f y
+    end  
+
+let take_char (x:string): int =
+    match x with
+    | [] -> -1
+    | a::b -> a
+    end
+
+let drop_char (x:string): string =
+    match x with
+    | a::b -> b
+    end
+
+(*this is partially messy since i don't know of a way to calculate length of a list*)
+let rec str_compare (short:string) (long:string): {eq: bool; s: string} =
+    match short with
+    | hd::[] -> 
+        match long with 
+        | [] -> {eq=false; s=[]}
+        | a::b -> {eq=(hd=a); s=b}
+        end
+    | hd::tl -> 
+        match long with 
+        | [] -> {eq=false; s=[]}
+        | a::b -> str_compare tl b
+        end
+    end
+(*bind function is for top level passing lexed stuff into parse*)
+
+(*how to handle variables: back into ascii?
+also how to handle syntax errors/invalid variables ugh*)
+
+let rec get_input (x:int): string =
+    let var = input in
+    if var = eof then [] 
+    else var::(get_input 1)
+
+let tokenize_mult (s:string): TokResult =
+    let hd= take_char s in
+    if hd=42 then `Success {drop_char s; `TokMult ()} else `Failure 0
+
+let tokenize_plus (s:string): TokResult =
+    let hd= take_char s in
+    if hd=43 then `Success {drop_char s; `TokPlus ()} else `Failure 0
+
+let tokenize_minus (s:string): TokResult =
+    let hd= take_char s in
+    if hd=45 then `Success {drop_char s; `TokMinus ()} else `Failure 0
+
+let tokenize_openparen (s:string): TokResult =
+    let hd= take_char s in
+    if hd=40 then `Success {drop_char s; `TokOpenParen ()} else `Failure 0
+
+let tokenize_closeparen (s:string): TokResult =
+    let hd= take_char s in
+    if hd=41 then `Success {drop_char s; `TokCloseParen ()} else `Failure 0
+
+let tokenize_equal (s:string): TokResult =
+    let hd= take_char s in
+    if hd=61 then `Success {drop_char s; `TokEqual ()} else `Failure 0
+
+let tokenize_in (s:string): TokResult =
+    let comp = str_compare [105;110] s in
+    if comp.eq = true then `Success {comp.s; `TokIn ()} else `Failure 0
+
+let tokenize_let (s:string): TokResult =
+    let comp = str_compare [108;101;116] s in
+    if comp.eq = true then `Success {comp.s; `TokLet ()} else `Failure 0
+
+let tokenize_after (s:string): TokResult =
+    let comp = str_compare [97;102;116;101;114] s in
+    if comp.eq = true then `Success {comp.s; `TokAfter ()} else `Failure 0
+
+let tokenize_before (s:string): TokResult =
+    let comp = str_compare [98;101;102;111;114;101] s in
+    if comp.eq = true then `Success {comp.s; `TokBefore ()} else `Failure 0
+
+let rec match_int (file: string): string = 
+    match file with
+    | 32::tl -> []
+    | hd::tl -> 
+        if 48<=hd && hd<=57 then hd::(match_int tl) else `Invalid ()
+    end
+
+let rec match_var (file: string): string = 
+    match file with
+    | 32::tl -> []
+    | hd::tl -> 
+        if (65<=hd && hd<=90) || (97<=hd && hd<=122) then hd::(match_var tl) else `Invalid ()
+    end
+
+let rec lex (file: string): list Token =
+    match file with
+    | [] -> []
+    | 32::tl -> lex tl
+    | 43::tl -> `TokPlus::lex tl
+    | 45::tl -> `TokMinus::lex tl
+    | 42::tl -> `TokMult::lex tl
+    | 40::tl -> `TokOpenParen::lex tl
+    | 41::tl -> `TokCloseParen::lex tl
+    | 61::tl -> `TokEqual::lex tl
+    | 97::102::116::101::114::tl -> `TokAfter::lex tl (*can we do this type of matching?*)
+    | 98::101::102::111::114::101::tl -> `TokBefore::lex tl
+    | 105::110::tl -> `TokIn::lex tl
+    | 108::101::116::tl -> `TokLet::lex tl
+    | hd::tl -> 
+        if 48<=hd && hd<=57 then `TokInt (hd::match_int tl)
+        else if (65<=hd && hd<=90) || (97<=hd && hd<=122) then `TokVar (hd::(match_var tl)) else `Invalid
+    end
+
+let rec parse (toks: list Token): Tree = 
+    match toks with
+    | [] -> 
+    | 
+    end

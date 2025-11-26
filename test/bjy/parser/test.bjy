@@ -1,0 +1,14 @@
+let string = list int
+
+let Tree = | `EInt of int| `EBool of bool| `EVar of string| `EBinaryOp of  {e1:Tree; e2:Tree}
+| `EOpPlus of {e1:Tree; e2:Tree} | `EOpMinus of {e1:Tree; e2:Tree} | `OpTimes of  {e1:Tree; e2:Tree} 
+| `EUnaryOp of Tree| `EAfter of Tree | `EBefore of Tree | `ELet of {var: string; e1:Tree; e2:Tree}
+| `Invalid of ()
+
+let f x = 
+match x with
+| a::b -> if a == 42 then b else a
+end
+
+let g (x:int): bool =
+[] == []
