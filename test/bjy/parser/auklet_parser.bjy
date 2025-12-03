@@ -21,7 +21,9 @@ let Tree = | `EInt of int| `EVar of string| `EBinaryOp of  {e1:Tree; e2:Tree}
 | `EUnaryOp of Tree| `EAfter of Tree | `EBefore of Tree | `ELet of {var: string; e1:Tree; e2:Tree}
 | `Invalid of ()
 
-let TokResult = `Success of {s:string; tok:Token} | `Failure of int
+let Result = fun t -> `Success of t | `Failure of int
+let TokResult = Result {s:string; tok:Token}
+let StringResult = Result {result:string; file:string}
 
 let pure x = `Success x
 
@@ -29,7 +31,13 @@ let bind x f =
     match x with 
     | `Failure _ -> x
     | `Success y -> f y
-    end  
+    end 
+
+let compose f g chars = 
+    match (f chars) with 
+    | `Success x -> `Success x
+    | `Failure _ -> (g chars)
+    end
 
 let take_char (x:string): int =
     match x with
@@ -68,79 +76,71 @@ let rec get_input (x:int): string =
 
 let tokenize_mult (s:string): TokResult =
     let hd= take_char s in
-    if hd=42 then `Success {drop_char s; `TokMult ()} else `Failure 0
+    if hd=42 then `Success {s=(drop_char s); tok= `TokMult ()} else `Failure 0
 
 let tokenize_plus (s:string): TokResult =
     let hd= take_char s in
-    if hd=43 then `Success {drop_char s; `TokPlus ()} else `Failure 0
+    if hd=43 then `Success {s=drop_char s; tok=`TokPlus ()} else `Failure 0
 
 let tokenize_minus (s:string): TokResult =
     let hd= take_char s in
-    if hd=45 then `Success {drop_char s; `TokMinus ()} else `Failure 0
+    if hd=45 then `Success {s=drop_char s; tok=`TokMinus ()} else `Failure 0
 
 let tokenize_openparen (s:string): TokResult =
     let hd= take_char s in
-    if hd=40 then `Success {drop_char s; `TokOpenParen ()} else `Failure 0
+    if hd=40 then `Success {s=drop_char s; tok=`TokOpenParen ()} else `Failure 0
 
 let tokenize_closeparen (s:string): TokResult =
     let hd= take_char s in
-    if hd=41 then `Success {drop_char s; `TokCloseParen ()} else `Failure 0
+    if hd=41 then `Success {s=drop_char s; tok=`TokCloseParen ()} else `Failure 0
 
 let tokenize_equal (s:string): TokResult =
     let hd= take_char s in
-    if hd=61 then `Success {drop_char s; `TokEqual ()} else `Failure 0
+    if hd=61 then `Success {s=drop_char s; tok=`TokEqual ()} else `Failure 0
 
 let tokenize_in (s:string): TokResult =
     let comp = str_compare [105;110] s in
-    if comp.eq = true then `Success {comp.s; `TokIn ()} else `Failure 0
+    if comp.eq = true then `Success {s=comp.s; tok=`TokIn ()} else `Failure 0
 
 let tokenize_let (s:string): TokResult =
     let comp = str_compare [108;101;116] s in
-    if comp.eq = true then `Success {comp.s; `TokLet ()} else `Failure 0
+    if comp.eq = true then `Success {s=comp.s; tok=`TokLet ()} else `Failure 0
 
 let tokenize_after (s:string): TokResult =
     let comp = str_compare [97;102;116;101;114] s in
-    if comp.eq = true then `Success {comp.s; `TokAfter ()} else `Failure 0
+    if comp.eq = true then `Success {s=comp.s; tok=`TokAfter ()} else `Failure 0
 
 let tokenize_before (s:string): TokResult =
     let comp = str_compare [98;101;102;111;114;101] s in
-    if comp.eq = true then `Success {comp.s; `TokBefore ()} else `Failure 0
+    if comp.eq = true then `Success {s=comp.s; tok=`TokBefore ()} else `Failure 0
 
-let rec match_int (file: string): string = 
+
+(*add f as a predicate*)
+let tokenize_int (file:string): TokResult = 
+    let rec match_int (current:{result:string; file:string}): StringResult =
     match file with
-    | 32::tl -> []
+    | 32::tl -> `Success {file=tl; result=current.result}
     | hd::tl -> 
-        if 48<=hd && hd<=57 then hd::(match_int tl) else `Invalid ()
+        if 48<=hd && hd<=57 then match_int ({current.result::hd,tl}) else `Failure 1
+    end
+    in 
+    match (match_int({[]; file})) with 
+    | `Success x -> `Success {s=x.file; tok=`TokInt(x.result)}
+    | `Failure y -> `Failure y
     end
 
-let rec match_var (file: string): string = 
+let tokenize_var (file: string): TokResult = 
+    let rec match_var (current:{result:string; file:string}): StringResult =
     match file with
-    | 32::tl -> []
+    | 32::tl -> `Success {file=tl; result=current.result}
     | hd::tl -> 
-        if (65<=hd && hd<=90) || (97<=hd && hd<=122) then hd::(match_var tl) else `Invalid ()
+        if (65<=hd && hd<=90) || (97<=hd && hd<=122) then match_var ({current.result::hd,tl}) else `Failure 1
+    end
+    in
+    match (match_int({[]; file})) with 
+    | `Success x -> `Success {s=x.file; tok=`TokVar(x.result)}
+    | `Failure y -> `Failure y
     end
 
-let rec lex (file: string): list Token =
-    match file with
-    | [] -> []
-    | 32::tl -> lex tl
-    | 43::tl -> `TokPlus::lex tl
-    | 45::tl -> `TokMinus::lex tl
-    | 42::tl -> `TokMult::lex tl
-    | 40::tl -> `TokOpenParen::lex tl
-    | 41::tl -> `TokCloseParen::lex tl
-    | 61::tl -> `TokEqual::lex tl
-    | 97::102::116::101::114::tl -> `TokAfter::lex tl (*can we do this type of matching?*)
-    | 98::101::102::111::114::101::tl -> `TokBefore::lex tl
-    | 105::110::tl -> `TokIn::lex tl
-    | 108::101::116::tl -> `TokLet::lex tl
-    | hd::tl -> 
-        if 48<=hd && hd<=57 then `TokInt (hd::match_int tl)
-        else if (65<=hd && hd<=90) || (97<=hd && hd<=122) then `TokVar (hd::(match_var tl)) else `Invalid
-    end
-
-let rec parse (toks: list Token): Tree = 
-    match toks with
-    | [] -> 
-    | 
-    end
+let rec lex_token (file: string): list Token =
+(*hard coding this in?*)
