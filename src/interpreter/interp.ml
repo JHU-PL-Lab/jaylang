@@ -485,7 +485,7 @@ let eval_exp (type a) (e : a Expr.t) (feeder : int Feeder.t) : a V.t * Input_log
   |> fun (res, _, _, timed_inputs) ->
   (match res with
    | Ok r -> Format.printf "OK:\n  %s\n" (V.to_string r); r
-   | Error `XType_mismatch { Interp_common.Errors.msg = _ ; body = () } -> Format.printf "TYPE MISMATCH\n"; VTypeMismatch
+   | Error `XType_mismatch { Interp_common.Errors.msg = msg ; body = () } -> Format.printf "TYPE MISMATCH:%s\n" msg; VTypeMismatch
    | Error `XAbort  { Interp_common.Errors.msg ; body = () } -> Format.printf "FOUND ABORT %s\n" msg; VAbort
    | Error `XVanish () -> Format.printf "VANISH\n"; VVanish
    | Error `XUnbound_variable (Lang.Ast.Ident.Ident s, ()) -> Format.printf "UNBOUND VARIBLE %s\n" s; VUnboundVariable (Ident s)

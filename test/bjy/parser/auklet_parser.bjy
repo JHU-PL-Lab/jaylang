@@ -14,11 +14,12 @@ let Token =
   | `TokEqual of ()
   | `TokAfter of ()
   | `TokBefore of ()
-  | `Invalid of ()
+  | `Invalid of int
 
 let Tree = | `EInt of int| `EVar of string| `EBinaryOp of  {e1:Tree; e2:Tree}
 | `EOpPlus of {e1:Tree; e2:Tree} | `EOpMinus of {e1:Tree; e2:Tree} | `OpTimes of  {e1:Tree; e2:Tree} 
 | `EUnaryOp of Tree| `EAfter of Tree | `EBefore of Tree | `ELet of {var: string; e1:Tree; e2:Tree}
+| `Invalid of int
 
 let Result = fun t -> `Success of t | `Failure of int
 let TokResult = Result {s:string; tok:Token}
@@ -135,8 +136,16 @@ let tokenize_var (file: string): TokResult =
     end
 
 let rec lex_token (file: string): list Token =
-    compose tokenize_mult (compose tokenize_plus (compose tokenize_minus (compose tokenize_openparen 
+    let token = compose tokenize_mult (compose tokenize_plus (compose tokenize_minus (compose tokenize_openparen 
     (compose tokenize_closeparen (compose tokenize_equal (compose tokenize_in (compose tokenize_let 
-    (compose tokenize_after (compose tokenize_before (compose tokenize_int (compose tokenize_var (fun x-> `Failure 1)))))))))))) file
+    (compose tokenize_after (compose tokenize_before (compose tokenize_int (compose tokenize_var (fun x-> `Failure 1)))))))))))) file in
+
+    match token with 
+    | `Success x -> x.tok::(lex_token x.s)
+    | `Failure y -> [`Invalid y]
+    end
+
+let result = lex_token [52;-1]
+    
 (*hard coding this in?*)
 
