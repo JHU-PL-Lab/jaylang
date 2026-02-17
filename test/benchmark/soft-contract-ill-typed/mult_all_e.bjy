@@ -1,0 +1,21 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (reasons (Refinement_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let rec mult x y =
+  if x <= 0 || y <= 0
+  then 0
+  else x + mult x (y - 1)
+
+let h y =
+  let b = (y + y <= mult y y)
+  in
+  b
+
+let main (n : int) : { b : bool | b } =
+  h n (* ERROR: `n` needs to be at least `2` for `h n` to be true *)

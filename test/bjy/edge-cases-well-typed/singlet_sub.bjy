@@ -2,12 +2,12 @@
   (
     (features (Modules First_class_types))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 
 let M : sig 
-  val t : singlet int
+  val t : singletype int
   val f : t -> t
 end = struct
   let t = int 

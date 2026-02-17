@@ -1,0 +1,48 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+(*
+module F
+    (A : sig type 'a t end)
+    (B : sig
+       type 'a t
+       val f : 'a A.t -> 'a t
+     end) =
+struct end
+
+(** The definition of `F` and its application belows disagree on
+    the arity of `t`, we should not equate the two types *)
+
+include
+  F
+    (struct
+      type t = unit   (* this is bogus! *)
+    end)
+    (struct
+      let f x = x   (* this is bogus! *)
+    end)
+*)
+
+let F (dependent A : sig val t : type --> type end)
+  (B : sig
+    val t : type --> type
+    val f : (a : type) -> A.t a -> t a
+  end) : sig end = struct end
+
+(*
+  This error is especially obvious in Bluejay, where higher arity types are just functions.
+*)
+
+let _ = F
+  (struct
+    let t = unit    (* this is bogus! *)
+  end)
+  (struct
+    let t = unit    (* this was originally missing, but I've put it in to isolate the error *)
+    let f _ x = x   (* this is bogus! *) 
+  end)

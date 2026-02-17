@@ -182,7 +182,7 @@ module Embedded_functions = struct
         ))
     in
     abstract_over_ids [ f ] @@
-      apply body (EDefer body)
+      apply body body
 
   (*
     Generic Y-combinator for one function.

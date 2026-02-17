@@ -1,0 +1,11 @@
+(***
+  (
+    (speed Fast)
+    (typing Exhausted)
+  )
+*)
+
+let f (type a) (x : a) (y : a) : bool =
+  if x == y
+  then true
+  else false

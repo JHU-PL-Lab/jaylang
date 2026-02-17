@@ -1,9 +1,8 @@
 (***
   (
     (features (Recursive_functions))
-    (speed Fast) ; b/c type splaying
+    (speed Slow) 
     (typing Well_typed)
-    (flags "-s")
   )
 *)
 
@@ -12,5 +11,5 @@ let rec mult (x : int) (y : int) : int =
   then 0
   else x + mult x (y - 1)
 
-let main (n : int) : int = 
+let main (n : int | n >= 6) : { i : int | 600 <= i } = 
   mult 100 n

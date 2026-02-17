@@ -8,7 +8,6 @@ open Translation_tools
 open Ast_tools
 open Ast_tools.Utils
 
-let splay_depth = ref 3
 let rec_var_pick = ref 123456
 
 module LetMonad (Names : Fresh_names.S) = struct
@@ -165,7 +164,7 @@ let uses_id (expr : Desugared.t) (id : Ident.t) : bool =
   in
   loop expr
 
-let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm =
+let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : Splay.t) : Embedded.pgm =
   let module E = Embedded_type (struct let do_wrap = do_wrap end) in
   let module Names = (val names) in
   let open LetMonad (Names) in
@@ -256,7 +255,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               return @@ fresh_abstraction "arg_arrow_gen" @@ fun arg ->
               build @@
               let%bind () = ignore (EVar nonce) in
-              let%bind () = ignore (check tau1 (EVar arg)) in
+              let%bind () = ignore (EDefer (check tau1 (EVar arg))) in
               let%bind () =
                 match dep with 
                 | `Binding x -> assign x (EVar arg)
@@ -286,11 +285,11 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
             in
             match dep with
             | `Binding x ->
-              let%bind () = assign x @@ wrap tau1 (EVar arg) in
+              let%bind () = assign x @@ (*wrap tau1*) (EVar arg) in
               return (wrap tau2 (apply (EVar e) (EVar x)))
             | `No ->
               return @@ wrap tau2 (
-                apply (EVar e) (wrap tau1 (EVar arg))
+                apply (EVar e) ((*wrap tau1*) (EVar arg))
               )
           )
         }
@@ -410,7 +409,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
               EIf
                 { cond = EDet (apply (embed e_p) (EVar e))
                 ; true_body = EUnit
-                ; false_body = EAbort "Failed predicate"
+                ; false_body = EAbort (Format.sprintf "Failed predicate on variable %s: %s" (let Ident s = e in s) (Expr.to_string e_p))
                 }
             )
           )
@@ -427,20 +426,26 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       in
       make_embedded_type
         { gen = lazy (
-              let of_case_list = function
+              let of_case_list do_defer = function
                 | [] -> failwith "invalid empty variant"
-                | [ (label, tau) ] -> EVariant { label ; payload = EDefer (gen tau) } (* no case needed on one variant *)
+                | [ (label, tau) ] -> EVariant { label ; payload = 
+                    if do_defer then EDefer (gen tau) else gen tau
+                  } (* no case needed on one variant *)
                 | ls ->
                   ECase
                     { subject = EPick_i
                     ; cases =
                         List.tl_exn ls
                         |> List.mapi ~f:(fun i (label, tau) ->
-                            i + 1, EVariant { label ; payload = EDefer (gen tau) }
+                            i + 1, EVariant { label ; payload = 
+                              if do_defer then EDefer (gen tau) else gen tau
+                            }
                           )
                     ; default = 
                         let (last_label, last_tau) = List.hd_exn ls in
-                        EVariant { label = last_label ; payload = EDefer (gen last_tau) }
+                        EVariant { label = last_label ; payload = 
+                          if do_defer then EDefer (gen last_tau) else gen last_tau
+                        }
                     }
               in
               let unlikely, likely =
@@ -449,12 +454,13 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                   )
               in
               match unlikely, likely with
-              | [], _ | _, [] -> of_case_list e_variant_ls (* either was empty, so just put all flat *)
+              | [], l -> of_case_list false l
+              | l, [] -> of_case_list true l
               | _ ->
                 EIf
                   { cond = EBinop { left = EPick_i ; binop = BEqual ; right = EInt !rec_var_pick }
-                  ; true_body = of_case_list unlikely
-                  ; false_body = of_case_list likely
+                  ; true_body = of_case_list true unlikely
+                  ; false_body = of_case_list false likely
                   }
 
             )
@@ -474,7 +480,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                                           let v = Names.fresh_id () in
                                           List.map e_variant_ls ~f:(fun (variant_label, tau) ->
                                               PVariant { variant_label ; payload_id = v }
-                                            , EVariant { label = variant_label ; payload = wrap tau (EVar v) }
+                                            , EVariant { label = variant_label ; payload = EDefer (wrap tau (EVar v)) }
                                             )
                    }  
           ) 
@@ -482,8 +488,8 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
     | ETypeMu { var = beta ; params ; body = tau } ->
       Stack.push cur_mu_vars beta;
       let res =
-        if not do_type_splay
-        then (* standard translation, allowing arbitrary depth in recursive types *)
+        match do_type_splay with
+        | No -> (* standard translation, allowing arbitrary depth in recursive types *)
           EThaw (apply Embedded_functions.y_freeze_thaw @@ 
                  fresh_abstraction "self_mu" @@ fun self ->
                  EFreeze (
@@ -496,7 +502,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                        }
                    )
                 )
-        else (* limit recursive depth of generated members in this type *)
+        | Yes_with_depth splay_depth -> (* limit recursive depth of generated members in this type *)
           let gend = Names.fresh_id ~suffix:"gend" () in
           let v = Names.fresh_id ~suffix:"v" () in
           let stub_type t =
@@ -532,7 +538,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
                             )
               }
           in
-          appl_list Embedded_functions.y_1 [ body ; (EInt !splay_depth) ]
+          appl_list Embedded_functions.y_1 [ body ; (EInt splay_depth) ]
       in
       let _ = Stack.pop_exn cur_mu_vars in
       res
@@ -553,7 +559,7 @@ let embed_pgm (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap :
       abstract_over_ids [tau] @@
       make_embedded_type
         { gen = lazy (EVar tau)
-        ; check = lazy (fresh_abstraction "t_singlet_check" @@ fun t -> 
+        ; check = lazy (fresh_abstraction "t_singletype_check" @@ fun t -> 
             EEscapeDet (
               build @@
               let%bind _ = ignore @@ check (EVar tau) (gen (EVar t)) in
@@ -621,13 +627,6 @@ let split_checks (stmt_ls : Desugared.statement list) : Desugared.pgm Preface.No
     | STyped { typed_binding_opts = TBDesugared { do_check ; _ } ; _ } ->
       do_check
   in
-  let turn_off_check (stmt : Desugared.statement) : Desugared.statement =
-    match stmt with
-    | SUntyped _ -> stmt
-    | STyped ({typed_binding_opts = TBDesugared r ; _} as st) ->
-      STyped { st with
-               typed_binding_opts = TBDesugared { r with do_check = false } }
-  in
   (*
     Now for each statement with a check, we want to return the program with only that check on.
   *)
@@ -640,9 +639,9 @@ let split_checks (stmt_ls : Desugared.statement list) : Desugared.pgm Preface.No
         let new_pgm =
           prev_stmts
           @ [ stmt ]
-          @ List.map tl ~f:turn_off_check
+          @ List.map tl ~f:Desugared.turn_off_check
         in
-        go (new_pgm :: pgms) (prev_stmts @ [ turn_off_check stmt ]) tl
+        go (new_pgm :: pgms) (prev_stmts @ [ Desugared.turn_off_check stmt ]) tl
       else
         go pgms (prev_stmts @ [ stmt ]) tl
   in
@@ -650,6 +649,6 @@ let split_checks (stmt_ls : Desugared.statement list) : Desugared.pgm Preface.No
   | None -> Preface.Nonempty_list.Last stmt_ls
   | Some pgm_ls -> pgm_ls
 
-let embed_fragmented (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : bool) : Embedded.pgm Preface.Nonempty_list.t =
+let embed_fragmented (names : (module Fresh_names.S)) (pgm : Desugared.pgm) ~(do_wrap : bool) ~(do_type_splay : Splay.t) : Embedded.pgm Preface.Nonempty_list.t =
   Preface.Nonempty_list.map (fun pgm -> embed_pgm names pgm ~do_wrap ~do_type_splay)
   @@ split_checks pgm

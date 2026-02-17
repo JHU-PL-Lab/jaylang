@@ -1,0 +1,17 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+let MapTwice (dep X : sig
+  val t : type -> type (* ERROR: t needs to be deterministic *)
+  val map : (a : type) -> (b : type) -> (a -> b) -> t a -> t b
+end) : sig
+  val map_twice : (a : type) -> (a -> a) -> X.t a -> X.t a
+end = struct
+  let map_twice a f x =
+    X.map a a f (X.map a a f x)
+end

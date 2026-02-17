@@ -15,11 +15,11 @@ end
   binds and improves efficiency.
 *)
 module Make (State : T) (Builder : Utils.Builder.S) (Env : ENV) (Err : sig
-  type t
-  val fail_on_nondeterminism_misuse : State.t -> t * State.t
-  val fail_on_fetch : Ast.Ident.t -> State.t -> t * State.t
-  val fail_on_max_step : int -> State.t -> t * State.t
-end) = struct
+    type t
+    val fail_on_nondeterminism_misuse : State.t -> t * State.t
+    val fail_on_fetch : Ast.Ident.t -> State.t -> t * State.t
+    val fail_on_max_step : int -> State.t -> t * State.t
+  end) = struct
   module Read = struct
     type t = 
       { env : Env.t
@@ -56,15 +56,18 @@ end) = struct
     "statefully" for efficiency.
   *)
   type ('a, 'e) t = {
-    run : 'r. reject:('e -> State.t -> Step.t -> Builder.t -> 'r) -> accept:('a -> State.t -> Step.t -> Builder.t -> 'r) -> State.t -> Step.t -> Builder.t -> Read.t -> 'r
+    run : 'r. 
+      reject:('e -> State.t -> Step.t -> Builder.t -> 'r) -> 
+      accept:('a -> State.t -> Step.t -> Builder.t -> 'r) ->
+      State.t -> Step.t -> Builder.t -> Read.t -> 'r
   } 
 
   let[@inline always][@specialise] bind (x : ('a, 'e) t) (f : 'a -> ('b, 'e) t) : ('b, 'e) t =
     { run =
-      fun ~reject ~accept state step b r ->
-        x.run state step b r ~reject ~accept:(fun x state step b ->
-          (f x).run ~reject ~accept state step b r
-        )
+        fun ~reject ~accept state step b r ->
+          x.run state step b r ~reject ~accept:(fun x state step b ->
+              (f x).run ~reject ~accept state step b r
+            )
     }
 
   let[@inline always][@specialise] return (a : 'a) : ('a, 'e) t =
@@ -76,7 +79,7 @@ end) = struct
 
   let make_unsafe (x : 'a s) : ('a, 'e) t =
     { run = fun ~reject:_ ~accept s b r ->
-      x.run s b r ~reject:absurd ~accept
+          x.run s b r ~reject:absurd ~accept
     }
 
   (*
@@ -108,8 +111,8 @@ end) = struct
 
   let[@inline always][@specialise] modify (f : State.t -> State.t) : (unit, 'e) t =
     { run =
-      fun ~reject:_ ~accept state step b _ ->
-        accept () (f state) step b
+        fun ~reject:_ ~accept state step b _ ->
+          accept () (f state) step b
     }
 
   (*
@@ -123,14 +126,14 @@ end) = struct
 
   let[@inline always][@specialize] log (a : Builder.a) : (unit, 'e) t =
     { run = 
-      fun ~reject:_ ~accept state step b _ ->
-        accept () state step (Builder.cons a b)
+        fun ~reject:_ ~accept state step b _ ->
+          accept () state step (Builder.cons a b)
     }
 
   let[@inline always][@specialize] modify_log (f : Builder.t -> Builder.t) : (unit, 'e) t =
     { run =
-      fun ~reject:_ ~accept state step b _ ->
-        accept () state step (f b)
+        fun ~reject:_ ~accept state step b _ ->
+          accept () state step (f b)
     }
 
   (*
@@ -147,13 +150,13 @@ end) = struct
 
   let[@inline always] handle_error (x : ('a, 'e1) t) (ok : 'a -> ('b, 'e2) t) (err : Err.t -> ('b, 'e2) t) : ('b, 'e2) t =
     { run = fun ~reject ~accept state step b r ->
-      x.run state step b r 
-        ~reject:(fun a state step b ->
-          (err a).run ~reject ~accept state step b r
-        )
-        ~accept:(fun a state step b ->
-          (ok a).run ~reject ~accept state step b r
-        )
+          x.run state step b r 
+            ~reject:(fun a state step b ->
+                (err a).run ~reject ~accept state step b r
+              )
+            ~accept:(fun a state step b ->
+                (ok a).run ~reject ~accept state step b r
+              )
     }
 
   (*
@@ -180,11 +183,11 @@ end) = struct
 
   let[@inline always] incr_step ~(max_step : Step.t) : unit m = 
     { run =
-      fun ~reject ~accept state step b _ ->
-        let (Step step_n) as step = Step.next step in
-        if step_n > Step.to_int max_step
-        then Tuple2.uncurry reject (Err.fail_on_max_step step_n state) step b
-        else accept () state step b
+        fun ~reject ~accept state step b _ ->
+          let (Step step_n) as step = Step.next step in
+          if step_n > Step.to_int max_step
+          then Tuple2.uncurry reject (Err.fail_on_max_step step_n state) step b
+          else accept () state step b
     }
 
 
@@ -202,9 +205,9 @@ end) = struct
 
   let[@inline always] fetch (id : Ast.Ident.t) : Env.value m =
     { run =
-      fun ~reject ~accept state step b r ->
-        match Env.fetch id r.env with
-        | None -> let e, s = Err.fail_on_fetch id state in reject e s step b
-        | Some v -> accept v state step b
+        fun ~reject ~accept state step b r ->
+          match Env.fetch id r.env with
+          | None -> let e, s = Err.fail_on_fetch id state in reject e s step b
+          | Some v -> accept v state step b
     }
 end

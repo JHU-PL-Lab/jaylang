@@ -1,0 +1,27 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Dependent_types Recursive_functions Return_error))
+    (reasons (Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+(* Here is part of an ngram program implementation that contains a type error I made along the way to implementing the full program. *)
+(* This has been trimmed down to remove any code that had absolutely no intersection with the erroring code. *)
+
+let pos_int : type = { i : int | i > 0 }
+
+let rec len ls = 
+  match ls with
+  | [] -> 0
+  | hd :: tl -> 1 + len tl
+  end
+
+let rec take (type a_) (dep n : pos_int) (l : list a_) : { ls : list a_ | len ls <= n } =
+  match l with
+  | [] -> []
+  | hd :: tl ->
+    if n == 1
+    then hd (* ERROR: should be `[hd]` here *)
+    else hd :: take a_ (n - 1) tl
+  end

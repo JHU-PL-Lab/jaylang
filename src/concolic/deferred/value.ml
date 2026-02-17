@@ -217,7 +217,7 @@ module Equality = struct
     equal_expr bindings a.body b.body
 end
 
-let equal a b =
+let intensional_equal a b =
   match Equality.M.run @@ Equality.equal a b with
   | Some (b, exprs) -> b, Smt.Formula.and_ exprs
   | None -> false, Smt.Formula.const_bool false

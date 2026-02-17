@@ -26,7 +26,8 @@ let erase (pgm : Bluejay.pgm) : Type_erased.pgm =
     | ETypeVariant _
     | ETypeIntersect _
     | ETypeMu { var = _ ; params = [] ; body = _ }
-    | ETypeUnit -> EUnit (* send all types to unit value *)
+    | ETypeUnit
+    | EAbstractType -> EUnit (* send all types to unit value *)
     (* parametrized type propagation *)
     | ETypeList 
     | ETypeSingle -> EFunction { param = Ast_tools.Reserved.catchall ; body = EUnit }

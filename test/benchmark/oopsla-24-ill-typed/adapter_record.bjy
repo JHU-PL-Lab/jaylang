@@ -1,0 +1,38 @@
+(***
+  (
+    (features (Records Higher_order_functions OOP_style Return_error))
+    (reasons (Records Return_error))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let int_wrapper = { value : int }
+
+let t =
+  { square : int -> int
+  ; add_x : int -> int
+  ; x : int }
+
+let ob =
+  fun x -> 
+    fun self ->
+      { square = fun i -> i * i
+      ; add_x = fun i -> i + (self self).x
+      ; x = x }
+
+let ob_5 = ob 5
+
+let obj : t = ob_5 ob_5
+
+let adapter obj =
+  let s =
+    fun self ->
+      { square = fun i_w -> { value = obj.square i_w.value }
+      ; add_x = fun i_w -> { value = obj.add_x i_w.value }
+      ; x = { value = obj.x } }
+  in
+  s s
+
+let x : int = (adapter obj).square { value = 36 } (* ERROR: should be `x : int_wrapper` *)
+ 

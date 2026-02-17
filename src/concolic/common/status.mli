@@ -33,6 +33,7 @@ val is_error_found : 'a t -> bool
 (** [is_error_found status] is true if and only if the [status] indicates that
     an error was found in the target program. *)
 
+
 val to_string : 'a t -> string
 (** [to_string status] is a nice string representation of the [status]. *)
 
@@ -41,4 +42,4 @@ val to_loud_string : 'a t -> string
     of the message is emphasized with capitalization. *)
 
 module Eval : sig type nonrec t = [ `Eval ] t end
-module Terminal : sig type nonrec t = [ `Terminal ] t end
+module Terminal : sig type nonrec t = [ `Terminal ] t val to_answer : t -> Answer.t end

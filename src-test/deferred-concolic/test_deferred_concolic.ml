@@ -6,7 +6,7 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
   let is_error_expected = 
     match metadata.typing with
     | Ill_typed -> true
-    | Well_typed -> false
+    | Well_typed | Exhausted -> false
   in
   let speed_level =
     match metadata.speed with
@@ -37,8 +37,8 @@ let make_tests (dirs : string list) : unit Alcotest.test list =
 let () =
   Alcotest.run "deferred concolic"
   @@ make_tests
-    [ "post-oopsla-ill-typed"
-    ; "post-oopsla-well-typed"
+    [ "oopsla-26-ill-typed"
+    ; "oopsla-26-well-typed"
 
     (* ; "deep-type-error" *)
 
@@ -62,6 +62,8 @@ let () =
 
     ; "soft-contract-ill-typed"
     ; "soft-contract-well-typed"
+
+    ; "soft-contract-splayed-well-typed"
 
     ; "sato-bjy-ill-typed"
     ; "sato-bjy-well-typed"

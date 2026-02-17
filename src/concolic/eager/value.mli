@@ -20,8 +20,8 @@ module Make (K : Smt.Symbol.KEY) : sig
 
   include module type of T with type t = t
 
-  val equal : t -> t -> bool Concolic_value.t
-  (** [equal a b] is intensional equality of [a] and [b], comparing formulas
+  val intensional_equal : t -> t -> bool Concolic_value.t
+  (** [intensional_equal a b] is intensional equality of [a] and [b], comparing formulas
       in the case of ints and bools. *)
 end
 

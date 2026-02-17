@@ -1,3 +1,10 @@
+(***
+  (
+    (speed Slow)
+    (typing Well_typed)
+    (flags "")
+  )
+*)
 
 let Option = struct
   let t a =

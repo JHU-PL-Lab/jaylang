@@ -16,14 +16,14 @@ Usability
 
 Language
 
-* `singlet` and `list` are type functions and are values themselves.
+* `singletype` and `list` are type functions and are values themselves.
 * Parametrized recursive types with `Mu t a b c. tau`, where `t` is a type function with parameters `a`, `b`, and `c`.
 * Sugar for refined function parameters, e.g. `let f (x : int | x == 0) ...`.
 * Dependent parameters have `dependent` or `dep` (which is strictly shorthand) keyword preceding them, and no more `letd`.
 * Deterministic functions.
 * It is a parse error to have patterns after a catchall pattern.
-* `val t1 = t2` sugar for `val t1 : singlet t2`.
-* `type`, `top`, `bottom`, `singlet`.
+* `val t1 = t2` sugar for `val t1 : singletype t2`.
+* `type`, `top`, `bottom`, `singletype`.
 * No more type casing.
 * Bluejay programs are statement lists.
 * Modules and module types.

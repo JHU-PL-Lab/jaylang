@@ -1,0 +1,27 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions Higher_order_functions))
+    (reasons (Refinement_types Recursive_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let rec mk_list n =
+  if n <= 0
+  then []   
+  else (fun m -> m - n) :: mk_list (n - 1) (* ERROR: be `m + n` instead of `m - n` *)
+
+let rec foldr f z xs =
+  match xs with
+  | [] -> z
+  | x :: xss -> f x (foldr f z xss)
+  end
+
+let compose f g =
+  fun x ->
+    f (g x)
+
+let main (n : int) : { int -> int | fun f -> f 0 >= 0 } =
+  let xs = mk_list n in
+  foldr compose (fun x -> x) xs

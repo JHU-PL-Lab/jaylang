@@ -1,0 +1,18 @@
+(***
+  (
+    (features (Recursive_functions))
+    (speed Fast) 
+    (typing Exhausted)
+    (flags "-s -p")
+  )
+*)
+
+let non_neg = { i : int | i >= 0 }
+
+let rec mult (dep x : non_neg) (dep y : non_neg) : { z : int | z == x * y } =
+  if x <= 0 || y <= 0
+  then 0
+  else x + mult x (y - 1)
+
+let main (n : int | n >= 6) : { i : int | 600 <= i } = 
+  mult 100 n

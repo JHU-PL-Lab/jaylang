@@ -1,0 +1,29 @@
+(***
+  (
+    (speed Fast)
+    (typing Exhausted)
+    (flags "")
+  )
+*)
+
+(*
+module M: sig
+  type t
+  module Inner: sig type t end
+  module F(X:sig val f: t val g: Inner.t val h:float end):sig end
+end = struct
+  type t
+  module Inner= struct type t end
+  module F(X:sig val f: t val g: Inner.t val h:int end)= struct end
+end
+*)
+
+let M : sig
+  val t : type
+  val Inner : sig val t : type end
+  val F : (X : sig val f : t val g : Inner.t val h : bool end) -> sig end
+end = struct
+  let t = abstract
+  let Inner = struct let t = abstract end
+  let F (X : sig val f : t val g : Inner.t val h : bool end) : sig end = struct end
+end

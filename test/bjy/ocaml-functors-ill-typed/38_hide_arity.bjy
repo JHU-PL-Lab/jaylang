@@ -1,0 +1,38 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+(*
+module M: sig
+  module F:
+    functor (X:sig
+               type x
+               module type t =
+                 functor
+                   (Y:sig type y end)
+                   (Z:sig type z end)
+                   -> sig end
+             end) -> X.t
+end
+= struct
+  module F(X:sig type x end)(Z:sig type z end) = struct end
+end
+*)
+
+let M : sig
+  val F :
+    (X : sig
+      val x : type
+      val t = (Y : sig val y : type end)
+        -> (Z : sig val z : type end)
+        -> sig end
+    end) -> X.t
+end = struct
+  (* ERROR: this is missing Y *)
+  let F (X : sig val x : type end) (Z : sig val z : type end) : sig end =
+    struct end
+end

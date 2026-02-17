@@ -1,0 +1,43 @@
+(***
+  (
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "")
+  )
+*)
+
+(*
+module type x = sig type x end
+module type y = sig type y end
+module type z = sig type z end
+module type w = sig type w end
+
+module type empty = sig end
+module Empty = struct end
+
+module X: x = struct type x end
+module Y: y = struct type y end
+module Z: z = struct type z end
+module W: w = struct type w end
+
+module F(X:x)(Y:y)(Z:z) = struct end
+
+module M = F(X)(Z)
+*)
+
+let x = sig val x : type end
+let y = sig val y : type end
+let z = sig val z : type end
+let w = sig val w : type end
+
+let empty = sig end
+let Empty = struct end
+
+let X : x = struct let x = abstract end
+let Y : y = struct let y = abstract end
+let Z : z = struct let z = abstract end
+let W : w = struct let w = abstract end
+
+let F (X : x) (Y : y) (Z : z) : empty = struct end
+
+let M = F (X) (Z) (* ERROR: second argument should have type y *)

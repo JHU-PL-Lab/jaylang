@@ -99,7 +99,7 @@ rule token = parse
 | "mu"                 { MU }
 | "of"                 { OF }
 | "sig"                { SIG }
-| "singlet"            { SINGLET_KEYWORD }
+| "singletype"         { SINGLETYPE_KEYWORD }
 | "top"                { TOP_KEYWORD }
 | "val"                { VAL }
 (*! endscope !*)
@@ -115,6 +115,7 @@ rule token = parse
 | "dep"                { DEP }
 | "list"               { LIST }
 | "rec"                { REC }
+| "abstract"           { ABSTRACT }
 (*! endscope !*)
 (*! scope desugared embedded !*)
 | "#vanish"            { VANISH }

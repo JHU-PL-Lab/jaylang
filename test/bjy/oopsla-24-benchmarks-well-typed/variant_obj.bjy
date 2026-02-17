@@ -1,8 +1,8 @@
 (***
   (
     (features (Dependent_types Variants OOP_style))
-    (speed Slow)
-    (typing Well_typed)
+    (speed Fast)
+    (typing Exhausted)
   )
 *)
 

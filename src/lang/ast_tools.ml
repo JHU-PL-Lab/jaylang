@@ -36,12 +36,14 @@ module Reserved = struct
   let cons : VariantLabel.t = VariantLabel (Ident "~Cons") 
   let nil : VariantLabel.t = VariantLabel (Ident "~Nil") 
   let top : VariantLabel.t = VariantLabel (Ident "~Top")
-  let stub : VariantLabel.t = VariantLabel (Ident "~Stub")
+  (* let stub : VariantLabel.t = VariantLabel (Ident "~Stub") *)
+  let stub : VariantLabel.t = VariantLabel (Ident "Stub") (* FIXME: add a tilde *)
 
   (* Variant type constructors *)
   let cons_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Cons") 
   let nil_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Nil") 
-  let stub_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Stub_for_mu")
+  (* let stub_type : VariantTypeLabel.t = VariantTypeLabel (Ident "~Stub_unit") *)
+  let stub_type : VariantTypeLabel.t = VariantTypeLabel (Ident "Stub_unit") (* FIXME: add a tilde *)
 
   (* Idents *)
   let catchall : Ident.t = Ident "_"

@@ -8,13 +8,13 @@
 *)
 
 (*
-  Minimal example of singlet needing to compare types for equality.
+  Minimal example of singletype needing to compare types for equality.
   Technically, the modules are not needed, but they are typical for
   uses of `singlet`.
 *)
 
 let S = sig
-  val t : singlet int
+  val t : singletype int
 end
 
 let X : S = struct

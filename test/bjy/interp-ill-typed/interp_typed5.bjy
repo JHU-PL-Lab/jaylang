@@ -88,7 +88,11 @@ let Expr : T 0 = struct
   let t = mu t.
     | `Int of int
     | `Var of Ident.t
-    | `Function of Triple.t Ident.t Type.t t
+    | `Function of sig
+       val first : Ident.t 
+       val second : Type.t 
+       val third : t
+    end
     | `If_then_else of Triple.t t t t
     | `Plus of Pair.t t t
     | `Minus of Pair.t t t
@@ -96,10 +100,59 @@ let Expr : T 0 = struct
     | `Appl of Pair.t t t
 end
 
+let rec mem ls a eq =
+  match ls with
+  | [] -> false
+  | hd :: tl ->
+      if eq a hd
+      then true
+      else mem tl a eq
+  end
+
+let free_vars e bound =
+  let rec loop e bound_ids acc =
+    match e with
+    | `Var var_id ->
+      if mem bound_ids var_id Ident.eq
+      then acc
+      else var_id :: acc
+    | `Int i -> acc
+    | `Function trip -> loop trip.third (trip.first :: bound_ids) acc
+    | `If_then_else trip ->
+      let acc1 = loop trip.first bound_ids acc in
+      let acc2 = loop trip.second bound_ids acc1 in
+      let acc3 = loop trip.third bound_ids acc2 in
+      acc3
+    | _ -> 
+      let p = 
+        match e with
+        | `Plus p -> p
+        | `Minus p -> p
+        | `Equal p -> p
+        | `Appl p -> p
+        end
+      in
+      let acc1 = loop p.left bound_ids acc in
+      let acc2 = loop p.right bound_ids acc1 in
+      acc2
+    end
+  in
+  loop e bound []
+
+let is_closed e bound = 
+  match free_vars e bound with
+  | [] -> true
+  | _ -> false
+  end
+
 let Value : T 0 = struct
   let t =
     `Int of int
-    | `Function of Triple.t Ident.t Type.t Expr.t
+    | `Function of sig
+       val first : Ident.t 
+       val second : Type.t 
+       val third : { e : Expr.t | is_closed e [ first ] }
+    end
 end
 
 let Result = struct
@@ -217,7 +270,11 @@ let subst e id v =
     | `Function trip ->
         if Ident.eq trip.first id
         then e
-        else `Function { first = trip.first ; second = trip.second ;  third = sub trip.third }
+        else `Function struct
+          let first = trip.first 
+          let second = trip.second 
+          let third = sub trip.third
+        end
     | `Plus p -> `Plus (sub_pair p)
     | `Minus p -> `Minus (sub_pair p)
     | `Equal p -> `Equal (sub_pair p)
@@ -256,3 +313,4 @@ let rec eval (e : { Expr.t | is_closed_and_well_typed }) : Value.t =
       else eval trip.third
     end
   end
+

@@ -7,7 +7,7 @@ module type S = sig
     val test_some_program :
       options:Options.t ->
       do_wrap:bool ->
-      do_type_splay:bool ->
+      do_type_splay:Translate.Splay.t ->
       Lang.Ast.some_program ->
       Status.Terminal.t * tape
     (** Performs concolic evaluation on the provided program or times out if the
@@ -16,7 +16,7 @@ module type S = sig
     val test_some_file :
       options:Options.t ->
       do_wrap:bool ->
-      do_type_splay:bool ->
+      do_type_splay:Translate.Splay.t ->
       Core.Filename.t ->
       Status.Terminal.t * tape
     (** Performs concolic evaluation on the program in the provided file or times

@@ -33,9 +33,9 @@ end
 let Make : (Monad : MONAD) -> (Tape : MONOID) -> sig
   val tape = Tape.t
 
-  val with_tape : (a : type) -> singlet { a : a ; tape : tape }
+  val with_tape : (a : type) -> singletype { a : a ; tape : tape }
 
-  (* ERROR: needs singlet around (Monad.m a) *)
+  (* ERROR: needs singletype around (Monad.m a) *)
   val monad : (a : type) -> Monad.m a
 
   (* ERROR: same here *)

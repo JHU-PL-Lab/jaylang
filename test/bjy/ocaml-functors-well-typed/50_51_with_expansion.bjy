@@ -1,0 +1,34 @@
+(***
+  (
+    (speed Fast)
+    (typing Exhausted)
+    (flags "")
+  )
+*)
+
+(*
+module With_expansion
+    (A: sig module type t module M:t end)
+    (B:sig module type t = A.t end) = (A.M:B.t)
+
+module R = With_expansion(struct
+    module M()() = struct end
+    module type t = module type of M
+  end)
+    ()
+    ()
+    ()
+*)
+
+let With_expansion
+  (dependent A : sig val t : type val M : t end)
+  (dependent B : sig val t = A.t end) : B.t = A.M
+
+let R = With_expansion (struct
+  let M _ _ = struct end
+  let t = unit -> unit -> sig end
+end) (struct
+  let t = unit -> unit -> sig end
+end) () ()
+
+(* The second version of this test has the same well-typed program *)

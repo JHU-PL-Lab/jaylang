@@ -2,7 +2,7 @@
   (
     (features (Records Subtyping))
     (speed Fast)
-    (typing well_typed)
+    (typing Exhausted)
   )
 *)
 

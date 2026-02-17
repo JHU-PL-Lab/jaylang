@@ -13,7 +13,7 @@ let F :
     val add : (a : type) -> a -> t a -> t a
     val map : (a : type) -> (b : type) -> t a -> (a -> b) -> t b
   end) -> sig
-    val t : (a : type) -> singlet (S.t a) (* notably, `val t = S.t` does not work here because S.t is a function, not a type *)
+    val t : (a : type) -> singletype (S.t a) (* notably, `val t = S.t` does not work here because S.t is a function, not a type *)
     val empty : (a : type) -> t a
     val add : (a : type) -> a -> t a -> t a
     val map : (a : type) -> (b : type) -> t a -> (a -> b) -> t b

@@ -14,7 +14,7 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
   let is_error_expected = 
     match metadata.typing with
     | Ill_typed -> true
-    | Well_typed -> false
+    | Well_typed | Exhausted -> false
   in
   let speed_level =
     match metadata.speed with
@@ -26,7 +26,7 @@ let testcase_of_filename (testname : Filename.t) : unit Alcotest.test_case =
   let bjy =
     Parser.Bluejay.parse_single_pgm_string @@ In_channel.read_all testname
   in
-  let emb = Translate.Convert.bjy_to_emb ~do_wrap:true ~do_type_splay:false bjy in
+  let emb = Translate.Convert.bjy_to_emb ~do_wrap:true ~do_type_splay:No bjy in
   let is_error =
     match Main.deval emb with
     | Ok _

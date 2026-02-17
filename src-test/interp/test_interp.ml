@@ -14,7 +14,7 @@ let testcases_of_filename (testname : Filename.t) : unit Alcotest.test_case list
   let is_error_expected = 
     match metadata.typing with
     | Ill_typed -> true
-    | Well_typed -> false
+    | Well_typed | Exhausted -> false
   in
   let check pgm =
     let is_error = Interp.V.is_error (Interp.eval_pgm pgm) in
@@ -31,7 +31,8 @@ let testcases_of_filename (testname : Filename.t) : unit Alcotest.test_case list
       Parser.Bluejay.parse_single_pgm_string @@ In_channel.read_all testname in
     check (convert bjy)
   in
-  [ make Translate.Convert.bjy_to_erased ; make Fn.id ; make (Translate.Convert.bjy_to_des ~do_type_splay:false) ; make (Translate.Convert.bjy_to_emb ~do_wrap:true ~do_type_splay:false) ]
+  (* Any program using `abstract` cannot be executed in desugared mode because it's meant purely as an intermediate step. Just never run the desugared interpreter. *)
+  [ make Translate.Convert.bjy_to_erased ; make Fn.id (*; make (Translate.Convert.bjy_to_des ~do_type_splay:No)*) ; make (Translate.Convert.bjy_to_emb ~do_wrap:true ~do_type_splay:No) ]
 
 let root_dir = "test/bjy/"
 
@@ -47,8 +48,11 @@ let make_tests (dirs : string list) : unit Alcotest.test list =
 let () =
   Alcotest.run "interp"
   @@ make_tests
-    [ "post-oopsla-ill-typed"
-    ; "post-oopsla-well-typed"
+    [ "oopsla-26-ill-typed"
+    ; "oopsla-26-well-typed"
+
+    ; "ocaml-functors-ill-typed"
+    ; "ocaml-functors-well-typed"
 
     ; "deep-type-error"
 

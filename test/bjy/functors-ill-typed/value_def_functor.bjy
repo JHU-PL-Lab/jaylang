@@ -2,8 +2,9 @@
   (
     (features (Polymorphic_types Dependent_types Modules Mu_types Parametric_types First_class_types Deterministic_functions Variants Records Recursive_functions))
     (reasons (Modules Variants Recursive_functions))
-    (speed Slow) ; just sort of slow. Not that bad. Very fast with parallelism
+    (speed Fast)
     (typing Ill_typed)
+    (flags "-p")
   )
 *)
 

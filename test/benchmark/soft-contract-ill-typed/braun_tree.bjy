@@ -1,0 +1,37 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Mu_types Variants Records Recursive_functions))
+    (reasons (Refinement_types Mu_types Recursive_functions))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+(* error is that item is always inserted on the left; so it doesn't stay balanced *)
+
+let t a = mu t.
+  | `Leaf of { leaf : bool }
+  | `Node of { v : a ; l : t ; r : t }
+
+let rec size n = 
+  match n with
+  | `Leaf l -> 0
+  | `Node node -> 1 + size node.l + size node.r
+  end
+
+let rec is_braun_tree x = 
+  match x with
+  | `Leaf l -> true
+  | `Node node ->
+    is_braun_tree node.l
+    && is_braun_tree node.r
+    && (size node.l == size node.r || size node.l == size node.r + 1)
+  end
+
+let bt a = { t a | is_braun_tree }
+
+let rec insert (type a_) (tree : bt a_) (x : a_) : bt a_ =
+  match tree with
+  | `Leaf l -> `Node { v = x ; l = `Leaf { leaf = true } ; r = `Leaf { leaf = true } }
+  | `Node node ->
+    `Node { l = insert a_ node.l x ; r = node.r ; v = node.v } (* ERROR: only inserts to left; so won't be balanced *)
+  end

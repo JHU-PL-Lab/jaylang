@@ -1,0 +1,28 @@
+(***
+  (
+    (features (Polymorphic_types Refinement_types Recursive_functions Higher_order_functions))
+    (speed Fast)
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+(*
+  This is inspired by soft-contracts last.
+  We've just stopped hand-writing the Y combinator.
+*)
+
+let is_nonempty ls =
+  match ls with
+  | [] -> false
+  | _ -> true
+  end
+
+let rec last (type a_) (l : { list a_ | is_nonempty }) : a_ =
+  match l with
+  | x :: xs -> 
+    match xs with
+    | [] -> x
+    | _ -> last a_ xs
+    end
+  end

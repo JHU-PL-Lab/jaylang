@@ -1,0 +1,18 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions Higher_order_functions))
+    (speed Fast)
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+let non_neg = { i : int | i >= 0 }
+
+let rec f (g : non_neg -> non_neg) (x : non_neg) : non_neg =
+  if x <= 0
+  then g x
+  else f (fun x -> f g x) (g x)
+
+let main (n : non_neg) : non_neg =
+  f (fun x -> x + 1) n

@@ -8,7 +8,7 @@
 *)
 
 let M : sig 
-  val t : singlet int
+  val t : singletype int
   val f : t -> t
 end = struct
   let t = { i : int | i > 0 } (* ERROR: this is a subtype of int but not equivalent *)

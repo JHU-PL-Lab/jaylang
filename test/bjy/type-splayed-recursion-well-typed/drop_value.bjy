@@ -1,0 +1,20 @@
+(***
+  (
+    (features (Recursive_functions))
+    (speed Fast)
+    (typing Exhausted)
+    (flags "-s")
+  )
+*)
+
+(* This is taken from Real World OCaml *)
+
+let rec drop_value (l : list int) (to_drop : int) : list int =
+  match l with
+  | [] -> []
+  | hd :: tl ->
+    let new_tl = drop_value tl to_drop in
+    if hd == to_drop
+    then new_tl
+    else hd :: new_tl
+  end

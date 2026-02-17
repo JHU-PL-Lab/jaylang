@@ -2,7 +2,7 @@
   (
     (features (Polymorphic_types Parametric_types Records Higher_order_functions))
     (speed Fast) ; b/c type splaying
-    (typing Well_typed)
+    (typing Exhausted)
     (flags "-s")
   )
 *)

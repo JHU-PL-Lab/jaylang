@@ -51,7 +51,7 @@ module LetMonad = struct
     tell { ty ; var ; defn }
 end
 
-let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_splay : bool) : Desugared.pgm =
+let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_splay : Splay.t) : Desugared.pgm =
   let module Names = (val names) in
   let open LetMonad in
 
@@ -65,7 +65,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
         match binop with
         | BAnd -> EIf { cond = desugar left ; true_body = desugar right ; false_body = EBool false }
         | BOr -> EIf { cond = desugar left ; true_body = EBool true ; false_body = desugar right }
-        | BDivide | BModulus -> 
+        | (BDivide | BModulus) when match right with EInt _ -> false | _ -> true -> (* protect with branch when right is anything but an int literal *)
           build @@
           let v = Names.fresh_id () in
           let%bind () = assign v @@ desugar right in
@@ -119,7 +119,7 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
       EIf
         { cond = desugar assert_expr
         ; true_body = EUnit
-        ; false_body = EAbort "Failed assertion"
+        ; false_body = EAbort (Format.sprintf "Failed assertion: %s" (Expr.to_string assert_expr))
         }
     | EAssume assume_expr ->
       EIf
@@ -181,6 +181,8 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
         ; dep = `Binding x
         ; det = false
         }
+    (* Abstract type *)
+    | EAbstractType -> EGen EType
     (* Functions *)
     | EMultiArgFunction { params ; body } ->
       abstract_over_ids params (desugar body)
@@ -233,40 +235,53 @@ let desugar_pgm (names : (module Fresh_names.S)) (pgm : Bluejay.pgm) ~(do_type_s
     This is useful for both desugaring statements and expressions.
   *)
   and desugar_rec_funs_to_stmt_list (fsigs : bluejay funsig list) : Desugared.statement list =
-    let (>>|) = List.Let_syntax.(>>|) in
-    let func_comps = fsigs >>| funsig_to_components in
-    let f_names = func_comps >>| fun r -> r.func_id in
-    let r = Names.fresh_id ~suffix:"r" () in
-    let defns =
-      List.map func_comps ~f:(fun comps ->
-          abstract_over_ids f_names @@
-          match comps.tau_opt with
-          | Some tau when do_type_splay -> EGen tau
-          | _ ->
-            (* default behavior uses the actual function body *)
-            build @@
-            let%bind () = assign ~ty:(Binding.Ty.typed_of_tau_opt ~do_check:false comps.tau_opt) comps.func_id (
-                abstract_over_ids comps.params comps.defn
-              )
-            in
-            return (EVar comps.func_id)
-        )
-    in
-    Expr.SUntyped { var = r ; defn = appl_list (Desugared_functions.y_n f_names) defns }
-    :: (func_comps >>| fun comps ->
-        (* do_check and do_wrap are unused arguments in this case because we don't provide the type *)
-        make_stmt ~do_wrap:true ~do_check:true ~tau_opt:None comps.func_id
-        @@ proj (EVar r) (RecordLabel.RecordLabel comps.func_id)
-       ) @ (func_comps >>| fun comps ->
-            if Option.is_some comps.tau_opt && do_type_splay
-            then
-              make_stmt ~do_wrap:true ~do_check:true ~tau_opt:comps.tau_opt comps.func_id (
-                abstract_over_ids comps.params comps.defn (* actual definition of function *)
-              )
-            else
-              (* no type or not splaying, so the actual definition was used above, so just project out from the record *)
-              make_stmt ~do_wrap:false ~do_check:true ~tau_opt:comps.tau_opt comps.func_id (EVar comps.func_id)
-           )
+    match fsigs with
+    | [ (FTyped _) as f ] when Splay.is_yes do_type_splay ->
+      let comps = funsig_to_components f in
+      let tau = Option.value_exn comps.tau_opt in
+      List.return @@
+      Expr.STyped { typed_var = { var = comps.func_id ; tau } ; typed_binding_opts = 
+        TBDesugared { do_wrap = true ; do_check = true }
+      ; defn =
+        apply
+          (abstract_over_ids (comps.func_id :: comps.params) comps.defn)
+          (EGen tau)
+      }
+    | _ -> 
+      let (>>|) = List.Let_syntax.(>>|) in
+      let func_comps = fsigs >>| funsig_to_components in
+      let f_names = func_comps >>| fun r -> r.func_id in
+      let r = Names.fresh_id ~suffix:"r" () in
+      let defns =
+        List.map func_comps ~f:(fun comps ->
+            abstract_over_ids f_names @@
+            match comps.tau_opt with
+            | Some tau when Splay.is_yes do_type_splay -> EGen tau
+            | _ ->
+              (* default behavior uses the actual function body *)
+              build @@
+              let%bind () = assign ~ty:(Binding.Ty.typed_of_tau_opt ~do_check:false comps.tau_opt) comps.func_id (
+                  abstract_over_ids comps.params comps.defn
+                )
+              in
+              return (EVar comps.func_id)
+          )
+      in
+      Expr.SUntyped { var = r ; defn = appl_list (Desugared_functions.y_n f_names) defns }
+      :: (func_comps >>| fun comps ->
+          (* do_check and do_wrap are unused arguments in this case because we don't provide the type *)
+          make_stmt ~do_wrap:true ~do_check:true ~tau_opt:None comps.func_id
+          @@ proj (EVar r) (RecordLabel.RecordLabel comps.func_id)
+        ) @ (func_comps >>| fun comps ->
+              if Option.is_some comps.tau_opt && Splay.is_yes do_type_splay
+              then
+                make_stmt ~do_wrap:true ~do_check:true ~tau_opt:comps.tau_opt comps.func_id (
+                  abstract_over_ids comps.params comps.defn (* actual definition of function *)
+                )
+              else
+                (* no type or not splaying, so the actual definition was used above, so just project out from the record *)
+                make_stmt ~do_wrap:false ~do_check:true ~tau_opt:comps.tau_opt comps.func_id (EVar comps.func_id)
+            )
 
   and desugar_statement (stmt : Bluejay.statement) : Desugared.statement list =
     let open List.Let_syntax in

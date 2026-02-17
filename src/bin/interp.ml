@@ -36,7 +36,7 @@ let interp =
       | `Desugared -> Core.Fn.const () @@
         (* Type splaying not allowed if the program is being interpretted in desugared mode *)
         Interpreter.Interp.eval_pgm ?feeder @@
-        Translate.Convert.bjy_to_des pgm ~do_type_splay:false
+        Translate.Convert.bjy_to_des pgm ~do_type_splay:No
       | `Embedded -> Core.Fn.const () @@
         Interpreter.Interp.eval_pgm ?feeder @@
         Translate.Convert.bjy_to_emb pgm ~do_wrap ~do_type_splay

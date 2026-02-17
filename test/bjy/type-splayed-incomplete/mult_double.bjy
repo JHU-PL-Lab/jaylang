@@ -1,0 +1,16 @@
+(***
+  (
+    (features (Recursive_functions Other))
+    (reasons (Recursive_functions Other)) ; type splaying is incomplete
+    (speed Fast)
+    (typing Ill_typed) ; only because of incompleteness
+    (flags "-s")
+  )
+*)
+
+let rec mult (x : int) (y : int) : int =
+  if x == 1 then y else y + mult (x - 1) y
+
+(* ERROR: calls mult, which is unrefined, so this can error when splaying. There is no error without splaying, though *)
+let double (dep n : int) : { m : int | m > n } =
+  mult n 2

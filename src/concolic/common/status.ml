@@ -75,5 +75,14 @@ end
 
 module Terminal = struct
   type nonrec t = [ `Terminal ] t
+
+  let to_answer = function
+    | Found_abort _
+    | Type_mismatch _
+    | Unbound_variable _ -> Answer.Ill_typed
+    | Timeout
+    | Unknown
+    | Exhausted_pruned_tree -> Unknown
+    | Exhausted_full_tree -> Well_typed
 end
 

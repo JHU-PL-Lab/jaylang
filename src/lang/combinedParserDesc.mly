@@ -82,7 +82,7 @@ the language and which lines are erased.
 %token MU
 %token OF
 %token SIG
-%token SINGLET_KEYWORD
+%token SINGLETYPE_KEYWORD
 %token TOP_KEYWORD
 %token VAL
 (*! endscope !*)
@@ -98,6 +98,7 @@ the language and which lines are erased.
 %token LIST
 %token OPEN_BRACKET
 %token REC
+%token ABSTRACT
 (*! endscope !*)
 (*! scope desugared embedded !*)
 %token ABORT
@@ -480,9 +481,11 @@ primary_expr:
   (*! scope bluejay !*)
   | LIST
       { ETypeList : t }
+  | ABSTRACT
+      { EAbstractType : t }
   (*! endscope !*)
   (*! scope bluejay desugared !*)
-  | SINGLET_KEYWORD
+  | SINGLETYPE_KEYWORD
       { ETypeSingle : t }
   (*! endscope !*)
   (* braces/parens *)
@@ -508,10 +511,10 @@ primary_expr:
   | OPEN_BRACE expr PIPE expr CLOSE_BRACE
       { ETypeRefinement { tau = $2 ; predicate = $4 } : t }
   (*! endscope !*)
-  | STRUCT statement_list END
+  | STRUCT list(statement) END (* may be empty *)
       { EModule $2 : t }
   (*! scope bluejay desugared !*)
-  | SIG nonempty_list(val_item) END
+  | SIG list(val_item) END
       { ETypeModule $2 : t }
   | record_type_or_refinement
       { $1 : t }
@@ -592,7 +595,7 @@ param_list:
 (*! scope bluejay desugared !*)
 
 /* val x : t (* for module types *) */
-/* val t = tau (* pure simple sugar for val t : singlet tau *) */
+/* val t = tau (* pure simple sugar for val t : singletype tau *) */
 val_item:
   | VAL record_type_item { $2 }
   | VAL record_label EQUALS expr { $2, EAppl { func = ETypeSingle ; arg = $4 } : RecordLabel.t * t }

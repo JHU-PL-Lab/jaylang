@@ -1,0 +1,21 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions Usage_error))
+    (reasons (Refinement_types Recursive_functions Usage_error))
+    (speed Fast)
+    (typing Ill_typed)
+    (flags "-s -w no") ; even without wrapping, all generated functions (for splaying) are "wrapped"
+  )
+*)
+
+(*
+  This program demonstrates that if the error is due to an ill-typed
+  recursive call, the type splayed program still has an error (obviously).
+*)
+
+let pos_int = { i : int | i > 0 }
+
+let rec f (x : pos_int) : pos_int = 
+  if input == 0
+  then x
+  else f 0 (* ERROR: this argument is not a positive int *)

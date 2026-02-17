@@ -372,7 +372,7 @@ Notes:
 The singleton of a type is just the singleton set containing that type.
 
 ```ocaml
-[[singlet]] =
+[[singletype]] =
   fun $tau ->
     { ~gen = freeze @@ $tau
     ; ~check = fun $t -> escape_det(
@@ -384,7 +384,7 @@ The singleton of a type is just the singleton set containing that type.
 ```
 
 Note:
-* The word `singlet` is used instead of `singleton` because it only works on types. e.g. `singlet 5` is bad, whereas a programmer might expect `singleton 5` to work.
+* The word `singletype` is used instead of `singleton` because it only works on types. e.g. `singletype 5` is bad, whereas a programmer might expect `singleton 5` to work.
 * The check goes in both directions: it first asks if `t` is a subtype of `tau` (anything that `t` generates is in `tau`) and then that `tau` is a subtype of `t`, giving equality.
 * Since the checker requires generating, but the generated values cannot escape, we escape any determinism block.
 

@@ -4,8 +4,8 @@ open Tests_randomly_generated_asts
 let () =
   let pp_tests =
     make_pp_tests
-      [ "post-oopsla-ill-typed"
-      ; "post-oopsla-well-typed"
+      [ "oopsla-26-ill-typed"
+      ; "oopsla-26-well-typed"
 
       ; "deep-type-error"
 

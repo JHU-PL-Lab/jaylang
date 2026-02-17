@@ -2,7 +2,7 @@
   (
     (features (Dependent_types Variants Higher_order_functions))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 

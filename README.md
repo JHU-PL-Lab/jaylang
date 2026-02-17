@@ -117,7 +117,7 @@ To run the benchmarks for other directories or to change the run settings, use c
 line arguments under a `ARGS="args here"` argument. For example,
 
 ```
-make cbenchmark ARGS="--dirs 'test/bjy/post-oopsla-ill-typed test/bjy/soft-contract-ill-typed' --trials 100 -r"
+make cbenchmark ARGS="--dirs 'test/bjy/oopsla-26-ill-typed test/bjy/soft-contract-ill-typed' --trials 100 -r"
 ```
 
 runs the concolic evaluator on all tests in the two directories for 100 trials, where the evaluation
@@ -132,7 +132,7 @@ Suggested directories to benchmark (besides the default `test/bjy/oopsla-24-benc
 - `test/bjy/soft-contract-ill-typed`
 - `test/bjy/oopsla-24-tests-ill-typed`
 - `test/bjy/interp-ill-typed` (suggested to decrease trials from the default 50 due to longer run times)
-- `test/bjy/post-oopsla-ill-typed`
+- `test/bjy/oopsla-26-ill-typed`
 
 ### Profiling
 

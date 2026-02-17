@@ -1,12 +1,13 @@
 (***
   (
     (features (Refinement_types Recursive_functions))
-    (speed Slow)
-    (typing well_typed)
+    (speed Fast)
+    (typing Exhausted)
+    (flags "-s")
   )
 *)
 
-let rec makelist n = 
+let rec makelist (n : int) : list int = 
   if n == 0 then []
   else n :: (makelist (n-1))
 

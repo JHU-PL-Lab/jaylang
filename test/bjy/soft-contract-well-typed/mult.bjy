@@ -6,10 +6,10 @@
   )
 *)
 
-let rec mult (x : { n : int ; m : int }) : { i : int | i >= 0 } =
-  if x.n <= 0 || x.m <= 0
+let rec mult (n : int) (m : int) : { i : int | i >= 0 } =
+  if n <= 0 || m <= 0
   then 0
-  else x.n + mult { n = x.n ; m = (x.m - 1) } 
+  else n + mult n (m - 1)
 
 let sqr (dependent n : int | n > 1) : { c : int | c >= n + 1 } =
-  mult { n = n ; m = n }
+  mult n n

@@ -1,0 +1,4 @@
+This test directory contains every single test, in order, from the OCaml repository's typing tests on functors at `testsuite/tests/typing-modules/functors.ml`.
+Each test has be translated to Bluejay to preserve the meaning as much as possible. Each test also has a well-typed version in `../ocaml-functors-well-typed/`.
+
+The OCaml tests seem to exercise the ability of the OCaml typechecker to give meaningful error messages. However, many are still interesting from an acceptance perspective: can the typechecker find the type error, and when the type error is removed, can the typechecker show that the program is well-typed?

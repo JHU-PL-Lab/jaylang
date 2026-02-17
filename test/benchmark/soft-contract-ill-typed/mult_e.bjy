@@ -1,0 +1,16 @@
+(***
+  (
+    (features (Refinement_types Recursive_functions))
+    (reasons (Refinement_types))
+    (speed Fast)
+    (typing Ill_typed)
+  )
+*)
+
+let rec mult (x : int) (y : int) : int =
+  if x <= 0 || y <= 0
+  then 0
+  else x + mult x (y - 1)
+
+let main (n : int) : { i : int | 600 <= i } =
+  mult 100 n (* ERROR: `n` should be at least `6`; or remove refinement *)

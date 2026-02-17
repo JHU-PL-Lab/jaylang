@@ -2,7 +2,7 @@
   (
     (features (Other))
     (speed Fast)
-    (typing well_typed)
+    (typing Exhausted)
   )
 *)
 

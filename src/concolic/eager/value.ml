@@ -229,7 +229,7 @@ module Make (K : Smt.Symbol.KEY) = struct
     in
     equal_expr bindings a.body b.body
 
-  let equal a b =
+  let intensional_equal a b =
     match X.run @@ equal a b with
     | Some (b, exprs) -> b, Smt.Formula.and_ exprs
     | None -> Concolic_value.return_bool false

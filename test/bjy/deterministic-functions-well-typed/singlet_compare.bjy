@@ -2,7 +2,7 @@
   (
     (features (Deterministic_functions First_class_types Higher_order_functions))
     (speed Fast)
-    (typing Well_typed)
+    (typing Exhausted)
   )
 *)
 
@@ -11,7 +11,7 @@
   so this is behaving correctly and should be moved out of the ill-typed directory.
 *)
 
-let _ : (singlet type --> int) -> singlet type -> singlet type -> int =
+let _ : (singletype type --> int) -> singletype type -> singletype type -> int =
   fun f a b ->
     if f a == f b
     then 0

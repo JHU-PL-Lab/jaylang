@@ -1,0 +1,37 @@
+(***
+  (
+    (speed Fast)
+    (typing Exhausted)
+    (flags "")
+  )
+*)
+
+(*
+module M: sig
+  module F(X: sig
+      module type T
+      module type t = T -> T -> T
+      module M: t
+    end
+          )(_:X.T)(_:X.T): X.T
+end = struct
+  module F (Wrong: sig type wrong end)
+      (X: sig
+         module type t
+         module M: t
+       end)  = (X.M : X.t)
+end
+*)
+
+let M : sig
+  val F : (X : sig
+      val T : type
+      val t = T -> T -> T
+      val M : t
+    end) -> X.T -> X.T -> X.T
+end = struct
+  let F (dependent X : sig
+      val t : type
+      val M : t
+    end) : X.t = X.M
+end
