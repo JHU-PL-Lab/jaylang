@@ -1,25 +1,34 @@
+
 let string = list int
-let eof=-1
+let eof = -1
 
 let Token =
-  | `TokMult of ()
-  | `TokPlus of ()
+  | `TokMult of unit
+  | `TokPlus of unit
   | `TokInt of string
   | `TokVar of string
-  | `TokMinus of ()
-  | `TokOpenParen of ()
-  | `TokCloseParen of ()
-  | `TokLet of ()
-  | `TokIn of ()
-  | `TokEqual of ()
-  | `TokAfter of ()
-  | `TokBefore of ()
+  | `TokMinus of unit
+  | `TokOpenParen of unit
+  | `TokCloseParen of unit
+  | `TokLet of unit
+  | `TokIn of unit
+  | `TokEqual of unit
+  | `TokAfter of unit
+  | `TokBefore of unit
   | `Invalid of int
 
-let Tree = | `EInt of int| `EVar of string| `EBinaryOp of  {e1:Tree; e2:Tree}
-| `EOpPlus of {e1:Tree; e2:Tree} | `EOpMinus of {e1:Tree; e2:Tree} | `OpTimes of  {e1:Tree; e2:Tree} 
-| `EUnaryOp of Tree| `EAfter of Tree | `EBefore of Tree | `ELet of {var: string; e1:Tree; e2:Tree}
-| `Invalid of int
+(* let Tree = mu Tree.
+  | `EInt of int
+  | `EVar of string
+  (* | `EBinaryOp of { e1 : Tree ; e2 : Tree } *) (* what binary op? *)
+  | `EOpPlus of Tree * Tree
+  | `EOpMinus of Tree * Tree
+  | `OpTimes of Tree * Tree
+  | `EUnaryOp of Tree (* what unary op? *)
+  | `EAfter of Tree
+  | `EBefore of Tree
+  | `ELet of {var: string; e1:Tree; e2:Tree}
+  | `Invalid of int *)
 
 let Result = fun t -> `Success of t | `Failure of int
 let TokResult = Result {s:string; tok:Token}
@@ -28,124 +37,148 @@ let StringResult = Result {result:string; file:string}
 let pure x = `Success x
 
 let bind x f = 
-    match x with 
-    | `Failure _ -> x
-    | `Success y -> f y
-    end 
+  match x with 
+  | `Failure _ -> x
+  | `Success y -> f y
+  end 
 
 let compose f g chars = 
-    match (f chars) with 
-    | `Success x -> `Success x
-    | `Failure _ -> (g chars)
-    end
+  match f chars with 
+  | `Success x -> `Success x
+  | `Failure _ -> g chars
+  end
 
 let take_char (x:string): int =
-    match x with
-    | [] -> -1
-    | a::b -> a
-    end
+  match x with
+  | [] -> -1
+  | a :: _ -> a
+  end
 
-let drop_char (x:string): string =
-    match x with
-    | a::b -> b
-    end
+(*
+  I'm not exactly sure what this is doing, but I have replicated the effective
+  behavior of the commented code below.
 
-(*this is partially messy since i don't know of a way to calculate length of a list*)
-let rec str_compare (short:string) (long:string): {eq: bool; s: string} =
-    let hd = take_char short in
+  The ideal types would be that long has greater length than short, but our type
+  system cannot prove such a thing, so I just write an `assume false` to
+  cover that case.
+
+  Also, this function is not used anymore.
+*)
+(* let rec str_compare (short : string) (long : string) : { eq : bool ; s : string } =
+  match short, long with
+  | [], [] -> { eq = true ; s = [] }
+  | [], _ :: tl -> { eq = true ; s = tl }
+  | a :: tl1, b :: tl2 ->
+    if a == b then
+      str_compare tl1 tl2
+    else
+      { eq = false ; s = [] }
+  | _, [] -> assume false
+  end *)
+
+    (* let hd = take_char short in
     let a = take_char long in
     if hd==-1 then if a==[] then {eq=true; s=[]} else {eq=true; s=(drop_char long)}
-    else if hd==a then str_compare (drop_char short) (drop_char long) else {eq=false; s=[]}
-(*bind function is for top level passing lexed stuff into parse*)
+    else if hd==a then str_compare (drop_char short) (drop_char long) else {eq=false; s=[]} *)
 
-(*how to handle variables: back into ascii?
-also how to handle syntax errors/invalid variables ugh*)
+let rec get_input (x : int) : string =
+  let var = input in
+  if var == eof then [] 
+  else var :: get_input 1
 
-let rec get_input (x:int): string =
-    let var = input in
-    if var == eof then [] 
-    else var::(get_input 1)
+let rec make_tokenize (codes : list int | match codes with [] -> false | _ -> true end) 
+  (tok : Token) (s : string) : TokResult =
+  match s with
+  | [] -> `Failure 1
+  | hd :: tl ->
+    match codes with 
+    code :: xs ->     
+        if hd == code then 
+          if xs==[] then `Success { s = tl ; tok = tok }
+          else make_tokenize xs tok tl
+        else `Failure 0
+    end
+  end
 
-let tokenize_mult (s:string): TokResult =
-    let hd= take_char s in
-    if hd==42 then `Success {s=(drop_char s); tok= `TokMult ()} else `Failure 0
+let tokenize_mult = make_tokenize [ 42 ] (`TokMult ())
+let tokenize_plus = make_tokenize [ 43 ] (`TokPlus ())
+let tokenize_minus = make_tokenize [ 45 ] (`TokMinus ())
+let tokenize_openparen = make_tokenize [ 40 ] (`TokOpenParen ())
+let tokenize_closeparen = make_tokenize [ 41 ] (`TokCloseParen ())
+let tokenize_equal = make_tokenize [ 61 ] (`TokEqual ())
+let tokenize_in = make_tokenize [ 105 ; 110 ] (`TokIn ())
+let tokenize_let = make_tokenize [ 108 ; 101 ; 116 ] (`TokLet ())
+let tokenize_after = make_tokenize [ 97 ; 102 ; 116 ; 101 ; 114 ] (`TokAfter ())
+let tokenize_before = make_tokenize [ 98 ; 101 ; 102 ; 111 ; 114 ; 101 ] (`TokBefore ())
 
-let tokenize_plus (s:string): TokResult =
-    let hd= take_char s in
-    if hd==43 then `Success {s=drop_char s; tok=`TokPlus ()} else `Failure 0
+let rev (type a) (l : list a) : list a =
+  let rec aux (acc : list a) (ls : list a) : list a =
+    match ls with
+    | [] -> acc
+    | hd :: tl -> aux (hd :: acc) tl
+    end
+  in
+  aux [] l
 
-let tokenize_minus (s:string): TokResult =
-    let hd= take_char s in
-    if hd==45 then `Success {s=drop_char s; tok=`TokMinus ()} else `Failure 0
-
-let tokenize_openparen (s:string): TokResult =
-    let hd= take_char s in
-    if hd==40 then `Success {s=drop_char s; tok=`TokOpenParen ()} else `Failure 0
-
-let tokenize_closeparen (s:string): TokResult =
-    let hd= take_char s in
-    if hd==41 then `Success {s=drop_char s; tok=`TokCloseParen ()} else `Failure 0
-
-let tokenize_equal (s:string): TokResult =
-    let hd= take_char s in
-    if hd==61 then `Success {s=drop_char s; tok=`TokEqual ()} else `Failure 0
-
-let tokenize_in (s:string): TokResult =
-    let comp = str_compare [105;110] s in
-    if comp.eq == true then `Success {s=comp.s; tok=`TokIn ()} else `Failure 0
-
-let tokenize_let (s:string): TokResult =
-    let comp = str_compare [108;101;116] s in
-    if comp.eq == true then `Success {s=comp.s; tok=`TokLet ()} else `Failure 0
-
-let tokenize_after (s:string): TokResult =
-    let comp = str_compare [97;102;116;101;114] s in
-    if comp.eq == true then `Success {s=comp.s; tok=`TokAfter ()} else `Failure 0
-
-let tokenize_before (s:string): TokResult =
-    let comp = str_compare [98;101;102;111;114;101] s in
-    if comp.eq == true then `Success {s=comp.s; tok=`TokBefore ()} else `Failure 0
-
-(*add f as a predicate to be cleaner*)
-let tokenize_int (file:string): TokResult = 
-    let rec match_int (current:{result:string; file:string}): StringResult =
+let match_sequence (file : string) (cond : int -> bool) (ret : string -> Token) : TokResult =
+  let rec match_seq (acc : string) (file : string) : TokResult =
     match file with
-    | hd::tl -> 
-        if hd==32 then `Success {file=tl; result=current.result} else
-        if (48<=hd && hd<=57)
-        then match_int ({result=current.result::hd;file=tl}) else `Failure 1
+    | [] -> `Failure 1 (* unexpected eof *)
+    | hd :: tl -> 
+      if hd == 32 then (* found space, ending sequence *)
+        `Success { s = tl ; tok = ret (rev int acc) }
+      else
+        if cond hd then (* character satisfies condition *)
+          match_seq (hd :: acc) tl
+        else
+          `Failure 0
     end
-    in 
-    match (match_int ({result=[]; file=file})) with 
-    | `Success x -> `Success {s=x.file; tok=`TokInt(x.result)}
-    | `Failure y -> `Failure y
-    end
+  in
+  match_seq [] file
 
-let tokenize_var (file: string): TokResult = 
-    let rec match_var (current:{result:string; file:string}): StringResult =
-    match file with
-    | hd::tl -> 
-        if hd==32 then `Success {file=tl; result=current.result} else 
-        if ((65<=hd && hd<=90) || (97<=hd && hd<=122)) 
-        then match_var ({result=current.result::hd;file=tl}) else `Failure 1
-    end
-    in
-    match (match_var ({result=[]; file=file})) with 
-    | `Success x -> `Success {s=x.file; tok=`TokVar(x.result)}
-    | `Failure y -> `Failure y
-    end
+let tokenize_int s = match_sequence s (fun c -> 48 <= c && c <= 57) (fun i -> `TokInt i)
+let tokenize_var s = match_sequence s (fun c -> 65 <= c && c <= 90 || 97 <= c && c <= 122) (fun i -> `TokVar i)
 
-let rec lex_token (file: string): list Token =
-    let token = compose tokenize_mult (compose tokenize_plus (compose tokenize_minus (compose tokenize_openparen 
-    (compose tokenize_closeparen (compose tokenize_equal (compose tokenize_in (compose tokenize_let 
-    (compose tokenize_after (compose tokenize_before (compose tokenize_int (compose tokenize_var (fun x-> `Failure 1)))))))))))) file in
+let rec lex_token (file: string) : list Token =
+  let token =
+    compose tokenize_mult
+    (compose tokenize_plus
+    (compose tokenize_minus
+    (compose tokenize_openparen
+    (compose tokenize_closeparen
+    (compose tokenize_equal
+    (compose tokenize_in
+    (compose tokenize_let
+    (compose tokenize_after
+    (compose tokenize_before
+    (compose tokenize_int
+    (compose tokenize_var
+    (fun x -> `Failure 1)))))))))))) file
+  in
+  match token with 
+  | `Success x -> x.tok :: lex_token x.s
+  | `Failure y -> [`Invalid y]
+  end
 
-    match token with 
-    | `Success x -> x.tok::(lex_token x.s)
-    | `Failure y -> [`Invalid y]
-    end
+(* Parse the integer four. Because of splaying, we cannot verify this actually evaluates to [ `TokInt [ 52 ] ; `Invalid  ]. *)
+(* let four = lex_token [52;32;-1]
 
-let result = lex_token [52;-1]
-    
+(* This only works when not type splaying. So turn off splaying, and see no error here! *)
+let _ =
+  match four with
+  | `TokInt (a :: []) :: `Invalid _ :: [] -> assert (a == 52)
+  end *)
+
+(* Run this without splaying to see that this errors quickly. We really find the error fast! *)
+(* let _ =
+  match four with
+  | `TokInt (a :: []) :: `Invalid _ :: [] -> assert (a == 51) (* WRONG! *)
+  end *)
+
+let four = lex_token [52;32;-1]
+
+(* let test2 = (lex_token [98;101;102;111;114;101;40;97;102;116;101;114;40;97;102;116;101;114;40;55;41;41;41])== `TokBefore (`TokAfter (`TokAfter (`TokInt(7))))
+
+     *)
 (*hard coding this in?*)
 
