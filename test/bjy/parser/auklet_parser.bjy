@@ -1,11 +1,10 @@
-
 let string = list int
 let eof = -1
 
 let Token =
   | `TokMult of unit
   | `TokPlus of unit
-  | `TokInt of string
+  | `TokInt of int
   | `TokVar of string
   | `TokMinus of unit
   | `TokOpenParen of unit
@@ -15,7 +14,8 @@ let Token =
   | `TokEqual of unit
   | `TokAfter of unit
   | `TokBefore of unit
-  | `Invalid of int
+  | `TokEOF of unit
+  | `Invalid of {errorcode: int; text: string}
 
 (* let Tree = mu Tree.
   | `EInt of int
@@ -94,8 +94,10 @@ let rec make_tokenize (codes : list int | match codes with [] -> false | _ -> tr
     match codes with 
     code :: xs ->     
         if hd == code then 
-          if xs==[] then `Success { s = tl ; tok = tok }
-          else make_tokenize xs tok tl
+          match xs with 
+          | [] -> `Success { s = tl ; tok = tok }
+          | xs -> make_tokenize xs tok tl
+          end
         else `Failure 0
     end
   end
@@ -120,44 +122,60 @@ let rev (type a) (l : list a) : list a =
   in
   aux [] l
 
+let ascii_dict (n:int) : int =
+  if n==48 then 0 
+  else if n==49 then 1 
+  else if n==50 then 2
+  else if n==51 then 3
+  else if n==52 then 4 
+  else if n==53 then 5
+  else if n==54 then 6
+  else if n==55 then 7
+  else if n==56 then 8
+  else 9
+
 let match_sequence (file : string) (cond : int -> bool) (ret : string -> Token) : TokResult =
-  let rec match_seq (acc : string) (file : string) : TokResult =
+  let rec match_seq (acc : int) (file : string) : TokResult =
     match file with
     | [] -> `Failure 1 (* unexpected eof *)
     | hd :: tl -> 
       if hd == 32 then (* found space, ending sequence *)
-        `Success { s = tl ; tok = ret (rev int acc) }
+        `Success { s = tl ; tok = ret acc }
       else
         if cond hd then (* character satisfies condition *)
-          match_seq (hd :: acc) tl
+          match_seq ((acc*10) + (ascii_dict hd)) tl
         else
           `Failure 0
     end
   in
-  match_seq [] file
+  match_seq 0 file
 
 let tokenize_int s = match_sequence s (fun c -> 48 <= c && c <= 57) (fun i -> `TokInt i)
 let tokenize_var s = match_sequence s (fun c -> 65 <= c && c <= 90 || 97 <= c && c <= 122) (fun i -> `TokVar i)
 
 let rec lex_token (file: string) : list Token =
-  let token =
-    compose tokenize_mult
-    (compose tokenize_plus
-    (compose tokenize_minus
-    (compose tokenize_openparen
-    (compose tokenize_closeparen
-    (compose tokenize_equal
-    (compose tokenize_in
-    (compose tokenize_let
-    (compose tokenize_after
-    (compose tokenize_before
-    (compose tokenize_int
-    (compose tokenize_var
-    (fun x -> `Failure 1)))))))))))) file
-  in
-  match token with 
-  | `Success x -> x.tok :: lex_token x.s
-  | `Failure y -> [`Invalid y]
+  match file with 
+  | [] -> [`TokEOF()]
+  | file -> 
+    let token =
+      compose tokenize_mult
+      (compose tokenize_plus
+      (compose tokenize_minus
+      (compose tokenize_openparen
+      (compose tokenize_closeparen
+      (compose tokenize_equal
+      (compose tokenize_in
+      (compose tokenize_let
+      (compose tokenize_after
+      (compose tokenize_before
+      (compose tokenize_int
+      (compose tokenize_var
+      (fun x -> `Failure 1)))))))))))) file
+    in
+    match token with 
+    | `Success x -> x.tok :: lex_token x.s
+    | `Failure y -> [`Invalid {errorcode=y; text=file}]
+    end
   end
 
 (* Parse the integer four. Because of splaying, we cannot verify this actually evaluates to [ `TokInt [ 52 ] ; `Invalid  ]. *)
@@ -175,7 +193,7 @@ let _ =
   | `TokInt (a :: []) :: `Invalid _ :: [] -> assert (a == 51) (* WRONG! *)
   end *)
 
-let four = lex_token [52;32;-1]
+let four = lex_token [52;32]
 
 (* let test2 = (lex_token [98;101;102;111;114;101;40;97;102;116;101;114;40;97;102;116;101;114;40;55;41;41;41])== `TokBefore (`TokAfter (`TokAfter (`TokInt(7))))
 
