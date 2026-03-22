@@ -193,10 +193,11 @@ let _ =
   | `TokInt (a :: []) :: `Invalid _ :: [] -> assert (a == 51) (* WRONG! *)
   end *)
 
-let four = lex_token [52;32]
+let twelve = lex_token [49;49;50;32]
 
-(* let test2 = (lex_token [98;101;102;111;114;101;40;97;102;116;101;114;40;97;102;116;101;114;40;55;41;41;41])== `TokBefore (`TokAfter (`TokAfter (`TokInt(7))))
+let test2 = lex_token [98;101;102;111;114;101;40;97;102;116;101;114;40;97;102;116;101;114;40;55;41;41;41;32]
 
-     *)
+(*== [`TokBefore (`TokAfter (`TokAfter (`TokInt(7)))); `TokEOF()]*)
+
 (*hard coding this in?*)
 
