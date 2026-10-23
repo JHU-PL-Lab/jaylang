@@ -9,23 +9,26 @@ bug-reports: "https://github.com/JHU-PL-Lab/jaylang/issues"
 depends: [
   "dune" {>= "3.0"}
   "core"
+  "core_bench"
   "core_unix"
+  "csv"
   "batteries"
   "alcotest" {with-test}
-  "shexp"
   "hashcons"
   "ocamlgraph"
-  "menhir"
+  "monadlib"
+  "menhir" {>= "20180523"}
+  "fix"
   "fmt"
   "logs"
   "lwt"
   "lwt_ppx"
   "shexp"
   "pds-reachability"
+  "psq"
   "landmarks"
   "landmarks-ppx"
   "ounit"
-  "alcotest"
   "alcotest-lwt"
   "sudu"
   "unroll"
@@ -34,7 +37,6 @@ depends: [
   "ppx_deriving" {>= "3.2"}
   "ppx_deriving_yojson" {>= "2.1"}
   "yojson"
-  "pds-reachability"
   "odoc" {with-doc}
 ]
 build: [

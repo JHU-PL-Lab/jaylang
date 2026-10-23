@@ -155,7 +155,7 @@ and pattern =
   | Rec_pattern of Ident_set.t
   | Strict_rec_pattern of Ident_set.t
   | Any_pattern
-[@@deriving eq, ord, yojson]
+[@@deriving eq, ord, to_yojson]
 
 module Value = struct
   type t = value

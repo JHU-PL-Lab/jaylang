@@ -20,23 +20,26 @@
  (description "Higher-Order Demand-Driven Symbolic Execution")
  (depends
   core
+  core_bench
   core_unix
+  csv
   batteries
   (alcotest :with-test)
-  shexp
   hashcons
   ocamlgraph
+  monadlib
   menhir
+  fix
   fmt
   logs
   lwt
   lwt_ppx
   shexp
   pds-reachability
+  psq
   landmarks
   landmarks-ppx
   ounit
-  alcotest
   alcotest-lwt
   sudu
   unroll
@@ -49,7 +52,7 @@
   (ppx_deriving_yojson
    (>= 2.1))
   yojson
-  pds-reachability))
+))
 
 (package
  (name sudu)
